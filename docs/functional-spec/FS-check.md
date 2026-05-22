@@ -76,7 +76,12 @@ Each of the following is an error and contributes to a non-zero exit code.
 
 ### 3.1 Dangling citation
 
-A recognized citation (per §1.1) for which no declaration is found.
+A recognized citation (per §1.1) for which no declaration is found. If the
+target namespace contains a declared ID of the same kind that is close by
+deterministic edit distance, the diagnostic appends one hint:
+`unknown reference FS-chek; did you mean FS-check?`. If no same-kind candidate
+is close enough, the message stays `unknown reference <ID>` so unrelated missing
+IDs do not produce noisy guesses.
 
 ### 3.2 Missing section
 
