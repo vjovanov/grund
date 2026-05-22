@@ -40,6 +40,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Fixed
 
+- [§FS-check.3.1](functional-spec/FS-check.md#31-dangling-citation): dangling-reference diagnostics now suggest the nearest declared same-kind ID when the misspelling is close enough, while unrelated missing IDs keep the plain `unknown reference <ID>` message. PR #28.
 - [§AR-ci](architecture/AR-ci.md#ar-ci-ci-mirrors-the-local-pre-commit-gate): CI cache restore/save failures no longer abort a matrix job before the actual checks run. PR #22.
 - [§FS-distribution.4](functional-spec/FS-distribution.md#4-release-process): release recovery runs for pre-split tags now accept the historical root `[package] version` manifest shape as well as the new workspace-package version. PR #20.
 - [§AR-scanner.6](architecture/AR-scanner.md#6-e2e-case-declarations) / [§RM-self-host](roadmap.md#rm-self-host-guard-the-self-host-loop-in-ci): ordinary scans now treat direct E2E case directories as manifest boundaries, so nested fixture repos do not pollute the outer report under the canonical default config. PR #18.
