@@ -193,14 +193,14 @@ fn check_with_workspace(
         // §FS-check.3.1 / §FS-workspace.4: a citation whose ID is declared
         // nowhere in its target namespace is dangling.
         let Some(decls) = target.findings.declarations.get(&cite.id) else {
+            let unknown = render_qualified_id(target.config, cite.namespace.as_deref(), &cite.id);
+            let message =
+                dangling_message(target.config, cite.namespace.as_deref(), target.findings, &cite.id);
             report.errors.push(Diagnostic {
                 code: "dangling",
                 path: Some(cite.file.clone()),
                 line: Some(cite.line),
-                message: format!(
-                    "unknown reference {}",
-                    render_qualified_id(target.config, cite.namespace.as_deref(), &cite.id)
-                ),
+                message: message.unwrap_or_else(|| format!("unknown reference {unknown}")),
                 sites: Vec::new(),
             });
             continue;
@@ -394,6 +394,72 @@ fn check_with_workspace(
     sort_diagnostics(&mut report.errors);
     sort_diagnostics(&mut report.warnings);
     report
+}
+
+fn dangling_message(
+    config: &Config,
+    namespace: Option<&str>,
+    findings: &Findings,
+    missing: &Id,
+) -> Option<String> {
+    let unknown = render_qualified_id(config, namespace, missing);
+    let suggestion = nearest_declared_id(config, namespace, findings, missing)?;
+    Some(format!("unknown reference {unknown}; did you mean {suggestion}?"))
+}
+
+fn nearest_declared_id(
+    config: &Config,
+    namespace: Option<&str>,
+    findings: &Findings,
+    missing: &Id,
+) -> Option<String> {
+    let missing_text = render_id(config, missing);
+    let mut best: Option<(usize, String)> = None;
+    for candidate in findings.declarations.keys() {
+        if candidate.kind != missing.kind {
+            continue;
+        }
+        let candidate_text = render_id(config, candidate);
+        let distance = edit_distance(&missing_text, &candidate_text);
+        if !close_enough_for_hint(
+            distance,
+            missing_text.chars().count(),
+            candidate_text.chars().count(),
+        ) {
+            continue;
+        }
+        let rendered = render_qualified_id(config, namespace, candidate);
+        match &best {
+            Some((best_distance, best_rendered))
+                if distance > *best_distance
+                    || (distance == *best_distance && rendered >= *best_rendered) => {}
+            _ => best = Some((distance, rendered)),
+        }
+    }
+    best.map(|(_, rendered)| rendered)
+}
+
+fn close_enough_for_hint(distance: usize, left_len: usize, right_len: usize) -> bool {
+    distance > 0 && distance <= 3 && distance * 3 <= left_len.max(right_len)
+}
+
+fn edit_distance(left: &str, right: &str) -> usize {
+    let right_chars: Vec<char> = right.chars().collect();
+    let mut previous: Vec<usize> = (0..=right_chars.len()).collect();
+    let mut current = vec![0; right_chars.len() + 1];
+
+    for (i, left_char) in left.chars().enumerate() {
+        current[0] = i + 1;
+        for (j, right_char) in right_chars.iter().enumerate() {
+            let substitution = previous[j] + usize::from(left_char != *right_char);
+            let insertion = current[j] + 1;
+            let deletion = previous[j + 1] + 1;
+            current[j + 1] = substitution.min(insertion).min(deletion);
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+
+    previous[right_chars.len()]
 }
 
 fn section_depth(section_path: &str) -> usize {

@@ -861,6 +861,37 @@ members = ["packages/*"]
         );
     }
 
+    #[test]
+    fn dangling_reference_suggests_nearest_declared_id() {
+        let root = test_root("dangling_reference_suggests_nearest_declared_id");
+        write(
+            &root.join("docs/functional-spec/FS-check.md"),
+            "# FS-check: Check\n",
+        );
+
+        let mut config = Config::default_for(root.clone());
+        config.id_format = "{kind}-{slug}".into();
+        config.slug_pattern = "[a-z][a-z0-9-]*".into();
+        config.rebuild_grammar().expect("rebuild grammar");
+        write(
+            &root.join("src/lib.rs"),
+            &format!("//! {}FS-chek\n", config.marker),
+        );
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+        let report = check_findings(&findings, &config);
+
+        assert!(
+            report.errors.iter().any(|error| error.code == "dangling"
+                && error.message == "unknown reference FS-chek; did you mean FS-check?"),
+            "dangling diagnostic should suggest the nearest declared ID: {:?}",
+            report
+                .errors
+                .iter()
+                .map(|error| error.message.as_str())
+                .collect::<Vec<_>>()
+        );
+    }
+
     /// §FS-workspace.1: a qualified citation's ID tail is parsed with the
     /// target project's grammar, not the citing project's grammar.
     #[test]
