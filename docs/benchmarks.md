@@ -78,6 +78,16 @@ python3 scripts/local-benchmark-report.py --out docs/benchmarks.md
 | `grund check .` | 335 declarations + 2,184 citations across 98 scanned files (21,458 lines) |
 | `lychee --include-fragments README.md docs examples` | 1,083 links across 80 markup files |
 
+## Markdown Link Token Impact
+
+Markdown cross-reference links are generated presentation over the underlying citation text ([§FS-fmt.6](functional-spec/FS-fmt.md#6-cross-reference-emission)). To quantify that prompt cost, this snapshot measured temporary copies under `/tmp/grund-link-impact` with `tiktoken` `o200k_base`. The workload was the 70 Markdown files in this repo's configured `grund` scan scope; non-Markdown scanned source files and the root `README.md` were not counted.
+
+| Form | Tokens |
+|---|---:|
+| Bare `§...` citations | 149,880 |
+| Markdown links `[§...](...)` | 180,278 |
+| Delta | +30,398 tokens |
+
 ## Results
 
 | Command | Cold | Warm median | Warm min | Warm max |
