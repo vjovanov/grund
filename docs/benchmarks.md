@@ -80,13 +80,13 @@ python3 scripts/local-benchmark-report.py --out docs/benchmarks.md
 
 ## Markdown Link Token Impact
 
-Markdown cross-reference links are generated presentation over the underlying citation text ([§FS-fmt.6](functional-spec/FS-fmt.md#6-cross-reference-emission)). To quantify that prompt cost, this snapshot measured temporary copies under `/tmp/grund-link-impact` with `tiktoken` `o200k_base`. The workload was the 69 Markdown files in this repo's configured `grund` scan scope; non-Markdown scanned source files and the root `README.md` were not counted.
+Markdown cross-reference links are generated presentation over the underlying citation text ([§FS-fmt.6](functional-spec/FS-fmt.md#6-cross-reference-emission)). To quantify that prompt cost, this snapshot measured temporary copies under `/tmp/grund-link-impact` with `tiktoken` `o200k_base`. The workload was the 70 Markdown files in this repo's configured `grund` scan scope; non-Markdown scanned source files and the root `README.md` were not counted.
 
 | Form | Tokens |
 |---|---:|
-| Bare `§...` citations | 154,594 |
-| Markdown links `[§...](...)` | 185,370 |
-| Delta | +30,776 tokens |
+| Bare `§...` citations | 149,966 |
+| Markdown links `[§...](...)` | 180,461 |
+| Delta | +30,495 tokens |
 
 ## Results
 
