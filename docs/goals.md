@@ -1,6 +1,6 @@
 # Goals
 
-Goals state direction. Measurement details live in specs, e2e, CI, and benchmark pages; the map is [§AR-goal-measurement](architecture/AR-goal-measurement.md#ar-goal-measurement-goal-meters-live-outside-goals).
+Goals state direction. Measurement details live in specs, e2e, CI, and benchmark pages; the map is [AR-goal-measurement](architecture/AR-goal-measurement.md#ar-goal-measurement-goal-meters-live-outside-goals).
 
 ## GOAL-agent-grounding: agents stay cited as they work
 
@@ -24,7 +24,7 @@ Grounding depends on resolving citations, fast checks, readable output, polyglot
 
 ### 5. Measurable
 
-See [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-no-dangling-refs: every cited ID resolves to a declaration
 
@@ -36,7 +36,7 @@ A citation resolves when its declaration exists, its section path exists, and an
 
 ### 2. Measurable
 
-See [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-polyglot-citation: IDs cite cleanly from anywhere they are useful
 
@@ -56,7 +56,7 @@ This is coverage; [§GOAL-no-dangling-refs](goals.md#goal-no-dangling-refs-every
 
 ### 4. Measurable
 
-See [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-fast-feedback: grund must be as fast as possible
 
@@ -74,7 +74,7 @@ Linear scans, streaming reads, shared compiled regexes, skipped dead directories
 
 ### 3. Measurable
 
-See [§AR-benchmarks](architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands), [§AR-ci.5](architecture/AR-ci.md#5-benchmark-job), [§RM-benchmarks](roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets), and [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-benchmarks](architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands), [AR-ci.5](architecture/AR-ci.md#5-benchmark-job), [RM-benchmarks](roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets), and [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-zero-config: works on any conformant tree
 
@@ -86,7 +86,7 @@ Root agent entrypoint, `.agents/grund.toml` when needed, `docs/`, `e2e/`, `src/`
 
 ### 2. Measurable
 
-See [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ### 3. Composition with [§GOAL-configurable](goals.md#goal-configurable-every-default-is-overridable)
 
@@ -106,7 +106,7 @@ Rust returns `Result`, Node returns promises, Python raises exceptions. Behavior
 
 ### 3. Measurable
 
-See [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-friendliness-first: as user- and agent-friendly as possible
 
@@ -128,7 +128,7 @@ No configurable severity, report ordering, exit-code mapping, hidden prompts, or
 
 ### 3. Measurable
 
-See [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-token-economy: give an agent the right amount of spec, not the whole file
 
@@ -144,11 +144,11 @@ No forced full-body reads, generated summaries, abridged diagnostics, or token s
 
 ### 3. Measurable
 
-See [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ### 4. Research notes
 
-Evidence for the cheap default lives in [§DF-show-default-token-cheap](decisions/functional/DF-show-default-token-cheap.md#df-show-default-token-cheap-grund-show-defaults-to-the-cheap-read-the-full-body-is-opt-in).
+Evidence for the cheap default lives in [DF-show-default-token-cheap](decisions/functional/DF-show-default-token-cheap.md#df-show-default-token-cheap-grund-show-defaults-to-the-cheap-read-the-full-body-is-opt-in).
 
 ## GOAL-configurable: every default is overridable
 
@@ -156,7 +156,7 @@ Defaults fit canonical `grund`; config makes different project conventions first
 
 ### 1. What is configurable
 
-Kinds, ID format, marker/trigger, strictness, scan scope, comment prefixes, and output defaults per [§FS-config](functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents).
+Kinds, ID format, marker/trigger, strictness, scan scope, comment prefixes, and output defaults per [FS-config](functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents).
 
 ### 2. What is NOT configurable
 
@@ -164,7 +164,7 @@ Invariants that decide pass/fail: severity, exit codes, report ordering, and oth
 
 ### 3. Measurable
 
-See [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-no-silent-breakage: changes ship through a deprecation path
 
@@ -180,7 +180,7 @@ Release N adds the new form while the old form warns; release N+1 or later may r
 
 ### 3. Measurable
 
-See [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-small-and-large: start small, configure for big
 
@@ -204,4 +204,4 @@ Flat defaults keep small repos zero-config; config carries large layouts.
 
 ### 5. Measurable
 
-See [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).

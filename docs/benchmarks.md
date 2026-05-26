@@ -84,9 +84,9 @@ Markdown cross-reference links are generated presentation over the underlying ci
 
 | Form | Tokens |
 |---|---:|
-| Bare `§...` citations | 149,966 |
-| Markdown links `[§...](...)` | 180,461 |
-| Delta | +30,495 tokens |
+| Bare `§...` citations | 150,287 |
+| Markdown links `[§...](...)` | 180,444 |
+| Delta | +30,157 tokens |
 
 ## Results
 
