@@ -24,6 +24,10 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Fixed
+
+- [§FS-check.3.7](functional-spec/FS-check.md#37-misplaced-declaration-configured-kind-home) / [§FS-config.3.4](functional-spec/FS-config.md#34-kinds--recognized-prefixes): `grund check` now rejects declarations whose kind conflicts with the containing unique configured kind home, while preserving cross-kind citations and ambiguous-home cases. PR #30.
+
 ## 2. [0.4.1] — 2026-05-25
 
 ### Added

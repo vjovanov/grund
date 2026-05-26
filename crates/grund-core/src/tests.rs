@@ -273,6 +273,115 @@ members = ["packages/*"]
     }
 
     #[test]
+    fn check_rejects_declaration_in_wrong_unique_kind_home() {
+        let root = test_root("check_rejects_declaration_in_wrong_unique_kind_home");
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# AR-001-router: Router\n\nSupports §FS-002-login.\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-002-login.md"),
+            "# FS-002-login: Login\n\nUses §AR-001-router.\n",
+        );
+
+        let config = Config::default_for(root.clone());
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+        let report = check_findings(&findings, &config);
+        let misplaced = report
+            .errors
+            .iter()
+            .filter(|error| error.code == "misplaced-declaration")
+            .collect::<Vec<_>>();
+
+        assert_eq!(misplaced.len(), 1);
+        assert_eq!(
+            misplaced[0].message,
+            "AR-001-router declares kind AR inside FS home docs/functional-spec"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn check_uses_scanned_symlink_path_for_kind_home() {
+        let root = test_root("check_uses_scanned_symlink_path_for_kind_home");
+        write(
+            &root.join("outside/spec.md"),
+            "# AR-001-router: Router\n\nSupports §FS-002-login.\n",
+        );
+        std::fs::create_dir_all(root.join("docs/functional-spec")).expect("create docs");
+        std::os::unix::fs::symlink(
+            "../../outside/spec.md",
+            root.join("docs/functional-spec/link.md"),
+        )
+        .expect("create symlink");
+
+        let config = Config::default_for(root.clone());
+        let id = Id {
+            kind: "AR".to_string(),
+            num: Some(1),
+            slug: Some("router".to_string()),
+        };
+        let mut findings = Findings::default();
+        findings.declarations.insert(
+            id.clone(),
+            vec![Declaration {
+                id,
+                file: root.join("docs/functional-spec/link.md"),
+                line: 1,
+                heading_level: 1,
+                sections: BTreeMap::new(),
+                is_stub: false,
+                defined_in: None,
+                e2e_case: None,
+                title: Some("Router".to_string()),
+            }],
+        );
+        let report = check_findings(&findings, &config);
+
+        assert!(
+            report.errors.iter().any(|error| {
+                error.code == "misplaced-declaration"
+                    && error.message
+                        == "AR-001-router declares kind AR inside FS home docs/functional-spec"
+            }),
+            "home-kind placement must use the scanned symlink path: {:?}",
+            report
+                .errors
+                .iter()
+                .map(|error| (&error.code, &error.message))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn check_skips_home_kind_rule_for_overlapping_kind_homes() {
+        let root = test_root("check_skips_home_kind_rule_for_overlapping_kind_homes");
+        write(
+            &root.join("docs/architecture/AR-001-router.md"),
+            "# FS-001-login: Login\n\nImplemented here.\n",
+        );
+
+        let mut config = Config::default_for(root.clone());
+        for kind in &mut config.kinds {
+            match kind.prefix.as_str() {
+                "FS" => kind.folder = Some("docs".to_string()),
+                "AR" => kind.folder = Some("docs/architecture".to_string()),
+                _ => {}
+            }
+        }
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+        let report = check_findings(&findings, &config);
+
+        assert!(
+            !report
+                .errors
+                .iter()
+                .any(|error| error.code == "misplaced-declaration"),
+            "overlapping homes do not provide a unique expected kind"
+        );
+    }
+
+    #[test]
     fn scanner_ignores_bare_source_citations_inside_strings() {
         let root = test_root("scanner_ignores_bare_source_citations_inside_strings");
         write(

@@ -1,0 +1,17 @@
+grund_config_version = 1
+
+[reference]
+strict = true
+
+[scan]
+include = ["docs", "notes"]
+
+[[kinds]]
+prefix = "FS"
+folder = "docs"
+title = "Functional specs"
+
+[[kinds]]
+prefix = "AR"
+folder = "docs/architecture"
+title = "Architecture"
