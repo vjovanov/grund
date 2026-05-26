@@ -32,10 +32,10 @@ INSTRUCTION_BASELINE = [
     ("fmt_check", "this repo", "349,977,643", "502,904,379"),
 ]
 MARKDOWN_LINK_TOKEN_IMPACT = {
-    "markdown_files": "69",
-    "bare_tokens": "154,594",
-    "linked_tokens": "185,370",
-    "delta_tokens": "+30,776",
+    "markdown_files": "70",
+    "bare_tokens": "149,966",
+    "linked_tokens": "180,461",
+    "delta_tokens": "+30,495",
 }
 
 
