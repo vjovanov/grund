@@ -33,9 +33,9 @@ INSTRUCTION_BASELINE = [
 ]
 MARKDOWN_LINK_TOKEN_IMPACT = {
     "markdown_files": "70",
-    "bare_tokens": "149,966",
-    "linked_tokens": "180,461",
-    "delta_tokens": "+30,495",
+    "bare_tokens": "150,287",
+    "linked_tokens": "180,444",
+    "delta_tokens": "+30,157",
 }
 
 
