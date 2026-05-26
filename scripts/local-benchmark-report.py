@@ -31,6 +31,12 @@ INSTRUCTION_BASELINE = [
     ("cover", "this repo", "301,086,562", "433,510,661"),
     ("fmt_check", "this repo", "349,977,643", "502,904,379"),
 ]
+MARKDOWN_LINK_TOKEN_IMPACT = {
+    "markdown_files": "70",
+    "bare_tokens": "149,880",
+    "linked_tokens": "180,278",
+    "delta_tokens": "+30,398",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -427,6 +433,21 @@ def write_report(
         )
     lines.extend(
         [
+            "",
+            "## Markdown Link Token Impact",
+            "",
+            "Markdown cross-reference links are generated presentation over the underlying citation text "
+            "([§FS-fmt.6](functional-spec/FS-fmt.md#6-cross-reference-emission)). "
+            "To quantify that prompt cost, this snapshot measured temporary copies under `/tmp/grund-link-impact` "
+            "with `tiktoken` `o200k_base`. "
+            f"The workload was the {MARKDOWN_LINK_TOKEN_IMPACT['markdown_files']} Markdown files in this repo's "
+            "configured `grund` scan scope; non-Markdown scanned source files and the root `README.md` were not counted.",
+            "",
+            "| Form | Tokens |",
+            "|---|---:|",
+            f"| Bare `§...` citations | {MARKDOWN_LINK_TOKEN_IMPACT['bare_tokens']} |",
+            f"| Markdown links `[§...](...)` | {MARKDOWN_LINK_TOKEN_IMPACT['linked_tokens']} |",
+            f"| Delta | {MARKDOWN_LINK_TOKEN_IMPACT['delta_tokens']} tokens |",
             "",
             "## Results",
             "",
