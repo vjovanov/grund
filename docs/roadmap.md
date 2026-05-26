@@ -18,7 +18,7 @@ napi-rs binding for npm; PyO3 binding for PyPI; CI publish jobs for all three re
 
 ### 3. Measurable
 
-Integration test runs the same spec corpus through all three bindings and asserts byte-identical reports ([§GOAL-multi-language.3](goals.md#3-measurable)).
+Integration test runs the same spec corpus through all three bindings and asserts byte-identical reports ([§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters)).
 
 ## RM-lsp: ship the optional LSP server
 
@@ -113,7 +113,7 @@ Done: a short "vs. a link checker" block in the README:
 
 …landing on the closing line: **Lychee is the link checker; `grund` is the intent checker. Both belong in CI; they guard different failure modes.**
 
-Done: the README states the benchmark framing next to the local throughput badge and names the committed instruction-count baseline from [§RM-benchmarks](roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets): **`grund` measures performance by instruction count, not stopwatch time — same binary, same repo, same number — which gives CI a stable regression meter instead of a noisy timing guess** ([§DA-benchmark-instruction-counting](decisions/architectural/DA-benchmark-instruction-counting.md#da-benchmark-instruction-counting-the-performance-harness-counts-instructions-not-wall-clock-seconds), [§GOAL-fast-feedback.3](goals.md#3-measurable)).
+Done: the README states the benchmark framing next to the local throughput badge and names the committed instruction-count baseline from [§RM-benchmarks](roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets): **`grund` measures performance by instruction count, not stopwatch time — same binary, same repo, same number — which gives CI a stable regression meter instead of a noisy timing guess** ([§DA-benchmark-instruction-counting](decisions/architectural/DA-benchmark-instruction-counting.md#da-benchmark-instruction-counting-the-performance-harness-counts-instructions-not-wall-clock-seconds), [§AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters)).
 
 ### 2. Why now
 

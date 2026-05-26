@@ -13,6 +13,7 @@ An architectural spec may live inline in the class- or module-level doc-comment 
 | [§AR-bindings](AR-bindings.md#ar-bindings-target-shape-for-exposing-the-rust-engine-on-three-platforms) | how the same Rust engine is exposed on three platforms |
 | [§AR-lsp](AR-lsp.md#ar-lsp-how-the-lsp-server-is-built) | how the optional LSP server is built |
 | [§AR-ci](AR-ci.md#ar-ci-ci-mirrors-the-local-pre-commit-gate) | how CI mirrors the local pre-commit gate |
+| [§AR-goal-measurement](AR-goal-measurement.md#ar-goal-measurement-goal-meters-live-outside-goals) | where goal measurement lives outside `docs/goals.md` |
 | [§AR-benchmarks](AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands) | the instruction-counting benchmark harness for the [§GOAL-fast-feedback](../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) budgets |
 
 This index is navigational — citations should target the spec ID directly, never this file.
