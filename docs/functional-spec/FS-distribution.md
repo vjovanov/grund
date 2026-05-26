@@ -64,7 +64,7 @@ ShowOpts {
 }
 ```
 
-These fields are normative. The byte-for-byte JSON form emitted by `grund --format=json` and consumed by IDE/agent integrations follows the same shape and is the cross-binding equivalence test ([§GOAL-multi-language.3](../goals.md#3-measurable)).
+These fields are normative. The byte-for-byte JSON form emitted by `grund --format=json` and consumed by IDE/agent integrations follows the same shape and is the cross-binding equivalence test for [§GOAL-multi-language](../goals.md#goal-multi-language-same-engine-three-platforms), tracked in [§AR-goal-measurement.2](../architecture/AR-goal-measurement.md#2-goal-meters).
 
 ### 3.1 Rust (`grund-core` crate)
 

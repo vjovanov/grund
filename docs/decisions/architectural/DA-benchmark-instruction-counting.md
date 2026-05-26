@@ -5,7 +5,7 @@
 
 ## 1. Context
 
-[§GOAL-fast-feedback.1](../../goals.md#1-performance-targets) writes down performance budgets in wall-clock units — under 100 ms on this repo, under 1 s on a 10k-file repo — and [§GOAL-fast-feedback.3](../../goals.md#3-measurable) commits CI to "track the number across commits and fail on regression". [§RM-benchmarks](../../roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets) owns building that meter. The original roadmap text for [§RM-benchmarks](../../roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets) named a `cargo bench` **criterion** (wall-clock) harness. When it came time to build it, the question was which kind of meter actually makes "fail CI on regression" work, given that the harness runs on shared GitHub-hosted runners.
+[§GOAL-fast-feedback.1](../../goals.md#1-performance-targets) writes down performance targets in wall-clock units — under 100 ms on this repo, under 1 s on a 10k-file repo — while [§AR-goal-measurement.2](../../architecture/AR-goal-measurement.md#2-goal-meters) and [§RM-benchmarks](../../roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets) own the meter. The original roadmap text for [§RM-benchmarks](../../roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets) named a `cargo bench` **criterion** (wall-clock) harness. When it came time to build it, the question was which kind of meter actually makes "fail CI on regression" work, given that the harness runs on shared GitHub-hosted runners.
 
 There are three plausible shapes:
 
