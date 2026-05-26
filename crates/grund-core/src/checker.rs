@@ -25,17 +25,33 @@
 /// prefix invariant (§3, §FS-check.2.1) while still naming all sites. A stub and
 /// the inline declaration it points at count as one home, not two.
 ///
-/// ### 2.2 Dangling citations (§FS-check.3.1)
+/// ### 2.2 Misplaced declarations (§FS-check.3.7)
+///
+/// For each declaration, validate placement from the scanner-recorded `file` and
+/// `id.kind`. A single-file kind (`[[kinds]].file`) must live in that exact file.
+/// Separately, when the declaration's file is contained by exactly one configured
+/// kind home, the declaration kind must match that home kind. The checker builds
+/// one kind-home index per check run: `file` homes are exact matches and `folder`
+/// homes are path-prefix matches under the config root; if zero or multiple homes
+/// match, there is no unique expected home kind and the checker emits no
+/// home-kind diagnostic.
+///
+/// This rule uses only `Declaration` records; it does not rescan files. Stubs are
+/// checked by their stub file path for home-kind placement, while the existing
+/// broken-stub rule still verifies that the linked source file contains the inline
+/// declaration it claims.
+///
+/// ### 2.3 Dangling citations (§FS-check.3.1)
 ///
 /// For each citation whose ID has no declaration, emit one error at the citation
 /// site.
 ///
-/// ### 2.3 Missing sections (§FS-check.3.2)
+/// ### 2.4 Missing sections (§FS-check.3.2)
 ///
 /// For each citation with a section path, look up the section in the matching
 /// declaration's recorded sections. Missing → one error at the citation site.
 ///
-/// ### 2.4 Broken inline-spec stubs (§FS-check.3.4)
+/// ### 2.5 Broken inline-spec stubs (§FS-check.3.4)
 ///
 /// For each declaration whose H1 has the stub shape `# <ID>: [<text>](<path>)`
 /// (description after the colon is a single bare markdown link), extract the link
@@ -44,13 +60,13 @@
 /// at the stub site. This is the only rule that re-reads a file; everything else
 /// comes from `findings`.
 ///
-/// ### 2.5 Unused declarations (§FS-check.4.1)
+/// ### 2.6 Unused declarations (§FS-check.4.1)
 ///
 /// For each declared ID never cited, emit one warning. Warnings do not cause a
 /// non-zero exit. `E2E` declarations are exempt — a case is exercised by being
 /// run, not by being cited (§FS-check.4.1).
 ///
-/// ### 2.6 Invalid agent-entrypoint init block (§FS-check.3.5)
+/// ### 2.7 Invalid agent-entrypoint init block (§FS-check.3.5)
 ///
 /// When `<root>/AGENTS.md` exists, verify its versioned `grund init` block (and the
 /// matching block in any non-symlink companion entrypoint that is present): a
@@ -59,7 +75,7 @@
 /// that already contain a managed block and leave project-owned unmanaged files
 /// alone.
 ///
-/// ### 2.7 Ungrounded source files — opt-in (§FS-check.3.6, §DF-require-grounding)
+/// ### 2.8 Ungrounded source files — opt-in (§FS-check.3.6, §DF-require-grounding)
 ///
 /// When `[reference] require_grounding = true` (or `grund check --require-grounding`),
 /// every scanned non-`.md` file must carry at least one recognised citation that
@@ -103,6 +119,7 @@ fn check_with_workspace(
     workspace: &BTreeMap<String, WorkspaceCheckTarget<'_>>,
 ) -> CheckReport {
     let mut report = CheckReport::default();
+    let kind_homes = KindHomeIndex::new(config);
     // §FS-check.3.5: managed agent-entrypoint blocks that are out of date (or
     // newer than this binary) are check errors.
     check_agents_block_version(&config.root, &mut report);
@@ -144,19 +161,15 @@ fn check_with_workspace(
         }
     }
 
-    // §FS-check.3.7: a kind with `file = "<path>"` set in `[[kinds]]` is a
-    // single-file kind — every declaration of that kind must live in that
-    // exact file. A declaration anywhere else is a misplaced-declaration error.
+    // §FS-check.3.7: declarations must respect configured kind homes. A
+    // single-file kind must live in its exact `file`; any declaration inside a
+    // unique configured home must match that home's kind.
     for (id, decls) in &findings.declarations {
-        let Some(expected) = single_file_home_for_kind(config, &id.kind) else {
-            continue;
-        };
-        let expected_path = config.root.join(&expected);
         for decl in decls {
-            if decl.is_stub {
-                continue;
-            }
-            if !paths_same_location(&decl.file, &expected_path) {
+            if let Some(expected) = kind_homes.single_file_for_kind(&id.kind)
+                && !decl.is_stub
+                && !paths_same_location_key(&decl.file, &expected.physical_path)
+            {
                 report.errors.push(Diagnostic {
                     code: "misplaced-declaration",
                     path: Some(decl.file.clone()),
@@ -164,7 +177,27 @@ fn check_with_workspace(
                     message: format!(
                         "{} must be declared in {} (single-file kind)",
                         render_id(config, id),
-                        expected
+                        expected.path
+                    ),
+                    sites: Vec::new(),
+                });
+                continue;
+            }
+
+            let Some(home) = kind_homes.unique_decl_home_for_file(&decl.file) else {
+                continue;
+            };
+            if home.kind != id.kind {
+                report.errors.push(Diagnostic {
+                    code: "misplaced-declaration",
+                    path: Some(decl.file.clone()),
+                    line: Some(decl.line),
+                    message: format!(
+                        "{} declares kind {} inside {} home {}",
+                        render_id(config, id),
+                        id.kind,
+                        home.kind,
+                        home.path
                     ),
                     sites: Vec::new(),
                 });
@@ -697,21 +730,183 @@ fn is_stub_for_inline_decl(root: &Path, decl: &Declaration, decls: &[Declaration
         .any(|other| paths_same_location(&other.file, &resolved) && other.file != decl.file)
 }
 
-/// The `[[kinds]].file` setting for `kind`, if any — the single document every
-/// declaration of that kind must live in (§FS-config.3.4). Returns `None` for
-/// multi-file kinds (those configured with `folder` instead).
-fn single_file_home_for_kind(config: &Config, kind: &str) -> Option<String> {
-    config
-        .kinds
-        .iter()
-        .find(|k| k.prefix == kind)
-        .and_then(|k| k.file.clone())
+struct DeclarationHome<'a> {
+    kind: &'a str,
+    path: &'a str,
+}
+
+struct SingleFileHome<'a> {
+    kind: &'a str,
+    path: &'a str,
+    physical_path: PathBuf,
+}
+
+struct ConfiguredHome<'a> {
+    kind: &'a str,
+    path: &'a str,
+    key: PathBuf,
+    exact: bool,
+}
+
+struct KindHomeIndex<'a> {
+    configured_root: PathBuf,
+    physical_root: PathBuf,
+    single_files: Vec<SingleFileHome<'a>>,
+    homes: Vec<ConfiguredHome<'a>>,
+    overlapping_homes: bool,
+}
+
+impl<'a> KindHomeIndex<'a> {
+    fn new(config: &'a Config) -> Self {
+        let configured_root = scanned_path_key(&config.root);
+        let physical_root = physical_path_key(&config.root);
+        let mut single_files = Vec::new();
+        let mut homes = Vec::new();
+
+        for kind in &config.kinds {
+            if let Some(file) = kind.file.as_deref() {
+                single_files.push(SingleFileHome {
+                    kind: kind.prefix.as_str(),
+                    path: file,
+                    physical_path: physical_path_key(&config.root.join(file)),
+                });
+                homes.push(ConfiguredHome {
+                    kind: kind.prefix.as_str(),
+                    path: file,
+                    key: configured_home_path_key(file),
+                    exact: true,
+                });
+            }
+
+            if let Some(folder) = kind.folder.as_deref() {
+                homes.push(ConfiguredHome {
+                    kind: kind.prefix.as_str(),
+                    path: folder,
+                    key: configured_home_path_key(folder),
+                    exact: false,
+                });
+            }
+        }
+
+        let overlapping_homes = homes_have_overlap(&homes);
+        if !overlapping_homes {
+            homes.sort_by(|left, right| left.exact.cmp(&right.exact));
+        }
+
+        Self {
+            configured_root,
+            physical_root,
+            overlapping_homes,
+            single_files,
+            homes,
+        }
+    }
+
+    /// The `[[kinds]].file` setting for `kind`, if any — the single document every
+    /// declaration of that kind must live in (§FS-config.3.4). Returns `None` for
+    /// multi-file kinds (those configured with `folder` instead).
+    fn single_file_for_kind(&self, kind: &str) -> Option<&SingleFileHome<'a>> {
+        self.single_files.iter().find(|home| home.kind == kind)
+    }
+
+    /// The configured kind home that contains `path`, when exactly one
+    /// `[[kinds]]` home matches it. `file` homes are exact; `folder` homes are
+    /// path-prefix matches against the scanner-recorded path, not the symlink
+    /// target (§FS-config.3.4, §FS-check.3.7).
+    fn unique_decl_home_for_file(&self, path: &Path) -> Option<DeclarationHome<'a>> {
+        let path = scanned_decl_relative_path(path, &self.configured_root, &self.physical_root)?;
+        if !self.overlapping_homes {
+            return self
+                .homes
+                .iter()
+                .find(|home| home_contains_path(home, path.as_ref()))
+                .map(|home| DeclarationHome {
+                    kind: home.kind,
+                    path: home.path,
+                });
+        }
+
+        let mut matches = self.homes.iter().filter_map(|home| {
+            home_contains_path(home, path.as_ref()).then_some(DeclarationHome {
+                kind: home.kind,
+                path: home.path,
+            })
+        });
+
+        let first = matches.next()?;
+        if matches.next().is_some() {
+            return None;
+        }
+        Some(first)
+    }
+}
+
+fn home_contains_path(home: &ConfiguredHome<'_>, path: &Path) -> bool {
+    if home.exact {
+        path == home.key
+    } else {
+        path.starts_with(&home.key)
+    }
+}
+
+fn homes_have_overlap(homes: &[ConfiguredHome<'_>]) -> bool {
+    homes.iter().enumerate().any(|(index, left)| {
+        homes
+            .iter()
+            .skip(index + 1)
+            .any(|right| homes_overlap(left, right))
+    })
+}
+
+fn homes_overlap(left: &ConfiguredHome<'_>, right: &ConfiguredHome<'_>) -> bool {
+    match (left.exact, right.exact) {
+        (true, true) => left.key == right.key,
+        (true, false) => left.key.starts_with(&right.key),
+        (false, true) => right.key.starts_with(&left.key),
+        (false, false) => left.key.starts_with(&right.key) || right.key.starts_with(&left.key),
+    }
 }
 
 fn paths_same_location(left: &Path, right: &Path) -> bool {
-    let left = fs::canonicalize(left).unwrap_or_else(|_| normalize_path_lexically(left));
-    let right = fs::canonicalize(right).unwrap_or_else(|_| normalize_path_lexically(right));
-    left == right
+    physical_path_key(left) == physical_path_key(right)
+}
+
+fn paths_same_location_key(left: &Path, right: &Path) -> bool {
+    physical_path_key(left) == right
+}
+
+fn physical_path_key(path: &Path) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| normalize_path_lexically(path))
+}
+
+fn scanned_path_key(path: &Path) -> PathBuf {
+    normalize_path_lexically(path)
+}
+
+fn configured_home_path_key(home: &str) -> PathBuf {
+    scanned_path_key(Path::new(home))
+}
+
+fn scanned_decl_relative_path<'a>(
+    path: &'a Path,
+    configured_root: &Path,
+    physical_root: &Path,
+) -> Option<std::borrow::Cow<'a, Path>> {
+    if let Ok(relative) = path.strip_prefix(physical_root) {
+        return Some(std::borrow::Cow::Borrowed(relative));
+    }
+    if let Ok(relative) = path.strip_prefix(configured_root) {
+        return Some(std::borrow::Cow::Owned(scanned_path_key(relative)));
+    }
+
+    let path = scanned_path_key(path);
+    if let Ok(relative) = path.strip_prefix(physical_root) {
+        return Some(std::borrow::Cow::Owned(scanned_path_key(relative)));
+    }
+    if let Ok(relative) = path.strip_prefix(configured_root) {
+        return Some(std::borrow::Cow::Owned(scanned_path_key(relative)));
+    }
+    None
 }
 
 /// Whether `path` contains a real (non-stub) inline declaration of `id` —

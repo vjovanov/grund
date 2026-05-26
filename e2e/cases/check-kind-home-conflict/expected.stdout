@@ -1,0 +1,2 @@
+docs/architecture/AR-001-router.md:1: FS-001-login declares kind FS inside AR home docs/architecture
+docs/functional-spec/FS-001-login.md:1: AR-001-router declares kind AR inside FS home docs/functional-spec

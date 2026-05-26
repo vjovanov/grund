@@ -111,7 +111,7 @@ The marker in the message is the configured one ([§FS-config.3.1](FS-config.md#
 
 This is a pure function of `(tree, config)` like every other `check` rule ([§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)): it reads no git history ([§FS-non-goals.6](FS-non-goals.md#6-decision-database-audit-log-history-tracking)) and parses no code ([§FS-non-goals.3](FS-non-goals.md#3-code-ast-parsing)) — "source file" is decided by extension, "grounded" by the citations the scanner already collected. It is the floor of the grounding discipline — the verification-at-rest layer of [§GOAL-agent-grounding.1](../goals.md#1-the-three-layers), on top of which `grund cover` exposes the citation graph ([§FS-cover](FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file)) and [§RM-cochange-gate](../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test) tracks the diff-aware co-change gate. Decided in [§DF-require-grounding](../decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec).
 
-### 3.7 Misplaced declaration (single-file kind)
+### 3.7 Misplaced declaration (configured kind home)
 
 A kind configured with `file = "<path>"` in [[kinds]] ([§FS-config.3.4](FS-config.md#34-kinds--recognized-prefixes)) is a *single-file kind* — every declaration of that kind must live in that exact document. A declaration whose H1/H2 is found in any other scanned file is reported as a misplaced-declaration error, anchored at the declaration line:
 
@@ -119,7 +119,15 @@ A kind configured with `file = "<path>"` in [[kinds]] ([§FS-config.3.4](FS-conf
 docs/notes.md:42: GOAL-foo must be declared in docs/goals.md (single-file kind)
 ```
 
-Stubs (`# <ID>: [<text>](<path>)`) are exempt — they are pointers from a kind's home folder to an inline declaration elsewhere, which is a multi-file-kind feature; a single-file kind has no stubs because there is no folder to redirect from. This is the canonical mechanism that keeps `GRUND`, `GOAL`, and `RM` declarations consolidated in their respective documents, and what makes "one file, all goals inline" a checked invariant rather than a convention.
+Stubs (`# <ID>: [<text>](<path>)`) are exempt from this exact-file requirement — they are pointers from a kind's home folder to an inline declaration elsewhere, which is a multi-file-kind feature; a single-file kind has no stubs because there is no folder to redirect from. This is the canonical mechanism that keeps `GRUND`, `GOAL`, and `RM` declarations consolidated in their respective documents, and what makes "one file, all goals inline" a checked invariant rather than a convention.
+
+Every configured `file` and `folder` also acts as a declaration-home boundary. If a declaration line appears in a file that belongs to exactly one configured kind home, the declaration's kind must match that home kind. A `file` home matches only that exact path; a `folder` home matches files below that directory. A different-kind declaration is reported as a misplaced-declaration error, anchored at the declaration line and naming the declared kind, the expected home kind, and the configured home:
+
+```
+docs/functional-spec/FS-lsp.md:42: AR-router declares kind AR inside FS home docs/functional-spec
+```
+
+The home-kind rule applies to declaration lines and stub lines, not citations or prose mentions. Files that belong to no configured home, or that match multiple homes because configured homes overlap or nest, are not checked by this rule because the expected kind is ambiguous.
 
 ### 3.8 Cross-project citation failure
 
