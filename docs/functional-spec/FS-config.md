@@ -38,7 +38,7 @@ project_description = "One line describing what this project is for" # optional
 [reference]
 marker            = "§"      # default; rare character that prefixes a citation in prose
 trigger           = "$$"     # default; typed sequence rewritten to marker by IDE plugin and `grund fmt`
-strict            = false    # default; if true, bare citations are NOT recognized
+strict            = true     # default; if false, bare citations are also recognized
 require_grounding = false    # default; if true, `check` flags source files that cite no declared ID
 
 # Inline citation style — see [§FS-inline-citation-style](FS-inline-citation-style.md#fs-inline-citation-style-configurable-shape-of-inline-code-comment-citations)
@@ -49,7 +49,7 @@ inline_note_max_columns      = 100                     # hard cap (error)
 warn_on_suggested            = false                   # if true, soft-cap overruns surface as `check` warnings
 ```
 
-Per [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger). `strict = true` requires a non-empty `marker`.
+Per [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger). `strict = true` requires a non-empty `marker`; `strict = false` is the compatibility mode for repositories that still rely on bare citations.
 
 `require_grounding = true` adds the ungrounded-source-file error ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)): every scanned non-Markdown file must carry at least one resolving citation, or declare an ID inline. `grund check --require-grounding` forces it on for one run. Per [§DF-require-grounding](../decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec); off by default so adopting the discipline is a deliberate step, like `strict`.
 

@@ -290,9 +290,9 @@ Recommend `--docs = false` when the repo already has meaningful docs or tests, a
 
 ### `[reference].strict`
 
-Recommend `strict = false` for first adoption or when many bare ID-like tokens already exist.
+Recommend the default `strict = true` for first adoption, especially when the repo has noisy ID-like tokens or wants deliberate citation hygiene.
 
-Recommend `strict = true` when the repo already uses explicit marker citations, has noisy ID-like tokens, or wants deliberate citation hygiene.
+Recommend `strict = false` only when the repo already relies on bare citations and needs a compatibility window before running `grund fmt --marker`.
 
 ### `[reference].require_grounding`
 

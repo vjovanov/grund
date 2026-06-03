@@ -24,7 +24,7 @@ Wherever the configured trigger (default `$$`) is immediately followed by a toke
 
 ### 2.2 Bare-to-marker (with `--marker`)
 
-When `--marker` is given, every recognized bare citation is also rewritten to its marker-prefixed form. This is how a repo migrates from default mode to `[reference] strict = true`: run `grund fmt --marker --write` once, then flip the strict flag.
+When `--marker` is given, every recognized bare citation is also rewritten to its marker-prefixed form. This is how a repo migrates out of `[reference] strict = false` compatibility mode: run `grund fmt --marker --write` once, then remove the override or flip the strict flag back to `true`.
 
 ### 2.3 What is never rewritten
 

@@ -3,3 +3,5 @@ include = ["docs"]
 exclude = ["ignored"]
 extensions = ["md"]
 
+[reference]
+strict = false
