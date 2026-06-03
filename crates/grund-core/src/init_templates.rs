@@ -192,7 +192,7 @@ fn agents_template_substitutions(
         )
     } else {
         format!(
-            "Bare ID-shaped tokens are also recognized as citations for backward compatibility; set `[reference] strict = true` in `.agents/grund.toml` to require the `{marker}` marker (run `grund fmt --marker` first to upgrade existing bare citations)."
+            "Bare ID-shaped tokens are also recognized as citations because `[reference] strict = false` is set in `.agents/grund.toml`; remove that compatibility override or set strict back to `true` to require the `{marker}` marker (run `grund fmt --marker` first to upgrade existing bare citations)."
         )
     };
     let section_heading_note = section_heading_note(config, marker);

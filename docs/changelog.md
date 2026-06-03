@@ -30,6 +30,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Changed
 
+- [§FS-config.3.1](functional-spec/FS-config.md#31-reference--citation-form) / [§FS-check.1.1](functional-spec/FS-check.md#11-recognized-citations): make `[reference] strict = true` the built-in and generated config default, leaving `strict = false` as the explicit compatibility mode for bare citations. PR #35.
 - [§FS-init.2.3.4.15](functional-spec/FS-init.md#23415-workspace-members): workspace member bullets render the alias as the link label (`` - [`api`](apps/api/AGENTS.md): … ``), so the path appears once and the list shares the Project Map's `- [x](y): …` grammar. PR #39.
 
 ## 2. [0.4.2] — 2026-06-08

@@ -237,7 +237,7 @@ impl Config {
             project_description: None,
             marker: "§".to_string(),
             trigger: "$$".to_string(),
-            strict: false,
+            strict: true,
             require_grounding: false,
             inline_style: "citation-with-note".into(),
             inline_note_suggested_lines: 1,

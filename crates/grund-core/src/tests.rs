@@ -104,6 +104,13 @@ mod tests {
         );
     }
 
+    #[test]
+    fn default_config_requires_marker_prefixed_citations() {
+        let config = Config::default_for(test_root("default_config_requires_marker_prefixed_citations"));
+
+        assert!(config.strict, "§FS-config.3.1: strict reference mode is the default");
+    }
+
     fn current_block() -> String {
         render_agents_append_block(
             "demo",

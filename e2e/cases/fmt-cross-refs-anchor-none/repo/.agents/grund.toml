@@ -1,4 +1,7 @@
 grund_config_version = 1
 
+[reference]
+strict = false
+
 [fmt.cross_refs]
 anchor_format = "none"

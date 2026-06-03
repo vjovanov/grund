@@ -53,9 +53,9 @@ Editor-native input methods (snippets, Compose, OS Unicode entry) remain availab
 
 ### 2.4 Strict vs optional
 
-**Default: optional.** Bare `FS-<user-login>` is still a valid citation; grund recognizes it. The marker-prefixed form is preferred; tooling and editor previews use the marker form.
+**Default: strict.** Bare `FS-<user-login>` is plain text by default. The marker-prefixed form is the citation form; tooling and editor previews use the marker form.
 
-**Opt-in strict mode.** Setting `[reference] strict = true` in `grund.toml` makes the marker mandatory: bare tokens stop being treated as citations, eliminating false positives in repos that adopt the discipline fully. Strict mode is recommended once a repo has been migrated.
+**Opt-in compatibility mode.** Setting `[reference] strict = false` in `grund.toml` recognizes bare tokens as citations for repositories that still rely on the older optional-marker discipline. Repositories can migrate back to the default with `grund fmt --marker`.
 
 ### 2.5 Configurability
 
@@ -65,17 +65,17 @@ Both marker and trigger are configurable per [§GOAL-configurable](../../goals.m
 [reference]
 marker  = "§"     # default
 trigger = "$$"    # default
-strict  = false   # default; set true to require the marker
+strict  = true    # default; set false to recognize bare citations
 ```
 
 Other valid markers we considered: `※` (U+203B, Japanese reference mark), `‡` (U+2021, double dagger), `⁂` (U+2042, asterism). Any of these is a one-line config change.
 
 ## 3. Consequences
 
-- The citation rules ([§FS-check.1.1](../../functional-spec/FS-check.md#11-recognized-citations), [§FS-config.3.1](../../functional-spec/FS-config.md#31-reference--citation-form)) recognize both bare and marker-prefixed citations by default, and only marker-prefixed citations under `strict = true`.
+- The citation rules ([§FS-check.1.1](../../functional-spec/FS-check.md#11-recognized-citations), [§FS-config.3.1](../../functional-spec/FS-config.md#31-reference--citation-form)) recognize only marker-prefixed citations by default, and recognize bare citations only under `strict = false`.
 - The optional LSP server ([§FS-lsp.1.4](../../functional-spec/FS-lsp.md#14-live-trigger-transform)) transforms `$$<KIND>-<digit>` to `§<KIND>-<digit>` on the fly when installed and wired into the user's editor.
 - A new functional spec, [§FS-fmt](../../functional-spec/FS-fmt.md#fs-fmt-grund-normalizes-references-in-bulk), defines `grund fmt` for bulk transformation.
-- Existing repos that use bare citations continue to work unchanged. Migration to marker-prefixed citations is mechanical: `grund fmt --marker --check` reports unconverted citations; `grund fmt --marker` rewrites them.
+- Existing repos that use bare citations can keep that behavior with `[reference] strict = false`. Migration to marker-prefixed citations is mechanical: `grund fmt --marker --check` reports unconverted citations; `grund fmt --marker` rewrites them.
 - The marker becomes the visible signal of a grund citation. A reader scanning a file sees `§FS-...` and immediately knows: this is a reference, follow it.
 
 ## 4. Alternatives considered
