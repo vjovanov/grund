@@ -1,6 +1,6 @@
 [package]
 name = "grund-core"
-version = "0.4.1"
+version = "0.4.2"
 edition.workspace = true
 description = "Core engine for grund: scanner, checker, show, fmt, config, and shared data APIs."
 keywords = ["documentation", "references", "linter", "agents"]

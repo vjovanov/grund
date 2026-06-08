@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "grund"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "grund-core",
  "iai-callgrind",
@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "grund-core"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "ignore",
