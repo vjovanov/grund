@@ -1,5 +1,6 @@
 grund_config_version = 1
 project_name = "repo"
+# project_description = "<one line shown next to this project in workspace member lists>"
 
 [reference]
 marker = "§"

@@ -75,6 +75,14 @@ Aliases must be unique across the workspace and must match the lowercase slug
 grammar in §1. A duplicate or invalid alias is a launch-time error, because a
 qualified citation would otherwise have two possible targets.
 
+A project's optional one-line `project_description` ([§FS-config.3](FS-config.md#3-schema)) follows the
+same residency rule as the alias: a member's description comes from the
+member's own config, the root row's from the root config, and a member without
+its own `.agents/grund.toml` has none ([§DF-workspace-member-descriptions](../decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists)).
+Unlike the alias it is presentation metadata only — generated workspace member
+lists render it beside the alias ([§FS-init.2.3.4.15](FS-init.md#23415-workspace-members)), and it never
+participates in alias derivation, citation resolution, or `check` semantics.
+
 ## 4. Resolution
 
 During `grund check`:

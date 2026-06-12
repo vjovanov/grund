@@ -1,0 +1,5 @@
+project_name = "root"
+project_description = "Workspace root: shared specs and tooling"
+
+[workspace]
+members = ["apps/api", "packages/*"]

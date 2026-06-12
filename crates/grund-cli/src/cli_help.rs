@@ -340,7 +340,7 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!();
             println!(
-                "Usage:  grund init [PATH] [--docs] [--name NAME] [--force] [--dry-run] [--agents-md] [--claude] [--gemini] [--copilot] [--cursor] [--windsurf] [--zed]"
+                "Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] [--dry-run] [--agents-md] [--claude] [--gemini] [--copilot] [--cursor] [--windsurf] [--zed]"
             );
             println!();
             println!("Options:");
@@ -349,6 +349,9 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!(
                 "  --name NAME    project name to interpolate (default: derived from the directory)"
+            );
+            println!(
+                "  --description TEXT  one-line project description written to .agents/grund.toml (shown next to this project in workspace member lists)"
             );
             println!(
                 "  --force        rewrite the canonical AGENTS.md and --docs scaffolds; .agents/grund.toml is never overwritten"

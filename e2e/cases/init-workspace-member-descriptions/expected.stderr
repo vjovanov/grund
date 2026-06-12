@@ -1,0 +1,8 @@
+wrote AGENTS.md
+exists .agents/grund.toml
+
+next:
+  1. re-run with --docs to scaffold docs/ and e2e/ (or create those folders yourself) — until then `grund check` has nothing to scan
+  2. run `grund check` — a scaffolded tree is clean
+  3. allocate an ID:  ID=$(grund id FS "…")  then write  docs/functional-spec/$ID.md
+see AGENTS.md for the full workflow.
