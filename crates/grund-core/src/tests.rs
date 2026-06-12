@@ -1970,15 +1970,15 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
 
         assert!(section.contains("### Workspace members"));
         assert!(section.contains("Cross-project citations use §alias/<ID>."));
-        assert!(section.contains("- `api` → [apps/api/AGENTS.md](apps/api/AGENTS.md)"));
+        assert!(section.contains("- [`api`](apps/api/AGENTS.md)"));
         assert!(
-            section.contains("- `core` → [packages/core/](packages/core/) *(not yet initialized)*")
+            section.contains("- [`core`](packages/core/) *(not yet initialized)*")
         );
-        assert!(section.contains("- `ui` → [packages/ui/](packages/ui/) *(not yet initialized)*"));
+        assert!(section.contains("- [`ui`](packages/ui/) *(not yet initialized)*"));
         // `include_root = true` (default), and the root row is rendered with
         // the uniform `alias → AGENTS.md` shape — self counts as initialized
         // even though `root/AGENTS.md` does not yet exist on disk.
-        assert!(section.contains("- `root` → [AGENTS.md](AGENTS.md)"));
+        assert!(section.contains("- [`root`](AGENTS.md)"));
         // Alias-sorted: api < core < root < ui.
         let api = section.find("`api`").unwrap();
         let core = section.find("`core`").unwrap();
@@ -2008,15 +2008,15 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         let section = render_workspace_members_section(&api_target, None, None, "§", true);
 
         // Self counts as initialized — `api` row is the uniform-shape link.
-        assert!(section.contains("- `api` → [AGENTS.md](AGENTS.md)"));
+        assert!(section.contains("- [`api`](AGENTS.md)"));
         // Sibling members and the workspace root all carry the marker.
         assert!(section
-            .contains("- `core` → [../../packages/core/](../../packages/core/) *(not yet initialized)*"));
+            .contains("- [`core`](../../packages/core/) *(not yet initialized)*"));
         assert!(section
-            .contains("- `ui` → [../../packages/ui/](../../packages/ui/) *(not yet initialized)*"));
+            .contains("- [`ui`](../../packages/ui/) *(not yet initialized)*"));
         // Root row points at the workspace root *directory* because its
         // AGENTS.md does not exist.
-        assert!(section.contains("- `root` → [../../](../../) *(not yet initialized)*"));
+        assert!(section.contains("- [`root`](../../) *(not yet initialized)*"));
         // Alias list and ordering are independent of which project is self.
         let api = section.find("`api`").unwrap();
         let core = section.find("`core`").unwrap();
@@ -2040,8 +2040,8 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
 
         let section = render_workspace_members_section(&api_target, None, None, "§", false);
 
-        assert!(section.contains("- `api` → [./](./) *(not yet initialized)*"));
-        assert!(!section.contains("- `api` → [AGENTS.md](AGENTS.md)"));
+        assert!(section.contains("- [`api`](./) *(not yet initialized)*"));
+        assert!(!section.contains("- [`api`](AGENTS.md)"));
     }
 
     /// §FS-init.2.3.4.15: the discoverability line uses the target project's
@@ -2077,7 +2077,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
 
         let section = render_workspace_members_section(&api_target, Some("service"), None, "§", true);
 
-        assert!(section.contains("- `service` → [AGENTS.md](AGENTS.md)"));
+        assert!(section.contains("- [`service`](AGENTS.md)"));
         assert!(
             !section.contains("`api`"),
             "the basename fallback must not leak into the generated block"
@@ -2166,15 +2166,15 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
 
         // Initialized member: description after the link.
         assert!(section
-            .contains("- `api` → [apps/api/AGENTS.md](apps/api/AGENTS.md) — Payment API service"));
+            .contains("- [`api`](apps/api/AGENTS.md): Payment API service"));
         // Uninitialized member: description before the trailing marker.
         assert!(section.contains(
-            "- `core` → [packages/core/](packages/core/) — Core domain library *(not yet initialized)*"
+            "- [`core`](packages/core/): Core domain library *(not yet initialized)*"
         ));
         // Root row: description from the root config.
-        assert!(section.contains("- `root` → [AGENTS.md](AGENTS.md) — Workspace root: shared specs"));
+        assert!(section.contains("- [`root`](AGENTS.md): Workspace root: shared specs"));
         // No config ⇒ no description ⇒ bullet unchanged.
-        assert!(section.contains("- `ui` → [packages/ui/](packages/ui/) *(not yet initialized)*"));
+        assert!(section.contains("- [`ui`](packages/ui/) *(not yet initialized)*"));
     }
 
     /// §FS-init.2.3.4.15: when a member has no local config yet, its self row
@@ -2198,7 +2198,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
             true,
         );
 
-        assert!(section.contains("- `service` → [AGENTS.md](AGENTS.md) — Billing service"));
+        assert!(section.contains("- [`service`](AGENTS.md): Billing service"));
     }
 
     /// §FS-init.2.4 + §DF-workspace-member-descriptions: the generated config

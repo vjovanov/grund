@@ -434,11 +434,11 @@ fn init_workspace_companion_only_marks_missing_self_agents_and_uses_marker() {
         "workspace citation hint should use the configured marker:\n{claude}"
     );
     assert!(
-        claude.contains("- `api` → [./](./) *(not yet initialized)*"),
+        claude.contains("- [`api`](./) *(not yet initialized)*"),
         "self row should link to the project directory until AGENTS.md exists:\n{claude}"
     );
     assert!(
-        !claude.contains("- `api` → [AGENTS.md](AGENTS.md)"),
+        !claude.contains("- [`api`](AGENTS.md)"),
         "companion-only init must not link to a missing AGENTS.md:\n{claude}"
     );
 }

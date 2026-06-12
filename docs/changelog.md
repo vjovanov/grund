@@ -28,6 +28,10 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 - [§DF-workspace-member-descriptions](decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists) / [§FS-config.3](functional-spec/FS-config.md#3-schema) / [§FS-init.2.3.4.15](functional-spec/FS-init.md#23415-workspace-members): optional one-line `project_description` config key rendered beside each alias in generated workspace member lists, plus `grund init --description` and a commented teaching line in the generated config. PR #39.
 
+### Changed
+
+- [§FS-init.2.3.4.15](functional-spec/FS-init.md#23415-workspace-members): workspace member bullets render the alias as the link label (`` - [`api`](apps/api/AGENTS.md): … ``), so the path appears once and the list shares the Project Map's `- [x](y): …` grammar. PR #39.
+
 ## 2. [0.4.2] — 2026-06-08
 
 ### Added

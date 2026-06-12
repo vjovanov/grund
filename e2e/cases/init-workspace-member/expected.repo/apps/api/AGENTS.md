@@ -38,10 +38,10 @@ Do not create a namespace for a regular module or component that still belongs t
 
 Cross-project citations use §alias/<ID>.
 
-- `api` → [AGENTS.md](AGENTS.md)
-- `core` → [../../packages/core/](../../packages/core/) *(not yet initialized)*
-- `root` → [../../](../../) *(not yet initialized)*
-- `ui` → [../../packages/ui/](../../packages/ui/) *(not yet initialized)*
+- [`api`](AGENTS.md)
+- [`core`](../../packages/core/) *(not yet initialized)*
+- [`root`](../../) *(not yet initialized)*
+- [`ui`](../../packages/ui/) *(not yet initialized)*
 
 ### Declarations and citations
 

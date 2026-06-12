@@ -41,8 +41,13 @@ project_description = "Gradle plugin that builds native images from JVM projects
 ```
 
 The [§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members) renderer appends the description after the bullet's
-link, em-dash separated, before any `*(not yet initialized)*` marker; a
-project without a description keeps today's bullet byte-identical. The
+link as `: <description>`, before any `*(not yet initialized)*` marker; a
+project without a description keeps the link-only bullet. Adopting
+descriptions also tightened the bullet itself: the alias is now the link's
+*label* — `` - [`api`](apps/api/AGENTS.md): Payment API service `` — so the
+destination path appears once instead of twice, sharing the Project Map's
+`- [x](y): …` grammar and superseding the `alias → path` bullet shape that
+[§DISC-init-workspace-members](../../discussions/proposals/2026-05-17-init-workspace-members.md#disc-init-workspace-members-have-init-mention-workspace-members) originally proposed. The
 generated `.agents/grund.toml` teaches the key with a commented line, and
 `grund init --description <text>` sets it at bootstrap time with the same
 pending-config self-exception as `--name`. The contract lives in

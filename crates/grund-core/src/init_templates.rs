@@ -719,17 +719,17 @@ fn render_workspace_members_section(
             }
         };
         let suffix = if initialized { "" } else { " *(not yet initialized)*" };
-        // §FS-init.2.3.4.15: the one-line description renders after the link,
-        // before the trailing marker; no description leaves the bullet as-is.
+        // §FS-init.2.3.4.15: the alias is the link label so the path appears
+        // once, mirroring the Project Map's `- [x](y): …` shape; the one-line
+        // description follows `: `, before the trailing marker.
         let description = project
             .description
             .as_deref()
-            .map(|description| format!(" — {description}"))
+            .map(|description| format!(": {description}"))
             .unwrap_or_default();
         bullets.push(format!(
-            "- `{alias}` → [{label}]({dest}){description}{suffix}",
+            "- [`{alias}`]({dest}){description}{suffix}",
             alias = project.alias,
-            label = markdown_link_label(&link),
             dest = markdown_link_destination(&link),
         ));
     }
