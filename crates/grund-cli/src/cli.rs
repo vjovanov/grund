@@ -1254,9 +1254,16 @@ fn command_config(args: &[String]) -> ExitCode {
 }
 
 fn print_effective_config(config: &Config) {
+    // §FS-config.4.2
     println!("grund_config_version = 1");
     if let Some(name) = &config.project_name {
         println!("project_name = \"{}\"", escape_toml_basic(name));
+    }
+    if let Some(description) = &config.project_description {
+        println!(
+            "project_description = \"{}\"",
+            escape_toml_basic(description)
+        );
     }
     println!();
     println!("[reference]");

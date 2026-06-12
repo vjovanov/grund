@@ -1,5 +1,6 @@
 grund_config_version = 1
 project_name = "root"
+project_description = "Root workspace"
 
 [reference]
 marker = "§"

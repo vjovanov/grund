@@ -160,10 +160,10 @@ The generated `{repo_copy}/AGENTS.md` contains, between `### Project map` and `#
 
 Cross-project citations use §alias/<ID>.
 
-- `api` → [apps/api/AGENTS.md](apps/api/AGENTS.md)
-- `core` → [packages/core/](packages/core/) *(not yet initialized)*
-- `root` → [AGENTS.md](AGENTS.md)
-- `ui` → [packages/ui/](packages/ui/) *(not yet initialized)*
+- [`api`](apps/api/AGENTS.md)
+- [`core`](packages/core/) *(not yet initialized)*
+- [`root`](AGENTS.md)
+- [`ui`](packages/ui/) *(not yet initialized)*
 ```
 
 The list is sorted lexicographically by alias. `api` is initialized so its bullet links to the existing `AGENTS.md`. `root` is included because `include_root` defaults to `true` (the row appears even though linking the file to itself is mildly noisy — the spec keeps the row shape uniform). `core` and `ui` are present in the workspace by glob expansion of `packages/*` but have no `AGENTS.md` yet, so they render with the trailing `*(not yet initialized)*` marker and link to the member root.
@@ -181,10 +181,10 @@ The generated `{repo_copy}/apps/api/AGENTS.md` contains a `### Workspace members
 
 Cross-project citations use §alias/<ID>.
 
-- `api` → [AGENTS.md](AGENTS.md)
-- `core` → [../../packages/core/](../../packages/core/) *(not yet initialized)*
-- `root` → [../../](../../) *(not yet initialized)*
-- `ui` → [../../packages/ui/](../../packages/ui/) *(not yet initialized)*
+- [`api`](AGENTS.md)
+- [`core`](../../packages/core/) *(not yet initialized)*
+- [`root`](../../) *(not yet initialized)*
+- [`ui`](../../packages/ui/) *(not yet initialized)*
 ```
 
 `api`'s row is the freshly written file (the "self" exception in [§FS-init.2.3.4.15](FS-init.md#23415-workspace-members) — `api` counts as initialized in its own block even before the write completes). `root` is marked uninitialized because `{repo_copy}/AGENTS.md` does not exist, and the link points at the workspace root directory rather than the file that would 404. The aliases, the discoverability line, and the alias ordering match §6.1 exactly — what differs is the per-row "self" flag and the link paths, both of which are local-perspective renderings.
@@ -220,10 +220,10 @@ The generated `{repo_copy}/AGENTS.md` contains exactly this block:
 
 Cross-project citations use §alias/<ID>.
 
-- `api` → [apps/api/AGENTS.md](apps/api/AGENTS.md) — Payment API service
-- `core` → [packages/core/](packages/core/) — Core domain library *(not yet initialized)*
-- `root` → [AGENTS.md](AGENTS.md) — Workspace root: shared specs and tooling
-- `ui` → [packages/ui/](packages/ui/) *(not yet initialized)*
+- [`api`](apps/api/AGENTS.md): Payment API service
+- [`core`](packages/core/): Core domain library *(not yet initialized)*
+- [`root`](AGENTS.md): Workspace root: shared specs and tooling
+- [`ui`](packages/ui/) *(not yet initialized)*
 ```
 
-Each described project appends ` — <description>` after its link; `core` shows the description rendering *before* the trailing `*(not yet initialized)*` marker; `ui` has no config, therefore no description, and its bullet is byte-identical to the §6.1 form.
+Each described project appends `: <description>` after its link; `core` shows the description rendering *before* the trailing `*(not yet initialized)*` marker; `ui` has no config, therefore no description, and its bullet is byte-identical to the §6.1 form.
