@@ -215,6 +215,11 @@ fn agents_template_substitutions(
             render_workspace_members_section(
                 target,
                 Some(name),
+                // The pending effective config carries the `--description`
+                // value when `init` is about to write a fresh config; with an
+                // existing config the walk-up reloads it anyway
+                // (§FS-init.2.3.4.15).
+                config.project_description.as_deref(),
                 marker,
                 canonical_agent_entrypoint_selected,
             ),
@@ -510,38 +515,55 @@ fn is_symlink_to(path: &Path, target: &Path) -> Result<bool> {
 /// The config that `grund init` will leave governing `target`, which the generated
 /// `AGENTS.md` must describe (§FS-init.2.3): an existing `target/.agents/grund.toml`
 /// if there is one, otherwise the defaults plus the *pending* `project_name`
-/// that `init` is about to write into `target/.agents/grund.toml` (§FS-init.2.4).
-/// The `pending` in the name flags that the returned `Config` may carry a
-/// `project_name` that is not yet on disk — callers must not treat it as
-/// reflecting persisted state. We do **not** walk up to an ancestor's config
-/// here — `init` always writes a config *in* `target` when one is absent.
-fn init_pending_effective_config(target: &Path, name: &str) -> Config {
+/// and `project_description` that `init` is about to write into
+/// `target/.agents/grund.toml` (§FS-init.2.4). The `pending` in the name flags
+/// that the returned `Config` may carry values that are not yet on disk —
+/// callers must not treat it as reflecting persisted state. We do **not** walk
+/// up to an ancestor's config here — `init` always writes a config *in*
+/// `target` when one is absent.
+fn init_pending_effective_config(target: &Path, name: &str, description: Option<&str>) -> Config {
     let local_config = target.join(".agents").join("grund.toml");
     if local_config.is_file() {
         load_config(target).unwrap_or_else(|_| Config::default_for(target.to_path_buf()))
     } else {
         let mut config = Config::default_for(target.to_path_buf());
         config.project_name = Some(name.to_string());
+        config.project_description = description.map(str::to_string);
         config
     }
 }
 
 /// The generated `.agents/grund.toml` — every default written out explicitly as a
-/// teaching surface, with only `project_name` substituted (§FS-init.2.4).
-fn render_grund_toml(name: &str) -> String {
-    canonical_template_text(GRUND_TOML_TEMPLATE).replace("{NAME}", &escape_toml_basic(name))
+/// teaching surface, with only `project_name` substituted (§FS-init.2.4). With
+/// `--description`, the commented `project_description` teaching line becomes
+/// the real key (§FS-init.2.4, §DF-workspace-member-descriptions).
+fn render_grund_toml(name: &str, description: Option<&str>) -> String {
+    let mut rendered =
+        canonical_template_text(GRUND_TOML_TEMPLATE).replace("{NAME}", &escape_toml_basic(name));
+    if let Some(description) = description {
+        rendered = rendered.replace(
+            "# project_description = \"<one line shown next to this project in workspace member lists>\"",
+            &format!(
+                "project_description = \"{}\"",
+                escape_toml_basic(description)
+            ),
+        );
+    }
+    rendered
 }
 
 fn escape_toml_basic(raw: &str) -> String {
     raw.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
-/// One resolved workspace project — the alias and canonical root — collected by
-/// [`find_init_workspace_context`] so the workspace-members renderer never has
-/// to talk to the config layer directly (§FS-init.2.3.4.15).
+/// One resolved workspace project — the alias, canonical root, and optional
+/// one-line description — collected by [`find_init_workspace_context`] so the
+/// workspace-members renderer never has to talk to the config layer directly
+/// (§FS-init.2.3.4.15, §DF-workspace-member-descriptions).
 struct InitWorkspaceProject {
     alias: String,
     project_root: PathBuf,
+    description: Option<String>,
 }
 
 /// Walk up from `target` to the nearest ancestor whose `.agents/grund.toml`
@@ -556,6 +578,7 @@ struct InitWorkspaceProject {
 fn find_init_workspace_context(
     target: &Path,
     pending_project_name: Option<&str>,
+    pending_project_description: Option<&str>,
 ) -> Option<Vec<InitWorkspaceProject>> {
     let root_config = find_init_workspace_root(target)?;
     // `expand_workspace_members` returns canonical member roots, so a
@@ -570,6 +593,7 @@ fn find_init_workspace_context(
         projects.push(InitWorkspaceProject {
             alias,
             project_root: root_config.root.clone(),
+            description: root_config.project_description.clone(),
         });
     }
     for member_root in &member_roots {
@@ -581,12 +605,17 @@ fn find_init_workspace_context(
         .ok()?;
         if member_root == &target_canonical
             && !member_root.join(".agents").join("grund.toml").is_file()
-            && let Some(name) = pending_project_name
         {
             // §FS-init.2.3.4.15: self is rendered against the config `init`
-            // is about to write, so `grund init member --name service`
-            // teaches the future `service/...` workspace alias immediately.
-            member_config.project_name = Some(name.to_string());
+            // is about to write, so `grund init member --name service
+            // --description "…"` teaches the future `service/...` workspace
+            // alias and its description immediately.
+            if let Some(name) = pending_project_name {
+                member_config.project_name = Some(name.to_string());
+            }
+            if let Some(description) = pending_project_description {
+                member_config.project_description = Some(description.to_string());
+            }
         }
         if member_config.workspace_declared {
             // §FS-workspace.6: nested workspaces are rejected at load — bail
@@ -597,6 +626,7 @@ fn find_init_workspace_context(
         projects.push(InitWorkspaceProject {
             alias,
             project_root: member_root.clone(),
+            description: member_config.project_description.clone(),
         });
     }
     if projects.is_empty() {
@@ -650,10 +680,15 @@ fn find_init_workspace_root(target: &Path) -> Option<Config> {
 fn render_workspace_members_section(
     target: &Path,
     pending_project_name: Option<&str>,
+    pending_project_description: Option<&str>,
     citation_marker: &str,
     canonical_agent_entrypoint_selected: bool,
 ) -> String {
-    let Some(projects) = find_init_workspace_context(target, pending_project_name) else {
+    let Some(projects) = find_init_workspace_context(
+        target,
+        pending_project_name,
+        pending_project_description,
+    ) else {
         return String::new();
     };
     // `find_init_workspace_context` already required `target` to canonicalize
@@ -684,8 +719,15 @@ fn render_workspace_members_section(
             }
         };
         let suffix = if initialized { "" } else { " *(not yet initialized)*" };
+        // §FS-init.2.3.4.15: the one-line description renders after the link,
+        // before the trailing marker; no description leaves the bullet as-is.
+        let description = project
+            .description
+            .as_deref()
+            .map(|description| format!(" — {description}"))
+            .unwrap_or_default();
         bullets.push(format!(
-            "- `{alias}` → [{label}]({dest}){suffix}",
+            "- `{alias}` → [{label}]({dest}){description}{suffix}",
             alias = project.alias,
             label = markdown_link_label(&link),
             dest = markdown_link_destination(&link),

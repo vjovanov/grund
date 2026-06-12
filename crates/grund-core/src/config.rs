@@ -156,6 +156,19 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                     line: line_no,
                 });
             }
+            ("", "project_description") => {
+                let description = parse_string(path, line_no, value)?;
+                // §FS-config.3: the key feeds single-line workspace member
+                // bullets, so an embedded line break is a config error.
+                if description.contains('\n') || description.contains('\r') {
+                    bail_config(
+                        path,
+                        line_no,
+                        "project_description must be a single line".to_string(),
+                    )?;
+                }
+                config.project_description = Some(description);
+            }
             ("reference", "marker") => config.marker = parse_string(path, line_no, value)?,
             ("reference", "trigger") => config.trigger = parse_string(path, line_no, value)?,
             ("reference", "strict") => config.strict = parse_bool(path, line_no, value)?,
@@ -594,6 +607,9 @@ fn command_config(args: &[String]) -> ExitCode {
                 println!("grund_config_version = 1");
                 if let Some(name) = &config.project_name {
                     println!("project_name = \"{}\"", escape_toml_basic(name));
+                }
+                if let Some(description) = &config.project_description {
+                    println!("project_description = \"{}\"", escape_toml_basic(description));
                 }
                 println!();
                 println!("[reference]");

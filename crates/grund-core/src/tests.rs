@@ -669,6 +669,41 @@ members = ["packages/*"]
         );
     }
 
+    /// §FS-config.3: `project_description` parses as optional one-line
+    /// top-level metadata next to `project_name`.
+    #[test]
+    fn config_parses_project_description() {
+        let root = test_root("config_parses_project_description");
+        write(
+            &root.join(".agents/grund.toml"),
+            "project_name = \"api\"\nproject_description = \"Payment API service\"\n",
+        );
+
+        let config = load_config(&root).expect("load config");
+        assert_eq!(config.project_description.as_deref(), Some("Payment API service"));
+    }
+
+    /// §FS-config.3: a `project_description` with an embedded line break is a
+    /// config error at the offending line — the key feeds single-line
+    /// workspace member bullets.
+    #[test]
+    fn config_rejects_multiline_project_description() {
+        let root = test_root("config_rejects_multiline_project_description");
+        write(
+            &root.join(".agents/grund.toml"),
+            "project_description = \"first\\nsecond\"\n",
+        );
+
+        let err = match load_config(&root) {
+            Ok(_) => panic!("multi-line project_description should fail"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("project_description must be a single line"),
+            "unexpected error: {err:#}"
+        );
+    }
+
     /// §FS-workspace.1, §AR-workspace.3.1: a marker-prefixed qualified
     /// citation (`<§>alias/<ID>`) is recognised; an unmarked `alias/<ID>` in
     /// prose is text. There is one scan mode, not two.
@@ -1576,7 +1611,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
 
         let config = Config::default_for(PathBuf::from("."));
         assert!(!render_agents_md("demo", &config, Path::new("."), true).contains('\r'));
-        assert!(!render_grund_toml("demo").contains('\r'));
+        assert!(!render_grund_toml("demo", None).contains('\r'));
         assert!(!canonical_template_text(AGENT_SETUP_INSTRUCTIONS).contains('\r'));
         for (_, contents) in docs_scaffold() {
             assert!(!contents.contains('\r'));
@@ -1906,7 +1941,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
     fn workspace_members_empty_when_no_workspace_declared() {
         let root = test_root("workspace_members_empty_when_no_workspace_declared");
         // No `.agents/grund.toml` at all — fall through to defaults.
-        assert_eq!(render_workspace_members_section(&root, None, "§", true), "");
+        assert_eq!(render_workspace_members_section(&root, None, None, "§", true), "");
         // And the rendered AGENTS.md contains neither the section heading nor
         // the discoverability line.
         let config = Config::default_for(root.clone());
@@ -1931,7 +1966,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         std::fs::create_dir_all(root.join("packages/ui")).expect("create ui");
         write(&root.join("apps/api/AGENTS.md"), "## existing block\n");
 
-        let section = render_workspace_members_section(&root, None, "§", true);
+        let section = render_workspace_members_section(&root, None, None, "§", true);
 
         assert!(section.contains("### Workspace members"));
         assert!(section.contains("Cross-project citations use §alias/<ID>."));
@@ -1970,7 +2005,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         // None of the members are initialized — root/AGENTS.md absent too.
         let api_target = root.join("apps/api");
 
-        let section = render_workspace_members_section(&api_target, None, "§", true);
+        let section = render_workspace_members_section(&api_target, None, None, "§", true);
 
         // Self counts as initialized — `api` row is the uniform-shape link.
         assert!(section.contains("- `api` → [AGENTS.md](AGENTS.md)"));
@@ -2003,7 +2038,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
         let api_target = root.join("apps/api");
 
-        let section = render_workspace_members_section(&api_target, None, "§", false);
+        let section = render_workspace_members_section(&api_target, None, None, "§", false);
 
         assert!(section.contains("- `api` → [./](./) *(not yet initialized)*"));
         assert!(!section.contains("- `api` → [AGENTS.md](AGENTS.md)"));
@@ -2020,7 +2055,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
 
-        let section = render_workspace_members_section(&root, None, "@", true);
+        let section = render_workspace_members_section(&root, None, None, "@", true);
 
         assert!(section.contains("Cross-project citations use @alias/<ID>."));
         assert!(!section.contains("Cross-project citations use §alias/<ID>."));
@@ -2040,7 +2075,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
         let api_target = root.join("apps/api");
 
-        let section = render_workspace_members_section(&api_target, Some("service"), "§", true);
+        let section = render_workspace_members_section(&api_target, Some("service"), None, "§", true);
 
         assert!(section.contains("- `service` → [AGENTS.md](AGENTS.md)"));
         assert!(
@@ -2060,7 +2095,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
 
-        let section = render_workspace_members_section(&root, None, "§", true);
+        let section = render_workspace_members_section(&root, None, None, "§", true);
 
         assert!(section.contains("### Workspace members"));
         assert!(section.contains("`api`"));
@@ -2084,7 +2119,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         // `apps/api` directory missing — `expand_workspace_members` errors,
         // but `render_workspace_members_section` must degrade gracefully.
 
-        assert_eq!(render_workspace_members_section(&root, None, "§", true), "");
+        assert_eq!(render_workspace_members_section(&root, None, None, "§", true), "");
     }
 
     /// §FS-init.2.3.4.15: duplicate aliases are a workspace configuration
@@ -2100,7 +2135,86 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         std::fs::create_dir_all(root.join("apps/api")).expect("create apps/api");
         std::fs::create_dir_all(root.join("services/api")).expect("create services/api");
 
-        assert_eq!(render_workspace_members_section(&root, None, "§", true), "");
+        assert_eq!(render_workspace_members_section(&root, None, None, "§", true), "");
+    }
+
+    /// §FS-init.2.3.4.15 + §DF-workspace-member-descriptions: a project's
+    /// `project_description` renders after its link (before any trailing
+    /// marker), and a project without one keeps the link-only bullet. Mirrors
+    /// §FS-init-fixtures.6.4.
+    #[test]
+    fn workspace_members_renders_configured_descriptions() {
+        let root = test_root("workspace_members_renders_configured_descriptions");
+        write(
+            &root.join(".agents/grund.toml"),
+            "project_name = \"root\"\nproject_description = \"Workspace root: shared specs\"\n\n[workspace]\nmembers = [\"apps/api\", \"packages/*\"]\n",
+        );
+        std::fs::create_dir_all(root.join("apps/api")).expect("create api");
+        std::fs::create_dir_all(root.join("packages/core")).expect("create core");
+        std::fs::create_dir_all(root.join("packages/ui")).expect("create ui");
+        write(
+            &root.join("apps/api/.agents/grund.toml"),
+            "project_name = \"api\"\nproject_description = \"Payment API service\"\n",
+        );
+        write(&root.join("apps/api/AGENTS.md"), "## existing block\n");
+        write(
+            &root.join("packages/core/.agents/grund.toml"),
+            "project_name = \"core\"\nproject_description = \"Core domain library\"\n",
+        );
+
+        let section = render_workspace_members_section(&root, None, None, "§", true);
+
+        // Initialized member: description after the link.
+        assert!(section
+            .contains("- `api` → [apps/api/AGENTS.md](apps/api/AGENTS.md) — Payment API service"));
+        // Uninitialized member: description before the trailing marker.
+        assert!(section.contains(
+            "- `core` → [packages/core/](packages/core/) — Core domain library *(not yet initialized)*"
+        ));
+        // Root row: description from the root config.
+        assert!(section.contains("- `root` → [AGENTS.md](AGENTS.md) — Workspace root: shared specs"));
+        // No config ⇒ no description ⇒ bullet unchanged.
+        assert!(section.contains("- `ui` → [packages/ui/](packages/ui/) *(not yet initialized)*"));
+    }
+
+    /// §FS-init.2.3.4.15: when a member has no local config yet, its self row
+    /// uses the pending `project_description` from `--description`, mirroring
+    /// the pending `project_name` behavior.
+    #[test]
+    fn workspace_members_member_init_uses_pending_description_for_self_row() {
+        let root = test_root("workspace_members_member_init_uses_pending_description_for_self_row");
+        write(
+            &root.join(".agents/grund.toml"),
+            "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
+        );
+        std::fs::create_dir_all(root.join("apps/api")).expect("create api");
+        let api_target = root.join("apps/api");
+
+        let section = render_workspace_members_section(
+            &api_target,
+            Some("service"),
+            Some("Billing service"),
+            "§",
+            true,
+        );
+
+        assert!(section.contains("- `service` → [AGENTS.md](AGENTS.md) — Billing service"));
+    }
+
+    /// §FS-init.2.4 + §DF-workspace-member-descriptions: the generated config
+    /// teaches `project_description` with a commented line by default, and
+    /// `--description` turns it into the real key.
+    #[test]
+    fn grund_toml_description_teaching_line_and_substitution() {
+        let teaching_line =
+            "# project_description = \"<one line shown next to this project in workspace member lists>\"";
+        let without = render_grund_toml("demo", None);
+        assert!(without.contains(teaching_line));
+        assert!(!without.contains("\nproject_description = "));
+
+        let with = render_grund_toml("demo", Some("Demo \"quoted\" service"));
+        assert!(!with.contains(teaching_line));
+        assert!(with.contains("project_description = \"Demo \\\"quoted\\\" service\""));
     }
 
     #[cfg(unix)]

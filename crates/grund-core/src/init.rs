@@ -2,6 +2,9 @@
 pub struct InitOpts {
     pub target: PathBuf,
     pub name: Option<String>,
+    /// `--description` — pending one-line `project_description` for a freshly
+    /// written config (§FS-init.1, §DF-workspace-member-descriptions).
+    pub description: Option<String>,
     pub docs: bool,
     pub force: bool,
     pub dry_run: bool,
@@ -13,6 +16,7 @@ impl Default for InitOpts {
         Self {
             target: PathBuf::from("."),
             name: None,
+            description: None,
             docs: false,
             force: false,
             dry_run: false,
@@ -84,6 +88,7 @@ impl std::error::Error for InitError {}
 fn command_init(args: &[String]) -> ExitCode {
     let mut path: Option<PathBuf> = None;
     let mut name: Option<String> = None;
+    let mut description: Option<String> = None;
     let mut docs = false;
     let mut force = false;
     let mut dry_run = false;
@@ -112,6 +117,17 @@ fn command_init(args: &[String]) -> ExitCode {
             other if other.starts_with("--name=") => {
                 name = Some(other.trim_start_matches("--name=").to_string());
             }
+            "--description" => {
+                idx += 1;
+                if idx >= args.len() {
+                    eprintln!("error: --description requires a value");
+                    return ExitCode::from(2);
+                }
+                description = Some(args[idx].clone());
+            }
+            other if other.starts_with("--description=") => {
+                description = Some(other.trim_start_matches("--description=").to_string());
+            }
             other if other.starts_with('-') => {
                 eprintln!("error: unknown flag `{other}`");
                 return ExitCode::from(2);
@@ -130,6 +146,7 @@ fn command_init(args: &[String]) -> ExitCode {
     let output = match init(InitOpts {
         target: path.unwrap_or_else(|| PathBuf::from(".")),
         name,
+        description,
         docs,
         force,
         dry_run,
@@ -150,11 +167,21 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     let InitOpts {
         target,
         name,
+        description,
         docs,
         force,
         dry_run,
         agent_selection,
     } = opts;
+    // §FS-init.1: `--description` mirrors the config-side single-line rule
+    // (§FS-config.3) — reject line breaks before any file is touched.
+    if let Some(description) = &description
+        && (description.contains('\n') || description.contains('\r'))
+    {
+        return Err(InitError::new(
+            "--description must be a single line".to_string(),
+        ));
+    }
     if !target.exists() {
         return Err(InitError::new(format!(
             "target directory does not exist: {}",
@@ -185,7 +212,8 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
 
     // §FS-init.2.3: render agent instructions against the config `init` leaves in
     // place, so the ID-shape / kind / marker prose matches `.agents/grund.toml`.
-    let init_config = init_pending_effective_config(&target, &resolved_name);
+    let init_config =
+        init_pending_effective_config(&target, &resolved_name, description.as_deref());
 
     // Render the managed block once and reuse it for both surfaces — the
     // workspace-members walk-up (§FS-init.2.3.4.15) is non-trivial I/O for a
@@ -299,7 +327,10 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
             ));
         }
         if !dry_run
-            && let Err(err) = fs::write(&config_dest, render_grund_toml(&resolved_name))
+            && let Err(err) = fs::write(
+                &config_dest,
+                render_grund_toml(&resolved_name, description.as_deref()),
+            )
         {
             return Err(InitError::with_events(
                 events,

@@ -122,6 +122,79 @@ fn init_docs_form_emits_full_scaffold_and_check_is_clean() {
 }
 
 #[test]
+fn init_description_flag_writes_config_key() {
+    // §FS-init.1 + §FS-init.2.4: `--description` replaces the commented
+    // teaching line in the generated config with the real key.
+    let target = workdir("init_description_flag_writes_config_key");
+    let output = run_grund(
+        &[
+            "init",
+            target.to_str().unwrap(),
+            "--name",
+            "api",
+            "--description",
+            "Payment API service",
+        ],
+        manifest_dir(),
+    );
+    assert!(
+        output.status.success(),
+        "init --description failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let grund_toml =
+        fs::read_to_string(target.join(".agents/grund.toml")).expect("read .agents/grund.toml");
+    assert!(
+        grund_toml.contains("project_description = \"Payment API service\""),
+        ".agents/grund.toml must carry project_description from --description"
+    );
+    assert!(
+        !grund_toml.contains("# project_description ="),
+        "the teaching comment must be replaced by the real key"
+    );
+
+    let validate = run_grund(
+        &["config", "validate", target.to_str().unwrap()],
+        manifest_dir(),
+    );
+    assert!(
+        validate.status.success(),
+        "generated config with project_description must validate: {}",
+        String::from_utf8_lossy(&validate.stderr)
+    );
+}
+
+#[test]
+fn init_description_flag_rejects_multiline_value() {
+    // §FS-init.1: `--description` mirrors the config-side single-line rule.
+    let target = workdir("init_description_flag_rejects_multiline_value");
+    let output = run_grund(
+        &[
+            "init",
+            target.to_str().unwrap(),
+            "--description",
+            "first line\nsecond line",
+        ],
+        manifest_dir(),
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "multi-line --description must be a CLI error"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("--description must be a single line"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !target.join(".agents/grund.toml").exists(),
+        "no file may be written on a rejected --description"
+    );
+}
+
+#[test]
 fn init_failed_docs_write_reports_prior_progress() {
     // §FS-init.2.2 / §FS-init.4: init reports touched paths as it goes. If a
     // later scaffold write fails, the user still needs the transcript for the

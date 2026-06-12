@@ -754,6 +754,7 @@ fn add_project_filters(filters: &mut BTreeSet<String>, raw: &str) {
 fn command_init(args: &[String]) -> ExitCode {
     let mut path: Option<PathBuf> = None;
     let mut name: Option<String> = None;
+    let mut description: Option<String> = None;
     let mut docs = false;
     let mut force = false;
     let mut dry_run = false;
@@ -782,6 +783,17 @@ fn command_init(args: &[String]) -> ExitCode {
             other if other.starts_with("--name=") => {
                 name = Some(other.trim_start_matches("--name=").to_string());
             }
+            "--description" => {
+                idx += 1;
+                if idx >= args.len() {
+                    eprintln!("error: --description requires a value");
+                    return ExitCode::from(2);
+                }
+                description = Some(args[idx].clone());
+            }
+            other if other.starts_with("--description=") => {
+                description = Some(other.trim_start_matches("--description=").to_string());
+            }
             other if other.starts_with('-') => {
                 eprintln!("error: unknown flag `{other}`");
                 return ExitCode::from(2);
@@ -799,6 +811,7 @@ fn command_init(args: &[String]) -> ExitCode {
     let output = match init(InitOpts {
         target: path.unwrap_or_else(|| PathBuf::from(".")),
         name,
+        description,
         docs,
         force,
         dry_run,

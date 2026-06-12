@@ -123,7 +123,10 @@ Cross-project citations add a stable alias before the ID:
 without letting root scans accidentally absorb member declarations, even if the
 root `[scan] include` names a path inside a member. Members without
 `.agents/grund.toml` use the canonical defaults, and a member that declares its
-own `[workspace]` block is rejected in v1. Cross-repository aliases (e.g.
+own `[workspace]` block is rejected in v1. Each project can also set a one-line
+`project_description` next to `project_name`; `grund init` renders it beside
+the alias in the generated workspace member list (see
+[§FS-config](docs/functional-spec/FS-config.md)). Cross-repository aliases (e.g.
 `§payments/FS-refunds` resolving to a neighboring repo) are not yet supported.
 See [§FS-workspace](docs/functional-spec/FS-workspace.md).
 

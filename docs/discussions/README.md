@@ -11,3 +11,4 @@ Current proposals:
 - [§DISC-link-support](proposals/2026-05-09-link-support.md#disc-link-support-link-support-as-a-derived-presentation-layer)
 - [§DISC-external-ticket-resolvers](proposals/2026-05-09-external-ticket-resolvers.md#disc-external-ticket-resolvers-external-ticket-resolvers)
 - [§DISC-init-workspace-members](proposals/2026-05-17-init-workspace-members.md#disc-init-workspace-members-have-init-mention-workspace-members)
+- [§DISC-workspace-member-descriptions](proposals/2026-06-12-workspace-member-descriptions.md#disc-workspace-member-descriptions-describe-workspace-members-in-generated-lists)

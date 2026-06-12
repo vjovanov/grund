@@ -127,7 +127,7 @@ These failures leave the target tree unchanged.
 
 ## 6. Workspace members
 
-These three fixtures together cover [§FS-init.2.3.4.15](FS-init.md#23415-workspace-members): a workspace root with a mix of initialized and uninitialized members, a member-side run against the same workspace, and a non-workspace repo whose generated block is unchanged.
+These fixtures together cover [§FS-init.2.3.4.15](FS-init.md#23415-workspace-members): a workspace root with a mix of initialized and uninitialized members, a member-side run against the same workspace, a non-workspace repo whose generated block is unchanged, and a workspace whose projects carry `project_description` metadata.
 
 ### 6.1 Workspace root init
 
@@ -196,3 +196,34 @@ Precondition: `{repo_copy}` exists and contains no `[workspace]` block in its co
 Command: `grund init {repo_copy}`.
 
 The generated `AGENTS.md` contains no `### Workspace members` section anywhere. The `### Project map` block is byte-identical to the default-form fixture (§1) — surfacing workspace mode is gated on `[workspace]` being declared, so a single-project repo's block is unchanged from before [§RM-init-workspace-members](../roadmap.md#rm-init-workspace-members-init-mentions-workspace-members) landed.
+
+### 6.4 Workspace member descriptions
+
+Same shape as §6.1, but the root and two members carry `project_description` metadata ([§FS-config.3](FS-config.md#3-schema), [§FS-workspace.3](FS-workspace.md#3-aliases), [§DF-workspace-member-descriptions](../decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists)). Precondition: `{repo_copy}` exists with `.agents/grund.toml`:
+
+```toml
+project_name = "root"
+project_description = "Workspace root: shared specs and tooling"
+
+[workspace]
+members = ["apps/api", "packages/*"]
+```
+
+`apps/api/.agents/grund.toml` sets `project_name = "api"` and `project_description = "Payment API service"`, and `apps/api/AGENTS.md` exists from a prior member-side `grund init`. `packages/core/.agents/grund.toml` sets `project_name = "core"` and `project_description = "Core domain library"` but `packages/core/AGENTS.md` does not exist. `packages/ui/` is a real directory with no config and no `AGENTS.md`.
+
+Command: `grund init {repo_copy}`.
+
+The generated `{repo_copy}/AGENTS.md` contains exactly this block:
+
+```markdown
+### Workspace members
+
+Cross-project citations use §alias/<ID>.
+
+- `api` → [apps/api/AGENTS.md](apps/api/AGENTS.md) — Payment API service
+- `core` → [packages/core/](packages/core/) — Core domain library *(not yet initialized)*
+- `root` → [AGENTS.md](AGENTS.md) — Workspace root: shared specs and tooling
+- `ui` → [packages/ui/](packages/ui/) *(not yet initialized)*
+```
+
+Each described project appends ` — <description>` after its link; `core` shows the description rendering *before* the trailing `*(not yet initialized)*` marker; `ui` has no config, therefore no description, and its bullet is byte-identical to the §6.1 form.

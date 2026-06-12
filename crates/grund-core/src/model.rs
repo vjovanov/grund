@@ -155,6 +155,10 @@ pub struct Config {
     pub cli_base: PathBuf,
     pub project_name: Option<String>,
     pub project_name_source: Option<ConfigLocation>,
+    /// Optional one-line description rendered beside the project's alias in
+    /// generated workspace member lists (§FS-config.3, §FS-workspace.3,
+    /// §DF-workspace-member-descriptions). Presentation metadata only.
+    pub project_description: Option<String>,
     pub marker: String,
     pub trigger: String,
     pub strict: bool,
@@ -230,6 +234,7 @@ impl Config {
             root,
             project_name: None,
             project_name_source: None,
+            project_description: None,
             marker: "§".to_string(),
             trigger: "$$".to_string(),
             strict: false,
