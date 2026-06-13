@@ -527,7 +527,9 @@ fn obligation_units<'a>(citing_kind: &str, findings: &'a Findings) -> Vec<Obliga
     if citing_kind == CODE_SOURCE_KIND {
         let mut by_file: BTreeMap<&Path, Vec<&Citation>> = BTreeMap::new();
         for cite in &findings.citations {
-            if cite.source_kind == CODE_SOURCE_KIND {
+            if cite.source_kind == CODE_SOURCE_KIND
+                && cite.file.extension().and_then(|ext| ext.to_str()) != Some("md")
+            {
                 by_file.entry(cite.file.as_path()).or_default().push(cite);
             }
         }
@@ -979,7 +981,8 @@ fn check_agent_block_path(
             // section and byte-compare — rendering is deterministic, so the
             // render *is* the hash.
             let expected = citation_directions_section(config);
-            if !text.contains(expected.trim_end()) {
+            let block_text = &text[block.start..block.end];
+            if !block_text.contains(expected.trim_end()) {
                 report.errors.push(Diagnostic {
                     code: "agents-init",
                     path: Some(path.to_path_buf()),
