@@ -261,7 +261,7 @@ Rule entries reuse the citation grammar of [§FS-workspace.1](FS-workspace.md#1-
 
 #### 3.9.5 Validation
 
-Config validation rejects: a `[citations.<KIND>]` table whose kind is neither a configured `[[kinds]]` prefix nor `code`; a target naming a kind that is not a configured prefix; `code` used as a `[[kinds]]` prefix (§3.4); an unknown level key; and the same `(citing kind, target)` pair listed at two levels. The section composes unchanged with project-defined `[[kinds]]` — a new kind is one more `[citations.<KIND>]` table.
+Config validation rejects: a `[citations.<KIND>]` table whose kind is neither a configured `[[kinds]]` prefix nor `code`; a target naming a kind that is not a configured prefix; `code` used as a `[[kinds]]` prefix (§3.4); an unknown level key; and two targets of the same cited kind at different levels whose namespace matchers can match the same citation. The last rule is on namespace **overlap**, not textual equality — `*/AR` (any namespace) overlaps a bare `AR` (local), so listing one at `should` and the other at `must-not` is rejected, while a local `AR` permitted alongside a pinned `alias/AR` forbidden is allowed because those matchers are disjoint (§3.9.3). The section composes unchanged with project-defined `[[kinds]]` — a new kind is one more `[citations.<KIND>]` table.
 
 Adding `[citations]` does **not** bump `grund_config_version` (§5): it is additive surface, like `[workspace]` and `require_grounding`. An older binary meeting it fails loudly with `unknown config section`.
 
