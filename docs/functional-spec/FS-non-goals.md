@@ -14,7 +14,7 @@ A non-goal is not the same as "we'll do it later." Non-goals are commitments. To
 
 ## 3. Code AST parsing
 
-`grund` does not parse code. It does line-oriented regex over comments and doc-comments (per [§AR-scanner](../architecture/AR-scanner.md#ar-scanner-how-grund-discovers-declarations-and-citations)). It does not understand classes, methods, types, scopes, or call graphs. The stub-heading link is a file path, not a symbol reference. Reasoning: [§GOAL-fast-feedback](../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) rules out per-language parsers, and IDs are syntactic by design.
+`grund` does not parse code. It does line-oriented regex over comments and doc-comments (per [AR-scanner](../architecture/AR-scanner.md#ar-scanner-how-grund-discovers-declarations-and-citations)). It does not understand classes, methods, types, scopes, or call graphs. The stub-heading link is a file path, not a symbol reference. Reasoning: [§GOAL-fast-feedback](../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) rules out per-language parsers, and IDs are syntactic by design.
 
 ## 4. Cross-workspace ID renaming
 
