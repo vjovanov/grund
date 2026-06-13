@@ -930,6 +930,30 @@ members = ["packages/*"]
     }
 
     #[test]
+    fn list_summary_reports_single_file_kind_home() {
+        let root = test_root("list_summary_reports_single_file_kind_home");
+        write(
+            &root.join("requirements.md"),
+            "# Requirements\n\n## FS-001-alpha: Alpha\n\nLead.\n",
+        );
+
+        let catalog = list(ListOpts {
+            path: root,
+            path_provided: true,
+            ..ListOpts::default()
+        })
+        .expect("public list api");
+
+        let fs_summary = catalog
+            .summaries
+            .iter()
+            .find(|summary| summary.kind == "FS")
+            .expect("FS summary");
+        assert_eq!(fs_summary.home, "requirements.md");
+        assert_eq!(fs_summary.count, 1);
+    }
+
+    #[test]
     fn public_check_api_returns_relative_slash_normalized_paths() {
         let root = test_root("public_check_api_returns_relative_slash_normalized_paths");
         write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");

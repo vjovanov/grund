@@ -344,7 +344,7 @@ Evidence: `Cargo.toml`, `Cargo.lock`, `crates/`, `src/**/*.rs`.
 
 ```toml
 [scan]
-include = ["docs", "e2e", "src", "crates", "tests"]
+include = ["requirements.md", "docs", "e2e", "src", "crates", "tests"]
 extensions = ["md", "rs"]
 exclude = ["target", ".git"]
 comment_prefixes = ["//", "/*", "*"]
@@ -358,7 +358,7 @@ Cons: may miss generated docs outside `docs/`.
 Evidence: `package.json`, `pnpm-workspace.yaml`, `tsconfig.json`, `src/`, `apps/`, `packages/`.
 
 ```toml
-include = ["docs", "e2e", "src", "apps", "packages", "tests"]
+include = ["requirements.md", "docs", "e2e", "src", "apps", "packages", "tests"]
 extensions = ["md", "ts", "tsx", "js", "jsx"]
 exclude = ["node_modules", "dist", "build", "coverage", ".next", ".turbo", ".git"]
 comment_prefixes = ["//", "/*", "*"]
@@ -372,7 +372,7 @@ Cons: broad monorepos may need narrower package selection.
 Evidence: `pyproject.toml`, `setup.py`, `requirements.txt`, `src/`, package dirs, `tests/`.
 
 ```toml
-include = ["docs", "e2e", "src", "tests"]
+include = ["requirements.md", "docs", "e2e", "src", "tests"]
 extensions = ["md", "py"]
 exclude = [".venv", "__pycache__", ".pytest_cache", ".mypy_cache", "build", "dist", ".git"]
 comment_prefixes = ["#"]
@@ -387,7 +387,7 @@ Cons: docstring scanning can surface intentional prose examples.
 Evidence: `go.mod`, `cmd/`, `internal/`, `pkg/`, `*.go`.
 
 ```toml
-include = ["docs", "e2e", "cmd", "internal", "pkg", "tests"]
+include = ["requirements.md", "docs", "e2e", "cmd", "internal", "pkg", "tests"]
 extensions = ["md", "go"]
 exclude = ["vendor", "dist", "build", ".git"]
 comment_prefixes = ["//", "/*", "*"]
@@ -415,7 +415,7 @@ Cons: multi-module builds may need module directories added explicitly.
 Evidence: `CMakeLists.txt`, `Makefile`, `src/`, `include/`, `lib/`, `tests/`.
 
 ```toml
-include = ["docs", "e2e", "src", "include", "lib", "tests"]
+include = ["requirements.md", "docs", "e2e", "src", "include", "lib", "tests"]
 extensions = ["md", "c", "cpp", "h", "hpp"]
 exclude = ["build", "dist", "out", ".git"]
 comment_prefixes = ["//", "/*", "*"]
@@ -429,7 +429,7 @@ Cons: vendored headers should be excluded if present.
 Evidence: `*.csproj`, `*.sln`, `src/`, `test/`, `tests/`.
 
 ```toml
-include = ["docs", "e2e", "src", "test", "tests"]
+include = ["requirements.md", "docs", "e2e", "src", "test", "tests"]
 extensions = ["md", "cs"]
 exclude = ["bin", "obj", "TestResults", ".git"]
 comment_prefixes = ["//", "/*", "*"]
@@ -443,7 +443,7 @@ Cons: generated code folders may need extra excludes.
 Evidence: `Gemfile`, `app/`, `lib/`, `spec/`, `test/`.
 
 ```toml
-include = ["docs", "e2e", "app", "lib", "spec", "test"]
+include = ["requirements.md", "docs", "e2e", "app", "lib", "spec", "test"]
 extensions = ["md", "rb"]
 exclude = ["vendor", "tmp", "log", "coverage", ".git"]
 comment_prefixes = ["#"]
@@ -457,7 +457,7 @@ Cons: Rails apps may need to skip generated schema or fixture-heavy paths.
 Evidence: `composer.json`, `src/`, `app/`, `tests/`.
 
 ```toml
-include = ["docs", "e2e", "src", "app", "tests"]
+include = ["requirements.md", "docs", "e2e", "src", "app", "tests"]
 extensions = ["md", "php"]
 exclude = ["vendor", "var", "cache", "build", ".git"]
 comment_prefixes = ["//", "#", "/*", "*"]
@@ -471,7 +471,7 @@ Cons: framework cache dirs vary; inspect before finalizing.
 Evidence: `Package.swift`, `Sources/`, `Tests/`.
 
 ```toml
-include = ["docs", "e2e", "Sources", "Tests"]
+include = ["requirements.md", "docs", "e2e", "Sources", "Tests"]
 extensions = ["md", "swift"]
 exclude = [".build", "DerivedData", ".git"]
 comment_prefixes = ["//", "/*", "*"]
@@ -499,7 +499,7 @@ Cons: generated sources may need explicit exclusion.
 Evidence: `db/`, `migrations/`, `models/`, `*.sql`, `dbt_project.yml`.
 
 ```toml
-include = ["docs", "e2e", "db", "migrations", "models", "tests"]
+include = ["requirements.md", "docs", "e2e", "db", "migrations", "models", "tests"]
 extensions = ["md", "sql", "py", "yml", "yaml"]
 exclude = ["target", "logs", ".venv", ".git"]
 comment_prefixes = ["--", "#"]
@@ -513,7 +513,7 @@ Cons: YAML comments are line-only; generated dbt target dirs must stay excluded.
 Evidence: multiple manifests and top-level `apps/`, `packages/`, `services/`, `libs/`, `tools/`.
 
 ```toml
-include = ["docs", "e2e", "apps", "packages", "services", "libs", "tools", "tests"]
+include = ["requirements.md", "docs", "e2e", "apps", "packages", "services", "libs", "tools", "tests"]
 extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "cs", "rb", "php"]
 exclude = ["target", "node_modules", ".git", "dist", "build", ".venv", "coverage", ".next", ".turbo"]
 comment_prefixes = ["//", "#", ";", "--", "*", "/*"]
