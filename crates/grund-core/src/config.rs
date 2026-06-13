@@ -727,8 +727,8 @@ fn parse_citation_target(path: &Path, line_no: usize, token: &str) -> Result<Cit
 
 /// Validate the parsed `[citations]` rules against the finalized kind set
 /// (§FS-config.3.9.5): every citing kind is a configured prefix or `code`, every
-/// target names a configured prefix, and no `(citing kind, target)` pair sits at
-/// two levels.
+/// target names a configured prefix, and no two targets of the same cited kind
+/// whose namespace matchers overlap sit at different levels.
 fn validate_citation_rules(path: &Path, config: &Config) -> Result<()> {
     let known: BTreeSet<&str> = config.kinds.iter().map(|k| k.prefix.as_str()).collect();
     for (citing, rules) in &config.citations.per_kind {
@@ -738,9 +738,9 @@ fn validate_citation_rules(path: &Path, config: &Config) -> Result<()> {
                 format_path(path)
             ));
         }
-        // (namespace, kind) → the level it was first seen at, to catch the same
-        // pair listed at two opposing levels.
-        let mut seen: BTreeMap<(String, String), &'static str> = BTreeMap::new();
+        // Flatten every target with the level it was declared at, rejecting any
+        // that names an unconfigured kind on the way.
+        let mut targets: Vec<(&'static str, &CitationTarget)> = Vec::new();
         let levels: [(&'static str, &[CitationDisjunction]); 5] = [
             ("must", &rules.must),
             ("should", &rules.should),
@@ -758,24 +758,45 @@ fn validate_citation_rules(path: &Path, config: &Config) -> Result<()> {
                             target.kind
                         ));
                     }
-                    let signature = (
-                        citation_namespace_label(&target.namespace),
-                        target.kind.clone(),
-                    );
-                    if let Some(prior) = seen.insert(signature, level_name)
-                        && prior != level_name
-                    {
-                        return Err(anyhow!(
-                            "{}: [citations.{citing}] lists `{}` at both `{prior}` and `{level_name}`",
-                            format_path(path),
-                            render_citation_target(target)
-                        ));
-                    }
+                    targets.push((level_name, target));
+                }
+            }
+        }
+        // Two targets of the same kind whose namespace matchers can match the
+        // same citation (e.g. bare `AR` and `*/AR`) must not sit at different
+        // levels — a matching citation would otherwise have no single level
+        // (§FS-config.3.9.5). Identical entries (same level) are harmless.
+        for (index, (level_a, a)) in targets.iter().enumerate() {
+            for (level_b, b) in targets.iter().skip(index + 1) {
+                if level_a != level_b
+                    && a.kind == b.kind
+                    && namespaces_overlap(&a.namespace, &b.namespace)
+                {
+                    return Err(anyhow!(
+                        "{}: [citations.{citing}] `{}` ({level_a}) and `{}` ({level_b}) overlap (a citation matching both has no single level)",
+                        format_path(path),
+                        render_citation_target(a),
+                        render_citation_target(b)
+                    ));
                 }
             }
         }
     }
     Ok(())
+}
+
+/// Whether two rule-target namespace matchers can match the same citation
+/// (§FS-config.3.9.3): `*/` (any namespace) overlaps every qualifier; otherwise
+/// two matchers overlap only when identical — both local, or the same pinned
+/// alias. A local matcher and a pinned-alias matcher are disjoint, so permitting
+/// a local kind while forbidding one member's same kind is allowed.
+fn namespaces_overlap(a: &NamespaceMatch, b: &NamespaceMatch) -> bool {
+    match (a, b) {
+        (NamespaceMatch::Any, _) | (_, NamespaceMatch::Any) => true,
+        (NamespaceMatch::Local, NamespaceMatch::Local) => true,
+        (NamespaceMatch::Alias(left), NamespaceMatch::Alias(right)) => left == right,
+        _ => false,
+    }
 }
 
 /// The namespace qualifier as written in config — for round-tripping in
