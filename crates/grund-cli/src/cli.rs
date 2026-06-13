@@ -12,6 +12,7 @@ fn command_check(args: &[String]) -> ExitCode {
     let mut path_provided = false;
     let mut format_override = None;
     let mut require_grounding = false;
+    let mut include_suggestions = false;
     let mut idx = 0;
     while idx < args.len() {
         match args[idx].as_str() {
@@ -27,6 +28,7 @@ fn command_check(args: &[String]) -> ExitCode {
                 format_override = Some(args[idx].clone());
             }
             "--require-grounding" => require_grounding = true,
+            "--suggestions" => include_suggestions = true,
             other if other.starts_with('-') => {
                 eprintln!("error: unknown flag `{other}`");
                 return ExitCode::from(2);
@@ -52,6 +54,7 @@ fn command_check(args: &[String]) -> ExitCode {
         path,
         path_provided,
         require_grounding,
+        include_suggestions,
     }) {
         Ok(output) => output,
         Err(err) => {
@@ -79,11 +82,19 @@ fn command_check(args: &[String]) -> ExitCode {
 }
 
 fn sorted_findings(report: &Report) -> Vec<(&'static str, &Finding)> {
+    // §FS-check.2.3: `report.suggestions` is populated only when the caller
+    // asked for them, so chaining it unconditionally is a no-op otherwise.
     let mut findings = report
         .warnings
         .iter()
         .map(|finding| ("warning", finding))
         .chain(report.errors.iter().map(|finding| ("error", finding)))
+        .chain(
+            report
+                .suggestions
+                .iter()
+                .map(|finding| ("suggestion", finding)),
+        )
         .collect::<Vec<_>>();
     findings.sort_by(|(_, a), (_, b)| {
         (
@@ -101,7 +112,10 @@ fn sorted_findings(report: &Report) -> Vec<(&'static str, &Finding)> {
 }
 
 fn render_check_text(report: &Report) {
-    if report.errors.is_empty() && report.warnings.is_empty() {
+    // §FS-check.2.3: suggestions never suppress `success`, but when present
+    // (caller passed --suggestions) they are printed, so the marker only stands
+    // in for a run with nothing at all to show.
+    if report.errors.is_empty() && report.warnings.is_empty() && report.suggestions.is_empty() {
         println!("success");
         return;
     }
@@ -157,9 +171,16 @@ fn render_finding_json(severity: &str, finding: &Finding) -> String {
             .join(",");
         format!("[{}]", values)
     };
+    // §FS-errors.5: a suggestion carries `"channel":"suggestion"` rather than a
+    // `"severity"`, so the frozen `{error, warning}` set stays intact.
+    let tag = if severity == "suggestion" {
+        "\"channel\":\"suggestion\"".to_string()
+    } else {
+        format!("\"severity\":\"{severity}\"")
+    };
     format!(
-        "{{\"severity\":\"{}\",\"path\":{},\"line\":{},\"code\":\"{}\",\"message\":\"{}\",\"sites\":{}}}",
-        severity,
+        "{{{},\"path\":{},\"line\":{},\"code\":\"{}\",\"message\":\"{}\",\"sites\":{}}}",
+        tag,
         path,
         line,
         finding.code,

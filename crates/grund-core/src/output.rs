@@ -2,8 +2,14 @@
 /// §FS-errors.2.1, §FS-errors.2.4): `path:line: message` for located findings,
 /// run-level diagnostics on stderr, and `success` for a clean text check
 /// (§FS-check.2.1). Diagnostic lines stay in the fixed order (§FS-errors.4).
-fn print_report(config: &Config, report: &CheckReport) {
-    if report.errors.is_empty() && report.warnings.is_empty() {
+fn print_report(config: &Config, report: &CheckReport, include_suggestions: bool) {
+    // §FS-check.2.3: the `success` marker keys off errors and warnings only — a
+    // suggestion is not a finding about well-formedness, so it never suppresses
+    // `success`, and without `--suggestions` it is not printed at all.
+    if report.errors.is_empty()
+        && report.warnings.is_empty()
+        && (!include_suggestions || report.suggestions.is_empty())
+    {
         println!("success");
         return;
     }
@@ -13,6 +19,14 @@ fn print_report(config: &Config, report: &CheckReport) {
         .map(|diagnostic| ("warning", diagnostic))
         .chain(report.errors.iter().map(|diagnostic| ("error", diagnostic)))
         .collect::<Vec<_>>();
+    if include_suggestions {
+        diagnostics.extend(
+            report
+                .suggestions
+                .iter()
+                .map(|diagnostic| ("suggestion", diagnostic)),
+        );
+    }
     diagnostics.sort_by(|(_, a), (_, b)| diagnostic_cmp(a, b));
     for (severity, diagnostic) in diagnostics {
         let line = render_diagnostic_text(config, severity, diagnostic);
@@ -49,13 +63,24 @@ fn render_diagnostic_text(config: &Config, severity: &str, diagnostic: &Diagnost
     }
 }
 
-fn sorted_json_diagnostics(report: &CheckReport) -> Vec<(&'static str, &Diagnostic)> {
+fn sorted_json_diagnostics(
+    report: &CheckReport,
+    include_suggestions: bool,
+) -> Vec<(&'static str, &Diagnostic)> {
     let mut diagnostics = report
         .warnings
         .iter()
         .map(|diagnostic| ("warning", diagnostic))
         .chain(report.errors.iter().map(|diagnostic| ("error", diagnostic)))
         .collect::<Vec<_>>();
+    if include_suggestions {
+        diagnostics.extend(
+            report
+                .suggestions
+                .iter()
+                .map(|diagnostic| ("suggestion", diagnostic)),
+        );
+    }
     diagnostics.sort_by(|(_, a), (_, b)| diagnostic_cmp(a, b));
     diagnostics
 }
@@ -65,9 +90,9 @@ fn sorted_json_diagnostics(report: &CheckReport) -> Vec<(&'static str, &Diagnost
 /// `severity`, `path`, `line`, `code`, `message`, `sites`. Located findings go to
 /// stdout (`check`'s output, §FS-errors.1); a `line`-less diagnostic (mid-walk read
 /// failure, empty-scan caution) goes to stderr, mirroring the text form.
-fn print_json_report(config: &Config, report: &CheckReport) {
-    for (severity, diagnostic) in sorted_json_diagnostics(report) {
-        let object = render_diagnostic_json(config, severity, diagnostic);
+fn print_json_report(config: &Config, report: &CheckReport, include_suggestions: bool) {
+    for (channel, diagnostic) in sorted_json_diagnostics(report, include_suggestions) {
+        let object = render_diagnostic_json(config, channel, diagnostic);
         if diagnostic.line.is_some() {
             println!("{object}");
         } else {
@@ -76,7 +101,11 @@ fn print_json_report(config: &Config, report: &CheckReport) {
     }
 }
 
-fn render_diagnostic_json(config: &Config, severity: &str, diagnostic: &Diagnostic) -> String {
+/// Render one diagnostic as a JSON object (§FS-errors.5). An `error` / `warning`
+/// carries a `"severity"`; a citation-direction `suggestion` carries
+/// `"channel":"suggestion"` instead, keeping the frozen `{error, warning}`
+/// severity set intact (§FS-config.6, §FS-check.2.3).
+fn render_diagnostic_json(config: &Config, channel: &str, diagnostic: &Diagnostic) -> String {
     let path = diagnostic
         .path
         .as_ref()
@@ -103,9 +132,14 @@ fn render_diagnostic_json(config: &Config, severity: &str, diagnostic: &Diagnost
             .join(",");
         format!("[{}]", values)
     };
+    let tag = if channel == "suggestion" {
+        "\"channel\":\"suggestion\"".to_string()
+    } else {
+        format!("\"severity\":\"{channel}\"")
+    };
     format!(
-        "{{\"severity\":\"{}\",\"path\":{},\"line\":{},\"code\":\"{}\",\"message\":\"{}\",\"sites\":{}}}",
-        severity,
+        "{{{},\"path\":{},\"line\":{},\"code\":\"{}\",\"message\":\"{}\",\"sites\":{}}}",
+        tag,
         path,
         line,
         diagnostic.code,

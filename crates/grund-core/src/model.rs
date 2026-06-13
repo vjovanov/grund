@@ -163,6 +163,65 @@ pub struct ConfigLocation {
     pub line: usize,
 }
 
+/// One RFC-2119 level a `[citations]` rule entry can carry (§FS-config.3.9.1,
+/// §DF-citation-directions.2.1).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CitationLevel {
+    Must,
+    Should,
+    May,
+    ShouldNot,
+    MustNot,
+}
+
+/// How a rule entry's namespace qualifier matches a citation's namespace
+/// (§FS-config.3.9.3): bare `KIND` is local-only, `alias/KIND` pins one member,
+/// `*/KIND` matches any namespace — rule grammar only, never a citation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NamespaceMatch {
+    Local,
+    Alias(String),
+    Any,
+}
+
+/// One cited target in a rule entry: a namespace qualifier plus a kind prefix.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CitationTarget {
+    pub namespace: NamespaceMatch,
+    pub kind: String,
+}
+
+/// One `[citations]` array entry — a disjunction of targets joined by `|`
+/// (§FS-config.3.9.1). Satisfied by a citation matching any one target.
+#[derive(Clone, Debug)]
+pub struct CitationDisjunction {
+    pub targets: Vec<CitationTarget>,
+}
+
+/// The direction rules for one citing kind (§FS-config.3.9). `must` / `should`
+/// are obligations checked per declaration; `should_not` / `must_not` are
+/// prohibitions checked per citation site; `may` is an explicit permission that
+/// punches a hole in a stricter `default`.
+#[derive(Clone, Debug, Default)]
+pub struct KindCitationRules {
+    pub default: Option<CitationLevel>,
+    pub must: Vec<CitationDisjunction>,
+    pub should: Vec<CitationDisjunction>,
+    pub may: Vec<CitationDisjunction>,
+    pub should_not: Vec<CitationDisjunction>,
+    pub must_not: Vec<CitationDisjunction>,
+}
+
+/// The parsed `[citations]` section (§FS-config.3.9): the global default level
+/// and the per-citing-kind rule tables. `declared` records whether the section
+/// was present at all — absent means no direction checks run.
+#[derive(Clone, Debug, Default)]
+pub struct CitationRules {
+    pub declared: bool,
+    pub global_default: Option<CitationLevel>,
+    pub per_kind: BTreeMap<String, KindCitationRules>,
+}
+
 /// The effective configuration: every `.agents/grund.toml` key (§FS-config.3) merged
 /// over the built-in defaults (§FS-config.2), plus the compiled `Grammar` and the
 /// `root` / `cli_base` paths the walk and the report use.
@@ -213,6 +272,9 @@ pub struct Config {
     pub workspace_members_source: Option<ConfigLocation>,
     pub workspace_include_root: bool,
     pub workspace_boundary_roots: Vec<PathBuf>,
+    /// Parsed `[citations]` direction rules (§FS-config.3.9). Empty/absent unless
+    /// the config declares the section.
+    pub citations: CitationRules,
     pub grammar: Grammar,
 }
 
@@ -321,6 +383,7 @@ impl Config {
             workspace_members_source: None,
             workspace_include_root: true,
             workspace_boundary_roots: Vec::new(),
+            citations: CitationRules::default(),
             grammar,
         }
     }
@@ -425,11 +488,16 @@ struct Diagnostic {
 
 /// The outcome of `check`: errors and warnings, kept apart so the exit code keys
 /// off errors only (§FS-check.2, §FS-check.4) and the printed order is fixed
-/// (§FS-errors.4, §FS-non-goals.9).
+/// (§FS-errors.4, §FS-non-goals.9). `suggestions` is the third, non-severity
+/// advisory channel (§FS-check.2.3, §DF-citation-directions.2.3): the
+/// `should` / `should-not` citation-direction findings, withheld from the
+/// default run and surfaced only under `--suggestions`. It never affects the
+/// exit code.
 #[derive(Default)]
 struct CheckReport {
     errors: Vec<Diagnostic>,
     warnings: Vec<Diagnostic>,
+    suggestions: Vec<Diagnostic>,
 }
 
 /// What an ID query resolved to: the body text to print, the `path:line` it
