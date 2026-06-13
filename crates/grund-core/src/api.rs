@@ -773,6 +773,14 @@ pub struct ListOutput {
     pub scan_errors: Vec<ApiScanError>,
 }
 
+fn list_summary_home(kind: &KindConfig) -> String {
+    kind.file
+        .as_deref()
+        .or(kind.folder.as_deref())
+        .unwrap_or_default()
+        .to_string()
+}
+
 /// Programmatic `list`: return the catalog and per-kind summary rows without
 /// selecting text/JSON rendering or an exit code (§RM-core-cli-split).
 pub fn list(opts: ListOpts) -> Result<ListOutput> {
@@ -958,7 +966,7 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
                     project: Some(project.alias.clone()),
                     kind: kind.prefix.clone(),
                     title: kind.title.clone().unwrap_or_else(|| "Declaration".to_string()),
-                    home: kind.folder.clone().unwrap_or_default(),
+                    home: list_summary_home(kind),
                     count,
                 });
             }
@@ -977,7 +985,7 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
                 project: None,
                 kind: kind.prefix.clone(),
                 title: kind.title.clone().unwrap_or_else(|| "Declaration".to_string()),
-                home: kind.folder.clone().unwrap_or_default(),
+                home: list_summary_home(kind),
                 count,
             });
         }

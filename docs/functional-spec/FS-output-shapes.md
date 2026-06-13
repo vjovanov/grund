@@ -104,7 +104,7 @@ Fields:
 `list --summary --format=json` emits one kind summary object per line, in configured kind order after `--kind` / `--unused` filtering:
 
 ```json
-{"kind":"FS","title":"What: behavior, requirements, and constraints","home":"docs/functional-spec","count":2}
+{"kind":"FS","title":"What: behavior, requirements, and constraints","home":"requirements.md","count":2}
 {"kind":"AR","title":"How: high-level implementation, structure, and design","home":"docs/architecture","count":1}
 ```
 
