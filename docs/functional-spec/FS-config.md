@@ -212,6 +212,59 @@ include_root = true
 
 `members` and `include_root` are specified by [§FS-workspace](FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace). The table is optional; without it the repository is a single project exactly as before. Unknown keys under `[workspace]` are errors like any other config typo.
 
+### 3.9 `[citations]` — citation direction rules
+
+```toml
+[citations]               # absent section = no direction checks (backward compatible)
+default = "may"           # global default level for unlisted (citing → cited) pairs
+
+[citations.FS]
+should = ["GOAL|FS"]      # an FS declaration should cite a GOAL or a parent FS
+must-not = ["AR"]         # an FS citation site may never cite an AR
+
+[citations.E2E]
+must = ["FS"]             # every E2E case must cite the FS it tests
+
+[citations.code]          # reserved pseudo-kind: citing sites outside any kind home
+should = ["FS|AR"]
+```
+
+Each `[citations.<KIND>]` subsection names the **citing** kind; its arrays name the **cited** kinds. The section is decided in [§DF-citation-directions](../decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels) and proposed in [§DISC-citation-directions](../discussions/proposals/2026-06-13-citation-directions.md#disc-citation-directions-encode-citation-directions-as-checked-config). It is optional; without it no direction check runs and `grund check` behaves exactly as before.
+
+#### 3.9.1 Levels
+
+Five keys form an RFC-2119 ladder, split into two rule classes and two enforcement surfaces:
+
+| Level | Rule class | Checked per | Surface |
+|---|---|---|---|
+| `must` | obligation | declaration | `grund check` error — `missing-citation` ([§FS-check.3.11](FS-check.md#311-missing-required-citation)) |
+| `should` | obligation | declaration | suggestion — `suggested-citation` ([§FS-check.2.3](FS-check.md#23-suggestions-channel-opt-in)) |
+| `may` | permission | — | never checked; punches a hole in a stricter `default` |
+| `should-not` | prohibition | citation site | suggestion — `discouraged-citation` ([§FS-check.2.3](FS-check.md#23-suggestions-channel-opt-in)) |
+| `must-not` | prohibition | citation site | `grund check` error — `forbidden-citation` ([§FS-check.3.12](FS-check.md#312-forbidden-citation)) |
+
+An **obligation** asks: does each top-level declaration of the citing kind contain at least one citation to the target kind, anywhere in its body? Multiple array entries are **conjunctive** — `must = ["GOAL", "GRUND"]` requires a citation to each — while a `|` disjunction inside one entry is satisfied by any one alternative — `must = ["GOAL|GRUND"]` requires a citation to either. A **prohibition** fires once per offending citation site, anchored at its exact `file:line`.
+
+`must` and `must-not` gate (`grund check` errors); `should` and `should-not` are machine-checked suggestions that never appear in `grund check`'s standing output and are surfaced only at write time (the generated entrypoint, [§FS-init.2.3.5](FS-init.md#235-citation-directions)) and on demand (`grund check --suggestions`, [§FS-check.2.3](FS-check.md#23-suggestions-channel-opt-in)). The level→surface mapping is fixed, never a project knob, so two installs reading one config agree on what gates and what is suggested ([§FS-non-goals.9](FS-non-goals.md#9-severity-exit-code-or-report-ordering-customization)).
+
+#### 3.9.2 The `code` pseudo-kind
+
+`code` is a reserved lowercase citing kind: a citation site that falls outside every configured kind home ([§AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)). `[citations.code]` obligations apply per file, only to files that contain at least one citation, and only to **source files** under the exact predicate `require_grounding` uses — a scanned file whose extension is not `.md` ([§DF-require-grounding.2.2](../decisions/functional/DF-require-grounding.md#22-grounded-is-defined-syntactically)). Markdown outside a kind home (a README, the changelog) is therefore prohibition-checked but obligation-exempt. `code` may not be used as a `[[kinds]]` prefix — it is the one reserved name, which keeps its non-collision with a real kind an invariant rather than an assumption.
+
+#### 3.9.3 Namespace matching
+
+Rule entries reuse the citation grammar of [§FS-workspace.1](FS-workspace.md#1-citation-syntax): a bare `AR` matches the **local** namespace only; `alias/AR` pins one workspace member; `*/AR` matches the kind in **any** namespace including the local one. `*/` is new syntax valid in rule entries only — it is never a citation. Each entry parses as `[alias-or-*/]KIND`. The match is textual on the qualifier and prefix; resolution failures are separate errors ([§FS-check.3.8](FS-check.md#38-cross-project-citation-failure)), so the direction check never loads a foreign config. Each member's own `[citations]` governs the citation sites in that member's tree — like `strict`, `require_grounding`, and `[id]`, no section inherits from the workspace root.
+
+#### 3.9.4 Defaults and precedence
+
+`default` (top-level, or per-kind inside a `[citations.<KIND>]` table) sets the level for unlisted target kinds; the global default is `may`, so adoption is incremental. Precedence is **explicit target list > per-kind `default` > global `default`**. Obligations come only from explicit `must` / `should` entries — a `default` of `must` or `should` never invents an obligation toward every unlisted kind; `default` governs only how a citation to an otherwise-unlisted target is leveled for the prohibition pass.
+
+#### 3.9.5 Validation
+
+Config validation rejects: a `[citations.<KIND>]` table whose kind is neither a configured `[[kinds]]` prefix nor `code`; a target naming a kind that is not a configured prefix; `code` used as a `[[kinds]]` prefix (§3.4); an unknown level key; and the same `(citing kind, target)` pair listed at two levels. The section composes unchanged with project-defined `[[kinds]]` — a new kind is one more `[citations.<KIND>]` table.
+
+Adding `[citations]` does **not** bump `grund_config_version` (§5): it is additive surface, like `[workspace]` and `require_grounding`. An older binary meeting it fails loudly with `unknown config section`.
+
 ## 4. Validation and inspection
 
 ### 4.1 `grund config validate [path]`
@@ -236,7 +289,7 @@ The TOML file may include a top-level `grund_config_version = N`. The current ve
 
 Per [§GOAL-friendliness-first](../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible), the following are deliberately **not** configurable, to avoid the trap of every grund repo behaving differently in surprising ways:
 
-- The set of severity levels (only `error` and `warning` exist).
+- The set of severity levels (only `error` and `warning` exist). The `should`-level citation-direction findings ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) do **not** add a third severity: they are carried on a separate non-severity advisory channel ([§FS-check.2.3](FS-check.md#23-suggestions-channel-opt-in)), so this frozen `{error, warning}` set stays exactly two.
 - The exit code mapping (`0`/`1`/`2` per [§FS-check.2](FS-check.md#2-outputs)).
 - The ordering of the report (always deterministic).
 - Anything that would let two correctly-configured grund installs disagree on whether a given repo is well-formed.
