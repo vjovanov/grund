@@ -32,7 +32,7 @@ title = "Where: project direction and outcomes"
 
 [[kinds]]
 prefix = "FS"
-folder = "docs/functional-spec"
+file = "requirements.md"
 title = "What: behavior, requirements, and constraints"
 
 [[kinds]]
@@ -61,7 +61,7 @@ file = "docs/roadmap.md"
 title = "Planned milestones and sequencing"
 
 [scan]
-include = ["docs", "e2e", "src"]
+include = ["requirements.md", "docs", "e2e", "src"]
 exclude = ["target", "node_modules", ".git", "dist", "build", ".venv"]
 extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs"]
 comment_prefixes = ["//", "#", ";", "--", "*", "/*"]

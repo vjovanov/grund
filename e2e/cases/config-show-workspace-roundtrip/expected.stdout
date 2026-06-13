@@ -21,10 +21,12 @@ slug_pattern = "[a-z][a-z0-9-]*"
 
 [[kinds]]
 prefix = "GRUND"
+file = "docs/grund.md"
 title = "Why: project motivation"
 
 [[kinds]]
 prefix = "GOAL"
+file = "docs/goals.md"
 title = "Where: project direction and outcomes"
 
 [[kinds]]
@@ -54,6 +56,7 @@ title = "Executable user scenarios"
 
 [[kinds]]
 prefix = "RM"
+file = "docs/roadmap.md"
 title = "Planned milestones and sequencing"
 
 [scan]

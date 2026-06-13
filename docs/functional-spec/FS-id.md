@@ -36,30 +36,30 @@ This is shaped for shell composition. A typical workflow:
 
 ```sh
 ID=$(grund id FS "User can log in with email")
-$EDITOR "docs/functional-spec/${ID}.md"
+$EDITOR requirements.md
 ```
 
 Stderr is empty on success unless `--explain` was passed (§2.3). The `path:line:` prefix from [§GOAL-friendliness-first.1](../goals.md#1-hard-requirements) does not apply — `id` synthesizes; it does not point at a source location.
 
 ### 2.3 `--explain` (text only)
 
-With `--explain`, stdout is unchanged — still the bare ID — and stderr carries one extra line: where to put the declaration and how to start it. For a kind with a configured `folder`:
+With `--explain`, stdout is unchanged — still the bare ID — and stderr carries one extra line: where to put the declaration and how to start it. For a kind with a configured `file`:
 
 ```
 $ grund id FS "User can log in with email" --explain
 FS-008-user-can-log-in-with-email
-next: write the declaration at docs/functional-spec/FS-008-user-can-log-in-with-email.md  (H1: `# FS-008-user-can-log-in-with-email: <one-line statement>`), then cite it as §FS-008-user-can-log-in-with-email
+next: add the declaration to requirements.md  (H2: `## FS-008-user-can-log-in-with-email: <one-line statement>`), then cite it as §FS-008-user-can-log-in-with-email
 ```
 
-If the kind has no `folder`, the hint names the H1 and the citation but not a path. This is the human-facing complement to the script-facing default: the bare ID still composes in `$(…)`, while a person who ran `grund id` interactively gets the obvious next step instead of having to recall the layout. It does not create the file (§7).
+For a kind with a configured `folder`, the hint names the new declaration file under that folder and uses an H1. If the kind has neither `file` nor `folder`, the hint names the H1 and the citation but not a path. This is the human-facing complement to the script-facing default: the bare ID still composes in `$(…)`, while a person who ran `grund id` interactively gets the obvious next step instead of having to recall the layout. It does not create the file (§7).
 
 ### 2.2 `--format json`
 
 ```json
-{"id":"FS-008-user-can-log-in-with-email","kind":"FS","number":8,"slug":"user-can-log-in-with-email","folder":"docs/functional-spec"}
+{"id":"FS-008-user-can-log-in-with-email","kind":"FS","number":8,"slug":"user-can-log-in-with-email","folder":"","file":"requirements.md"}
 ```
 
-`folder` is the configured `[[kinds]] folder` for the kind ([§FS-config.3.4](FS-config.md#34-kinds--recognized-prefixes)) — the conventional home for declarations of this kind, included so editor "create new declaration" actions can place the file without a second lookup. Under a number-less `[id] format` the `number` field is `null` (§4.1).
+`folder` and `file` are the configured `[[kinds]]` home for the kind ([§FS-config.3.4](FS-config.md#34-kinds--recognized-prefixes)) — exactly one is usually non-empty, included so editor "create new declaration" actions can place the declaration without a second lookup. Under a number-less `[id] format` the `number` field is `null` (§4.1).
 
 ## 3. Slug derivation
 

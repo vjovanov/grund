@@ -21,9 +21,9 @@ wrote AGENTS.md
 wrote .agents/grund.toml
 
 next:
-  1. re-run with --docs to scaffold docs/ and e2e/ (or create those folders yourself) — until then `grund check` has nothing to scan
+  1. re-run with --docs to scaffold the FS home (requirements.md), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan
   2. run `grund check` — a scaffolded tree is clean
-  3. allocate an ID:  ID=$(grund id FS "…")  then write  docs/functional-spec/$ID.md
+  3. allocate an ID:  ID=$(grund id FS "…")  then add it to requirements.md
 see AGENTS.md for the full workflow.
 ```
 
@@ -51,11 +51,11 @@ Exit `0`, stdout empty, stderr:
 ```text
 wrote AGENTS.md
 wrote .agents/grund.toml
+wrote requirements.md
 wrote docs/grund.md
 wrote docs/goals.md
 wrote docs/roadmap.md
 wrote docs/changelog.md
-wrote docs/functional-spec/README.md
 wrote docs/architecture/README.md
 wrote docs/decisions/architectural/.gitkeep
 wrote docs/decisions/functional/.gitkeep
@@ -64,8 +64,8 @@ wrote e2e/cases/.gitkeep
 
 next:
   1. run `grund check` — a freshly scaffolded tree is clean
-  2. allocate an ID:  ID=$(grund id FS "…")  then write  docs/functional-spec/$ID.md
-     (H1: `# <ID>: <one-line statement of the behavior>`)
+  2. allocate an ID:  ID=$(grund id FS "…")  then add it to requirements.md
+     (H2: `## <ID>: <one-line statement of the behavior>`)
   3. cite it as §<ID> from the docs and e2e tests that depend on it, then `grund check` again
 see AGENTS.md for the full workflow.
 ```
@@ -73,11 +73,11 @@ see AGENTS.md for the full workflow.
 Final tree includes the default-form files plus exactly these docs/e2e scaffold paths:
 
 ```text
+requirements.md
 docs/grund.md
 docs/goals.md
 docs/roadmap.md
 docs/changelog.md
-docs/functional-spec/README.md
 docs/architecture/README.md
 docs/decisions/architectural/.gitkeep
 docs/decisions/functional/.gitkeep

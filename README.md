@@ -29,7 +29,7 @@ Keep agents grounded in the spec — fewer bugs, cheaper LLM context,
 faster onboarding. …
 ```
 
-That heading lives in the configured home for its kind (`GRUND` → `docs/grund.md`, `FS` → `docs/functional-spec/`, `GOAL` → `docs/goals.md`, and so on — see [§4](#4-the-structure-that-gets-cited)). Once it's declared, any code, doc, or test can cite `§GRUND-grund` and `grund check` will resolve it.
+That heading lives in the configured home for its kind (`GRUND` → `docs/grund.md`, `FS` → `requirements.md`, `GOAL` → `docs/goals.md`, and so on — see [§4](#4-the-structure-that-gets-cited)). Once it's declared, any code, doc, or test can cite `§GRUND-grund` and `grund check` will resolve it.
 
 ## 1. Cite as you write
 
@@ -78,7 +78,7 @@ src/bus.rs:5: unknown reference FS-events
 src/bus.rs:7: unknown reference FS-events.4
 ```
 
-`grund <path>` scans `<path>`; with no path it scans the canonical layout (`docs/`, `e2e/`, `src/`). In the scanned tree it enforces:
+`grund <path>` scans `<path>`; with no path it scans the canonical layout (`requirements.md`, `docs/`, `e2e/`, `src/`). In the scanned tree it enforces:
 
 1. Every cited ID resolves to a declaration. *(dangling references)*
 2. Every section coordinate (`.3.1`) resolves to a heading inside the declaration. *(missing sections)*
@@ -138,7 +138,7 @@ Every fact in a `grund` repo has a stable ID. The default kinds (configurable):
 | --- | --- | --- |
 | `GRUND` | Why: project motivation | `docs/grund.md` (one declaration, all of it inline) |
 | `GOAL` | Where: project direction and outcomes | `docs/goals.md` (one file, all goals inline) |
-| `FS` | What: behavior, requirements, and constraints | `docs/functional-spec/` |
+| `FS` | What: behavior, requirements, and constraints | `requirements.md` |
 | `AR` | How: high-level implementation, structure, and design | `docs/architecture/` — **or inline in a class / module doc-comment** |
 | `DF` | product behavior decisions and tradeoffs | `docs/decisions/functional/` (append-only) |
 | `DA` | architecture decisions and tradeoffs | `docs/decisions/architectural/` (append-only) |

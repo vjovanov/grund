@@ -301,6 +301,20 @@ impl Config {
         }
     }
 
+    /// Compatibility defaults for an already-authored `.agents/grund.toml` that
+    /// predates the `requirements.md` generated default and omits `[[kinds]]`.
+    /// New zero-config projects and freshly generated configs use
+    /// [`Config::default_for`]; existing configs without explicit kind homes keep
+    /// the old implicit FS folder until they opt into `file = "requirements.md"`.
+    fn default_for_existing_config(root: PathBuf) -> Self {
+        let mut config = Self::default_for(root);
+        if let Some(fs_kind) = config.kinds.iter_mut().find(|kind| kind.prefix == "FS") {
+            fs_kind.folder = Some("docs/functional-spec".to_string());
+            fs_kind.file = None;
+        }
+        config
+    }
+
     /// Recompile the `Grammar` after `[id]` / `[[kinds]]` / `[scan].comment_prefixes`
     /// keys are read from a config file (§FS-config.3) — keeps the regexes and the
     /// scalar config in lockstep.
@@ -326,7 +340,6 @@ fn kind_prefixes(kinds: &[KindConfig]) -> Vec<String> {
 /// a path under and `grund check` expects the declaration to live in (§FS-config.3.4).
 fn default_kind_folder(prefix: &str) -> Option<&'static str> {
     match prefix {
-        "FS" => Some("docs/functional-spec"),
         "AR" => Some("docs/architecture"),
         "DA" => Some("docs/decisions/architectural"),
         "DF" => Some("docs/decisions/functional"),
@@ -338,14 +351,15 @@ fn default_kind_folder(prefix: &str) -> Option<&'static str> {
     }
 }
 
-/// Default single-file home for the three kinds whose declarations all live in
-/// one document — `GRUND` in `docs/grund.md`, `GOAL` in `docs/goals.md`, `RM`
-/// in `docs/roadmap.md` (§FS-config.3.4). Other built-in kinds have no `file`
-/// (each declaration is its own file).
+/// Default single-file home for kinds whose declarations all live in one
+/// document — `GRUND` in `docs/grund.md`, `GOAL` in `docs/goals.md`, `FS` in
+/// `requirements.md`, and `RM` in `docs/roadmap.md` (§FS-config.3.4). Other
+/// built-in kinds have no `file` (each declaration is its own file).
 fn default_kind_file(prefix: &str) -> Option<&'static str> {
     match prefix {
         "GRUND" => Some("docs/grund.md"),
         "GOAL" => Some("docs/goals.md"),
+        "FS" => Some("requirements.md"),
         "RM" => Some("docs/roadmap.md"),
         _ => None,
     }

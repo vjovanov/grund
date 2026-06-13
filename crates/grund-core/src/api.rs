@@ -349,6 +349,7 @@ pub struct IdProposal {
     pub number: Option<u32>,
     pub slug: String,
     pub folder: Option<String>,
+    pub file: Option<String>,
     pub e2e_case_dir: Option<String>,
 }
 
@@ -422,6 +423,7 @@ pub fn propose_id(kind: &str, title: &str, opts: IdOpts) -> Result<IdProposalOut
         number,
         slug,
         folder: kind_config.folder.clone(),
+        file: kind_config.file.clone(),
     }))
 }
 

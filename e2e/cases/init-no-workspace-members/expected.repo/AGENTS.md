@@ -19,7 +19,7 @@ A `§<ID>` is a pointer to a fact, not a file path. Resolve it with `grund` and 
 
 - [GRUND](docs/grund.md): Why: project motivation
 - [GOAL](docs/goals.md): Where: project direction and outcomes
-- [FS](docs/functional-spec): What: behavior, requirements, and constraints
+- [FS](requirements.md): What: behavior, requirements, and constraints
 - [AR](docs/architecture): How: high-level implementation, structure, and design
 - [DF](docs/decisions/functional): Product behavior decisions and tradeoffs
 - [DA](docs/decisions/architectural): Architecture decisions and tradeoffs

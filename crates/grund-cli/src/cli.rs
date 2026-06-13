@@ -842,21 +842,35 @@ fn render_init_next(next: &InitNext) {
     eprintln!("next:");
     if next.docs {
         eprintln!("  1. run `grund check` — a freshly scaffolded tree is clean");
-        eprintln!(
-            "  2. allocate an ID:  ID=$(grund id FS \"…\")  then write  docs/functional-spec/$ID.md"
-        );
-        eprintln!("     (H1: `# <ID>: <one-line statement of the behavior>`)");
+        match &next.fs_home {
+            InitFsHome::File { path, heading_name, heading_marker } => {
+                eprintln!("  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}");
+                eprintln!(
+                    "     ({heading_name}: `{heading_marker} <ID>: <one-line statement of the behavior>`)"
+                );
+            }
+            InitFsHome::Folder { path } => {
+                eprintln!("  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}");
+                eprintln!("     (H1: `# <ID>: <one-line statement of the behavior>`)");
+            }
+        }
         eprintln!(
             "  3. cite it as §<ID> from the docs and e2e tests that depend on it, then `grund check` again"
         );
     } else {
-        eprintln!(
-            "  1. re-run with --docs to scaffold docs/ and e2e/ (or create those folders yourself) — until then `grund check` has nothing to scan"
-        );
+        let fs_home_path = match &next.fs_home {
+            InitFsHome::File { path, .. } | InitFsHome::Folder { path } => path,
+        };
+        eprintln!("  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan");
         eprintln!("  2. run `grund check` — a scaffolded tree is clean");
-        eprintln!(
-            "  3. allocate an ID:  ID=$(grund id FS \"…\")  then write  docs/functional-spec/$ID.md"
-        );
+        match &next.fs_home {
+            InitFsHome::File { path, .. } => {
+                eprintln!("  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}");
+            }
+            InitFsHome::Folder { path } => {
+                eprintln!("  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}");
+            }
+        }
     }
     eprintln!("see {} for the full workflow.", next.entrypoint);
 }
@@ -1163,7 +1177,7 @@ fn command_id(args: &[String]) -> ExitCode {
 fn print_id_proposal(proposal: &IdProposal, format: &str, explain: bool) {
     if format == "json" {
         println!(
-            "{{\"id\":\"{}\",\"kind\":\"{}\",\"number\":{},\"slug\":\"{}\",\"folder\":\"{}\"}}",
+            "{{\"id\":\"{}\",\"kind\":\"{}\",\"number\":{},\"slug\":\"{}\",\"folder\":\"{}\",\"file\":\"{}\"}}",
             json_escape(&proposal.id),
             json_escape(&proposal.kind),
             proposal
@@ -1171,7 +1185,8 @@ fn print_id_proposal(proposal: &IdProposal, format: &str, explain: bool) {
                 .map(|number| number.to_string())
                 .unwrap_or_else(|| "null".to_string()),
             json_escape(&proposal.slug),
-            json_escape(proposal.folder.as_deref().unwrap_or(""))
+            json_escape(proposal.folder.as_deref().unwrap_or("")),
+            json_escape(proposal.file.as_deref().unwrap_or(""))
         );
         return;
     }
@@ -1195,6 +1210,18 @@ fn print_id_proposal(proposal: &IdProposal, format: &str, explain: bool) {
             "next: write the declaration at {folder}/{}.md  (H1: `# {}: <one-line statement>`), then cite it as §{}",
             proposal.id, proposal.id, proposal.id
         ),
+        None if proposal.file.is_some() => {
+            let file = proposal.file.as_deref().unwrap();
+            let (heading_name, heading_marker) = if proposal.kind == "GRUND" {
+                ("H1", "#")
+            } else {
+                ("H2", "##")
+            };
+            eprintln!(
+                "next: add the declaration to {file}  ({heading_name}: `{heading_marker} {}: <one-line statement>`), then cite it as §{}",
+                proposal.id, proposal.id
+            );
+        }
         None => eprintln!(
             "next: write the declaration with H1 `# {}: <one-line statement>`, then cite it as §{}",
             proposal.id, proposal.id
@@ -1305,6 +1332,9 @@ fn print_effective_config(config: &Config) {
         println!("prefix = \"{}\"", escape_toml_basic(&kind.prefix));
         if let Some(folder) = &kind.folder {
             println!("folder = \"{}\"", escape_toml_basic(folder));
+        }
+        if let Some(file) = &kind.file {
+            println!("file = \"{}\"", escape_toml_basic(file));
         }
         if let Some(title) = &kind.title {
             println!("title = \"{}\"", escape_toml_basic(title));
