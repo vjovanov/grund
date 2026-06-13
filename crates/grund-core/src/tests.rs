@@ -2460,6 +2460,102 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         assert!(cite.enclosing_declaration.is_none());
     }
 
+    // §FS-check.3.11 / §FS-check.3.12 / §FS-check.2.3: the [citations] obligation
+    // and prohibition passes and the suggestions channel.
+    #[test]
+    fn citation_directions_obligations_and_prohibitions() {
+        let root = test_root("citation_directions_obligations_and_prohibitions");
+        // Numbered IDs deliberately do not parse under this repo's own
+        // `{kind}-{slug}` grammar, so these fixture tokens stay inert when the
+        // grund tree self-scans `tests.rs`.
+        write(
+            &root.join(".agents/grund.toml"),
+            r#"project_name = "scratch"
+[[kinds]]
+prefix = "GOAL"
+file = "docs/goals.md"
+[[kinds]]
+prefix = "FS"
+folder = "docs/functional-spec"
+[[kinds]]
+prefix = "AR"
+folder = "docs/architecture"
+[scan]
+include = ["docs"]
+[citations]
+default = "may"
+[citations.FS]
+should = ["GOAL"]
+must-not = ["AR"]
+[citations.AR]
+must = ["FS"]
+"#,
+        );
+        write(&root.join("docs/goals.md"), "# Goals\n\n## GOAL-001-fast: Fast\n\nBe fast.\n");
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: Login\n\nImplements via §AR-001-router.\n",
+        );
+        write(
+            &root.join("docs/architecture/AR-001-router.md"),
+            "# AR-001-router: Router\n\nRoutes.\n",
+        );
+
+        let config = load_config(&root).expect("load config");
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let report = check_findings(&findings, &config);
+
+        // must: AR-001-router must cite FS → missing-citation error.
+        assert!(
+            report.errors.iter().any(|d| d.code == "missing-citation"
+                && d.message.contains("AR-001-router must cite FS")),
+            "expected missing-citation, got {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+        // must-not: FS-001-login cites AR → forbidden-citation error at the site.
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|d| d.code == "forbidden-citation" && d.line == Some(3)),
+            "expected forbidden-citation at line 3"
+        );
+        // should: FS-001-login cites no GOAL → suggested-citation on the channel.
+        assert!(
+            report.suggestions.iter().any(|d| d.code == "suggested-citation"
+                && d.message.contains("FS-001-login should cite GOAL")),
+            "expected suggested-citation, got {:?}",
+            report.suggestions.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+        // should/should-not never leak into the gating channels.
+        assert!(
+            !report.errors.iter().any(|d| d.code == "suggested-citation")
+                && !report.warnings.iter().any(|d| d.code == "suggested-citation"),
+            "suggestions must not appear among errors or warnings"
+        );
+    }
+
+    // §FS-config.3.9: an absent [citations] section runs no direction checks.
+    #[test]
+    fn citation_directions_absent_section_is_inert() {
+        let root = test_root("citation_directions_absent_section_is_inert");
+        write(
+            &root.join("docs/architecture/AR-001-router.md"),
+            "# AR-001-router: Router\n\nNo upward citation.\n",
+        );
+        let config = Config::default_for(root.clone());
+        assert!(!config.citations.declared);
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let report = check_findings(&findings, &config);
+        assert!(
+            !report
+                .errors
+                .iter()
+                .any(|d| d.code == "missing-citation" || d.code == "forbidden-citation"),
+            "no direction findings without a [citations] section"
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn claude_symlink_to_agents_is_not_a_companion_entrypoint() {

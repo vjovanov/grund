@@ -128,6 +128,25 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                     });
                     kinds_block_seen = true;
                 }
+                // §FS-config.3.9: `[citations]` and per-kind `[citations.<KIND>]`
+                // tables. Both are plain tables, never arrays of tables.
+                other if other == "citations" || other.starts_with("citations.") => {
+                    if is_array_table {
+                        bail_config(
+                            path,
+                            line_no,
+                            "expected `[citations]` / `[citations.<KIND>]` (table)".to_string(),
+                        )?;
+                    }
+                    config.citations.declared = true;
+                    if let Some(kind) = other.strip_prefix("citations.") {
+                        config
+                            .citations
+                            .per_kind
+                            .entry(kind.to_string())
+                            .or_default();
+                    }
+                }
                 other => bail_config(path, line_no, format!("unknown config section `{other}`"))?,
             }
             continue;
@@ -344,6 +363,11 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             ("workspace", "include_root") => {
                 config.workspace_include_root = parse_bool(path, line_no, value)?;
             }
+            // §FS-config.3.9: `[citations]` `default`, and the level keys of each
+            // `[citations.<KIND>]` table.
+            (s, k) if s == "citations" || s.starts_with("citations.") => {
+                parse_citation_entry(path, line_no, s, k, value, &mut config.citations)?;
+            }
             _ => bail_config(path, line_no, format!("unknown config key `{key}`"))?,
         }
     }
@@ -392,6 +416,16 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                     k.prefix
                 ));
             }
+            // §FS-config.3.9.2: `code` is the reserved citing pseudo-kind; it can
+            // never be a real declaration kind, so reject it as a `[[kinds]]`
+            // prefix to keep that non-collision an invariant.
+            if k.prefix == CODE_SOURCE_KIND {
+                return Err(anyhow!(
+                    "{}: `{}` is reserved as the citation-direction pseudo-kind and cannot be a [[kinds]] prefix",
+                    format_path(path),
+                    CODE_SOURCE_KIND
+                ));
+            }
         }
         // Reject kinds whose prefix is itself a prefix of another kind's prefix
         // (§FS-config.3.4 — would make tokenization ambiguous).
@@ -428,6 +462,10 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
         for member in &config.workspace_members {
             validate_workspace_member(&source.path, source.line, member)?;
         }
+    }
+    // §FS-config.3.9.5: validate `[citations]` after the kind set is final.
+    if config.citations.declared {
+        validate_citation_rules(path, config)?;
     }
     Ok(())
 }
@@ -569,6 +607,210 @@ fn parse_string_list(path: &Path, line: usize, value: &str) -> Result<Vec<String
         .collect()
 }
 
+/// Parse one `[citations]` / `[citations.<KIND>]` key (§FS-config.3.9). The
+/// top-level table takes only `default`; a per-kind table takes `default` plus
+/// the five level lists.
+fn parse_citation_entry(
+    path: &Path,
+    line_no: usize,
+    section: &str,
+    key: &str,
+    value: &str,
+    citations: &mut CitationRules,
+) -> Result<()> {
+    if section == "citations" {
+        return match key {
+            "default" => {
+                citations.global_default = Some(parse_citation_level(path, line_no, value)?);
+                Ok(())
+            }
+            other => bail_config(
+                path,
+                line_no,
+                format!(
+                    "unknown key `{other}` in [citations] (expected `default`, or a [citations.<KIND>] table)"
+                ),
+            ),
+        };
+    }
+    let kind = section
+        .strip_prefix("citations.")
+        .expect("caller guarantees a citations. section");
+    let rules = citations.per_kind.entry(kind.to_string()).or_default();
+    match key {
+        "default" => rules.default = Some(parse_citation_level(path, line_no, value)?),
+        "must" => rules.must = parse_citation_disjunctions(path, line_no, value)?,
+        "should" => rules.should = parse_citation_disjunctions(path, line_no, value)?,
+        "may" => rules.may = parse_citation_disjunctions(path, line_no, value)?,
+        "should-not" => rules.should_not = parse_citation_disjunctions(path, line_no, value)?,
+        "must-not" => rules.must_not = parse_citation_disjunctions(path, line_no, value)?,
+        other => bail_config(
+            path,
+            line_no,
+            format!(
+                "unknown key `{other}` in [citations.{kind}] (expected must, should, may, should-not, must-not, or default)"
+            ),
+        )?,
+    }
+    Ok(())
+}
+
+fn parse_citation_level(path: &Path, line_no: usize, value: &str) -> Result<CitationLevel> {
+    let level = parse_string(path, line_no, value)?;
+    match level.as_str() {
+        "must" => Ok(CitationLevel::Must),
+        "should" => Ok(CitationLevel::Should),
+        "may" => Ok(CitationLevel::May),
+        "should-not" => Ok(CitationLevel::ShouldNot),
+        "must-not" => Ok(CitationLevel::MustNot),
+        other => bail_config(
+            path,
+            line_no,
+            format!(
+                "unknown citation level `{other}` (expected must, should, may, should-not, or must-not)"
+            ),
+        ),
+    }
+}
+
+fn parse_citation_disjunctions(
+    path: &Path,
+    line_no: usize,
+    value: &str,
+) -> Result<Vec<CitationDisjunction>> {
+    parse_string_list(path, line_no, value)?
+        .iter()
+        .map(|entry| parse_citation_disjunction(path, line_no, entry))
+        .collect()
+}
+
+fn parse_citation_disjunction(
+    path: &Path,
+    line_no: usize,
+    entry: &str,
+) -> Result<CitationDisjunction> {
+    let mut targets = Vec::new();
+    for token in entry.split('|') {
+        let token = token.trim();
+        if token.is_empty() {
+            bail_config(path, line_no, "empty citation target".to_string())?;
+        }
+        targets.push(parse_citation_target(path, line_no, token)?);
+    }
+    Ok(CitationDisjunction { targets })
+}
+
+fn parse_citation_target(path: &Path, line_no: usize, token: &str) -> Result<CitationTarget> {
+    let (namespace, kind) = match token.split_once('/') {
+        Some((qualifier, kind)) => {
+            let namespace = if qualifier == "*" {
+                NamespaceMatch::Any
+            } else {
+                NamespaceMatch::Alias(qualifier.to_string())
+            };
+            (namespace, kind)
+        }
+        None => (NamespaceMatch::Local, token),
+    };
+    if kind.is_empty() {
+        bail_config(
+            path,
+            line_no,
+            format!("citation target `{token}` names no kind"),
+        )?;
+    }
+    Ok(CitationTarget {
+        namespace,
+        kind: kind.to_string(),
+    })
+}
+
+/// Validate the parsed `[citations]` rules against the finalized kind set
+/// (§FS-config.3.9.5): every citing kind is a configured prefix or `code`, every
+/// target names a configured prefix, and no `(citing kind, target)` pair sits at
+/// two levels.
+fn validate_citation_rules(path: &Path, config: &Config) -> Result<()> {
+    let known: BTreeSet<&str> = config.kinds.iter().map(|k| k.prefix.as_str()).collect();
+    for (citing, rules) in &config.citations.per_kind {
+        if citing != CODE_SOURCE_KIND && !known.contains(citing.as_str()) {
+            return Err(anyhow!(
+                "{}: [citations.{citing}] names an unknown kind `{citing}`",
+                format_path(path)
+            ));
+        }
+        // (namespace, kind) → the level it was first seen at, to catch the same
+        // pair listed at two opposing levels.
+        let mut seen: BTreeMap<(String, String), &'static str> = BTreeMap::new();
+        let levels: [(&'static str, &[CitationDisjunction]); 5] = [
+            ("must", &rules.must),
+            ("should", &rules.should),
+            ("may", &rules.may),
+            ("should-not", &rules.should_not),
+            ("must-not", &rules.must_not),
+        ];
+        for (level_name, disjunctions) in levels {
+            for disjunction in disjunctions {
+                for target in &disjunction.targets {
+                    if !known.contains(target.kind.as_str()) {
+                        return Err(anyhow!(
+                            "{}: [citations.{citing}] {level_name} names an unknown target kind `{}`",
+                            format_path(path),
+                            target.kind
+                        ));
+                    }
+                    let signature = (
+                        citation_namespace_label(&target.namespace),
+                        target.kind.clone(),
+                    );
+                    if let Some(prior) = seen.insert(signature, level_name)
+                        && prior != level_name
+                    {
+                        return Err(anyhow!(
+                            "{}: [citations.{citing}] lists `{}` at both `{prior}` and `{level_name}`",
+                            format_path(path),
+                            render_citation_target(target)
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The namespace qualifier as written in config — for round-tripping in
+/// `grund config show` and for the duplicate-target message (§FS-config.3.9).
+fn citation_namespace_label(namespace: &NamespaceMatch) -> String {
+    match namespace {
+        NamespaceMatch::Local => String::new(),
+        NamespaceMatch::Any => "*/".to_string(),
+        NamespaceMatch::Alias(alias) => format!("{alias}/"),
+    }
+}
+
+fn render_citation_target(target: &CitationTarget) -> String {
+    format!("{}{}", citation_namespace_label(&target.namespace), target.kind)
+}
+
+fn render_citation_disjunction(disjunction: &CitationDisjunction) -> String {
+    disjunction
+        .targets
+        .iter()
+        .map(render_citation_target)
+        .collect::<Vec<_>>()
+        .join("|")
+}
+
+fn citation_level_str(level: CitationLevel) -> &'static str {
+    match level {
+        CitationLevel::Must => "must",
+        CitationLevel::Should => "should",
+        CitationLevel::May => "may",
+        CitationLevel::ShouldNot => "should-not",
+        CitationLevel::MustNot => "must-not",
+    }
+}
+
 fn command_config(args: &[String]) -> ExitCode {
     let Some(action) = args.first().map(|arg| arg.as_str()) else {
         eprintln!("error: expected `config validate` or `config show`");
@@ -707,6 +949,9 @@ fn command_config(args: &[String]) -> ExitCode {
                     );
                     println!("include_root = {}", config.workspace_include_root);
                 }
+                if config.citations.declared {
+                    print_citation_rules(&config.citations);
+                }
                 ExitCode::SUCCESS
             }
             Err(err) => {
@@ -715,6 +960,38 @@ fn command_config(args: &[String]) -> ExitCode {
             }
         },
         _ => unreachable!(),
+    }
+}
+
+/// Print the effective `[citations]` section for `grund config show`
+/// (§FS-config.4.2). Per-kind tables print in sorted order — deterministic, as
+/// `config show` requires (§FS-errors.4).
+fn print_citation_rules(citations: &CitationRules) {
+    println!();
+    println!("[citations]");
+    if let Some(default) = citations.global_default {
+        println!("default = \"{}\"", citation_level_str(default));
+    }
+    for (kind, rules) in &citations.per_kind {
+        println!();
+        println!("[citations.{kind}]");
+        if let Some(default) = rules.default {
+            println!("default = \"{}\"", citation_level_str(default));
+        }
+        let lists: [(&str, &[CitationDisjunction]); 5] = [
+            ("must", &rules.must),
+            ("should", &rules.should),
+            ("may", &rules.may),
+            ("should-not", &rules.should_not),
+            ("must-not", &rules.must_not),
+        ];
+        for (key, disjunctions) in lists {
+            if disjunctions.is_empty() {
+                continue;
+            }
+            let entries: Vec<String> = disjunctions.iter().map(render_citation_disjunction).collect();
+            println!("{key} = {}", format_toml_string_list(&entries));
+        }
     }
 }
 

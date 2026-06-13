@@ -6,6 +6,7 @@ fn command_check(args: &[String]) -> ExitCode {
     let mut path_provided = false;
     let mut format_override = None;
     let mut require_grounding = false;
+    let mut include_suggestions = false;
     let mut idx = 0;
     while idx < args.len() {
         match args[idx].as_str() {
@@ -21,6 +22,7 @@ fn command_check(args: &[String]) -> ExitCode {
                 format_override = Some(args[idx].clone());
             }
             "--require-grounding" => require_grounding = true,
+            "--suggestions" => include_suggestions = true,
             other if other.starts_with('-') => {
                 eprintln!("error: unknown flag `{other}`");
                 return ExitCode::from(2);
@@ -57,9 +59,9 @@ fn command_check(args: &[String]) -> ExitCode {
         return ExitCode::from(2);
     }
     if format == "json" {
-        print_json_report(&run.config, &run.report);
+        print_json_report(&run.config, &run.report, include_suggestions);
     } else {
-        print_report(&run.config, &run.report);
+        print_report(&run.config, &run.report, include_suggestions);
     }
     if run.had_scan_errors {
         ExitCode::from(2)
@@ -149,6 +151,7 @@ fn run_workspace_check(
             !project_report.errors.is_empty() || !project_report.warnings.is_empty();
         report.errors.append(&mut project_report.errors);
         report.warnings.append(&mut project_report.warnings);
+        report.suggestions.append(&mut project_report.suggestions);
         had_scan_errors |= append_scan_errors(&mut report, project.scan_errors.iter().cloned());
         // §FS-check.2.2: same empty-scan warning as the single-project path —
         // a member that scanned zero files and reported nothing is almost
@@ -164,6 +167,7 @@ fn run_workspace_check(
     }
     sort_diagnostics(&mut report.errors);
     sort_diagnostics(&mut report.warnings);
+    sort_diagnostics(&mut report.suggestions);
 
     Ok(CheckRun {
         config: root_config,
