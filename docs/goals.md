@@ -28,7 +28,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-no-dangling-refs: every cited ID resolves to a declaration
 
-A passing repo has zero dangling references and zero broken section coordinates. False negatives are bugs.
+A passing repo has zero dangling references and zero broken section coordinates. False negatives are bugs. This is the correctness floor under [§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec): a citation an agent cannot trust grounds nothing.
 
 ### 1. What "resolves" means
 
@@ -60,7 +60,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-fast-feedback: grund must be as fast as possible
 
-Speed is an ordering principle. `grund` runs in editors, save loops, commits, and CI; anything slower than the loop gets routed around.
+Speed is an ordering principle. `grund` runs in editors, save loops, commits, and CI; anything slower than the loop gets routed around. A grounding check ([§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec)) that is too slow to run on every save is one that stops being run.
 
 ### 1. Performance targets
 
@@ -94,7 +94,7 @@ Zero-config owns the default; configurability owns deliberate divergence.
 
 ## GOAL-multi-language: same engine, three platforms
 
-Cargo, npm, and PyPI ship the same engine with idiomatic host bindings and byte-identical behavior.
+Cargo, npm, and PyPI ship the same engine with idiomatic host bindings and byte-identical behavior. The grounding loop ([§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec)) must hold wherever an agent works, so every host platform runs the same engine.
 
 ### 1. Identical behavior
 
@@ -110,7 +110,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-friendliness-first: as user- and agent-friendly as possible
 
-Friendliness is an ordering principle beside speed: prefer output and workflows humans and agents can act on directly.
+Friendliness is an ordering principle beside speed: prefer output and workflows humans and agents can act on directly. Grounding ([§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec)) only sticks if staying cited is the path of least resistance.
 
 ### 1. Hard requirements
 
@@ -132,7 +132,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-token-economy: give an agent the right amount of spec, not the whole file
 
-Return the smallest deterministic slice that answers the grounding question; make escalation explicit.
+Return the smallest deterministic slice that answers the grounding question; make escalation explicit. Cheap reads keep the [§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec) loop affordable enough that an agent grounds every change, not just the cheap ones.
 
 ### 1. What this requires
 
@@ -152,7 +152,7 @@ Evidence for the cheap default lives in [DF-show-default-token-cheap](decisions/
 
 ## GOAL-configurable: every default is overridable
 
-Defaults fit canonical `grund`; config makes different project conventions first-class.
+Defaults fit canonical `grund`; config makes different project conventions first-class. A project can only keep its work grounded ([§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec)) if the scheme bends to its layout instead of the reverse.
 
 ### 1. What is configurable
 
@@ -168,7 +168,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-no-silent-breakage: changes ship through a deprecation path
 
-Anything user-visible stays backward-compatible or crosses a named deprecation window. Silent semantic change is a release blocker.
+Anything user-visible stays backward-compatible or crosses a named deprecation window. Silent semantic change is a release blocker. A grounding contract ([§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec)) that shifts under a repo without warning is one nobody can rely on.
 
 ### 1. What counts as user-visible
 
