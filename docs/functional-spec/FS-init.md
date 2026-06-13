@@ -169,7 +169,7 @@ The rules tell agents to run `grund refs <ID> --summary` before changing, moving
 
 ##### 2.3.4.10 Citation Direction
 
-The rules teach the expected citation direction: specs cite goals, architecture cites specs, code cites the specs it implements, and executable tests or cases cite the behavior they verify.
+The rules teach the expected citation direction: specs cite goals, architecture cites specs, code cites the specs it implements, and executable tests or cases cite the behavior they verify. When the effective `.agents/grund.toml` declares `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)), this guidance is the generated, config-derived Citation directions section (§2.3.5) rather than the static sentence above — so the rule an agent reads is the rule `grund check` enforces. A config without `[citations]` keeps the static sentence.
 
 ##### 2.3.4.11 Decisions
 
@@ -205,6 +205,14 @@ If workspace expansion, alias validation, alias uniqueness, or nested-workspace 
 ##### 2.3.4.16 Project Namespaces
 
 The block always emits a `### Project namespaces` section that teaches agents the workspace namespace concept before they start creating or citing declarations. It distinguishes project namespaces from documentation folders; names the current project as the local namespace; tells agents to create or use a separate namespace only for independently checked apps, packages, services, or subprojects; and gives the operational steps for that split: create the member's `.agents/grund.toml`, add it to the workspace root's `[workspace] members`, run `grund init` in the member, and set a stable `project_name`. It also teaches the cross-namespace citation form `<marker>alias/<ID>` and says full cross-namespace validation runs from the workspace root with `grund check` ([§FS-workspace.1](FS-workspace.md#1-citation-syntax), [§FS-workspace.2](FS-workspace.md#2-workspace-configuration), [§FS-workspace.5](FS-workspace.md#5-command-scope)).
+
+#### 2.3.5 Citation directions
+
+When the effective `.agents/grund.toml` declares `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)), the managed block renders a `### Citation directions` section generated from those rules, replacing the static citation-direction sentence (§2.3.4.10). This is the strongest enforcement point for the `should` levels, which never appear in `grund check`'s standing output ([§FS-check.2.3](FS-check.md#23-suggestions-channel-opt-in)): the agent reads the rule before writing the declaration, so most `should` obligations are met at write time. Decided in [§DF-citation-directions.2.7](../decisions/functional/DF-citation-directions.md#27-generated-agent-entrypoint-section-with-a-drift-check).
+
+The section is one bullet per citing kind that has any rule, in `[[kinds]]` order with the `code` pseudo-kind last, followed by the verbatim line `Unlisted kinds and pairs are fine.` — load-bearing, so an agent does not over-infer prohibitions from silence. Rendering is deterministic: levels render as the fixed phrases *must cite* / *should cite* / *avoid citing* / *never cite*, a `|` disjunction renders as "or", a conjunction of entries renders as "and", and a `must-not` clause is appended after a semicolon (`**FS** should cite GOAL or FS; never cite AR.`).
+
+Because this content derives from config rather than the template alone, the version marker (§2.3) is no longer sufficient to detect staleness: editing `[citations]` without re-running `grund init` would leave guidance that disagrees with the live rules under a current version number. `grund check` therefore re-renders this section from the live config and byte-compares it against the section in the block; a mismatch is an `agents-init` finding ([§FS-check.3.5](FS-check.md#35-invalid-agent-entrypoint-init-block)) telling the author to re-run `grund init`. Rendering determinism is what makes the comparison sound — the render *is* the hash. The managed-block version is bumped to carry this content change under [§GOAL-no-silent-breakage](../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path).
 
 ### 2.4 Generated `.agents/grund.toml`
 
