@@ -1,2 +1,3 @@
+docs/functional-spec/FS-001-session.md:1: FS-001-session must be declared in requirements.md (single-file kind)
 docs/functional-spec/FS-001-session.md:1: declared but never cited: FS-001-session
 docs/functional-spec/FS-001-session.md:3: unknown project alias root

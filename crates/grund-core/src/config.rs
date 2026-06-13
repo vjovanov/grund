@@ -48,9 +48,13 @@ fn load_config_at_with_report_base(
     report_base: Option<&Path>,
 ) -> Result<Config> {
     let root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
-    let mut config = Config::default_for(root.clone());
-    config.cli_base = cli_base.to_path_buf();
     let candidate = root.join(".agents").join("grund.toml");
+    let mut config = if candidate.exists() {
+        Config::default_for_existing_config(root.clone())
+    } else {
+        Config::default_for(root.clone())
+    };
+    config.cli_base = cli_base.to_path_buf();
     if candidate.exists() {
         // Report config errors against a stable relative path, never the
         // absolute discovered path (§FS-errors.4: deterministic, no absolute
@@ -660,6 +664,9 @@ fn command_config(args: &[String]) -> ExitCode {
                     println!("prefix = \"{}\"", escape_toml_basic(&kind.prefix));
                     if let Some(folder) = &kind.folder {
                         println!("folder = \"{}\"", escape_toml_basic(folder));
+                    }
+                    if let Some(file) = &kind.file {
+                        println!("file = \"{}\"", escape_toml_basic(file));
                     }
                     if let Some(title) = &kind.title {
                         println!("title = \"{}\"", escape_toml_basic(title));

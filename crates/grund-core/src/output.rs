@@ -194,9 +194,9 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
     let message = match (&config.include, scoped_to_root) {
         (Some(dirs), true) => format!(
             "nothing to scan — grund looked under [scan] include = [{}] and found no files. Run \
-             `grund init --docs` to scaffold the canonical docs/ and e2e/ trees, point `[scan] \
-             include` in `.agents/grund.toml` at your sources, or pass a path explicitly \
-             (`grund check <dir>`).",
+             `grund init --docs` to scaffold the canonical requirements.md, docs/, and e2e/ \
+             trees, point `[scan] include` in `.agents/grund.toml` at your sources, or pass a \
+             path explicitly (`grund check <dir>`).",
             dirs.iter()
                 .map(|dir| format!("\"{dir}\""))
                 .collect::<Vec<_>>()

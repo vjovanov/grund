@@ -22,6 +22,17 @@ mod tests {
         std::fs::write(path, text).expect("write fixture");
     }
 
+    fn legacy_fs_folder_config(root: PathBuf) -> Config {
+        let mut config = Config::default_for(root);
+        for kind in &mut config.kinds {
+            if kind.prefix == "FS" {
+                kind.folder = Some("docs/functional-spec".to_string());
+                kind.file = None;
+            }
+        }
+        config
+    }
+
     fn canonical_test_path(path: &Path) -> PathBuf {
         std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
     }
@@ -138,7 +149,7 @@ mod tests {
             );
         }
 
-        let config = Config::default_for(root.clone());
+        let config = legacy_fs_folder_config(root.clone());
         let (sequential, sequential_errors) =
             scan_tree_with_workspace_threshold(&config, Some(&root), true, &[], usize::MAX)
                 .expect("sequential scan");
@@ -264,7 +275,7 @@ members = ["packages/*"]
             "# FS-002-beta: Beta\n\nMentions FS-999-missing.\n",
         );
 
-        let config = Config::default_for(root.clone());
+        let config = legacy_fs_folder_config(root.clone());
         let (findings, _) = scan_tree(
             &config,
             Some(&root.join("docs/functional-spec/FS-001-alpha.md")),
@@ -291,7 +302,7 @@ members = ["packages/*"]
             "# FS-002-login: Login\n\nUses §AR-001-router.\n",
         );
 
-        let config = Config::default_for(root.clone());
+        let config = legacy_fs_folder_config(root.clone());
         let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
         let report = check_findings(&findings, &config);
         let misplaced = report
@@ -322,7 +333,7 @@ members = ["packages/*"]
         )
         .expect("create symlink");
 
-        let config = Config::default_for(root.clone());
+        let config = legacy_fs_folder_config(root.clone());
         let id = Id {
             kind: "AR".to_string(),
             num: Some(1),
@@ -371,7 +382,10 @@ members = ["packages/*"]
         let mut config = Config::default_for(root.clone());
         for kind in &mut config.kinds {
             match kind.prefix.as_str() {
-                "FS" => kind.folder = Some("docs".to_string()),
+                "FS" => {
+                    kind.folder = Some("docs".to_string());
+                    kind.file = None;
+                }
                 "AR" => kind.folder = Some("docs/architecture".to_string()),
                 _ => {}
             }
@@ -849,6 +863,7 @@ members = ["packages/*"]
                 number: Some(2),
                 slug: "beta".to_string(),
                 folder: Some("docs/functional-spec".to_string()),
+                file: None,
                 e2e_case_dir: None,
             })
         );
@@ -1620,7 +1635,8 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         assert!(!render_agents_md("demo", &config, Path::new("."), true).contains('\r'));
         assert!(!render_grund_toml("demo", None).contains('\r'));
         assert!(!canonical_template_text(AGENT_SETUP_INSTRUCTIONS).contains('\r'));
-        for (_, contents) in docs_scaffold() {
+        let fs_home = init_fs_home(&config);
+        for (_, contents) in docs_scaffold(&fs_home) {
             assert!(!contents.contains('\r'));
         }
     }

@@ -1,5 +1,5 @@
 const SEC_GROUP: &str = r"(?P<sec>\d+(?:\.\d+)*)";
-const DEFAULT_INCLUDE: &[&str] = &["docs", "e2e", "src"];
+const DEFAULT_INCLUDE: &[&str] = &["requirements.md", "docs", "e2e", "src"];
 const DEFAULT_COMMENT_PREFIXES: &[&str] = &["//", "#", ";", "--", "*", "/*"];
 static STUB_LINK_HEADING: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\s*:\s*\[[^\]]*\]\(\s*(?P<path>[^)\s]+)\s*\)\s*$").unwrap());

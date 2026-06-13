@@ -126,15 +126,17 @@ fn command_id(args: &[String]) -> ExitCode {
     let rendered = format_id(&id, &config, width);
     if format == "json" {
         let folder = kind_config.folder.as_deref().unwrap_or("");
+        let file = kind_config.file.as_deref().unwrap_or("");
         println!(
-            "{{\"id\":\"{}\",\"kind\":\"{}\",\"number\":{},\"slug\":\"{}\",\"folder\":\"{}\"}}",
+            "{{\"id\":\"{}\",\"kind\":\"{}\",\"number\":{},\"slug\":\"{}\",\"folder\":\"{}\",\"file\":\"{}\"}}",
             json_escape(&rendered),
             json_escape(kind),
             number
                 .map(|number| number.to_string())
                 .unwrap_or_else(|| "null".to_string()),
             json_escape(&slug),
-            json_escape(folder)
+            json_escape(folder),
+            json_escape(file)
         );
     } else {
         println!("{rendered}");
@@ -149,6 +151,17 @@ fn command_id(args: &[String]) -> ExitCode {
                 Some(folder) => eprintln!(
                     "next: write the declaration at {folder}/{rendered}.md  (H1: `# {rendered}: <one-line statement>`), then cite it as §{rendered}"
                 ),
+                None if kind_config.file.is_some() => {
+                    let file = kind_config.file.as_deref().unwrap();
+                    let (heading_name, heading_marker) = if kind == "GRUND" {
+                        ("H1", "#")
+                    } else {
+                        ("H2", "##")
+                    };
+                    eprintln!(
+                        "next: add the declaration to {file}  ({heading_name}: `{heading_marker} {rendered}: <one-line statement>`), then cite it as §{rendered}"
+                    );
+                }
                 None => eprintln!(
                     "next: write the declaration with H1 `# {rendered}: <one-line statement>`, then cite it as §{rendered}"
                 ),

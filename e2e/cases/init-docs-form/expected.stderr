@@ -1,10 +1,10 @@
 wrote AGENTS.md
 wrote .agents/grund.toml
+wrote requirements.md
 wrote docs/grund.md
 wrote docs/goals.md
 wrote docs/roadmap.md
 wrote docs/changelog.md
-wrote docs/functional-spec/README.md
 wrote docs/architecture/README.md
 wrote docs/decisions/architectural/.gitkeep
 wrote docs/decisions/functional/.gitkeep
@@ -13,7 +13,7 @@ wrote e2e/cases/.gitkeep
 
 next:
   1. run `grund check` — a freshly scaffolded tree is clean
-  2. allocate an ID:  ID=$(grund id FS "…")  then write  docs/functional-spec/$ID.md
-     (H1: `# <ID>: <one-line statement of the behavior>`)
+  2. allocate an ID:  ID=$(grund id FS "…")  then add it to requirements.md
+     (H2: `## <ID>: <one-line statement of the behavior>`)
   3. cite it as §<ID> from the docs and e2e tests that depend on it, then `grund check` again
 see AGENTS.md for the full workflow.

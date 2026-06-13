@@ -89,7 +89,7 @@ fn init_docs_form_emits_full_scaffold_and_check_is_clean() {
         "docs/goals.md",
         "docs/roadmap.md",
         "docs/changelog.md",
-        "docs/functional-spec/README.md",
+        "requirements.md",
         "docs/architecture/README.md",
         "docs/decisions/architectural/.gitkeep",
         "docs/decisions/functional/.gitkeep",
@@ -117,6 +117,42 @@ fn init_docs_form_emits_full_scaffold_and_check_is_clean() {
     assert!(
         check.status.success(),
         "freshly init'd tree should be grund-clean but produced:\n{}",
+        String::from_utf8_lossy(&check.stderr)
+    );
+}
+
+#[test]
+fn init_docs_default_requirements_file_is_scanned() {
+    // §FS-init.2.1 / §FS-config.3.5: the generated FS home is in the generated
+    // scan roots, so declarations added where `init` points users are resolvable.
+    let target = workdir("init_docs_default_requirements_file_is_scanned");
+    let output = run_grund(
+        &["init", target.to_str().unwrap(), "--docs"],
+        manifest_dir(),
+    );
+    assert!(
+        output.status.success(),
+        "init --docs failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    fs::write(
+        target.join("requirements.md"),
+        "# Requirements\n\n## FS-001-session: Sessions can be created\n",
+    )
+    .expect("write requirements.md");
+    fs::create_dir_all(target.join("src")).expect("create src");
+    fs::write(
+        target.join("src/lib.rs"),
+        "/// Creates a user session. §FS-001-session\npub fn create_session() {}\n",
+    )
+    .expect("write src/lib.rs");
+
+    let check = run_grund(&["check", target.to_str().unwrap()], manifest_dir());
+    assert!(
+        check.status.success(),
+        "FS declaration in generated requirements.md should resolve:\nstdout={}\nstderr={}",
+        String::from_utf8_lossy(&check.stdout),
         String::from_utf8_lossy(&check.stderr)
     );
 }
@@ -318,6 +354,43 @@ title = "Architecture decision"
     assert!(
         !agents.contains("`grund` scans:"),
         "AGENTS.md must not surface scan scope (§FS-init.2.3.4.4):\n{agents}"
+    );
+}
+
+#[test]
+fn init_docs_existing_implicit_legacy_config_uses_legacy_fs_home() {
+    // §FS-config.2 / §FS-init.2.1: existing configs without explicit kind homes
+    // keep the legacy FS folder, and `init --docs` must scaffold that effective home.
+    let target = workdir("init_docs_existing_implicit_legacy_config_uses_legacy_fs_home");
+    fs::create_dir_all(target.join(".agents")).expect("create .agents");
+    fs::write(
+        target.join(".agents/grund.toml"),
+        "grund_config_version = 1\n",
+    )
+    .expect("write legacy implicit config");
+
+    let output = run_grund(
+        &["init", target.to_str().unwrap(), "--docs"],
+        manifest_dir(),
+    );
+    assert!(
+        output.status.success(),
+        "init --docs failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("wrote docs/functional-spec/README.md"),
+        "legacy implicit config should scaffold legacy FS folder, got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("then add it under docs/functional-spec"),
+        "next guidance should target the effective legacy FS folder, got:\n{stderr}"
+    );
+    assert!(
+        !target.join("requirements.md").exists(),
+        "legacy implicit config must not scaffold the new FS file"
     );
 }
 
@@ -834,7 +907,7 @@ fn init_dry_run_with_docs_previews_scaffold_without_writing() {
         "docs/goals.md",
         "docs/roadmap.md",
         "docs/changelog.md",
-        "docs/functional-spec/README.md",
+        "requirements.md",
         "docs/architecture/README.md",
         "docs/decisions/architectural/.gitkeep",
         "docs/decisions/functional/.gitkeep",

@@ -401,7 +401,7 @@ Cons: single-package repos may only need `["docs", "src"]` or `["docs", "."]` if
 Evidence: `pom.xml`, `build.gradle`, `settings.gradle`, `src/main`, `src/test`.
 
 ```toml
-include = ["docs", "e2e", "src"]
+include = ["requirements.md", "docs", "e2e", "src"]
 extensions = ["md", "java", "kt"]
 exclude = ["target", "build", ".gradle", ".git"]
 comment_prefixes = ["//", "/*", "*"]
@@ -485,7 +485,7 @@ Cons: Xcode projects may have different app/test directories.
 Evidence: `build.sbt`, `src/main/scala`, `src/test/scala`.
 
 ```toml
-include = ["docs", "e2e", "src"]
+include = ["requirements.md", "docs", "e2e", "src"]
 extensions = ["md", "scala"]
 exclude = ["target", "project/target", ".bloop", ".metals", ".git"]
 comment_prefixes = ["//", "/*", "*"]

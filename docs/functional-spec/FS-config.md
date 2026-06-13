@@ -14,6 +14,8 @@ If no `.agents/grund.toml` is found, `grund` runs with the built-in defaults def
 
 CLI flags > `grund.toml` > built-in defaults. Layering is shallow: a value present in `grund.toml` overrides the entire corresponding default; CLI flags override individual leaf values.
 
+Compatibility note: a pre-existing `.agents/grund.toml` that omits `[[kinds]]` keeps the pre-`requirements.md` implicit FS home (`folder = "docs/functional-spec"`) until the project writes an explicit `[[kinds]]` table. New zero-config projects and freshly generated configs use the canonical defaults in §3.4, where `FS` is `file = "requirements.md"`. This preserves existing configs without adding a new schema version.
+
 ## 3. Schema
 
 The config file is TOML. Every key is optional; omitted keys take the default value. Unknown keys are an **error**, not a warning, per [§GOAL-friendliness-first](../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible) — typos in config files are bugs and grund surfaces them loudly.
@@ -128,7 +130,7 @@ title  = "Where: project direction and outcomes"
 
 [[kinds]]
 prefix = "FS"
-folder = "docs/functional-spec"
+file   = "requirements.md"
 title  = "What: behavior, requirements, and constraints"
 
 [[kinds]]
@@ -157,7 +159,7 @@ file   = "docs/roadmap.md"
 title  = "Planned milestones and sequencing"
 ```
 
-`GRUND` is the H1 of the single file `docs/grund.md` (the project's reason for being — one declaration, all of it inline); `GOAL` declarations are H2 headings inside the single file `docs/goals.md` (one file, all goals inline); `RM` declarations are likewise H2 headings inside the single file `docs/roadmap.md` (one file, all milestones inline) — those three are single-file kinds (`file = "<path>"`); `FS`, `AR`, `DF`, and `DA` declarations are the H1 of a file in their `folder` (an `AR` declaration may instead live inline in a source doc-comment with an optional stub in `folder` — [§AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)); `E2E` declarations are case directories under `folder` rather than heading lines — [§AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations). A single-file kind can always be broken up later by swapping `file = "<path>"` for `folder = "<dir>"` and moving the document into that folder — the schema models the transition as exchanging one key for the other, not setting both. A project that overrides this list replaces the defaults entirely — there is no merge. To extend rather than replace, copy the defaults and add to them.
+`GRUND` is the H1 of the single file `docs/grund.md` (the project's reason for being — one declaration, all of it inline); `GOAL` declarations are H2 headings inside the single file `docs/goals.md` (one file, all goals inline); `FS` declarations are H2 headings inside the single file `requirements.md` (one obvious requirements entry for new projects); `RM` declarations are likewise H2 headings inside the single file `docs/roadmap.md` (one file, all milestones inline) — those four are single-file kinds (`file = "<path>"`); `AR`, `DF`, and `DA` declarations are the H1 of a file in their `folder` (an `AR` declaration may instead live inline in a source doc-comment with an optional stub in `folder` — [§AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)); `E2E` declarations are case directories under `folder` rather than heading lines — [§AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations). A single-file kind can always be broken up later by swapping `file = "<path>"` for `folder = "<dir>"` and moving the document into that folder — the schema models the transition as exchanging one key for the other, not setting both. A project that overrides this list replaces the defaults entirely — there is no merge. To extend rather than replace, copy the defaults and add to them.
 
 Prefix sets must be unambiguous: no kind's `prefix` may itself be a prefix of another kind's `prefix`. For example, `prefix = "DA"` and `prefix = "DAT"` together are invalid because a token starting with `DAT-` would parse as either kind. grund validates this on load and refuses ambiguous configs with a single error pointing at the offending pair (per §4.3).
 
@@ -165,7 +167,7 @@ Prefix sets must be unambiguous: no kind's `prefix` may itself be a prefix of an
 
 ```toml
 [scan]
-include            = ["docs", "e2e", "src"]
+include            = ["requirements.md", "docs", "e2e", "src"]
 exclude            = ["target", "node_modules", ".git", "dist", "build", ".venv"]
 extensions         = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs"]
 comment_prefixes   = ["//", "#", ";", "--", "*", "/*"]
@@ -173,7 +175,7 @@ docstring_python   = true
 respect_gitignore  = true
 ```
 
-`include` is the set of paths walked **from the config root** — the directory containing `.agents/`, or, when no `.agents/grund.toml` was discovered, the current working directory (never a subdirectory that merely happened to be passed as `grund`'s path argument). So in a config-less repo `grund` (no path) and `grund check .` both walk `docs/`, `e2e/`, `src/` relative to the cwd, while `grund check src/foo` or `grund check lib/` scans exactly the file or directory it is handed — an explicit path argument overrides `include` rather than being filtered by it. A walk that ends up reading no files at all is reported, not silently passed ([§FS-check.2.2](FS-check.md#22-empty-scan)). `exclude` is the set of directory names skipped at any depth. `extensions` filters which files are read. `comment_prefixes` are the markers recognized when looking for inline declarations and citations in source files. `docstring_python` enables Python triple-quoted-string scanning in addition to `#` comments.
+`include` is the set of paths walked **from the config root** — the directory containing `.agents/`, or, when no `.agents/grund.toml` was discovered, the current working directory (never a subdirectory that merely happened to be passed as `grund`'s path argument). So in a config-less repo `grund` (no path) and `grund check .` both walk `requirements.md`, `docs/`, `e2e/`, `src/` relative to the cwd, while `grund check src/foo` or `grund check lib/` scans exactly the file or directory it is handed — an explicit path argument overrides `include` rather than being filtered by it. A walk that ends up reading no files at all is reported, not silently passed ([§FS-check.2.2](FS-check.md#22-empty-scan)). `exclude` is the set of directory names skipped at any depth. `extensions` filters which files are read. `comment_prefixes` are the markers recognized when looking for inline declarations and citations in source files. `docstring_python` enables Python triple-quoted-string scanning in addition to `#` comments.
 
 The default `comment_prefixes` set is broader than the languages tabulated in [§AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments): it also covers `;` (Lisp / Scheme / Clojure), `--` (SQL / Haskell / Lua / Ada), and `*` / `/*` (block-comment continuation and opener). Any line whose first non-whitespace run is a configured prefix is eligible to host a declaration heading or a citation; the [§AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) table documents the doc-comment *conventions* for the major languages, not the full set of recognized prefixes.
 

@@ -35,6 +35,13 @@ pub struct InitEvent {
 pub struct InitNext {
     pub docs: bool,
     pub entrypoint: String,
+    pub fs_home: InitFsHome,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum InitFsHome {
+    File { path: String, heading_name: &'static str, heading_marker: &'static str },
+    Folder { path: String },
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -341,11 +348,16 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         any_change = true;
     }
 
-    let files: Vec<(&'static str, String)> = if docs { docs_scaffold() } else { Vec::new() };
+    let fs_home = init_fs_home(&init_config);
+    let files: Vec<(String, String)> = if docs {
+        docs_scaffold(&fs_home)
+    } else {
+        Vec::new()
+    };
     for (rel, contents) in &files {
         let dest = target.join(rel);
         if !force && dest.exists() {
-            events.push(InitEvent { verb: "exists", path: rel.to_string() });
+            events.push(InitEvent { verb: "exists", path: rel.clone() });
             continue;
         }
         if !dry_run
@@ -365,13 +377,14 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
                 format!("write {}: {err}", dest.display()),
             ));
         }
-        events.push(InitEvent { verb: verb_wrote(dry_run), path: rel.to_string() });
+        events.push(InitEvent { verb: verb_wrote(dry_run), path: rel.clone() });
         any_change = true;
     }
 
     let next = any_change.then(|| InitNext {
         docs,
         entrypoint: workflow_entrypoint.unwrap_or_else(|| CANONICAL_AGENT_ENTRYPOINT.to_string()),
+        fs_home,
     });
     Ok(InitOutput { events, next })
 }
@@ -395,25 +408,45 @@ fn event_is_change(event: &InitEvent) -> bool {
 /// `init` touched, used in the final `see <entrypoint> …` pointer; `None`
 /// falls back to the canonical `AGENTS.md`.
 fn print_next_block(docs: bool, entrypoint: Option<&str>) {
+    let config = Config::default_for(PathBuf::from("."));
+    let fs_home = init_fs_home(&config);
+    print_next_block_for_home(docs, entrypoint, &fs_home);
+}
+
+fn print_next_block_for_home(docs: bool, entrypoint: Option<&str>, fs_home: &InitFsHome) {
     eprintln!();
     eprintln!("next:");
     if docs {
         eprintln!("  1. run `grund check` — a freshly scaffolded tree is clean");
-        eprintln!(
-            "  2. allocate an ID:  ID=$(grund id FS \"…\")  then write  docs/functional-spec/$ID.md"
-        );
-        eprintln!("     (H1: `# <ID>: <one-line statement of the behavior>`)");
+        match fs_home {
+            InitFsHome::File { path, heading_name, heading_marker } => {
+                eprintln!("  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}");
+                eprintln!(
+                    "     ({heading_name}: `{heading_marker} <ID>: <one-line statement of the behavior>`)"
+                );
+            }
+            InitFsHome::Folder { path } => {
+                eprintln!("  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}");
+                eprintln!("     (H1: `# <ID>: <one-line statement of the behavior>`)");
+            }
+        }
         eprintln!(
             "  3. cite it as §<ID> from the docs and e2e tests that depend on it, then `grund check` again"
         );
     } else {
-        eprintln!(
-            "  1. re-run with --docs to scaffold docs/ and e2e/ (or create those folders yourself) — until then `grund check` has nothing to scan"
-        );
+        let fs_home_path = match fs_home {
+            InitFsHome::File { path, .. } | InitFsHome::Folder { path } => path,
+        };
+        eprintln!("  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan");
         eprintln!("  2. run `grund check` — a scaffolded tree is clean");
-        eprintln!(
-            "  3. allocate an ID:  ID=$(grund id FS \"…\")  then write  docs/functional-spec/$ID.md"
-        );
+        match fs_home {
+            InitFsHome::File { path, .. } => {
+                eprintln!("  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}");
+            }
+            InitFsHome::Folder { path } => {
+                eprintln!("  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}");
+            }
+        }
     }
     eprintln!(
         "see {} for the full workflow.",
@@ -651,12 +684,48 @@ fn derive_default_name(target: &Path) -> Result<String> {
         .ok_or_else(|| anyhow!("cannot derive project name from {}", absolute.display()))
 }
 
-/// The `--docs` scaffold: the canonical `docs/` tree (stub `grund.md`,
-/// `goals.md`, `roadmap.md`, `changelog.md`, the two spec READMEs, the
-/// decision `.gitkeep`s) plus an empty `e2e/` with a README — the file list of
-/// §FS-init.2.1, each a minimal starter that leaves `grund check` clean.
-fn docs_scaffold() -> Vec<(&'static str, String)> {
-    vec![
+/// The `--docs` scaffold: the default requirements/spec home, canonical `docs/`
+/// files (`grund.md`, `goals.md`, `roadmap.md`, `changelog.md`, architecture
+/// README, decision `.gitkeep`s), plus an empty `e2e/` with a README — the file
+/// list of §FS-init.2.1, each a minimal starter that leaves `grund check` clean.
+fn init_fs_home(config: &Config) -> InitFsHome {
+    if let Some(kind) = config.kinds.iter().find(|kind| kind.prefix == "FS") {
+        if let Some(file) = &kind.file {
+            let (heading_name, heading_marker) = if file == "docs/grund.md" {
+                ("H1", "#")
+            } else {
+                ("H2", "##")
+            };
+            return InitFsHome::File {
+                path: file.clone(),
+                heading_name,
+                heading_marker,
+            };
+        }
+        if let Some(folder) = &kind.folder {
+            return InitFsHome::Folder { path: folder.clone() };
+        }
+    }
+    InitFsHome::File {
+        path: "requirements.md".to_string(),
+        heading_name: "H2",
+        heading_marker: "##",
+    }
+}
+
+fn docs_scaffold(fs_home: &InitFsHome) -> Vec<(String, String)> {
+    let mut files = Vec::new();
+    match fs_home {
+        InitFsHome::File { path, .. } => files.push((
+            path.clone(),
+            canonical_template_text(REQUIREMENTS_TEMPLATE),
+        )),
+        InitFsHome::Folder { path } => files.push((
+            format!("{path}/README.md"),
+            canonical_template_text(FS_README_TEMPLATE),
+        )),
+    }
+    files.extend([
         ("docs/grund.md", canonical_template_text(GRUND_DOC_TEMPLATE)),
         (
             "docs/goals.md",
@@ -669,10 +738,6 @@ fn docs_scaffold() -> Vec<(&'static str, String)> {
         (
             "docs/changelog.md",
             "# Changelog\n\n<!-- placeholder - replace with real content -->\n".to_string(),
-        ),
-        (
-            "docs/functional-spec/README.md",
-            canonical_template_text(FS_README_TEMPLATE),
         ),
         (
             "docs/architecture/README.md",
@@ -695,4 +760,7 @@ fn docs_scaffold() -> Vec<(&'static str, String)> {
             canonical_template_text(GITKEEP_TEMPLATE),
         ),
     ]
+    .into_iter()
+    .map(|(path, contents)| (path.to_string(), contents)));
+    files
 }
