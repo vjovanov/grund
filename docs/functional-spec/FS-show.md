@@ -76,7 +76,7 @@ Sites are listed in lexicographic `path:line` order so the message is stable acr
 
 When the ID's home is in code (per [§FS-check.3.4](FS-check.md#34-broken-inline-spec-stub) stub semantics), `show` extracts the comment block surrounding the inline declaration, strips comment markers, and prints the resulting prose. The same section logic applies — and so do the `--brief` / (default) / `--toc` / `--full` slices, computed over the stripped block exactly as over a `.md` body (the lead is what precedes the first `## N.` heading inside the comment; the section map is the numbered headings recorded within it, per §2.3.3).
 
-The scanner recognizes the same doc-comment forms enumerated in [§AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) — Javadoc, JSDoc/TSDoc, Doxygen, KDoc, Scaladoc, PHPDoc, Rustdoc (`///`, `//!`, `/** … */`), C# XML doc comments, Go's `// …` doc blocks, Ruby `#` comments, and Python `""" … """` docstrings. This means an architectural spec can live directly in the class-level Javadoc, and `grund AR-<event-bus>` returns the rendered Javadoc lead — same content the optional LSP server shows on hover ([§FS-lsp.1.2](FS-lsp.md#12-hover-preview)). The stub at `docs/architecture/AR-<event-bus>.md` is a single-line H1 — `# AR-<event-bus>: [<path>](<path>)` — pointing at the file.
+The scanner recognizes the same doc-comment forms enumerated in [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) — Javadoc, JSDoc/TSDoc, Doxygen, KDoc, Scaladoc, PHPDoc, Rustdoc (`///`, `//!`, `/** … */`), C# XML doc comments, Go's `// …` doc blocks, Ruby `#` comments, and Python `""" … """` docstrings. This means an architectural spec can live directly in the class-level Javadoc, and `grund AR-<event-bus>` returns the rendered Javadoc lead — same content the optional LSP server shows on hover ([§FS-lsp.1.2](FS-lsp.md#12-hover-preview)). The stub at `docs/architecture/AR-<event-bus>.md` is a single-line H1 — `# AR-<event-bus>: [<path>](<path>)` — pointing at the file.
 
 A code-resident declaration is written as `<comment-marker> <ID>: <title>` (or bare `<ID>: <title>` inside a Python docstring), with no markdown `#` prefix. Decided in [§DF-code-declarations-drop-hash](../decisions/functional/DF-code-declarations-drop-hash.md#df-code-declarations-drop-hash-code-resident-declarations-may-drop-the--prefix).
 
@@ -99,7 +99,7 @@ pub struct Router { ... }
 
 Extraction is precisely defined so that the implementation has no freedom and the same input produces the same output across editor, CLI, and binding callers.
 
-A declaration is found on a "declaration line" — a line that matches the declaration regex from [§AR-scanner.2.1](../architecture/AR-scanner.md#21-declaration-detection) *and* sits inside a comment or docstring. The block surrounding it is computed as follows:
+A declaration is found on a "declaration line" — a line that matches the declaration regex from [AR-scanner.2.1](../architecture/AR-scanner.md#21-declaration-detection) *and* sits inside a comment or docstring. The block surrounding it is computed as follows:
 
 1. **Find the open boundary.** Walk **backwards** from the declaration line over consecutive lines that are part of the same comment construct:
    - For line-style comments (`//`, `///`, `//!`, `#`, `;`, `--`): consecutive lines whose first non-whitespace character matches the same comment prefix family. A blank line ends the block. A line whose first non-whitespace character is not a comment marker ends the block.
@@ -127,7 +127,7 @@ The result is the markdown that the declaration's author wrote, identical to wha
 
 #### 2.3.3 Section selection inside a doc-comment
 
-Section selection (`AR-<event-bus>.2`) works the same way inside a doc-comment as inside a markdown file: the scanner records the numbered subsection headings declared within the doc-comment block and `show` slices to the requested section. Section depth is measured relative to the declaration's heading level exactly as in markdown ([§AR-scanner.2.2](../architecture/AR-scanner.md#22-section-detection)) — an `AR-<event-bus>:` declaration inside a `///` block is "level 1", so `## 1.` is a depth-1 section. The comment-stripping pass leaves these headings intact.
+Section selection (`AR-<event-bus>.2`) works the same way inside a doc-comment as inside a markdown file: the scanner records the numbered subsection headings declared within the doc-comment block and `show` slices to the requested section. Section depth is measured relative to the declaration's heading level exactly as in markdown ([AR-scanner.2.2](../architecture/AR-scanner.md#22-section-detection)) — an `AR-<event-bus>:` declaration inside a `///` block is "level 1", so `## 1.` is a depth-1 section. The comment-stripping pass leaves these headings intact.
 
 #### 2.3.4 Broken stub
 
@@ -142,7 +142,7 @@ This is the same "found something other than exactly one body" family as `ID not
 
 ### 2.4 E2E cases
 
-`grund E2E-<name>` returns the case's manifest ([§AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations)) in three parts:
+`grund E2E-<name>` returns the case's manifest ([AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations)) in three parts:
 
 ```
 grund <args…>

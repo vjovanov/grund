@@ -86,3 +86,30 @@ relative_paths = true
 [fmt.cross_refs]
 enabled = true
 anchor_format = "github"
+
+# Citation directions (FS-config.3.9, DF-citation-directions): must/must-not gate
+# `grund check`; should/should-not surface under `grund check --suggestions`.
+[citations]
+default = "may"
+
+[citations.GOAL]
+should = ["GRUND|GOAL"]
+
+[citations.FS]
+should = ["GOAL|FS"]
+must-not = ["AR"]
+
+[citations.AR]
+should = ["FS|GOAL"]
+
+[citations.DF]
+should = ["FS|GOAL"]
+
+[citations.DA]
+should = ["AR|FS"]
+
+[citations.E2E]
+must = ["FS"]
+
+[citations.code]
+should = ["FS|AR"]

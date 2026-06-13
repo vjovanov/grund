@@ -19,7 +19,7 @@ Per [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-re
 
 In default mode (`[reference] strict = true`), only marker-prefixed citations are recognized — bare tokens are treated as plain text and do not trigger dangling-ref errors. Repositories that still rely on bare citations may set `[reference] strict = false` as a compatibility mode after checking the migration surface with `grund fmt --marker` ([§FS-fmt](FS-fmt.md#fs-fmt-grund-normalizes-references-in-bulk)).
 
-Citations may appear in markdown prose, in source-file line/block comments, and in language doc-comments (Javadoc, JSDoc, Rustdoc, Python docstrings, etc.) — see [§AR-scanner.2.3](../architecture/AR-scanner.md#23-citation-detection) and [§AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) for the exact contexts. In source files, a **bare** ID-shaped token whose start column falls inside a string literal is not treated as a citation (the same deterministic quote-tracking rule `grund fmt` uses — [§FS-fmt.2.3.1](FS-fmt.md#231-string-literal-exclusion-rule), [§AR-scanner.2.3](../architecture/AR-scanner.md#23-citation-detection)), so an ID-shaped substring inside a runtime string does not raise a false dangling-ref. A marker-prefixed citation is recognized everywhere, string or not — the marker is the signal of intent. Markdown files have no string literals and the carve-out does not apply there. `E2E` citations (`§E2E-<name>`) resolve against case directories under `e2e/cases/` per [§AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations).
+Citations may appear in markdown prose, in source-file line/block comments, and in language doc-comments (Javadoc, JSDoc, Rustdoc, Python docstrings, etc.) — see [AR-scanner.2.3](../architecture/AR-scanner.md#23-citation-detection) and [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) for the exact contexts. In source files, a **bare** ID-shaped token whose start column falls inside a string literal is not treated as a citation (the same deterministic quote-tracking rule `grund fmt` uses — [§FS-fmt.2.3.1](FS-fmt.md#231-string-literal-exclusion-rule), [AR-scanner.2.3](../architecture/AR-scanner.md#23-citation-detection)), so an ID-shaped substring inside a runtime string does not raise a false dangling-ref. A marker-prefixed citation is recognized everywhere, string or not — the marker is the signal of intent. Markdown files have no string literals and the carve-out does not apply there. `E2E` citations (`§E2E-<name>`) resolve against case directories under `e2e/cases/` per [AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations).
 
 ## 2. Outputs
 
@@ -114,7 +114,7 @@ If `<path>/AGENTS.md` exists, `check` verifies the versioned `grund init` block 
 
 ### 3.6 Ungrounded source file *(opt-in)*
 
-Off by default. When `[reference] require_grounding = true` is set in `.agents/grund.toml` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)) — or `grund check --require-grounding` is passed (§1) — every scanned **source file** (a file the walk reads whose extension is not `.md`, [§AR-scanner.1](../architecture/AR-scanner.md#1-tree-walk)) must be *grounded*: it must contain at least one recognized citation (§1.1) whose ID resolves to a declaration, **or** it must itself declare an ID inline (a spec home is grounded in the spec it *is*, [§AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)). A source file that is neither is an error, anchored at line 1:
+Off by default. When `[reference] require_grounding = true` is set in `.agents/grund.toml` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)) — or `grund check --require-grounding` is passed (§1) — every scanned **source file** (a file the walk reads whose extension is not `.md`, [AR-scanner.1](../architecture/AR-scanner.md#1-tree-walk)) must be *grounded*: it must contain at least one recognized citation (§1.1) whose ID resolves to a declaration, **or** it must itself declare an ID inline (a spec home is grounded in the spec it *is*, [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)). A source file that is neither is an error, anchored at line 1:
 
 ```
 src/foo.rs:1: ungrounded source file: no § citation to a declared ID
@@ -148,7 +148,7 @@ In a workspace run, an alias-qualified citation whose alias is unknown, whose ta
 
 ### 3.9 Section heading level mismatch
 
-When `[id] section_heading_levels = "strict"` (the default), every numbered section heading must sit at the Markdown depth implied by its dotted path: expected level is the declaration heading level plus the number of path components ([§FS-config.3.3](FS-config.md#33-section-paths--arbitrary-nesting-depth), [§AR-scanner.2.2](../architecture/AR-scanner.md#22-section-detection)). A heading `## 1.1 Details` under an H1 declaration is therefore an error at the heading line: it must be `### 1.1 Details`. With `"warn"`, the same mismatch is reported as a warning; with `"loose"`, the checker does not report it and retains the historical rule that any deeper heading can declare any dotted section path. Plain, unnumbered headings and bold labels are not checked by this rule because they are not grund section targets.
+When `[id] section_heading_levels = "strict"` (the default), every numbered section heading must sit at the Markdown depth implied by its dotted path: expected level is the declaration heading level plus the number of path components ([§FS-config.3.3](FS-config.md#33-section-paths--arbitrary-nesting-depth), [AR-scanner.2.2](../architecture/AR-scanner.md#22-section-detection)). A heading `## 1.1 Details` under an H1 declaration is therefore an error at the heading line: it must be `### 1.1 Details`. With `"warn"`, the same mismatch is reported as a warning; with `"loose"`, the checker does not report it and retains the historical rule that any deeper heading can declare any dotted section path. Plain, unnumbered headings and bold labels are not checked by this rule because they are not grund section targets.
 
 ### 3.10 Inline citation style violation
 
@@ -162,7 +162,7 @@ When `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direct
 docs/architecture/AR-router.md:1: AR-router must cite FS or GOAL (citation direction)
 ```
 
-The body extent and the citing-side classification come from the scanner ([§AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the obligation pass is [§AR-checker.2.9](../../crates/grund-core/src/checker.rs). A `code`-kind obligation ([§FS-config.3.9.2](FS-config.md#392-the-code-pseudo-kind)) is per file rather than per declaration — a source file that contains at least one citation but none satisfying the obligation is the error, anchored at line 1. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
+The body extent and the citing-side classification come from the scanner ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the obligation pass is [AR-checker.2.9](../../crates/grund-core/src/checker.rs). A `code`-kind obligation ([§FS-config.3.9.2](FS-config.md#392-the-code-pseudo-kind)) is per file rather than per declaration — a source file that contains at least one citation but none satisfying the obligation is the error, anchored at line 1. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
 
 ### 3.12 Forbidden citation
 
@@ -172,7 +172,7 @@ When `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direct
 docs/functional-spec/FS-login.md:42: FS must not cite AR (citation direction)
 ```
 
-The citing kind is the site's resolved `source_kind` ([§AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the cited kind and namespace come from the citation token, matched against the rule's namespace grammar ([§FS-config.3.9.3](FS-config.md#393-namespace-matching)). The prohibition pass is [§AR-checker.2.10](../../crates/grund-core/src/checker.rs). The parallel `should-not` prohibition is not an error; it is a suggestion (§2.3). The sanctioned way to keep a discouraged downward pointer is a plain Markdown link, which is not a citation under `strict = true` and so is exempt from this rule.
+The citing kind is the site's resolved `source_kind` ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the cited kind and namespace come from the citation token, matched against the rule's namespace grammar ([§FS-config.3.9.3](FS-config.md#393-namespace-matching)). The prohibition pass is [AR-checker.2.10](../../crates/grund-core/src/checker.rs). The parallel `should-not` prohibition is not an error; it is a suggestion (§2.3). The sanctioned way to keep a discouraged downward pointer is a plain Markdown link, which is not a citation under `strict = true` and so is exempt from this rule.
 
 ## 4. Warnings
 
@@ -180,7 +180,7 @@ The citing kind is the site's resolved `source_kind` ([§AR-scanner.2.4](../arch
 
 An ID that is declared but never cited. Reported as a warning, not an error — newly declared IDs may not yet have citations. Warnings never affect the exit code (§2).
 
-`E2E` declarations ([§AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations)) are exempt: an end-to-end case is exercised by being run, not by being cited, so a `§E2E-<name>` that nothing references is not a warning. Every other kind is subject to this rule. `grund list --unused` ([§FS-list](FS-list.md#fs-list-grund-lists-every-declared-id)) uses the same default signal and suppresses uncited `E2E` cases unless `E2E` is explicitly selected with `--kind` (including a multi-kind filter such as `--kind FS,E2E`).
+`E2E` declarations ([AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations)) are exempt: an end-to-end case is exercised by being run, not by being cited, so a `§E2E-<name>` that nothing references is not a warning. Every other kind is subject to this rule. `grund list --unused` ([§FS-list](FS-list.md#fs-list-grund-lists-every-declared-id)) uses the same default signal and suppresses uncited `E2E` cases unless `E2E` is explicitly selected with `--kind` (including a multi-kind filter such as `--kind FS,E2E`).
 
 ### 4.2 Inline note soft-cap overrun *(opt-in)*
 
