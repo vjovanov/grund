@@ -82,6 +82,26 @@
 /// resolves, or itself declare an ID inline; a source file that does neither is
 /// one error anchored at line 1. Off by default.
 ///
+/// ### 2.9 Citation-direction obligations (§FS-check.3.11, §FS-config.3.9, §DF-citation-directions)
+///
+/// When `[citations]` sets `must` / `should` obligations for a citing kind, every
+/// top-level declaration of that kind must carry, in its body, at least one citation
+/// satisfying each obligation entry (entries are conjunctive, `|` inside an entry is
+/// a disjunction). The body extent and the per-citation `enclosing_declaration` come
+/// from the scanner (§AR-scanner.2.4), so this pass is a lookup, not a re-scan. The
+/// `code` pseudo-kind obligation is per source file (§FS-config.3.9.2) rather than
+/// per declaration. A `must` miss is a `missing-citation` error; a `should` miss is a
+/// `suggested-citation` suggestion, emitted only under `--suggestions` (§FS-check.2.3).
+///
+/// ### 2.10 Citation-direction prohibitions (§FS-check.3.12, §FS-config.3.9, §DF-citation-directions)
+///
+/// When `[citations]` sets `must-not` / `should-not` prohibitions for a citing kind,
+/// every citation site of that kind (its resolved `source_kind`) to a prohibited
+/// target — matched on cited kind and namespace per the rule grammar
+/// (§FS-config.3.9.3) — is reported at the site. A `must-not` hit is a
+/// `forbidden-citation` error; a `should-not` hit is a `discouraged-citation`
+/// suggestion, emitted only under `--suggestions` (§FS-check.2.3).
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and

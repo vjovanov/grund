@@ -57,12 +57,23 @@ Within a declaration context whose heading is at level `L`, a numbered subsectio
 
 The citation regex matches the configured marker ([§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger); default `§`) immediately followed by an `<ID>` token, with an optional `<sep><section-path>` suffix, anywhere in the file. In default `[reference] strict = true` mode only marker-prefixed citations are recognized at all. When `[reference] strict = false` is set for compatibility, the scanner additionally matches bare ID tokens — but, in source files (every extension except `md`), a bare token whose start column lies inside a string literal is **not** treated as a citation, applying the same deterministic left-to-right quote-tracking rule as [§FS-fmt.2.3.1](../functional-spec/FS-fmt.md#231-string-literal-exclusion-rule). This keeps an ID-shaped substring inside a runtime string from raising a false dangling-ref. Marker-prefixed citations are recognized regardless of string context — a `§` in a string is a deliberate citation. Markdown files have no string literals, so the carve-out does not apply there. A declaration's own heading line is never counted as a citation of the ID it declares.
 
+### 2.4 Citing-side classification
+
+The scanner knows a citation's *cited* kind from its ID, but the citation-direction rules ([§FS-config.3.9](../functional-spec/FS-config.md#39-citations--citation-direction-rules), [§DF-citation-directions](../decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels)) also need the *citing* kind — what kind of place the citation sits in. This is resolved once, at scan time, because the checker cannot reconstruct it cheaply: doc-comment declaration bodies are narrower than the file, and the same data is what [§FS-cover](../functional-spec/FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file) and [§RM-gap-report](../roadmap.md#rm-gap-report-orphan-and-uncovered-id-reports) need.
+
+Two scan-time additions carry it:
+
+- **Declaration body range.** Every `Declaration` records the line span of its body. In a Markdown file the body runs from the declaration heading until the next heading at the **same or higher** level (or end of file) — numbered subsections (§2.2), which are deeper, stay inside it. In a source file the body is bounded by the **comment / docstring block** the declaration line opens (§4); within a multi-ID block the nearest preceding declaration line wins, so an `AR-` and an `FS-` on one class partition the comment between them. A stub heading (§4) and an `E2E` case directory (§6) span their single declaration line only.
+- **Citation source kind.** Every `Citation` records the citing kind, resolved by three-step fallback with the bounds above: (1) the kind of the **enclosing declaration** — the nearest preceding declaration whose body range contains the site; else (2) the **kind home of the file** — the reverse lookup from `[[kinds]]` `folder` / `file` ([§FS-config.3.4](../functional-spec/FS-config.md#34-kinds--recognized-prefixes)), used only when exactly one home contains the file; else (3) the reserved `code` pseudo-kind. A citation later in the file than a declaration's body does **not** inherit that declaration's kind — it falls through to step 2 or 3.
+
+The enclosing declaration is also recorded on the citation, so the obligation pass ([§AR-checker.2.9](../../crates/grund-core/src/checker.rs)) can ask "does this declaration's body cite the target?" as a lookup rather than a re-scan.
+
 ## 3. Output
 
 The scanner produces a `Findings` struct containing:
 
-- `declarations: BTreeMap<Id, Vec<Declaration>>` — keyed by ID, with file/line, stub-info, and the recorded sections (each section path paired with its heading text — §2.2) per declaration. An `E2E` declaration (§6) carries its case-directory path, fixture list, invocation, and expected exit code instead.
-- `citations: Vec<Citation>` — each with the referenced ID, optional section, file, line, and start column, plus whether it was written marker-prefixed or bare.
+- `declarations: BTreeMap<Id, Vec<Declaration>>` — keyed by ID, with file/line, stub-info, the recorded sections (each section path paired with its heading text — §2.2) per declaration, and the body line range (§2.4). An `E2E` declaration (§6) carries its case-directory path, fixture list, invocation, and expected exit code instead.
+- `citations: Vec<Citation>` — each with the referenced ID, optional section, file, line, and start column, whether it was written marker-prefixed or bare, and the resolved source kind plus enclosing declaration (§2.4).
 
 This is the only structured output the scanner produces. Everything downstream (checking, showing, IDE diagnostics) operates on this data structure.
 

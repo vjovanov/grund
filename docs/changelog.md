@@ -26,7 +26,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Added
 
-- [§DF-workspace-member-descriptions](decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists) / [§FS-config.3](functional-spec/FS-config.md#3-schema) / [§FS-init.2.3.4.15](functional-spec/FS-init.md#23415-workspace-members): optional one-line `project_description` config key rendered beside each alias in generated workspace member lists, plus `grund init --description` and a commented teaching line in the generated config. PR #39.
+- [§DF-citation-directions](decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels) / [§FS-config.3.9](functional-spec/FS-config.md#39-citations--citation-direction-rules) / [§FS-check.3.11](functional-spec/FS-check.md#311-missing-required-citation) / [§FS-check.3.12](functional-spec/FS-check.md#312-forbidden-citation) / [§FS-check.2.3](functional-spec/FS-check.md#23-suggestions-channel-opt-in) / [§AR-scanner.2.4](architecture/AR-scanner.md#24-citing-side-classification): add the `[citations]` config section encoding citation directions with RFC-2119 levels — `must`/`must-not` gate `grund check` (`missing-citation` / `forbidden-citation`), `should`/`should-not` surface on a new opt-in suggestions channel (`grund check --suggestions`), and the climbing rule renders into the generated agent entrypoint with a drift check. The scanner now records declaration body ranges and each citation's source kind. PR #43.
 
 ### Changed
 

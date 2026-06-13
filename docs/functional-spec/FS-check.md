@@ -10,6 +10,7 @@ The `check` command walks a repo and reports every violation of the grund refere
 - Optional `[workspace]` config; when present and `check` is run at the workspace root, `check` validates alias-qualified cross-project citations per [§FS-workspace](FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace).
 - `--watch` is reserved for the planned resident checker (§6) and is not accepted by the current CLI.
 - `--require-grounding` — turn the grounding check (§3.6) on for this run regardless of `[reference] require_grounding` in `.agents/grund.toml` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). It only ever *adds* the check; it cannot switch off a config that already sets it.
+- `--suggestions` — emit the `should`-level citation-direction findings ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) on the suggestions channel (§2.3) for this run. The same config-plus-flag pattern as `--require-grounding`: the flag never adds an error or changes the exit code, it only surfaces the advisory `suggested-citation` / `discouraged-citation` records that the default run withholds.
 - `--format text|json` — output shape, per [§FS-errors.5](FS-errors.md#5-json-format). The global flags `--version` and `--help` are handled before any scan ([§FS-cli](FS-cli.md#fs-cli-grunds-command-line-surface-conventions)).
 
 ### 1.1 Recognized citations
@@ -69,6 +70,18 @@ A walk that read **no scannable files** at all, and turned up no findings (no er
 - when an explicit path was given: the message names that path and the recognized extensions, since the usual cause is pointing `grund` at a tree with no `.md`/source files.
 
 This is a warning, not an error: the exit code stays `0` (a genuinely empty tree is not a failure), `--format=json` emits the warning as one diagnostic JSON object on stderr (the same stream as the text `warning:` line — it is not part of the findings on stdout), and a repo that *does* have a stale `AGENTS.md` block or any other finding gets that finding (on stdout) and **no** empty-scan notice. This is the friendliness-first counterpart to the explicit success marker ([§GOAL-friendliness-first.1](../goals.md#1-hard-requirements)): the run that scanned nothing is the one case where `success` would be the wrong answer.
+
+### 2.3 Suggestions channel *(opt-in)*
+
+The `should` / `should-not` levels of `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) produce **suggestions**, not findings: they are advisory by RFC-2119 definition and grund has no per-site suppression mechanism, so surfacing them in the default run would replace the `success` marker (§2.1) on a repo that has consciously accepted a deviation, and it would never recover. They are therefore withheld from the default run and live on a separate channel, decided in [§DF-citation-directions](../decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels).
+
+`grund check --suggestions` (§1) emits them. A suggestion is a third report channel, **not** a third severity: [§FS-config.6](FS-config.md#6-what-is-not-configured-here) freezes the severity set at `{error, warning}`, so a suggestion carries `"channel": "suggestion"` rather than a `severity` ([§FS-errors.5](FS-errors.md#5-json-format)). The codes are `suggested-citation` (a `should` obligation a declaration does not meet) and `discouraged-citation` (a `should-not` citation site).
+
+- **Text** — `--suggestions` prints each suggestion in the located-finding shape `path:line: message` (§2.1), interleaved with errors and warnings in the same deterministic order ([§FS-errors.4](FS-errors.md#4-determinism)). Without the flag, suggestions are not printed, and the `success` marker still appears for a run with zero errors and zero warnings even if suggestions exist — a suggestion is not a finding about well-formedness.
+- **Exit code** — suggestions never affect it (`0`/`1`/`2` unchanged), exactly like the empty-scan caution.
+- **JSON** — under `--suggestions`, suggestion objects are emitted on stdout alongside the findings with `"channel": "suggestion"`; a consumer filtering on `severity ∈ {error, warning}` is unaffected. Without the flag none are emitted.
+
+`grund gap` ([§RM-gap-report](../roadmap.md#rm-gap-report-orphan-and-uncovered-id-reports)) is the standing home for these records once it ships — a should-level miss is precisely "the graph is thinner than recommended," and gap is exit-code-neutral by design.
 
 ## 3. Errors detected
 
@@ -140,6 +153,26 @@ When `[id] section_heading_levels = "strict"` (the default), every numbered sect
 ### 3.10 Inline citation style violation
 
 A citation site in a code comment that violates the configured inline citation style — `inline_style = "citation-only"` with prose present, an inline note that exceeds `inline_note_max_lines`, or one that exceeds `inline_note_max_columns`. The full mode and budget contract, and how multi-cap violations split into multiple findings, lives in [§FS-inline-citation-style.4.1](FS-inline-citation-style.md#41-errors--hard-caps). The schema for the controlling keys is in [§FS-config.3.1](FS-config.md#31-reference--citation-form).
+
+### 3.11 Missing required citation
+
+When `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) sets a `must` obligation for a citing kind, every top-level declaration of that kind must carry at least one citation satisfying each `must` entry, anywhere in its body. A declaration that does not is an error anchored at the declaration line, naming the unmet target:
+
+```
+docs/architecture/AR-router.md:1: AR-router must cite FS or GOAL (citation direction)
+```
+
+The body extent and the citing-side classification come from the scanner ([§AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the obligation pass is [§AR-checker.2.9](../../crates/grund-core/src/checker.rs). A `code`-kind obligation ([§FS-config.3.9.2](FS-config.md#392-the-code-pseudo-kind)) is per file rather than per declaration — a source file that contains at least one citation but none satisfying the obligation is the error, anchored at line 1. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
+
+### 3.12 Forbidden citation
+
+When `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) sets a `must-not` prohibition for a citing kind, every citation site of that kind to a prohibited target is an error anchored at the citation site:
+
+```
+docs/functional-spec/FS-login.md:42: FS must not cite AR (citation direction)
+```
+
+The citing kind is the site's resolved `source_kind` ([§AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the cited kind and namespace come from the citation token, matched against the rule's namespace grammar ([§FS-config.3.9.3](FS-config.md#393-namespace-matching)). The prohibition pass is [§AR-checker.2.10](../../crates/grund-core/src/checker.rs). The parallel `should-not` prohibition is not an error; it is a suggestion (§2.3). The sanctioned way to keep a discouraged downward pointer is a plain Markdown link, which is not a citation under `strict = true` and so is exempt from this rule.
 
 ## 4. Warnings
 
