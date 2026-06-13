@@ -60,9 +60,14 @@ fn scan_file(
     let mut in_fence = false;
     let mut in_py_docstring = false;
     let mut current: Option<Declaration> = None;
+    // §AR-scanner.2.4: every Markdown heading (line, level) outside a fence — a
+    // declaration body runs until the next heading at the same or higher level.
+    let mut md_headings: Vec<(usize, usize)> = Vec::new();
+    let mut total_lines = 0usize;
 
     for (idx, line) in text.lines().enumerate() {
         let lineno = idx + 1;
+        total_lines = lineno;
         let trimmed = line.trim_start();
         if is_md && (trimmed.starts_with("```") || trimmed.starts_with("~~~")) {
             in_fence = !in_fence;
@@ -70,6 +75,9 @@ fn scan_file(
         }
         if in_fence {
             continue;
+        }
+        if is_md && let Some(level) = markdown_heading_level(line) {
+            md_headings.push((lineno, level));
         }
         if config.docstring_python
             && is_py
@@ -121,6 +129,11 @@ fn scan_file(
                 defined_in,
                 e2e_case: None,
                 title,
+                // §AR-scanner.2.4: real body span is assigned in the post-pass
+                // below once every declaration and (for Markdown) every heading
+                // on the file is known. Default to the single declaration line.
+                body_start: lineno,
+                body_end: lineno,
             });
             continue;
         }
@@ -199,6 +212,9 @@ fn scan_file(
                 has_marker,
                 text,
                 inline_site: inline_sites.get(&lineno).cloned(),
+                // §AR-scanner.2.4: classified in the post-pass below.
+                source_kind: String::new(),
+                enclosing_declaration: None,
             });
         }
         let citation_line = CitationLine {
@@ -231,7 +247,209 @@ fn scan_file(
             .or_default()
             .push(decl);
     }
+
+    // §AR-scanner.2.4: now that every declaration and (for Markdown) every
+    // heading on the file is known, fix each declaration's body span and
+    // classify each citation's citing side. `scan_one_file` gives this call a
+    // fresh `Findings`, so `findings` holds exactly this file's records.
+    assign_declaration_bodies(findings, is_md, is_py, config, &text, &md_headings, total_lines);
+    classify_citation_sources(findings, config, path);
     Ok(())
+}
+
+/// The level of a Markdown ATX heading line (`#` count), or `None` when the line
+/// is not a heading (§AR-scanner.2.4). A heading is one or more leading `#`
+/// followed by whitespace or end of line.
+fn markdown_heading_level(line: &str) -> Option<usize> {
+    let trimmed = line.trim_start();
+    let hashes = trimmed.chars().take_while(|ch| *ch == '#').count();
+    if hashes == 0 {
+        return None;
+    }
+    match trimmed[hashes..].chars().next() {
+        None => Some(hashes),
+        Some(ch) if ch.is_whitespace() => Some(hashes),
+        _ => None,
+    }
+}
+
+/// Assign every declaration in `findings` its body line span (§AR-scanner.2.4).
+/// In Markdown the body runs until the next heading at the same or higher level;
+/// in a source file it is bounded by the comment/docstring block the declaration
+/// opens, capped before the next declaration sharing that block.
+fn assign_declaration_bodies(
+    findings: &mut Findings,
+    is_md: bool,
+    is_py: bool,
+    config: &Config,
+    text: &str,
+    md_headings: &[(usize, usize)],
+    total_lines: usize,
+) {
+    // The lines (sorted) at which this file declares — used to cap a source
+    // declaration's body before the next declaration in the same comment block.
+    let mut decl_lines: Vec<usize> = findings
+        .declarations
+        .values()
+        .flatten()
+        .map(|decl| decl.line)
+        .collect();
+    decl_lines.sort_unstable();
+
+    let code_blocks = (!is_md).then(|| comment_block_ranges(text, is_py, config));
+
+    for decl in findings.declarations.values_mut().flatten() {
+        decl.body_start = decl.line;
+        if decl.is_stub {
+            decl.body_end = decl.line;
+            continue;
+        }
+        if is_md {
+            let next_break = md_headings
+                .iter()
+                .filter(|(line, level)| *line > decl.line && *level <= decl.heading_level)
+                .map(|(line, _)| *line)
+                .min();
+            decl.body_end = next_break
+                .map(|line| line - 1)
+                .unwrap_or(total_lines)
+                .max(decl.line);
+        } else {
+            let block_end = code_blocks
+                .as_ref()
+                .and_then(|blocks| {
+                    blocks
+                        .iter()
+                        .find(|(start, end)| *start <= decl.line && decl.line <= *end)
+                        .map(|(_, end)| *end)
+                })
+                .unwrap_or(decl.line);
+            let next_decl_cap = decl_lines
+                .iter()
+                .copied()
+                .find(|line| *line > decl.line)
+                .filter(|line| *line <= block_end)
+                .map(|line| line - 1);
+            decl.body_end = next_decl_cap.unwrap_or(block_end).max(decl.line);
+        }
+    }
+}
+
+/// The 1-indexed inclusive line spans of every comment / docstring block in a
+/// source file (§AR-scanner.2.4) — the same block boundaries
+/// `inline_citation_sites` walks, without the declares-an-ID filtering, so a
+/// declaration's body can be bounded by the block that hosts it.
+fn comment_block_ranges(text: &str, is_py: bool, config: &Config) -> Vec<(usize, usize)> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let mut ranges = Vec::new();
+    let mut index = 0;
+    while index < lines.len() {
+        let Some(kind) = comment_block_kind(lines[index], is_py, config) else {
+            index += 1;
+            continue;
+        };
+        let start = index;
+        let end = match &kind {
+            CommentBlockKind::Line(marker) => {
+                let mut end = index;
+                while end + 1 < lines.len()
+                    && matches!(
+                        comment_block_kind(lines[end + 1], is_py, config),
+                        Some(CommentBlockKind::Line(next)) if next == *marker
+                    )
+                {
+                    end += 1;
+                }
+                end
+            }
+            CommentBlockKind::Block => {
+                let mut end = index;
+                while end + 1 < lines.len() && !lines[end].contains("*/") {
+                    end += 1;
+                }
+                end
+            }
+            CommentBlockKind::PythonDocstring => {
+                let quote = python_docstring_quote(lines[index]).unwrap_or("\"\"\"");
+                let mut end = index;
+                while end + 1 < lines.len()
+                    && !python_docstring_closes(lines[end], quote, end == start)
+                {
+                    end += 1;
+                }
+                end
+            }
+        };
+        ranges.push((start + 1, end + 1));
+        index = end + 1;
+    }
+    ranges
+}
+
+/// Classify each citation's citing side by the three-step fallback of
+/// §AR-scanner.2.4: the enclosing declaration's kind (nearest preceding
+/// declaration whose body contains the site), else the file's unique kind home,
+/// else the reserved `code` pseudo-kind.
+fn classify_citation_sources(findings: &mut Findings, config: &Config, path: &Path) {
+    // (body_start, body_end, id) for this file's declarations, so the enclosing
+    // lookup is a scan of a small local list.
+    let bodies: Vec<(usize, usize, Id)> = findings
+        .declarations
+        .values()
+        .flatten()
+        .map(|decl| (decl.body_start, decl.body_end, decl.id.clone()))
+        .collect();
+    let file_home = file_home_kind(path, config);
+    for cite in &mut findings.citations {
+        let enclosing = bodies
+            .iter()
+            .filter(|(start, end, _)| *start <= cite.line && cite.line <= *end)
+            // Nearest preceding declaration: the one whose body starts latest.
+            .max_by_key(|(start, _, _)| *start);
+        match enclosing {
+            Some((_, _, id)) => {
+                cite.source_kind = id.kind.clone();
+                cite.enclosing_declaration = Some(id.clone());
+            }
+            None => {
+                cite.source_kind = file_home
+                    .clone()
+                    .unwrap_or_else(|| CODE_SOURCE_KIND.to_string());
+            }
+        }
+    }
+}
+
+/// The kind whose configured home (`[[kinds]] folder` / `file`, §FS-config.3.4)
+/// uniquely contains `path` — step 2 of §AR-scanner.2.4. `None` when no home or
+/// more than one home matches, so the citation falls through to `code`.
+fn file_home_kind(path: &Path, config: &Config) -> Option<String> {
+    let relative = path
+        .strip_prefix(&config.root)
+        .ok()
+        .map(scanned_path_key)
+        .or_else(|| {
+            let normalized = scanned_path_key(path);
+            normalized
+                .strip_prefix(scanned_path_key(&config.root))
+                .ok()
+                .map(Path::to_path_buf)
+        })?;
+    let mut matched: Option<&str> = None;
+    for kind in &config.kinds {
+        let hit = match (kind.file.as_deref(), kind.folder.as_deref()) {
+            (Some(file), _) => relative == scanned_path_key(Path::new(file)),
+            (_, Some(folder)) => relative.starts_with(scanned_path_key(Path::new(folder))),
+            _ => false,
+        };
+        if hit {
+            if matched.is_some_and(|prev| prev != kind.prefix.as_str()) {
+                return None;
+            }
+            matched = Some(kind.prefix.as_str());
+        }
+    }
+    matched.map(str::to_string)
 }
 
 #[derive(Clone)]
@@ -588,6 +806,9 @@ fn scan_fallback_qualified_citations(
             has_marker: true,
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
+            // §AR-scanner.2.4: classified in the post-pass in `scan_file`.
+            source_kind: String::new(),
+            enclosing_declaration: None,
         });
     }
 }
@@ -715,6 +936,9 @@ fn scan_workspace_qualified_pass(
             has_marker: true,
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
+            // §AR-scanner.2.4: classified in the post-pass in `scan_file`.
+            source_kind: String::new(),
+            enclosing_declaration: None,
         });
     }
 }
@@ -821,6 +1045,10 @@ fn scan_e2e_cases(
                 defined_in: None,
                 e2e_case: Some(case),
                 title: Some(format!("e2e case `{name}`")),
+                // §AR-scanner.2.4: an E2E case spans its manifest line only; its
+                // obligations evaluate over the case's scanned files, not a body.
+                body_start: 1,
+                body_end: 1,
             });
     }
     Ok(())

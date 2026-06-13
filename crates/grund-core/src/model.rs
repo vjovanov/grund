@@ -32,6 +32,16 @@ pub struct Declaration {
     /// when the heading is a stub link (`# <ID>: [<text>](<path>)`), whose tail
     /// is a path, not a title.
     pub title: Option<String>,
+    /// The declaration's body line span (1-indexed, inclusive), §AR-scanner.2.4:
+    /// in Markdown it runs from the declaration heading to the line before the
+    /// next same-or-higher heading (or end of file); in a source file it is
+    /// bounded by the comment/docstring block, capped before the next
+    /// declaration in a multi-ID block. A stub heading and an `E2E` case span
+    /// their single declaration line only. Used to classify a citation's citing
+    /// side (its `enclosing_declaration`) and shared with `grund cover` /
+    /// §RM-gap-report.
+    pub body_start: usize,
+    pub body_end: usize,
 }
 
 /// One numbered subsection heading recorded inside a declaration
@@ -70,6 +80,16 @@ pub struct Citation {
     pub has_marker: bool,
     pub text: String,
     pub inline_site: Option<InlineCitationSite>,
+    /// The resolved *citing* kind for this site (§AR-scanner.2.4): the kind of
+    /// the enclosing declaration, else the file's unique kind home, else the
+    /// reserved lowercase `code` pseudo-kind. Drives the citation-direction
+    /// checks (§FS-config.3.9, §AR-checker.2.9, §AR-checker.2.10).
+    pub source_kind: String,
+    /// The nearest preceding declaration whose body range contains this site
+    /// (§AR-scanner.2.4), or `None` when the site sits in no declaration body.
+    /// Lets the obligation pass ask "does this declaration cite the target?" as
+    /// a lookup rather than a re-scan.
+    pub enclosing_declaration: Option<Id>,
 }
 
 /// The enclosing source-comment citation site for one citation
@@ -197,6 +217,10 @@ pub struct Config {
 }
 
 const DEFAULT_KINDS: &[&str] = &["GRUND", "GOAL", "FS", "AR", "DF", "DA", "E2E", "RM"];
+/// The reserved lowercase citing kind for a citation site outside every
+/// configured kind home (§AR-scanner.2.4, §FS-config.3.9.2). Lowercase so it can
+/// never collide with a real `[[kinds]]` prefix, which must be uppercase-shaped.
+const CODE_SOURCE_KIND: &str = "code";
 const DEFAULT_ID_FORMAT: &str = "{kind}-{number}-{slug}";
 const DEFAULT_SECTION_SEPARATOR: &str = ".";
 const DEFAULT_NUMBER_PATTERN: &str = r"\d+";
