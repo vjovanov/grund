@@ -2617,6 +2617,33 @@ should = ["FS|AR"]
         );
     }
 
+    // §FS-config.3.9.5: a `should`/`must-not` pair whose namespaces overlap
+    // (`*/AR` covers a bare local `AR`) is rejected; disjoint namespaces are not.
+    #[test]
+    fn citation_validation_rejects_overlapping_namespace_polarities() {
+        let root = test_root("citation_validation_rejects_overlapping_namespace_polarities");
+        let cfg = |body: &str| {
+            format!(
+                "[[kinds]]\nprefix = \"FS\"\nfolder = \"docs/functional-spec\"\n[[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\n[citations.FS]\n{body}"
+            )
+        };
+
+        // `*/AR` (any) overlaps a bare local `AR` at the opposing level → error.
+        write(&root.join(".agents/grund.toml"), &cfg("should = [\"AR\"]\nmust-not = [\"*/AR\"]\n"));
+        match load_config(&root) {
+            Ok(_) => panic!("overlapping namespace polarities must be rejected"),
+            Err(err) => assert!(
+                err.to_string().contains("overlap"),
+                "expected an overlap error, got: {err}"
+            ),
+        }
+
+        // A local `AR` permitted while a pinned `root/AR` is forbidden is fine —
+        // the matchers are disjoint.
+        write(&root.join(".agents/grund.toml"), &cfg("may = [\"AR\"]\nmust-not = [\"root/AR\"]\n"));
+        load_config(&root).expect("disjoint namespaces must load");
+    }
+
     #[cfg(unix)]
     #[test]
     fn claude_symlink_to_agents_is_not_a_companion_entrypoint() {
