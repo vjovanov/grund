@@ -2535,6 +2535,41 @@ must = ["FS"]
         );
     }
 
+    // §FS-config.3.9.2: Markdown files outside kind homes are still checked for
+    // prohibited citation directions, but they are not `code` obligation units.
+    #[test]
+    fn citation_directions_code_obligations_exempt_markdown() {
+        let root = test_root("citation_directions_code_obligations_exempt_markdown");
+        write(
+            &root.join(".agents/grund.toml"),
+            r#"project_name = "scratch"
+[scan]
+include = ["docs", "README.md"]
+[citations]
+default = "may"
+[citations.code]
+must = ["FS"]
+"#,
+        );
+        write(&root.join("docs/goals.md"), "# GOAL-001-fast: Fast\n\nBe fast.\n");
+        write(
+            &root.join("docs/functional-spec/FS-001-cli.md"),
+            "# FS-001-cli: CLI\n\nShip the interface.\n",
+        );
+        write(&root.join("README.md"), "# Scratch\n\nSee §GOAL-001-fast.\n");
+
+        let config = load_config(&root).expect("load config");
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let report = check_findings(&findings, &config);
+
+        assert!(
+            !report.errors.iter().any(|d| d.code == "missing-citation"
+                && d.path.as_deref() == Some(root.join("README.md").as_path())),
+            "root README.md must not be a code obligation unit: {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+    }
+
     // §FS-config.3.9: an absent [citations] section runs no direction checks.
     #[test]
     fn citation_directions_absent_section_is_inert() {
@@ -2613,6 +2648,35 @@ should = ["FS|AR"]
             report.errors.iter().any(|d| d.code == "agents-init"
                 && d.message.contains("citation directions differ")),
             "stale citation directions must be reported: {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+    }
+
+    // §FS-check.3.5 / §FS-init.2.3.5: only the managed block content can satisfy
+    // citation-direction drift validation; matching prose elsewhere is ignored.
+    #[test]
+    fn citation_directions_drift_compares_managed_block_only() {
+        let root = test_root("citation_directions_drift_compares_managed_block_only");
+        write(
+            &root.join(".agents/grund.toml"),
+            "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
+        );
+        let config = load_config(&root).expect("load config");
+        let fresh = render_agents_append_block("demo", &config, &root, true);
+        let stale = fresh.replace("**E2E** must cite FS", "**E2E** should cite GOAL");
+        let expected = citation_directions_section(&config);
+        write(
+            &root.join("AGENTS.md"),
+            &format!("# demo\n\n{stale}\n\n## Notes\n\n{expected}\n"),
+        );
+
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let report = check_findings(&findings, &config);
+
+        assert!(
+            report.errors.iter().any(|d| d.code == "agents-init"
+                && d.message.contains("citation directions differ")),
+            "matching prose outside the managed block must not mask drift: {:?}",
             report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
         );
     }
