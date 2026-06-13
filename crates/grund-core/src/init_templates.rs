@@ -10,7 +10,10 @@ const E2E_README_TEMPLATE: &str = include_str!("../assets/templates/e2e-README.m
 const AS_README_TEMPLATE: &str = include_str!("../assets/templates/architecture-README.md");
 const GITKEEP_TEMPLATE: &str = include_str!("../assets/templates/gitkeep.md");
 pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-init/SKILL.md");
-const AGENTS_BLOCK_VERSION: u32 = 2;
+// v3 (§FS-init.2.3.5, §DF-citation-directions): the hand-written climbing-rule
+// bullet is replaced by a generated `### Citation directions` section derived
+// from `[citations]`, byte-compared by `grund check` for drift (§FS-check.3.5).
+const AGENTS_BLOCK_VERSION: u32 = 3;
 const CANONICAL_AGENT_ENTRYPOINT: &str = "AGENTS.md";
 const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
     CompanionAgentEntrypoint {
@@ -211,6 +214,7 @@ fn agents_template_substitutions(
         ("{MARKER}", marker.to_string()),
         ("{TRIGGER}", config.trigger.clone()),
         ("{DECLARATION_MAP}", declaration_map(config)),
+        ("{CITATION_DIRECTIONS}", citation_directions_section(config)),
         (
             "{WORKSPACE_MEMBERS}",
             render_workspace_members_section(
@@ -284,6 +288,90 @@ fn markdown_link_destination(raw: &str) -> String {
     } else {
         raw.to_string()
     }
+}
+
+/// Render the `### Citation directions` managed-block section (§FS-init.2.3.5)
+/// from the effective `[citations]` rules. Deterministic — `[[kinds]]` order,
+/// `code` last, fixed level phrases, `|`→"or", conjunction→"and" — so
+/// `grund check` can re-render and byte-compare it for drift (§FS-check.3.5).
+/// When no `[citations]` section is declared, the static climbing-rule sentence
+/// stands in, so a config that predates the feature keeps a stable block.
+fn citation_directions_section(config: &Config) -> String {
+    // Built as lines joined with `\n` and returned without a trailing newline:
+    // the `{CITATION_DIRECTIONS}` placeholder in the template supplies the single
+    // block-final newline, so `grund init` stays idempotent on re-run.
+    let mut lines = vec!["### Citation directions".to_string(), String::new()];
+    if !config.citations.declared {
+        lines.push(
+            "Specs cite goals, architecture cites specs, code and executable tests cite the specs they realize."
+                .to_string(),
+        );
+        return lines.join("\n");
+    }
+    // `[[kinds]]` order, then the `code` pseudo-kind last (§FS-init.2.3.5).
+    let mut kinds: Vec<String> = config.kinds.iter().map(|k| k.prefix.clone()).collect();
+    if config.citations.per_kind.contains_key(CODE_SOURCE_KIND) {
+        kinds.push(CODE_SOURCE_KIND.to_string());
+    }
+    for kind in &kinds {
+        let Some(rules) = config.citations.per_kind.get(kind) else {
+            continue;
+        };
+        let Some(clauses) = citation_direction_clauses(rules) else {
+            continue;
+        };
+        let label = if kind == CODE_SOURCE_KIND {
+            "**code** (any file outside a kind home)".to_string()
+        } else {
+            format!("**{kind}**")
+        };
+        lines.push(format!("- {label} {clauses}."));
+    }
+    // Load-bearing (§FS-init.2.3.5): without it an agent over-infers
+    // prohibitions from silence.
+    lines.push("Unlisted kinds and pairs are fine.".to_string());
+    lines.join("\n")
+}
+
+/// The verb-phrase clauses for one citing kind's rules, joined by "; " in the
+/// order obligations then prohibitions (§FS-init.2.3.5). `None` when the kind
+/// has no renderable rule (only a `default` or `may`).
+fn citation_direction_clauses(rules: &KindCitationRules) -> Option<String> {
+    let mut clauses = Vec::new();
+    if !rules.must.is_empty() {
+        clauses.push(format!("must cite {}", citation_rule_targets(&rules.must)));
+    }
+    if !rules.should.is_empty() {
+        clauses.push(format!("should cite {}", citation_rule_targets(&rules.should)));
+    }
+    if !rules.must_not.is_empty() {
+        clauses.push(format!("never cite {}", citation_rule_targets(&rules.must_not)));
+    }
+    if !rules.should_not.is_empty() {
+        clauses.push(format!("avoid citing {}", citation_rule_targets(&rules.should_not)));
+    }
+    if clauses.is_empty() {
+        return None;
+    }
+    Some(clauses.join("; "))
+}
+
+/// Render a list of disjunctions as a target phrase: alternatives within an
+/// entry joined by " or ", conjunctive entries joined by " and "
+/// (§FS-init.2.3.5).
+fn citation_rule_targets(disjunctions: &[CitationDisjunction]) -> String {
+    disjunctions
+        .iter()
+        .map(|disjunction| {
+            disjunction
+                .targets
+                .iter()
+                .map(render_citation_target)
+                .collect::<Vec<_>>()
+                .join(" or ")
+        })
+        .collect::<Vec<_>>()
+        .join(" and ")
 }
 
 fn declaration_map(config: &Config) -> String {

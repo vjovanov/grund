@@ -141,8 +141,9 @@ fn check_with_workspace(
     let mut report = CheckReport::default();
     let kind_homes = KindHomeIndex::new(config);
     // §FS-check.3.5: managed agent-entrypoint blocks that are out of date (or
-    // newer than this binary) are check errors.
-    check_agents_block_version(&config.root, &mut report);
+    // newer than this binary), or whose generated citation-directions section
+    // has drifted from `[citations]`, are check errors.
+    check_agents_block_version(config, &mut report);
 
     // §FS-check.3.3: an ID with more than one non-stub home is a duplicate.
     for (id, decls) in &findings.declarations {
@@ -899,16 +900,17 @@ fn diagnostic_cmp(a: &Diagnostic, b: &Diagnostic) -> std::cmp::Ordering {
 /// binary — an older `vN` is "run `grund init`" (§FS-init.2.3), a newer one is
 /// fatal. `AGENTS.md` is canonical; known companion entrypoints are checked when
 /// present and not symlinked to `AGENTS.md`.
-fn check_agents_block_version(root: &Path, report: &mut CheckReport) {
+fn check_agents_block_version(config: &Config, report: &mut CheckReport) {
+    let root = &config.root;
     let canonical = root.join("AGENTS.md");
     let canonical_exists = canonical.exists();
     if canonical_exists {
-        check_agent_block_path(&canonical, report, true);
+        check_agent_block_path(config, &canonical, report, true);
     }
     match companion_agent_entrypoints(root) {
         Ok(companions) => {
             for companion in companions {
-                check_agent_block_path(&companion, report, canonical_exists);
+                check_agent_block_path(config, &companion, report, canonical_exists);
             }
         }
         Err((path, message)) => {
@@ -923,7 +925,12 @@ fn check_agents_block_version(root: &Path, report: &mut CheckReport) {
     }
 }
 
-fn check_agent_block_path(path: &Path, report: &mut CheckReport, require_block: bool) {
+fn check_agent_block_path(
+    config: &Config,
+    path: &Path,
+    report: &mut CheckReport,
+    require_block: bool,
+) {
     if !path.exists() {
         return;
     }
@@ -965,6 +972,24 @@ fn check_agent_block_path(path: &Path, report: &mut CheckReport, require_block: 
                 ),
                 sites: Vec::new(),
             });
+        } else {
+            // §FS-check.3.5 / §FS-init.2.3.5: the citation-directions section is
+            // generated from `[citations]`, so the version marker alone cannot
+            // catch a config edit that left the block stale. Re-render the
+            // section and byte-compare — rendering is deterministic, so the
+            // render *is* the hash.
+            let expected = citation_directions_section(config);
+            if !text.contains(expected.trim_end()) {
+                report.errors.push(Diagnostic {
+                    code: "agents-init",
+                    path: Some(path.to_path_buf()),
+                    line: Some(line),
+                    message:
+                        "stale grund init block: citation directions differ from .agents/grund.toml (run `grund init` to refresh)"
+                            .to_string(),
+                    sites: Vec::new(),
+                });
+            }
         }
         return;
     }
