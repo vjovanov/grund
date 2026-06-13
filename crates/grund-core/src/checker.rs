@@ -444,9 +444,264 @@ fn check_with_workspace(
         }
     }
 
+    // §FS-config.3.9 / §FS-check.3.11 / §FS-check.3.12: citation-direction
+    // obligations and prohibitions, when the project declares `[citations]`.
+    if config.citations.declared {
+        check_citation_obligations(findings, config, &mut report);
+        check_citation_prohibitions(findings, config, &mut report);
+    }
+
     sort_diagnostics(&mut report.errors);
     sort_diagnostics(&mut report.warnings);
+    sort_diagnostics(&mut report.suggestions);
     report
+}
+
+/// §AR-checker.2.9 / §FS-check.3.11: every top-level declaration of a citing
+/// kind with a `must` / `should` obligation must carry, in its body, a citation
+/// satisfying each obligation entry. `must` misses are `missing-citation`
+/// errors; `should` misses are `suggested-citation` suggestions.
+fn check_citation_obligations(findings: &Findings, config: &Config, report: &mut CheckReport) {
+    for (citing_kind, rules) in &config.citations.per_kind {
+        if rules.must.is_empty() && rules.should.is_empty() {
+            continue;
+        }
+        for unit in obligation_units(citing_kind, findings) {
+            for entry in &rules.must {
+                if !entry.targets.iter().any(|t| unit.satisfies(t)) {
+                    report.errors.push(obligation_diagnostic(
+                        "missing-citation",
+                        config,
+                        &unit,
+                        entry,
+                        "must",
+                    ));
+                }
+            }
+            for entry in &rules.should {
+                if !entry.targets.iter().any(|t| unit.satisfies(t)) {
+                    report.suggestions.push(obligation_diagnostic(
+                        "suggested-citation",
+                        config,
+                        &unit,
+                        entry,
+                        "should",
+                    ));
+                }
+            }
+        }
+    }
+}
+
+/// One thing an obligation is evaluated against (§AR-checker.2.9): a declaration
+/// body, a `code` source file, or an `E2E` case — together with the citations
+/// that count toward it, the `path:line` a finding anchors at, and the subject
+/// `id` (a declaration) or `None` (a `code` source file).
+struct ObligationUnit<'a> {
+    id: Option<&'a Id>,
+    path: PathBuf,
+    line: usize,
+    citations: Vec<&'a Citation>,
+}
+
+impl ObligationUnit<'_> {
+    fn satisfies(&self, target: &CitationTarget) -> bool {
+        self.citations
+            .iter()
+            .any(|cite| citation_matches_target(cite, target))
+    }
+
+    fn subject(&self, config: &Config) -> String {
+        match self.id {
+            Some(id) => render_id(config, id),
+            None => "source file".to_string(),
+        }
+    }
+}
+
+/// The evaluation units for one citing kind's obligations (§FS-config.3.9):
+/// per source file for `code`, per case (over the case's scanned-file citations,
+/// vacuous when none) for `E2E`, per non-stub declaration otherwise.
+fn obligation_units<'a>(citing_kind: &str, findings: &'a Findings) -> Vec<ObligationUnit<'a>> {
+    if citing_kind == CODE_SOURCE_KIND {
+        let mut by_file: BTreeMap<&Path, Vec<&Citation>> = BTreeMap::new();
+        for cite in &findings.citations {
+            if cite.source_kind == CODE_SOURCE_KIND {
+                by_file.entry(cite.file.as_path()).or_default().push(cite);
+            }
+        }
+        return by_file
+            .into_iter()
+            .map(|(file, citations)| ObligationUnit {
+                id: None,
+                path: file.to_path_buf(),
+                line: 1,
+                citations,
+            })
+            .collect();
+    }
+
+    let mut units = Vec::new();
+    for (id, decls) in &findings.declarations {
+        if id.kind != citing_kind {
+            continue;
+        }
+        for decl in decls {
+            if decl.is_stub {
+                continue;
+            }
+            if decl.e2e_case.is_some() {
+                // §FS-config.3.9 / §DF-require-grounding: an E2E obligation
+                // evaluates over the case's *scanned* files; fixture trees carved
+                // out of `[scan]` are invisible, so a case with no scanned-file
+                // citations has nothing to evaluate and is vacuously satisfied.
+                let citations: Vec<&Citation> = findings
+                    .citations
+                    .iter()
+                    .filter(|cite| cite.file.starts_with(&decl.file))
+                    .collect();
+                if citations.is_empty() {
+                    continue;
+                }
+                units.push(ObligationUnit {
+                    id: Some(id),
+                    path: decl.file.clone(),
+                    line: decl.line,
+                    citations,
+                });
+            } else {
+                let citations: Vec<&Citation> = findings
+                    .citations
+                    .iter()
+                    .filter(|cite| cite.enclosing_declaration.as_ref() == Some(id))
+                    .collect();
+                units.push(ObligationUnit {
+                    id: Some(id),
+                    path: decl.file.clone(),
+                    line: decl.line,
+                    citations,
+                });
+            }
+        }
+    }
+    units
+}
+
+fn obligation_diagnostic(
+    code: &'static str,
+    config: &Config,
+    unit: &ObligationUnit<'_>,
+    entry: &CitationDisjunction,
+    verb_level: &str,
+) -> Diagnostic {
+    Diagnostic {
+        code,
+        path: Some(unit.path.clone()),
+        line: Some(unit.line),
+        message: format!(
+            "{} {verb_level} cite {} (citation direction)",
+            unit.subject(config),
+            render_target_phrase(entry)
+        ),
+        sites: Vec::new(),
+    }
+}
+
+/// §AR-checker.2.10 / §FS-check.3.12: a citation site whose citing kind prohibits
+/// its target is a `forbidden-citation` error (`must-not`) or a
+/// `discouraged-citation` suggestion (`should-not`).
+fn check_citation_prohibitions(findings: &Findings, config: &Config, report: &mut CheckReport) {
+    for cite in &findings.citations {
+        match citation_site_level(config, cite) {
+            Some(CitationLevel::MustNot) => report.errors.push(prohibition_diagnostic(
+                "forbidden-citation",
+                cite,
+                "must not",
+            )),
+            Some(CitationLevel::ShouldNot) => report.suggestions.push(prohibition_diagnostic(
+                "discouraged-citation",
+                cite,
+                "should not",
+            )),
+            _ => {}
+        }
+    }
+}
+
+fn prohibition_diagnostic(code: &'static str, cite: &Citation, verb: &str) -> Diagnostic {
+    let target = CitationTarget {
+        namespace: match &cite.namespace {
+            None => NamespaceMatch::Local,
+            Some(alias) => NamespaceMatch::Alias(alias.clone()),
+        },
+        kind: cite.id.kind.clone(),
+    };
+    Diagnostic {
+        code,
+        path: Some(cite.file.clone()),
+        line: Some(cite.line),
+        message: format!(
+            "{} {verb} cite {} (citation direction)",
+            cite.source_kind,
+            render_citation_target(&target)
+        ),
+        sites: Vec::new(),
+    }
+}
+
+/// The direction level a citation site resolves to (§FS-config.3.9.4): the
+/// explicit list it matches under its citing kind's rules, else the per-kind
+/// `default`, else the global `default`, else `may`.
+fn citation_site_level(config: &Config, cite: &Citation) -> Option<CitationLevel> {
+    let rules = config.citations.per_kind.get(&cite.source_kind);
+    if let Some(rules) = rules {
+        let lists = [
+            (CitationLevel::Must, &rules.must),
+            (CitationLevel::Should, &rules.should),
+            (CitationLevel::May, &rules.may),
+            (CitationLevel::ShouldNot, &rules.should_not),
+            (CitationLevel::MustNot, &rules.must_not),
+        ];
+        for (level, disjunctions) in lists {
+            for disjunction in disjunctions {
+                if disjunction
+                    .targets
+                    .iter()
+                    .any(|target| citation_matches_target(cite, target))
+                {
+                    return Some(level);
+                }
+            }
+        }
+        if let Some(default) = rules.default {
+            return Some(default);
+        }
+    }
+    config.citations.global_default
+}
+
+/// Whether a citation matches a rule target: same cited kind, and a namespace
+/// qualifier that covers the citation's namespace (§FS-config.3.9.3).
+fn citation_matches_target(cite: &Citation, target: &CitationTarget) -> bool {
+    if cite.id.kind != target.kind {
+        return false;
+    }
+    match &target.namespace {
+        NamespaceMatch::Any => true,
+        NamespaceMatch::Local => cite.namespace.is_none(),
+        NamespaceMatch::Alias(alias) => cite.namespace.as_deref() == Some(alias.as_str()),
+    }
+}
+
+/// Render a disjunction as a human phrase for a finding message: kinds joined by
+/// " or " (§FS-init.2.3.5 uses the same phrasing in the agent entrypoint).
+fn render_target_phrase(entry: &CitationDisjunction) -> String {
+    entry
+        .targets
+        .iter()
+        .map(render_citation_target)
+        .collect::<Vec<_>>()
+        .join(" or ")
 }
 
 fn dangling_message(

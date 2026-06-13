@@ -65,7 +65,7 @@ fn print_subcommand_help(cmd: &str) {
                 "grund check — validate every ID citation across the repo."
             );
             println!();
-            println!("Usage:  grund check [PATH] [--require-grounding] [--format text|json]");
+            println!("Usage:  grund check [PATH] [--require-grounding] [--suggestions] [--format text|json]");
             println!();
             println!(
                 "PATH defaults to `.`; config (`.agents/grund.toml`) is discovered by walking up from it."
@@ -84,6 +84,9 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!(
                 "  --require-grounding  also require every source file to cite a declared ID ([reference] require_grounding)."
+            );
+            println!(
+                "  --suggestions        also surface should/should-not citation-direction findings ([citations])."
             );
             println!();
             println!(

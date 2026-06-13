@@ -65,6 +65,10 @@ pub struct Finding {
 pub struct Report {
     pub errors: Vec<Finding>,
     pub warnings: Vec<Finding>,
+    /// The non-severity advisory channel (§FS-check.2.3): citation-direction
+    /// `should` / `should-not` findings, populated only when
+    /// [`CheckOpts::include_suggestions`] is set. Never affects the exit code.
+    pub suggestions: Vec<Finding>,
 }
 
 #[derive(Clone)]
@@ -72,6 +76,9 @@ pub struct CheckOpts {
     pub path: PathBuf,
     pub path_provided: bool,
     pub require_grounding: bool,
+    /// Surface the citation-direction suggestions channel (§FS-check.2.3) —
+    /// the `grund check --suggestions` flag at the library level.
+    pub include_suggestions: bool,
 }
 
 impl Default for CheckOpts {
@@ -80,6 +87,7 @@ impl Default for CheckOpts {
             path: PathBuf::from("."),
             path_provided: false,
             require_grounding: false,
+            include_suggestions: false,
         }
     }
 }
@@ -106,6 +114,7 @@ pub fn check(path: &Path) -> Result<Report> {
         path: path.to_path_buf(),
         path_provided: true,
         require_grounding: false,
+        include_suggestions: false,
     })?
     .report)
 }
@@ -116,12 +125,12 @@ pub fn check_with_opts(opts: CheckOpts) -> Result<CheckOutput> {
     let run = run_check(&opts.path, opts.path_provided, opts.require_grounding)?;
     Ok(CheckOutput {
         output_format: run.config.output_format.clone(),
-        report: public_report(&run.config, run.report),
+        report: public_report(&run.config, run.report, opts.include_suggestions),
         had_scan_errors: run.had_scan_errors,
     })
 }
 
-fn public_report(config: &Config, report: CheckReport) -> Report {
+fn public_report(config: &Config, report: CheckReport, include_suggestions: bool) -> Report {
     Report {
         errors: report
             .errors
@@ -133,6 +142,17 @@ fn public_report(config: &Config, report: CheckReport) -> Report {
             .into_iter()
             .map(|diagnostic| public_finding(config, "warning", diagnostic))
             .collect(),
+        // §FS-check.2.3: suggestions are surfaced only on demand. The public
+        // severity tag stays `"suggestion"` so a consumer can tell them apart.
+        suggestions: if include_suggestions {
+            report
+                .suggestions
+                .into_iter()
+                .map(|diagnostic| public_finding(config, "suggestion", diagnostic))
+                .collect()
+        } else {
+            Vec::new()
+        },
     }
 }
 
