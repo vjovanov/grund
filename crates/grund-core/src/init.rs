@@ -394,7 +394,7 @@ fn print_init_output(output: &InitOutput) {
         eprintln!("{} {}", event.verb, event.path);
     }
     if let Some(next) = &output.next {
-        print_next_block(next.docs, Some(&next.entrypoint));
+        print_next_block_for_home(next.docs, Some(&next.entrypoint), &next.fs_home);
     }
 }
 
@@ -402,56 +402,68 @@ fn event_is_change(event: &InitEvent) -> bool {
     event.verb != "exists"
 }
 
+fn print_next_block_for_home(docs: bool, entrypoint: Option<&str>, fs_home: &InitFsHome) {
+    eprint!("{}", render_next_block_for_home(docs, entrypoint, fs_home));
+}
+
 /// The trailing `next:` guidance block (§FS-init.2.2). Suppressed by the caller
 /// when every reported path was `exists ` — when the repo is already current
 /// there is no next step to teach. `entrypoint` is the first agent entrypoint
 /// `init` touched, used in the final `see <entrypoint> …` pointer; `None`
 /// falls back to the canonical `AGENTS.md`.
-fn print_next_block(docs: bool, entrypoint: Option<&str>) {
-    let config = Config::default_for(PathBuf::from("."));
-    let fs_home = init_fs_home(&config);
-    print_next_block_for_home(docs, entrypoint, &fs_home);
-}
-
-fn print_next_block_for_home(docs: bool, entrypoint: Option<&str>, fs_home: &InitFsHome) {
-    eprintln!();
-    eprintln!("next:");
+fn render_next_block_for_home(
+    docs: bool,
+    entrypoint: Option<&str>,
+    fs_home: &InitFsHome,
+) -> String {
+    let mut output = "\nnext:\n".to_string();
     if docs {
-        eprintln!("  1. run `grund check` — a freshly scaffolded tree is clean");
+        output.push_str("  1. run `grund check` — a freshly scaffolded tree is clean\n");
         match fs_home {
             InitFsHome::File { path, heading_name, heading_marker } => {
-                eprintln!("  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}");
-                eprintln!(
-                    "     ({heading_name}: `{heading_marker} <ID>: <one-line statement of the behavior>`)"
-                );
+                output.push_str(&format!(
+                    "  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}\n"
+                ));
+                output.push_str(&format!(
+                    "     ({heading_name}: `{heading_marker} <ID>: <one-line statement of the behavior>`)\n"
+                ));
             }
             InitFsHome::Folder { path } => {
-                eprintln!("  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}");
-                eprintln!("     (H1: `# <ID>: <one-line statement of the behavior>`)");
+                output.push_str(&format!(
+                    "  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}\n"
+                ));
+                output.push_str("     (H1: `# <ID>: <one-line statement of the behavior>`)\n");
             }
         }
-        eprintln!(
-            "  3. cite it as §<ID> from the docs and e2e tests that depend on it, then `grund check` again"
+        output.push_str(
+            "  3. cite it as §<ID> from the docs and e2e tests that depend on it, then `grund check` again\n",
         );
     } else {
         let fs_home_path = match fs_home {
             InitFsHome::File { path, .. } | InitFsHome::Folder { path } => path,
         };
-        eprintln!("  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan");
-        eprintln!("  2. run `grund check` — a scaffolded tree is clean");
+        output.push_str(&format!(
+            "  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan\n"
+        ));
+        output.push_str("  2. run `grund check` — a scaffolded tree is clean\n");
         match fs_home {
             InitFsHome::File { path, .. } => {
-                eprintln!("  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}");
+                output.push_str(&format!(
+                    "  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}\n"
+                ));
             }
             InitFsHome::Folder { path } => {
-                eprintln!("  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}");
+                output.push_str(&format!(
+                    "  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}\n"
+                ));
             }
         }
     }
-    eprintln!(
-        "see {} for the full workflow.",
+    output.push_str(&format!(
+        "see {} for the full workflow.\n",
         entrypoint.unwrap_or(CANONICAL_AGENT_ENTRYPOINT)
-    );
+    ));
+    output
 }
 
 /// Stderr verb for a newly written file. `--dry-run` reports `would-write `
@@ -753,7 +765,7 @@ fn docs_scaffold(fs_home: &InitFsHome) -> Vec<(String, String)> {
         ),
         (
             "e2e/README.md",
-            canonical_template_text(E2E_README_TEMPLATE),
+            render_e2e_readme(fs_home),
         ),
         (
             "e2e/cases/.gitkeep",
@@ -763,4 +775,11 @@ fn docs_scaffold(fs_home: &InitFsHome) -> Vec<(String, String)> {
     .into_iter()
     .map(|(path, contents)| (path.to_string(), contents)));
     files
+}
+
+fn render_e2e_readme(fs_home: &InitFsHome) -> String {
+    let fs_home_path = match fs_home {
+        InitFsHome::File { path, .. } | InitFsHome::Folder { path } => path,
+    };
+    canonical_template_text(E2E_README_TEMPLATE).replace("{fs_home}", fs_home_path)
 }

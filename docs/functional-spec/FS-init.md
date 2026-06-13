@@ -73,7 +73,7 @@ Each scaffolded markdown file is a minimal starter — enough structure to teach
 - `requirements.md` — the H1 plus a one-line note on how `FS-` requirements/spec IDs are declared inline as H2 headings in that file.
 - `roadmap.md`, `changelog.md` — the H1 plus a single `<!-- placeholder - replace with real content -->` line.
 - `architecture/README.md` — the H1, the navigational note about how `AR-` IDs declare into the directory and the convention that the index lists every architecture point, and an empty `| ID | Subject |` table to fill in.
-- `e2e/README.md` — the H1 (`# e2e`) plus a one-line note that every behaviour described in `requirements.md` has at least one case.
+- `e2e/README.md` — the H1 (`# e2e`) plus a one-line note that every behaviour described in the effective FS home has at least one case.
 
 The exact bytes for a given `grund` version are embedded in the binary; reference copies live under `templates/` in the `grund` source tree, and two `grund init --docs` runs at the same version with the same `--name` produce byte-identical scaffolds ([§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)). `grund check` is clean against the freshly-scaffolded tree. The `.gitkeep` files exist solely so the empty directories survive a `git add`; their content is a single line: `# placeholder — replace this directory's contents with real declarations`.
 
