@@ -352,6 +352,8 @@ members = ["packages/*"]
                 defined_in: None,
                 e2e_case: None,
                 title: Some("Router".to_string()),
+                body_start: 1,
+                body_end: 1,
             }],
         );
         let report = check_findings(&findings, &config);
@@ -2371,6 +2373,91 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         let with = render_grund_toml("demo", Some("Demo \"quoted\" service"));
         assert!(!with.contains(teaching_line));
         assert!(with.contains("project_description = \"Demo \\\"quoted\\\" service\""));
+    }
+
+    // §AR-scanner.2.4: a Markdown declaration's body runs until the next
+    // same-or-higher heading; an enclosed citation is classified by the
+    // declaration's kind.
+    #[test]
+    fn scanner_markdown_body_and_source_kind() {
+        let root = test_root("scanner_markdown_body_and_source_kind");
+        write(
+            &root.join("docs/goals.md"),
+            "# Goals\n\n## GOAL-001-first: First\n\nGrounds in §GRUND-001-why.\n\n### 1. Detail\n\nMore.\n\n## GOAL-002-second: Second\n\nNothing cited.\n",
+        );
+        let config = Config::default_for(root.clone());
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+
+        let first = Id {
+            kind: "GOAL".into(),
+            num: Some(1),
+            slug: Some("first".into()),
+        };
+        let decls = findings.declarations.get(&first).expect("GOAL-first");
+        let decl = &decls[0];
+        // Body runs from the `## GOAL-first` line up to (not including) the next
+        // H2 `## GOAL-second`.
+        assert_eq!(decl.body_start, 3);
+        assert_eq!(decl.body_end, 10);
+
+        let cite = findings
+            .citations
+            .iter()
+            .find(|c| c.id.slug.as_deref() == Some("why"))
+            .expect("GRUND-why citation");
+        assert_eq!(cite.source_kind, "GOAL");
+        assert_eq!(cite.enclosing_declaration.as_ref(), Some(&first));
+    }
+
+    // §AR-scanner.2.4: a citation in a source file outside any inline
+    // declaration falls through to the reserved `code` pseudo-kind; one inside
+    // an inline declaration's comment block takes that declaration's kind.
+    #[test]
+    fn scanner_code_source_kind_and_inline_block() {
+        let root = test_root("scanner_code_source_kind_and_inline_block");
+        write(
+            &root.join("src/app.rs"),
+            "/// AR-001-router: Router\n/// Implements §FS-001-cli.\n\nfn main() {\n    // see §FS-002-check\n}\n",
+        );
+        let config = Config::default_for(root.clone());
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+
+        let inline = findings
+            .citations
+            .iter()
+            .find(|c| c.id.slug.as_deref() == Some("cli"))
+            .expect("FS-cli citation");
+        assert_eq!(inline.source_kind, "AR");
+        assert_eq!(inline.enclosing_declaration.as_ref().map(|id| id.kind.as_str()), Some("AR"));
+
+        let loose = findings
+            .citations
+            .iter()
+            .find(|c| c.id.slug.as_deref() == Some("check"))
+            .expect("FS-check citation");
+        assert_eq!(loose.source_kind, "code");
+        assert!(loose.enclosing_declaration.is_none());
+    }
+
+    // §AR-scanner.2.4 step 2: a citation in a Markdown file under a kind home
+    // but outside any declaration body takes the file's home kind.
+    #[test]
+    fn scanner_file_home_source_kind() {
+        let root = test_root("scanner_file_home_source_kind");
+        write(
+            &root.join("docs/architecture/README.md"),
+            "Overview prose citing §FS-001-cli before any declaration.\n",
+        );
+        let config = Config::default_for(root.clone());
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+
+        let cite = findings
+            .citations
+            .iter()
+            .find(|c| c.id.slug.as_deref() == Some("cli"))
+            .expect("FS-cli citation");
+        assert_eq!(cite.source_kind, "AR");
+        assert!(cite.enclosing_declaration.is_none());
     }
 
     #[cfg(unix)]
