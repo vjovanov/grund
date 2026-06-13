@@ -1,4 +1,4 @@
-## Grounding with grund (v2)
+## Grounding with grund (v3)
 
 This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `{ID_SHAPE_SEC}` (`KIND ∈ {KINDS_SET}`), cited with the marker `{MARKER}` — e.g. `{CITE_EXAMPLE}` (the `{ID_EXAMPLE}` here is a shape illustration, not a real ID in this repo). Type `{TRIGGER}` in a grund-aware editor and it becomes `{MARKER}`. {BARE_TOKEN_NOTE}
 
@@ -35,4 +35,5 @@ Declarations are heading lines `# {ID_EXAMPLE}: …` in markdown. In a code doc-
 - **Cite as you write.** Place `{MARKER}<ID>` at the point a claim or behavior is made — on the doc-comment for a whole behavior, inline beside the clause it enforces.
 - **Inline citation style.** {INLINE_CITATION_STYLE}
 - **Always cite the most-specific point.**
-- **Citations climb to reasons (grund.md).** Goals cite reasons, specs cite goals; architecture cites specs; code and executable tests cite specs.
+
+{CITATION_DIRECTIONS}

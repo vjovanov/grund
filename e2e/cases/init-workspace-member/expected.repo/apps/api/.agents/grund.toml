@@ -76,3 +76,33 @@ relative_paths = true
 [fmt.cross_refs]
 enabled = true
 anchor_format = "github" # github | gitlab | mkdocs | pandoc | none
+
+# Citation directions (FS-config.3.9): encode which kinds may cite which, with
+# RFC-2119 levels. must/must-not gate `grund check`; should/should-not surface
+# under `grund check --suggestions` and render into this entrypoint. Uncomment
+# to adopt the canonical climbing ruleset; `code` is the reserved pseudo-kind
+# for citation sites outside any kind home.
+# [citations]
+# default = "may"                # global default level for unlisted pairs
+#
+# [citations.GOAL]
+# should = ["GRUND|GOAL"]
+#
+# [citations.FS]
+# should = ["GOAL|FS"]
+# must-not = ["AR"]              # the What may never depend on the How
+#
+# [citations.AR]
+# should = ["FS|GOAL"]
+#
+# [citations.DF]
+# should = ["FS|GOAL"]
+#
+# [citations.DA]
+# should = ["AR|FS"]
+#
+# [citations.E2E]
+# must = ["FS"]                  # a scenario tests a spec
+#
+# [citations.code]
+# should = ["FS|AR"]

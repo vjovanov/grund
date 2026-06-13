@@ -132,7 +132,7 @@ mod tests {
     }
 
     fn current_marker() -> &'static str {
-        "## Grounding with grund (v2)"
+        "## Grounding with grund (v3)"
     }
 
     #[test]
@@ -2052,7 +2052,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         assert!(
             report.errors.iter().any(|error| error.code == "agents-init"
                 && error.path.as_deref() == Some(expected_path.as_path())
-                && error.message.contains("missing grund init block v2")),
+                && error.message.contains("missing grund init block v3")),
             "Zed workspace .rules should be required to carry the managed block: {:?}",
             report.errors
                 .iter()
@@ -2553,6 +2553,67 @@ must = ["FS"]
                 .iter()
                 .any(|d| d.code == "missing-citation" || d.code == "forbidden-citation"),
             "no direction findings without a [citations] section"
+        );
+    }
+
+    // §FS-init.2.3.5: the generated Citation directions section renders the
+    // canonical bullets in `[[kinds]]` order with `code` last.
+    #[test]
+    fn citation_directions_section_renders_canonical_bullets() {
+        let root = test_root("citation_directions_section_renders_canonical_bullets");
+        write(
+            &root.join(".agents/grund.toml"),
+            r#"[citations]
+[citations.FS]
+should = ["GOAL|FS"]
+must-not = ["AR"]
+[citations.E2E]
+must = ["FS"]
+[citations.code]
+should = ["FS|AR"]
+"#,
+        );
+        let config = load_config(&root).expect("load config");
+        let section = citation_directions_section(&config);
+        assert!(section.contains("- **FS** should cite GOAL or FS; never cite AR."));
+        assert!(section.contains("- **E2E** must cite FS."));
+        assert!(section.contains("- **code** (any file outside a kind home) should cite FS or AR."));
+        assert!(section.trim_end().ends_with("Unlisted kinds and pairs are fine."));
+        // No trailing newline, so the template's placeholder keeps init idempotent.
+        assert!(!section.ends_with('\n'));
+    }
+
+    // §FS-check.3.5 / §FS-init.2.3.5: a v-current managed block whose generated
+    // citation directions no longer match `[citations]` is an agents-init finding.
+    #[test]
+    fn citation_directions_drift_is_reported() {
+        let root = test_root("citation_directions_drift_is_reported");
+        write(
+            &root.join(".agents/grund.toml"),
+            "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
+        );
+        let config = load_config(&root).expect("load config");
+
+        // A fresh block carries the matching section → no drift finding.
+        let fresh = render_agents_append_block("demo", &config, &root, true);
+        write(&root.join("AGENTS.md"), &format!("# demo\n\n{fresh}"));
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let report = check_findings(&findings, &config);
+        assert!(
+            !report.errors.iter().any(|d| d.code == "agents-init"),
+            "fresh block must not drift: {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+
+        // Tamper the rendered directions → drift finding.
+        let stale = fresh.replace("**E2E** must cite FS", "**E2E** should cite GOAL");
+        write(&root.join("AGENTS.md"), &format!("# demo\n\n{stale}"));
+        let report = check_findings(&findings, &config);
+        assert!(
+            report.errors.iter().any(|d| d.code == "agents-init"
+                && d.message.contains("citation directions differ")),
+            "stale citation directions must be reported: {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
         );
     }
 
