@@ -424,21 +424,20 @@ fn classify_citation_sources(findings: &mut Findings, config: &Config, path: &Pa
 /// uniquely contains `path` — step 2 of §AR-scanner.2.4. `None` when no home or
 /// more than one home matches, so the citation falls through to `code`.
 fn file_home_kind(path: &Path, config: &Config) -> Option<String> {
-    let relative = path
-        .strip_prefix(&config.root)
-        .ok()
-        .map(scanned_path_key)
-        .or_else(|| {
-            let normalized = scanned_path_key(path);
-            normalized
-                .strip_prefix(scanned_path_key(&config.root))
-                .ok()
-                .map(Path::to_path_buf)
-        })?;
+    // Walked file paths are canonicalized against the scan root (`scan_roots`
+    // resolves an explicit scope), while `config.root` is the configured,
+    // possibly-symlinked root — so on macOS a temp dir resolves through
+    // `/private` and on Windows through a `\\?\` verbatim prefix, and a plain
+    // `strip_prefix(config.root)` misses. Reuse the checker's reverse-home
+    // helper, which strips against the physical root first, then the configured
+    // one, so the lookup is identical to the declaration-home lookup.
+    let physical_root = fs::canonicalize(&config.root).unwrap_or_else(|_| config.root.clone());
+    let relative = scanned_decl_relative_path(path, &config.root, &physical_root)?;
+    let relative = relative.as_ref();
     let mut matched: Option<&str> = None;
     for kind in &config.kinds {
         let hit = match (kind.file.as_deref(), kind.folder.as_deref()) {
-            (Some(file), _) => relative == scanned_path_key(Path::new(file)),
+            (Some(file), _) => relative == scanned_path_key(Path::new(file)).as_path(),
             (_, Some(folder)) => relative.starts_with(scanned_path_key(Path::new(folder))),
             _ => false,
         };
