@@ -16,8 +16,8 @@ def id_for(index: int) -> str:
     return f"FS-{index:05d}-feature-{index:05d}"
 
 
-def fixture_config() -> str:
-    return """grund_config_version = 1
+def fixture_config(citations: bool = False) -> str:
+    base = """grund_config_version = 1
 
 [reference]
 strict = true
@@ -27,6 +27,20 @@ include = ["docs"]
 exclude = ["target", "node_modules", ".git", "dist", "build", ".venv"]
 extensions = ["md"]
 respect_gitignore = false
+"""
+    if not citations:
+        return base
+    # A direction ruleset that exercises the classify + obligation + prohibition
+    # passes without producing errors (each generated FS cites the next FS, so
+    # the FS->FS obligation is met; no AR exists, so the prohibition never fires)
+    # — `grund check` still exits 0 (§FS-config.3.9).
+    return base + """
+[citations]
+default = "may"
+
+[citations.FS]
+should = ["FS"]
+must-not = ["AR"]
 """
 
 
@@ -41,7 +55,9 @@ def declaration_body(index: int, file_count: int, component_count: int) -> str:
     )
 
 
-def generate_fixture(root: Path, file_count: int, component_count: int) -> None:
+def generate_fixture(
+    root: Path, file_count: int, component_count: int, citations: bool = False
+) -> None:
     if file_count < 1:
         raise ValueError("--files must be at least 1")
     if component_count < 1:
@@ -51,7 +67,9 @@ def generate_fixture(root: Path, file_count: int, component_count: int) -> None:
         shutil.rmtree(root)
 
     (root / ".agents").mkdir(parents=True)
-    (root / ".agents" / "grund.toml").write_text(fixture_config(), encoding="utf-8")
+    (root / ".agents" / "grund.toml").write_text(
+        fixture_config(citations), encoding="utf-8"
+    )
 
     for index in range(1, file_count + 1):
         component = (index - 1) % component_count
@@ -84,12 +102,18 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_COMPONENT_COUNT,
         help="number of component directories to spread files across",
     )
+    parser.add_argument(
+        "--citations",
+        action="store_true",
+        help="emit a [citations] direction ruleset so the fixture exercises the "
+        "citation-direction checks",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    generate_fixture(args.root, args.files, args.components)
+    generate_fixture(args.root, args.files, args.components, args.citations)
     print(f"generated {args.files} files under {args.root}")
 
 

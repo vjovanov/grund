@@ -1,22 +1,16 @@
-// §AR-benchmarks: instruction-counting benches cover the hot CLI commands.
+// Instruction-counting benches for the hot CLI commands. Each runs the freshly
+// built `grund` binary under Callgrind (`iai-callgrind`) for a deterministic,
+// CI-stable instruction count.
 //
-// Each benchmark runs the freshly built `grund` binary under Callgrind via
-// `iai-callgrind`, so the reported figure is the deterministic instruction
-// count for an actual CLI invocation against this repository's conformant
-// tree. Instruction counts (unlike wall-clock time) do not flake on a loaded
-// CI runner, which is what makes "track the number across commits and fail on
-// regression" implementable.
+// §AR-benchmarks: every benchmark scans a *generated fixture*, never this repo —
+// a fixed input isolates a genuine code slowdown (what the gate must fail on)
+// from the repo merely doing more work as its own docs/config evolve. See the
+// spec for the full rationale, the fixture set, and why one fixture enables
+// `[citations]` while the rest omit it.
 //
-// The benched subcommands are the ones agents and CI invoke on every loop:
-// `check`, `list`, the `show` ladder, `refs`, `cover`, and `fmt --check`.
-//
-// Each command exits 0 on this repository's conformant tree, so iai-callgrind
-// is happy. On a broken tree, `check` / `fmt --check` exit non-zero and the
-// bench fails; a baseline recorded against a broken tree is worthless.
-//
-// The self-repo command list also drives the release/benchmark PGO training run
-// in `scripts/pgo-build.sh`; keep those hot commands in sync. Run with
-// `cargo bench -p grund --features bench --bench instructions` (requires Valgrind and
+// The command list also drives the PGO training run in `scripts/pgo-build.sh`;
+// keep them in sync. Run with
+// `cargo bench -p grund --features bench --bench instructions` (needs Valgrind and
 // `iai-callgrind-runner` on `PATH`).
 
 #[cfg(feature = "bench")]
@@ -30,119 +24,160 @@ use std::{
 /// The freshly built `grund` binary under test (Cargo exports this env var).
 #[cfg(feature = "bench")]
 const GRUND: &str = env!("CARGO_BIN_EXE_grund");
-/// This repository's root — the conformant tree every benchmark scans, matching
-/// the `grund .` self-host loop CI already runs.
+/// Repository root — used only to locate the fixture generator script, never
+/// scanned by a benchmark.
 #[cfg(feature = "bench")]
 const REPO: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
-/// Generated large conformant fixture for the `grund check` 10k-file budget.
+/// Generated canonical fixture for the per-command suite — large enough to be
+/// representative, small enough to keep the suite quick.
+#[cfg(feature = "bench")]
+const CANONICAL_REPO_REL: &str = "target/bench-fixtures/canonical-repo";
+#[cfg(feature = "bench")]
+const CANONICAL_FILE_COUNT: usize = 1_500;
+/// Generated large conformant fixture for the `grund check` budget benchmark.
 #[cfg(feature = "bench")]
 const LARGE_REPO_REL: &str = "target/bench-fixtures/large-conformant-repo";
 #[cfg(feature = "bench")]
 const LARGE_REPO_FILE_COUNT: usize = 10_000;
 
-/// A representative declared ID with a substantial body — enough to exercise
-/// the brief preview, lead-default read, and full recursive body in the show
-/// ladder when an agent grounds itself before editing.
+/// A declared ID the canonical fixture always contains (`id_for(1)` in the
+/// generator) — the subject of the `show` ladder and `refs` benchmarks. The
+/// fixture's bodies are uniform, so these measure the scan + render path that
+/// dominates, not body size.
 #[cfg(feature = "bench")]
-const SHOW_ID: &str = "FS-check";
-/// A heavily-cited goal — `grund refs` over it walks the whole tree and returns
-/// the blast radius an agent checks before changing a declaration.
+const FIXTURE_ID: &str = "FS-00001-feature-00001";
+
+/// Generated canonical fixture that declares `[citations]`, so `check_citations`
+/// exercises the citing-side classification + direction passes (§FS-config.3.9).
 #[cfg(feature = "bench")]
-const REFS_ID: &str = "GOAL-fast-feedback";
+const CITATIONS_REPO_REL: &str = "target/bench-fixtures/canonical-citations-repo";
 
 #[cfg(feature = "bench")]
-fn large_repo() -> PathBuf {
-    Path::new(REPO).join(LARGE_REPO_REL)
-}
-
-#[cfg(feature = "bench")]
-fn ensure_large_fixture() -> PathBuf {
-    let root = large_repo();
+fn ensure_fixture(rel: &str, file_count: usize, citations: bool) -> PathBuf {
+    let root = Path::new(REPO).join(rel);
     let script = Path::new(REPO).join("scripts/generate_large_benchmark_fixture.py");
-    let status = ProcessCommand::new("python3")
+    let mut command = ProcessCommand::new("python3");
+    command
         .arg(script)
         .arg("--root")
         .arg(&root)
         .arg("--files")
-        .arg(LARGE_REPO_FILE_COUNT.to_string())
-        .status()
-        .expect("run large benchmark fixture generator");
-    assert!(status.success(), "large benchmark fixture generator failed");
+        .arg(file_count.to_string());
+    if citations {
+        command.arg("--citations");
+    }
+    let status = command.status().expect("run benchmark fixture generator");
+    assert!(status.success(), "benchmark fixture generator failed");
     root
 }
 
-// `grund check <repo>` — validate every citation in the tree.
+#[cfg(feature = "bench")]
+fn canonical_repo() -> PathBuf {
+    ensure_fixture(CANONICAL_REPO_REL, CANONICAL_FILE_COUNT, false)
+}
+
+// `grund check <fixture>` — validate every citation in the tree.
 #[cfg(feature = "bench")]
 #[binary_benchmark]
 fn check() -> Command {
-    Command::new(GRUND).args(["check", REPO]).build()
+    Command::new(GRUND)
+        .arg("check")
+        .arg(canonical_repo())
+        .build()
 }
 
-// `grund check <large-repo>` — the 10k-file budget input.
+// `grund check <large-fixture>` — the 10k-file budget input.
 #[cfg(feature = "bench")]
 #[binary_benchmark]
 fn check_large_10k() -> Command {
-    let root = ensure_large_fixture();
+    let root = ensure_fixture(LARGE_REPO_REL, LARGE_REPO_FILE_COUNT, false);
     Command::new(GRUND).arg("check").arg(root).build()
 }
 
-// `grund list <repo>` — every declared ID.
+// `grund check <fixture-with-citations>` — the citation-direction code path
+// (classify + obligation + prohibition passes, §FS-config.3.9). Same file count
+// as `check`, so the delta against it is the direction-checking overhead.
+#[cfg(feature = "bench")]
+#[binary_benchmark]
+fn check_citations() -> Command {
+    let root = ensure_fixture(CITATIONS_REPO_REL, CANONICAL_FILE_COUNT, true);
+    Command::new(GRUND).arg("check").arg(root).build()
+}
+
+// `grund list <fixture>` — every declared ID.
 #[cfg(feature = "bench")]
 #[binary_benchmark]
 fn list() -> Command {
-    Command::new(GRUND).args(["list", REPO]).build()
+    Command::new(GRUND)
+        .arg("list")
+        .arg(canonical_repo())
+        .build()
 }
 
-// `grund <ID> --brief <repo>` — title plus first paragraph.
+// `grund <ID> --brief <fixture>` — title plus first paragraph.
 #[cfg(feature = "bench")]
 #[binary_benchmark]
 fn show_brief() -> Command {
     Command::new(GRUND)
-        .args(["show", SHOW_ID, "--brief", REPO])
+        .args(["show", FIXTURE_ID, "--brief"])
+        .arg(canonical_repo())
         .build()
 }
 
-// `grund <ID> <repo>` — the lead-default declaration read.
+// `grund <ID> <fixture>` — the lead-default declaration read.
 #[cfg(feature = "bench")]
 #[binary_benchmark]
 fn show() -> Command {
-    Command::new(GRUND).args(["show", SHOW_ID, REPO]).build()
+    Command::new(GRUND)
+        .args(["show", FIXTURE_ID])
+        .arg(canonical_repo())
+        .build()
 }
 
-// `grund <ID> --full <repo>` — one full declaration body.
+// `grund <ID> --full <fixture>` — one full declaration body.
 #[cfg(feature = "bench")]
 #[binary_benchmark]
 fn show_full() -> Command {
     Command::new(GRUND)
-        .args(["show", SHOW_ID, "--full", REPO])
+        .args(["show", FIXTURE_ID, "--full"])
+        .arg(canonical_repo())
         .build()
 }
 
-// `grund refs <ID> <repo>` — every citation site of an ID.
+// `grund refs <ID> <fixture>` — every citation site of an ID.
 #[cfg(feature = "bench")]
 #[binary_benchmark]
 fn refs() -> Command {
-    Command::new(GRUND).args(["refs", REFS_ID, REPO]).build()
+    Command::new(GRUND)
+        .args(["refs", FIXTURE_ID])
+        .arg(canonical_repo())
+        .build()
 }
 
-// `grund cover <repo>` — the citation graph grouped by scanned file.
+// `grund cover <fixture>` — the citation graph grouped by scanned file.
 #[cfg(feature = "bench")]
 #[binary_benchmark]
 fn cover() -> Command {
-    Command::new(GRUND).args(["cover", REPO]).build()
+    Command::new(GRUND)
+        .arg("cover")
+        .arg(canonical_repo())
+        .build()
 }
 
-// `grund fmt --check <repo>` — report (without writing) any non-canonical citation.
+// `grund fmt --check <fixture>` — report (without writing) any non-canonical citation.
 #[cfg(feature = "bench")]
 #[binary_benchmark]
 fn fmt_check() -> Command {
-    Command::new(GRUND).args(["fmt", "--check", REPO]).build()
+    Command::new(GRUND)
+        .args(["fmt", "--check"])
+        .arg(canonical_repo())
+        .build()
 }
 
 #[cfg(feature = "bench")]
 binary_benchmark_group!(
     name = commands;
-    benchmarks = check, check_large_10k, list, show_brief, show, show_full, refs, cover, fmt_check
+    benchmarks = check, check_large_10k, check_citations, list, show_brief, show, show_full, refs, cover, fmt_check
 );
 
 #[cfg(feature = "bench")]
