@@ -2570,6 +2570,75 @@ must = ["FS"]
         );
     }
 
+    // §FS-config.3.9 / §FS-check.3.11: an E2E case with no scanned citations is
+    // still an obligation unit, so `[citations.E2E] must = ["FS"]` is a hard gate
+    // in a normal root check that skips direct fixture trees.
+    #[test]
+    fn citation_directions_e2e_must_is_not_vacuous_without_scanned_files() {
+        let root = test_root("citation_directions_e2e_must_is_not_vacuous_without_scanned_files");
+        write(
+            &root.join(".agents/grund.toml"),
+            r#"project_name = "scratch"
+[scan]
+include = ["e2e"]
+[citations]
+[citations.E2E]
+must = ["FS"]
+"#,
+        );
+        write(&root.join("e2e/cases/001-login/expected.exit"), "0\n");
+        write(
+            &root.join("e2e/cases/001-login/repo/docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: Login\n\nFixture-only citation target.\n",
+        );
+
+        let config = load_config(&root).expect("load config");
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let report = check_findings(&findings, &config);
+
+        assert!(
+            report.errors.iter().any(|d| d.code == "missing-citation"
+                && d.path.as_deref() == Some(root.join("e2e/cases/001-login").as_path())
+                && d.message.contains("E2E-001-login must cite FS")),
+            "expected E2E missing-citation, got {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+    }
+
+    // §FS-config.3.9: E2E `spec.refs` entries count as case-level evidence for
+    // citation-direction obligations without entering the ordinary citation stream.
+    #[test]
+    fn citation_directions_e2e_spec_refs_satisfy_must() {
+        let root = test_root("citation_directions_e2e_spec_refs_satisfy_must");
+        write(
+            &root.join(".agents/grund.toml"),
+            r#"project_name = "scratch"
+[scan]
+include = ["e2e"]
+[citations]
+[citations.E2E]
+must = ["FS"]
+"#,
+        );
+        write(&root.join("e2e/cases/001-login/expected.exit"), "0\n");
+        write(&root.join("e2e/cases/001-login/spec.refs"), "FS-001-login.1\n");
+
+        let config = load_config(&root).expect("load config");
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let report = check_findings(&findings, &config);
+
+        assert!(
+            !report.errors.iter().any(|d| d.code == "missing-citation"
+                && d.path.as_deref() == Some(root.join("e2e/cases/001-login").as_path())),
+            "spec.refs should satisfy E2E must; got {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+        assert!(
+            findings.citations.is_empty(),
+            "spec.refs must not become ordinary citations"
+        );
+    }
+
     // §FS-config.3.9: an absent [citations] section runs no direction checks.
     #[test]
     fn citation_directions_absent_section_is_inert() {
@@ -2616,6 +2685,29 @@ should = ["FS|AR"]
         assert!(section.trim_end().ends_with("Unlisted kinds and pairs are fine."));
         // No trailing newline, so the template's placeholder keeps init idempotent.
         assert!(!section.ends_with('\n'));
+    }
+
+    // §FS-init.2.3.5: closed-world configs that use `default` plus `may` render
+    // both rules and do not leave the open-world fallback sentence in place.
+    #[test]
+    fn citation_directions_section_renders_default_and_may_rules() {
+        let root = test_root("citation_directions_section_renders_default_and_may_rules");
+        write(
+            &root.join(".agents/grund.toml"),
+            r#"[citations]
+default = "must-not"
+[citations.FS]
+may = ["GOAL"]
+default = "must-not"
+"#,
+        );
+        let config = load_config(&root).expect("load config");
+        let section = citation_directions_section(&config);
+
+        assert!(section.contains("By default, unlisted citation pairs are forbidden."));
+        assert!(section.contains("- **FS** may cite GOAL; unlisted citations are forbidden."));
+        assert!(section.contains("Unlisted kinds and pairs follow their configured defaults."));
+        assert!(!section.contains("Unlisted kinds and pairs are fine."));
     }
 
     // §FS-check.3.5 / §FS-init.2.3.5: a v-current managed block whose generated
@@ -2681,6 +2773,63 @@ should = ["FS|AR"]
         );
     }
 
+    // §FS-check.3.5 / §FS-init.2.3.5: byte comparison is against the rendered
+    // Citation directions section, not a substring search for the current text.
+    #[test]
+    fn citation_directions_drift_rejects_extra_managed_section_bytes() {
+        let root = test_root("citation_directions_drift_rejects_extra_managed_section_bytes");
+        write(
+            &root.join(".agents/grund.toml"),
+            "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
+        );
+        let config = load_config(&root).expect("load config");
+        let fresh = render_agents_append_block("demo", &config, &root, true);
+        let expected = citation_directions_section(&config);
+        let stale = fresh.replace(
+            &expected,
+            &format!("{expected}\n\nstale hand-edited citation guidance"),
+        );
+        write(&root.join("AGENTS.md"), &format!("# demo\n\n{stale}"));
+
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let report = check_findings(&findings, &config);
+
+        assert!(
+            report.errors.iter().any(|d| d.code == "agents-init"
+                && d.message.contains("citation directions differ")),
+            "extra managed-section bytes must not be masked by the current directions text: {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+    }
+
+    // §FS-check.3.5: the section extractor is position-independent — trailing
+    // blank lines and a following H1/H2 inside the block are not drift, but a
+    // changed bullet is. Guards the latent case the renderer cannot yet produce
+    // (the section is always block-final today).
+    #[test]
+    fn citation_directions_section_extraction_is_position_independent() {
+        let section = "### Citation directions\n\n- **E2E** must cite FS.\nUnlisted kinds and pairs are fine.";
+        // Block-final with trailing blank lines: still matches the rendered form.
+        let block_final = format!("{section}\n\n");
+        assert_eq!(
+            citation_directions_section_in_block(&block_final),
+            Some(section)
+        );
+        // Followed by another managed H2 section: the extractor stops at the
+        // boundary and drops the intervening blank line, so no false drift.
+        let with_following = format!("{section}\n\n## Next steps\n\nbody\n");
+        assert_eq!(
+            citation_directions_section_in_block(&with_following),
+            Some(section)
+        );
+        // A changed bullet is genuine drift even with the same surroundings.
+        let drifted = with_following.replace("must cite FS", "should cite GOAL");
+        assert_ne!(
+            citation_directions_section_in_block(&drifted),
+            Some(section)
+        );
+    }
+
     // §FS-config.3.9.5: a `should`/`must-not` pair whose namespaces overlap
     // (`*/AR` covers a bare local `AR`) is rejected; disjoint namespaces are not.
     #[test]
@@ -2706,6 +2855,32 @@ should = ["FS|AR"]
         // the matchers are disjoint.
         write(&root.join(".agents/grund.toml"), &cfg("may = [\"AR\"]\nmust-not = [\"root/AR\"]\n"));
         load_config(&root).expect("disjoint namespaces must load");
+    }
+
+    // §FS-config.3.9.3 / §FS-workspace.1: namespace-qualified citation targets
+    // must use the same alias grammar the scanner can actually produce.
+    #[test]
+    fn citation_validation_rejects_malformed_namespace_qualifiers() {
+        let root = test_root("citation_validation_rejects_malformed_namespace_qualifiers");
+        let cfg = |target: &str| {
+            format!(
+                "[[kinds]]\nprefix = \"FS\"\nfolder = \"docs/functional-spec\"\n[[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\n[citations.FS]\nmust-not = [\"{target}\"]\n"
+            )
+        };
+
+        for target in ["/AR", "Root/AR"] {
+            write(&root.join(".agents/grund.toml"), &cfg(target));
+            match load_config(&root) {
+                Ok(_) => panic!("malformed citation namespace qualifier must be rejected"),
+                Err(err) => assert!(
+                    err.to_string().contains("invalid namespace qualifier"),
+                    "expected an invalid qualifier error for {target}, got: {err}"
+                ),
+            }
+        }
+
+        write(&root.join(".agents/grund.toml"), &cfg("root/AR"));
+        load_config(&root).expect("valid namespace qualifier must load");
     }
 
     #[cfg(unix)]

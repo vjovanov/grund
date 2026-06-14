@@ -706,6 +706,15 @@ fn parse_citation_target(path: &Path, line_no: usize, token: &str) -> Result<Cit
             let namespace = if qualifier == "*" {
                 NamespaceMatch::Any
             } else {
+                if !is_valid_project_alias(qualifier) {
+                    bail_config(
+                        path,
+                        line_no,
+                        format!(
+                            "citation target `{token}` has invalid namespace qualifier `{qualifier}` (expected * or [a-z][a-z0-9-]*)"
+                        ),
+                    )?;
+                }
                 NamespaceMatch::Alias(qualifier.to_string())
             };
             (namespace, kind)

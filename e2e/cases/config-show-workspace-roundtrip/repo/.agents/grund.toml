@@ -16,3 +16,13 @@ include = ["docs"]
 [workspace]
 members = ["apps/api"]
 include_root = false
+
+[citations]
+default = "may"
+
+[citations.FS]
+should = ["GOAL|FS"]
+must-not = ["AR"]
+
+[citations.code]
+should = ["FS|AR"]
