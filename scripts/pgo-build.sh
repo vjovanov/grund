@@ -9,7 +9,9 @@ set -euo pipefail
 # §AR-benchmarks self-repo workload against this repo's own conformant tree to
 # produce `.profraw` profiles, merge them, then rebuild the release binary with
 # `-Cprofile-use`. The training workload is deliberately the same hot command
-# list `crates/grund-cli/benches/instructions.rs` benchmarks on this repo. The generated
+# list `crates/grund-cli/benches/instructions.rs` benchmarks. PGO trains on this
+# repo (a representative real workload); the benchmarks run the same commands
+# against generated fixtures (a stable regression-gate input). The generated
 # `check_large_10k` benchmark is a CI budget input, not release-profile training
 # data.
 #
