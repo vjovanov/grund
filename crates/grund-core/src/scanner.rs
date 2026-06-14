@@ -60,6 +60,12 @@ fn scan_file(
     let mut in_fence = false;
     let mut in_py_docstring = false;
     let mut current: Option<Declaration> = None;
+    // §AR-scanner.2.4: citing-side classification (declaration body ranges and
+    // each citation's source kind) is consumed only by the citation-direction
+    // checks, so it is computed only when the project declares `[citations]` and
+    // the caller asked for it. `grund check` asks; the read-only commands turn it
+    // off, and a project without direction rules pays nothing (§AR-benchmarks).
+    let classify = config.classify_citation_sources && config.citations.declared;
     // §AR-scanner.2.4: every Markdown heading (line, level) outside a fence — a
     // declaration body runs until the next heading at the same or higher level.
     let mut md_headings: Vec<(usize, usize)> = Vec::new();
@@ -76,7 +82,7 @@ fn scan_file(
         if in_fence {
             continue;
         }
-        if is_md && let Some(level) = markdown_heading_level(line) {
+        if classify && is_md && let Some(level) = markdown_heading_level(line) {
             md_headings.push((lineno, level));
         }
         if config.docstring_python
@@ -251,9 +257,12 @@ fn scan_file(
     // §AR-scanner.2.4: now that every declaration and (for Markdown) every
     // heading on the file is known, fix each declaration's body span and
     // classify each citation's citing side. `scan_one_file` gives this call a
-    // fresh `Findings`, so `findings` holds exactly this file's records.
-    assign_declaration_bodies(findings, is_md, is_py, config, &text, &md_headings, total_lines);
-    classify_citation_sources(findings, config, path);
+    // fresh `Findings`, so `findings` holds exactly this file's records. Skipped
+    // unless the project declares `[citations]` — nothing else reads the result.
+    if classify {
+        assign_declaration_bodies(findings, is_md, is_py, config, &text, &md_headings, total_lines);
+        classify_citation_sources(findings, config, path);
+    }
     Ok(())
 }
 
