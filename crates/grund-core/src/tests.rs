@@ -2598,7 +2598,7 @@ must = ["FS"]
 
         assert!(
             report.errors.iter().any(|d| d.code == "missing-citation"
-                && d.path.as_deref() == Some(root.join("e2e/cases/001-login").as_path())
+                && d.path.as_ref().is_some_and(|p| p.ends_with("e2e/cases/001-login"))
                 && d.message.contains("E2E-001-login must cite FS")),
             "expected E2E missing-citation, got {:?}",
             report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
@@ -2798,6 +2798,31 @@ default = "must-not"
             report.errors.iter().any(|d| d.code == "agents-init"
                 && d.message.contains("citation directions differ")),
             "extra managed-section bytes must not be masked by the current directions text: {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+    }
+
+    // §FS-check.3.5: a CRLF checkout of the managed AGENTS.md (it is not pinned
+    // to LF in .gitattributes, so Windows checks it out with CRLF) must not read
+    // as citation-directions drift against the LF-rendered section.
+    #[test]
+    fn citation_directions_drift_tolerates_crlf_line_endings() {
+        let root = test_root("citation_directions_drift_tolerates_crlf_line_endings");
+        write(
+            &root.join(".agents/grund.toml"),
+            "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
+        );
+        let config = load_config(&root).expect("load config");
+        let fresh = render_agents_append_block("demo", &config, &root, true);
+        let crlf = format!("# demo\n\n{fresh}").replace('\n', "\r\n");
+        write(&root.join("AGENTS.md"), &crlf);
+
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let report = check_findings(&findings, &config);
+
+        assert!(
+            !report.errors.iter().any(|d| d.code == "agents-init"),
+            "CRLF line endings must not be reported as drift: {:?}",
             report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
         );
     }
