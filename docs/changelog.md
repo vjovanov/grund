@@ -24,6 +24,8 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+## 2. [0.5.0] — 2026-06-14
+
 ### Added
 
 - [§DF-citation-directions](decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels) / [§FS-config.3.9](functional-spec/FS-config.md#39-citations--citation-direction-rules) / [§FS-check.3.11](functional-spec/FS-check.md#311-missing-required-citation) / [§FS-check.3.12](functional-spec/FS-check.md#312-forbidden-citation) / [§FS-check.2.3](functional-spec/FS-check.md#23-suggestions-channel-opt-in) / [§AR-scanner.2.4](architecture/AR-scanner.md#24-citing-side-classification): add the `[citations]` config section encoding citation directions with RFC-2119 levels — `must`/`must-not` gate `grund check` (`missing-citation` / `forbidden-citation`), `should`/`should-not` surface on a new opt-in suggestions channel (`grund check --suggestions`), and the climbing rule renders into the generated agent entrypoint with a drift check. The scanner now records declaration body ranges and each citation's source kind. An `E2E` `must` is a hard gate satisfiable by the case's `spec.refs` manifest entries ([§FS-check.3.11](functional-spec/FS-check.md#311-missing-required-citation)). PR #43.
@@ -37,19 +39,9 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 - [§FS-config.3.1](functional-spec/FS-config.md#31-reference--citation-form) / [§FS-check.1.1](functional-spec/FS-check.md#11-recognized-citations): make `[reference] strict = true` the built-in and generated config default, leaving `strict = false` as the explicit compatibility mode for bare citations. PR #35.
 - [§FS-init.2.3.4.15](functional-spec/FS-init.md#23415-workspace-members): workspace member bullets render the alias as the link label (`` - [`api`](apps/api/AGENTS.md): … ``), so the path appears once and the list shares the Project Map's `- [x](y): …` grammar. PR #39.
 
-## 2. [0.4.2] — 2026-06-08
-
-### Added
-
-- [§AR-benchmarks](architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands) / [§FS-fmt.6](functional-spec/FS-fmt.md#6-cross-reference-emission): document the measured `o200k_base` token impact of generated Markdown citation links and keep the benchmark-report generator in sync. PR #31.
-
-### Fixed
-
-- [§GOAL-token-economy](goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file) / [§AR-goal-measurement](architecture/AR-goal-measurement.md#ar-goal-measurement-goal-meters-live-outside-goals): keep `docs/goals.md` minimal by moving goal measurement detail to a dedicated architecture map. PR #32.
-- [§FS-check.3.7](functional-spec/FS-check.md#37-misplaced-declaration-configured-kind-home) / [§FS-config.3.4](functional-spec/FS-config.md#34-kinds--recognized-prefixes): `grund check` now rejects declarations whose kind conflicts with the containing unique configured kind home, while preserving cross-kind citations and ambiguous-home cases. PR #30.
-
 ## 3. Older releases
 
+- [0.4.2](changelog/0.4.2.md) — 2026-06-08: - [§AR-benchmarks](architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands) / [§FS-fmt.6](functional-spec/FS-fmt.md#6-cross-reference-emission): document the measured `o200k_base` token impact of generated Markdown citation links and keep the benchmark-report generator in sync.
 - [0.4.1](changelog/0.4.1.md) — 2026-05-25: - [§AR-benchmarks](architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands) / [§RM-benchmarks](roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets): add the generated 10k-file benchmark fixture, record instruction-count baselines, and make pull-request CI fail on >5% Callgrind instruction-count regressions.
 - [0.4.0](changelog/0.4.0.md) — 2026-05-19: - [§FS-inline-citation-style](functional-spec/FS-inline-citation-style.md#fs-inline-citation-style-configurable-shape-of-inline-code-comment-citations) / [§FS-config.3.1](functional-spec/FS-config.md#31-reference--citation-form): add configurable inline citation style enforcement for source comments.
 - [0.3.0](changelog/0.3.0.md) — 2026-05-18: Default-show release.
