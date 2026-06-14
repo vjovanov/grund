@@ -503,6 +503,7 @@ struct ObligationUnit<'a> {
     path: PathBuf,
     line: usize,
     citations: Vec<&'a Citation>,
+    e2e_spec_refs: Vec<&'a E2eSpecRef>,
 }
 
 impl ObligationUnit<'_> {
@@ -510,6 +511,10 @@ impl ObligationUnit<'_> {
         self.citations
             .iter()
             .any(|cite| citation_matches_target(cite, target))
+            || self
+                .e2e_spec_refs
+                .iter()
+                .any(|spec_ref| e2e_spec_ref_matches_target(spec_ref, target))
     }
 
     fn subject(&self, config: &Config) -> String {
@@ -521,8 +526,8 @@ impl ObligationUnit<'_> {
 }
 
 /// The evaluation units for one citing kind's obligations (§FS-config.3.9):
-/// per source file for `code`, per case (over the case's scanned-file citations,
-/// vacuous when none) for `E2E`, per non-stub declaration otherwise.
+/// per source file for `code`, per case (over the case's scanned-file citations)
+/// for `E2E`, per non-stub declaration otherwise.
 fn obligation_units<'a>(citing_kind: &str, findings: &'a Findings) -> Vec<ObligationUnit<'a>> {
     if citing_kind == CODE_SOURCE_KIND {
         let mut by_file: BTreeMap<&Path, Vec<&Citation>> = BTreeMap::new();
@@ -540,6 +545,7 @@ fn obligation_units<'a>(citing_kind: &str, findings: &'a Findings) -> Vec<Obliga
                 path: file.to_path_buf(),
                 line: 1,
                 citations,
+                e2e_spec_refs: Vec::new(),
             })
             .collect();
     }
@@ -553,24 +559,24 @@ fn obligation_units<'a>(citing_kind: &str, findings: &'a Findings) -> Vec<Obliga
             if decl.is_stub {
                 continue;
             }
-            if decl.e2e_case.is_some() {
-                // §FS-config.3.9 / §DF-require-grounding: an E2E obligation
-                // evaluates over the case's *scanned* files; fixture trees carved
-                // out of `[scan]` are invisible, so a case with no scanned-file
-                // citations has nothing to evaluate and is vacuously satisfied.
+            if let Some(case) = &decl.e2e_case {
+                // §FS-config.3.9: an E2E obligation evaluates over the case's
+                // manifest refs and scanned files when explicit scope includes
+                // them. Normal root scans skip fixture trees, but a case with no
+                // matching evidence is still an obligation unit, so `must`
+                // remains a hard gate.
                 let citations: Vec<&Citation> = findings
                     .citations
                     .iter()
                     .filter(|cite| cite.file.starts_with(&decl.file))
                     .collect();
-                if citations.is_empty() {
-                    continue;
-                }
+                let e2e_spec_refs = case.spec_refs.iter().collect();
                 units.push(ObligationUnit {
                     id: Some(id),
                     path: decl.file.clone(),
                     line: decl.line,
                     citations,
+                    e2e_spec_refs,
                 });
             } else {
                 let citations: Vec<&Citation> = findings
@@ -583,6 +589,7 @@ fn obligation_units<'a>(citing_kind: &str, findings: &'a Findings) -> Vec<Obliga
                     path: decl.file.clone(),
                     line: decl.line,
                     citations,
+                    e2e_spec_refs: Vec::new(),
                 });
             }
         }
@@ -693,6 +700,17 @@ fn citation_matches_target(cite: &Citation, target: &CitationTarget) -> bool {
         NamespaceMatch::Any => true,
         NamespaceMatch::Local => cite.namespace.is_none(),
         NamespaceMatch::Alias(alias) => cite.namespace.as_deref() == Some(alias.as_str()),
+    }
+}
+
+fn e2e_spec_ref_matches_target(spec_ref: &E2eSpecRef, target: &CitationTarget) -> bool {
+    if spec_ref.kind != target.kind {
+        return false;
+    }
+    match &target.namespace {
+        NamespaceMatch::Any => true,
+        NamespaceMatch::Local => spec_ref.namespace.is_none(),
+        NamespaceMatch::Alias(alias) => spec_ref.namespace.as_deref() == Some(alias.as_str()),
     }
 }
 
@@ -982,7 +1000,7 @@ fn check_agent_block_path(
             // render *is* the hash.
             let expected = citation_directions_section(config);
             let block_text = &text[block.start..block.end];
-            if !block_text.contains(expected.trim_end()) {
+            if citation_directions_section_in_block(block_text) != Some(expected.trim_end()) {
                 report.errors.push(Diagnostic {
                     code: "agents-init",
                     path: Some(path.to_path_buf()),
@@ -1006,6 +1024,28 @@ fn check_agent_block_path(
         message: format!("missing grund init block v{}", AGENTS_BLOCK_VERSION),
         sites: Vec::new(),
     });
+}
+
+fn citation_directions_section_in_block(block_text: &str) -> Option<&str> {
+    let heading = "### Citation directions";
+    let start = block_text.match_indices(heading).find_map(|(index, _)| {
+        let at_line_start = index == 0 || block_text.as_bytes().get(index - 1) == Some(&b'\n');
+        let after = index + heading.len();
+        let line_ends =
+            after == block_text.len() || block_text.as_bytes().get(after) == Some(&b'\n');
+        (at_line_start && line_ends).then_some(index)
+    })?;
+    let section_body_start = start + heading.len();
+    let end = AGENTS_SECTION_BOUNDARY
+        .find_at(block_text, section_body_start)
+        .map(|m| m.start())
+        .unwrap_or(block_text.len());
+    // The section runs to the next H1/H2 (or block end). Trailing blank lines
+    // before that boundary are not meaningful drift — the rendered section
+    // carries no trailing newline — so trim them rather than special-casing
+    // EOF. This keeps the comparison sound wherever the section sits in the
+    // block, not only when it is block-final.
+    Some(block_text[start..end].trim_end())
 }
 
 fn line_for_byte_index(text: &str, byte_index: usize) -> usize {

@@ -1396,6 +1396,72 @@ fn print_effective_config(config: &Config) {
         );
         println!("include_root = {}", config.workspace_include_root);
     }
+    if config.citations.declared {
+        print_citation_rules(&config.citations);
+    }
+}
+
+/// Print the effective `[citations]` section for `grund config show`
+/// (§FS-config.4.2). Per-kind tables print in sorted order for deterministic
+/// output (§FS-errors.4).
+fn print_citation_rules(citations: &CitationRules) {
+    println!();
+    println!("[citations]");
+    if let Some(default) = citations.global_default {
+        println!("default = \"{}\"", citation_level_str(default));
+    }
+    for (kind, rules) in &citations.per_kind {
+        println!();
+        println!("[citations.{kind}]");
+        if let Some(default) = rules.default {
+            println!("default = \"{}\"", citation_level_str(default));
+        }
+        let lists: [(&str, &[CitationDisjunction]); 5] = [
+            ("must", &rules.must),
+            ("should", &rules.should),
+            ("may", &rules.may),
+            ("should-not", &rules.should_not),
+            ("must-not", &rules.must_not),
+        ];
+        for (key, disjunctions) in lists {
+            if disjunctions.is_empty() {
+                continue;
+            }
+            let entries: Vec<String> = disjunctions.iter().map(render_citation_disjunction).collect();
+            println!("{key} = {}", format_toml_string_list(&entries));
+        }
+    }
+}
+
+fn render_citation_disjunction(disjunction: &CitationDisjunction) -> String {
+    disjunction
+        .targets
+        .iter()
+        .map(render_citation_target)
+        .collect::<Vec<_>>()
+        .join("|")
+}
+
+fn render_citation_target(target: &CitationTarget) -> String {
+    format!("{}{}", citation_namespace_label(&target.namespace), target.kind)
+}
+
+fn citation_namespace_label(namespace: &NamespaceMatch) -> String {
+    match namespace {
+        NamespaceMatch::Local => String::new(),
+        NamespaceMatch::Any => "*/".to_string(),
+        NamespaceMatch::Alias(alias) => format!("{alias}/"),
+    }
+}
+
+fn citation_level_str(level: CitationLevel) -> &'static str {
+    match level {
+        CitationLevel::Must => "must",
+        CitationLevel::Should => "should",
+        CitationLevel::May => "may",
+        CitationLevel::ShouldNot => "should-not",
+        CitationLevel::MustNot => "must-not",
+    }
 }
 
 fn format_toml_string_list(values: &[String]) -> String {

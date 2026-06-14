@@ -1030,7 +1030,7 @@ fn scan_e2e_cases(
         let Some(id) = e2e_id_from_case_dir_name(config, name) else {
             continue;
         };
-        let case = read_e2e_case(&dir)?;
+        let case = read_e2e_case(config, &dir)?;
         findings
             .declarations
             .entry(id.clone())
@@ -1093,9 +1093,9 @@ fn e2e_case_dir_name(config: &Config, rendered: &str) -> String {
 }
 
 /// Read one e2e case directory into an `E2eCase` — `command.args` (defaulting to
-/// `check`), `expected.exit`, and the recursive fixture file list — the data
-/// `grund E2E-<name>` renders (§FS-show.2.4).
-fn read_e2e_case(dir: &Path) -> Result<E2eCase> {
+/// `check`), `expected.exit`, `spec.refs`, and the recursive fixture file list —
+/// the data `grund E2E-<name>` renders or checks (§FS-show.2.4, §FS-config.3.9).
+fn read_e2e_case(config: &Config, dir: &Path) -> Result<E2eCase> {
     let command_args = dir.join("command.args");
     let args = if command_args.is_file() {
         fs::read_to_string(&command_args)?
@@ -1112,11 +1112,53 @@ fn read_e2e_case(dir: &Path) -> Result<E2eCase> {
     let mut fixtures = Vec::new();
     collect_relative_fixture_files(dir, dir, &mut fixtures)?;
     fixtures.sort_by_key(|path| sort_path_key(path));
+    let spec_refs = read_e2e_spec_refs(config, dir)?;
     Ok(E2eCase {
         dir: dir.to_path_buf(),
         args,
         expected_exit,
         fixtures,
+        spec_refs,
+    })
+}
+
+fn read_e2e_spec_refs(config: &Config, dir: &Path) -> Result<Vec<E2eSpecRef>> {
+    let path = dir.join("spec.refs");
+    if !path.is_file() {
+        return Ok(Vec::new());
+    }
+    let text = fs::read_to_string(path)?;
+    Ok(text
+        .lines()
+        .filter_map(|line| e2e_spec_ref_from_line(config, line.trim()))
+        .collect())
+}
+
+fn e2e_spec_ref_from_line(config: &Config, line: &str) -> Option<E2eSpecRef> {
+    let token = line.split_whitespace().next()?;
+    if token.is_empty() {
+        return None;
+    }
+    let token = token.strip_prefix(&config.marker).unwrap_or(token);
+    let (namespace, id_text) = match token.split_once('/') {
+        Some((namespace, id_text)) if !namespace.is_empty() => {
+            (Some(namespace.to_string()), id_text)
+        }
+        _ => (None, token),
+    };
+    if let Ok((id, _section)) = parse_id_arg(id_text, &config.grammar) {
+        return Some(E2eSpecRef {
+            namespace,
+            kind: id.kind,
+        });
+    }
+    let kind = id_text.split_once('-')?.0;
+    if kind.is_empty() {
+        return None;
+    }
+    Some(E2eSpecRef {
+        namespace,
+        kind: kind.to_string(),
     })
 }
 
