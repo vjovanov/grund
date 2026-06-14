@@ -463,11 +463,49 @@ fn check_with_workspace(
 /// satisfying each obligation entry. `must` misses are `missing-citation`
 /// errors; `should` misses are `suggested-citation` suggestions.
 fn check_citation_obligations(findings: &Findings, config: &Config, report: &mut CheckReport) {
+    // Index every citation once, up front, so each citing kind's obligation pass
+    // is a map lookup rather than a fresh O(citations) scan per declaration —
+    // the per-declaration / per-case rescans were O(kinds × declarations ×
+    // citations) and dominated `grund check` on a large tree (§AR-benchmarks).
+    let mut by_decl: BTreeMap<&Id, Vec<&Citation>> = BTreeMap::new();
+    let mut code_by_file: BTreeMap<&Path, Vec<&Citation>> = BTreeMap::new();
+    for cite in &findings.citations {
+        if let Some(id) = &cite.enclosing_declaration {
+            by_decl.entry(id).or_default().push(cite);
+        }
+        if cite.source_kind == CODE_SOURCE_KIND
+            && cite.file.extension().and_then(|ext| ext.to_str()) != Some("md")
+        {
+            code_by_file.entry(cite.file.as_path()).or_default().push(cite);
+        }
+    }
+    // Bucket the (usually zero — fixture trees are carved out of `[scan]`)
+    // citations that live under an E2E case directory to their nearest case, so
+    // the E2E obligation never `starts_with`-scans every citation per case.
+    let mut e2e_by_case: BTreeMap<&Path, Vec<&Citation>> = BTreeMap::new();
+    for decls in findings.declarations.values() {
+        for decl in decls {
+            if decl.e2e_case.is_some() {
+                e2e_by_case.entry(decl.file.as_path()).or_default();
+            }
+        }
+    }
+    if !e2e_by_case.is_empty() {
+        for cite in &findings.citations {
+            for ancestor in cite.file.ancestors() {
+                if let Some(bucket) = e2e_by_case.get_mut(ancestor) {
+                    bucket.push(cite);
+                    break;
+                }
+            }
+        }
+    }
+
     for (citing_kind, rules) in &config.citations.per_kind {
         if rules.must.is_empty() && rules.should.is_empty() {
             continue;
         }
-        for unit in obligation_units(citing_kind, findings) {
+        for unit in obligation_units(citing_kind, findings, &by_decl, &code_by_file, &e2e_by_case) {
             for entry in &rules.must {
                 if !entry.targets.iter().any(|t| unit.satisfies(t)) {
                     report.errors.push(obligation_diagnostic(
@@ -527,24 +565,23 @@ impl ObligationUnit<'_> {
 
 /// The evaluation units for one citing kind's obligations (§FS-config.3.9):
 /// per source file for `code`, per case (over the case's scanned-file citations)
-/// for `E2E`, per non-stub declaration otherwise.
-fn obligation_units<'a>(citing_kind: &str, findings: &'a Findings) -> Vec<ObligationUnit<'a>> {
+/// for `E2E`, per non-stub declaration otherwise. Reads the citation indexes
+/// built once in [`check_citation_obligations`] rather than rescanning.
+fn obligation_units<'a>(
+    citing_kind: &str,
+    findings: &'a Findings,
+    by_decl: &BTreeMap<&'a Id, Vec<&'a Citation>>,
+    code_by_file: &BTreeMap<&'a Path, Vec<&'a Citation>>,
+    e2e_by_case: &BTreeMap<&'a Path, Vec<&'a Citation>>,
+) -> Vec<ObligationUnit<'a>> {
     if citing_kind == CODE_SOURCE_KIND {
-        let mut by_file: BTreeMap<&Path, Vec<&Citation>> = BTreeMap::new();
-        for cite in &findings.citations {
-            if cite.source_kind == CODE_SOURCE_KIND
-                && cite.file.extension().and_then(|ext| ext.to_str()) != Some("md")
-            {
-                by_file.entry(cite.file.as_path()).or_default().push(cite);
-            }
-        }
-        return by_file
-            .into_iter()
+        return code_by_file
+            .iter()
             .map(|(file, citations)| ObligationUnit {
                 id: None,
                 path: file.to_path_buf(),
                 line: 1,
-                citations,
+                citations: citations.clone(),
                 e2e_spec_refs: Vec::new(),
             })
             .collect();
@@ -565,11 +602,10 @@ fn obligation_units<'a>(citing_kind: &str, findings: &'a Findings) -> Vec<Obliga
                 // them. Normal root scans skip fixture trees, but a case with no
                 // matching evidence is still an obligation unit, so `must`
                 // remains a hard gate.
-                let citations: Vec<&Citation> = findings
-                    .citations
-                    .iter()
-                    .filter(|cite| cite.file.starts_with(&decl.file))
-                    .collect();
+                let citations = e2e_by_case
+                    .get(decl.file.as_path())
+                    .cloned()
+                    .unwrap_or_default();
                 let e2e_spec_refs = case.spec_refs.iter().collect();
                 units.push(ObligationUnit {
                     id: Some(id),
@@ -579,11 +615,7 @@ fn obligation_units<'a>(citing_kind: &str, findings: &'a Findings) -> Vec<Obliga
                     e2e_spec_refs,
                 });
             } else {
-                let citations: Vec<&Citation> = findings
-                    .citations
-                    .iter()
-                    .filter(|cite| cite.enclosing_declaration.as_ref() == Some(id))
-                    .collect();
+                let citations = by_decl.get(id).cloned().unwrap_or_default();
                 units.push(ObligationUnit {
                     id: Some(id),
                     path: decl.file.clone(),

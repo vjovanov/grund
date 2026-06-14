@@ -2385,7 +2385,10 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
             &root.join("docs/goals.md"),
             "# Goals\n\n## GOAL-001-first: First\n\nGrounds in §GRUND-001-why.\n\n### 1. Detail\n\nMore.\n\n## GOAL-002-second: Second\n\nNothing cited.\n",
         );
-        let config = Config::default_for(root.clone());
+        // Classification runs only under `[citations]` (§AR-benchmarks), which
+        // is what these tests exercise.
+        let mut config = Config::default_for(root.clone());
+        config.citations.declared = true;
         let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
 
         let first = Id {
@@ -2419,7 +2422,8 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
             &root.join("src/app.rs"),
             "/// AR-001-router: Router\n/// Implements §FS-001-cli.\n\nfn main() {\n    // see §FS-002-check\n}\n",
         );
-        let config = Config::default_for(root.clone());
+        let mut config = Config::default_for(root.clone());
+        config.citations.declared = true;
         let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
 
         let inline = findings
@@ -2448,7 +2452,8 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
             &root.join("docs/architecture/README.md"),
             "Overview prose citing §FS-001-cli before any declaration.\n",
         );
-        let config = Config::default_for(root.clone());
+        let mut config = Config::default_for(root.clone());
+        config.citations.declared = true;
         let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
 
         let cite = findings
