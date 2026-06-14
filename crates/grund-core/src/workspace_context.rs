@@ -88,7 +88,12 @@ impl WorkspaceContext {
 /// — this helper is strictly the "load every project that's in scope" layer
 /// on top of it (§AR-workspace.5.1).
 fn load_workspace_context(path: &Path, path_provided: bool) -> Result<WorkspaceContext> {
-    let config = resolve_workspace_config(path)?;
+    let mut config = resolve_workspace_config(path)?;
+    // §AR-scanner.2.4 / §AR-benchmarks: `load_workspace_context` backs the
+    // read-only commands (`list`, `show`, `refs`, `fmt`), none of which read
+    // citing-side classification — skip the scan post-pass. `grund check` uses
+    // `load_workspace_projects` directly and keeps the default (on).
+    config.classify_citation_sources = false;
     // §FS-workspace.5 / §AR-workspace.6: workspace mode applies whenever
     // the discovered config carries `[workspace]` after member-scope
     // rewriting. A path that resolves member-local has already been
@@ -202,6 +207,13 @@ fn load_workspace_projects(root_config: &mut Config) -> Result<Vec<WorkspaceProj
             ));
         }
         seen.insert(alias.clone(), config.root.clone());
+    }
+
+    // §AR-scanner.2.4: members inherit the root's classification intent, so a
+    // read-only command (root off) skips the post-pass for every member and
+    // `grund check` (root on) classifies the whole workspace.
+    for (_, config) in &mut entries {
+        config.classify_citation_sources = root_config.classify_citation_sources;
     }
 
     // Stage 2: build the target list up-front so each project's scan can

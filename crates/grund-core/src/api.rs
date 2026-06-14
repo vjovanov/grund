@@ -552,7 +552,10 @@ fn cover_citations_by_file(findings: &Findings) -> BTreeMap<PathBuf, Vec<&Citati
 /// Programmatic `cover`: group local citations by scanned file without choosing
 /// a CLI output format or process exit code (§RM-core-cli-split).
 pub fn cover(opts: CoverOpts) -> Result<CoverOutput> {
-    let config = resolve_workspace_config(&opts.path)?;
+    let mut config = resolve_workspace_config(&opts.path)?;
+    // §AR-scanner.2.4: `cover` groups citations by file and never reads
+    // citing-side classification — skip the scan post-pass (§AR-benchmarks).
+    config.classify_citation_sources = false;
     let (findings, scan_errors) = scan_tree(&config, Some(&opts.path), opts.path_provided)?;
 
     let by_file = cover_citations_by_file(&findings);
@@ -591,7 +594,9 @@ pub fn cover(opts: CoverOpts) -> Result<CoverOutput> {
 /// for the default human-readable cover view while still leaving rendering to
 /// frontends (§RM-core-cli-split).
 pub fn cover_text(opts: CoverOpts) -> Result<CoverTextOutput> {
-    let config = resolve_workspace_config(&opts.path)?;
+    let mut config = resolve_workspace_config(&opts.path)?;
+    // §AR-scanner.2.4: see `cover` — no classification needed (§AR-benchmarks).
+    config.classify_citation_sources = false;
     let (findings, scan_errors) = scan_tree(&config, Some(&opts.path), opts.path_provided)?;
 
     let mut by_file: BTreeMap<PathBuf, Vec<CoverTextCitation>> = BTreeMap::new();
