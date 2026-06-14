@@ -162,7 +162,7 @@ When `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direct
 docs/architecture/AR-router.md:1: AR-router must cite FS or GOAL (citation direction)
 ```
 
-The body extent and the citing-side classification come from the scanner ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the obligation pass is [AR-checker.2.9](../../crates/grund-core/src/checker.rs). A `code`-kind obligation ([§FS-config.3.9.2](FS-config.md#392-the-code-pseudo-kind)) is per file rather than per declaration — a source file that contains at least one citation but none satisfying the obligation is the error, anchored at line 1. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
+The body extent and the citing-side classification come from the scanner ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the obligation pass is [AR-checker.2.9](../../crates/grund-core/src/checker.rs). A `code`-kind obligation ([§FS-config.3.9.2](FS-config.md#392-the-code-pseudo-kind)) is per file rather than per declaration — a source file that contains at least one citation but none satisfying the obligation is the error, anchored at line 1. An `E2E`-kind obligation ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) is per case declaration, can be satisfied by the case's `spec.refs` manifest entries, and remains an error when the case has no scanned citations or matching manifest reference. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
 
 ### 3.12 Forbidden citation
 

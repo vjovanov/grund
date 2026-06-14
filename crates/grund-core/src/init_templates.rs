@@ -308,6 +308,13 @@ fn citation_directions_section(config: &Config) -> String {
         );
         return lines.join("\n");
     }
+    if let Some(default) = config
+        .citations
+        .global_default
+        .and_then(citation_global_default_sentence)
+    {
+        lines.push(default);
+    }
     // `[[kinds]]` order, then the `code` pseudo-kind last (§FS-init.2.3.5).
     let mut kinds: Vec<String> = config.kinds.iter().map(|k| k.prefix.clone()).collect();
     if config.citations.per_kind.contains_key(CODE_SOURCE_KIND) {
@@ -327,15 +334,19 @@ fn citation_directions_section(config: &Config) -> String {
         };
         lines.push(format!("- {label} {clauses}."));
     }
-    // Load-bearing (§FS-init.2.3.5): without it an agent over-infers
-    // prohibitions from silence.
-    lines.push("Unlisted kinds and pairs are fine.".to_string());
+    // Load-bearing (§FS-init.2.3.5): silence is open-world only when neither the
+    // global default nor a per-kind default changes it.
+    if citation_defaults_are_open_world(config) {
+        lines.push("Unlisted kinds and pairs are fine.".to_string());
+    } else {
+        lines.push("Unlisted kinds and pairs follow their configured defaults.".to_string());
+    }
     lines.join("\n")
 }
 
 /// The verb-phrase clauses for one citing kind's rules, joined by "; " in the
-/// order obligations then prohibitions (§FS-init.2.3.5). `None` when the kind
-/// has no renderable rule (only a `default` or `may`).
+/// order obligations, permissions, prohibitions, then the default
+/// (§FS-init.2.3.5). `None` when the kind has no renderable rule.
 fn citation_direction_clauses(rules: &KindCitationRules) -> Option<String> {
     let mut clauses = Vec::new();
     if !rules.must.is_empty() {
@@ -344,16 +355,60 @@ fn citation_direction_clauses(rules: &KindCitationRules) -> Option<String> {
     if !rules.should.is_empty() {
         clauses.push(format!("should cite {}", citation_rule_targets(&rules.should)));
     }
+    if !rules.may.is_empty() {
+        clauses.push(format!("may cite {}", citation_rule_targets(&rules.may)));
+    }
     if !rules.must_not.is_empty() {
         clauses.push(format!("never cite {}", citation_rule_targets(&rules.must_not)));
     }
     if !rules.should_not.is_empty() {
         clauses.push(format!("avoid citing {}", citation_rule_targets(&rules.should_not)));
     }
+    if let Some(default) = rules.default {
+        clauses.push(citation_default_clause(default));
+    }
     if clauses.is_empty() {
         return None;
     }
     Some(clauses.join("; "))
+}
+
+fn citation_defaults_are_open_world(config: &Config) -> bool {
+    let global_open = matches!(config.citations.global_default, None | Some(CitationLevel::May));
+    global_open
+        && config
+            .citations
+            .per_kind
+            .values()
+            .all(|rules| matches!(rules.default, None | Some(CitationLevel::May)))
+}
+
+fn citation_default_clause(level: CitationLevel) -> String {
+    match level {
+        CitationLevel::Must => "unlisted citations default to must".to_string(),
+        CitationLevel::Should => "unlisted citations default to should".to_string(),
+        CitationLevel::May => "unlisted citations are fine".to_string(),
+        CitationLevel::ShouldNot => "unlisted citations are discouraged".to_string(),
+        CitationLevel::MustNot => "unlisted citations are forbidden".to_string(),
+    }
+}
+
+fn citation_global_default_sentence(level: CitationLevel) -> Option<String> {
+    match level {
+        CitationLevel::Must => {
+            Some("By default, unlisted citation pairs are treated as must.".to_string())
+        }
+        CitationLevel::Should => {
+            Some("By default, unlisted citation pairs are treated as should.".to_string())
+        }
+        CitationLevel::May => None,
+        CitationLevel::ShouldNot => {
+            Some("By default, unlisted citation pairs are discouraged.".to_string())
+        }
+        CitationLevel::MustNot => {
+            Some("By default, unlisted citation pairs are forbidden.".to_string())
+        }
+    }
 }
 
 /// Render a list of disjunctions as a target phrase: alternatives within an
