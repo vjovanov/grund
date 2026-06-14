@@ -999,8 +999,12 @@ fn check_agent_block_path(
             // section and byte-compare — rendering is deterministic, so the
             // render *is* the hash.
             let expected = citation_directions_section(config);
-            let block_text = &text[block.start..block.end];
-            if citation_directions_section_in_block(block_text) != Some(expected.trim_end()) {
+            // Strip `\r` so a CRLF checkout (the managed `AGENTS.md` is not
+            // pinned to LF in `.gitattributes`, so Windows checks it out with
+            // CRLF) compares equal to the LF-rendered section rather than
+            // reading as drift.
+            let block_text = text[block.start..block.end].replace('\r', "");
+            if citation_directions_section_in_block(&block_text) != Some(expected.trim_end()) {
                 report.errors.push(Diagnostic {
                     code: "agents-init",
                     path: Some(path.to_path_buf()),
