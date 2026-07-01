@@ -6,6 +6,26 @@ fn show_declaration(
     mode: ShowRenderMode,
     include_heading: bool,
 ) -> Result<ShowOutput> {
+    show_declaration_with_overlays(
+        config,
+        findings,
+        id,
+        section,
+        mode,
+        include_heading,
+        &TextOverlays::new(),
+    )
+}
+
+fn show_declaration_with_overlays(
+    config: &Config,
+    findings: &Findings,
+    id: &Id,
+    section: Option<&str>,
+    mode: ShowRenderMode,
+    include_heading: bool,
+    overlays: &TextOverlays,
+) -> Result<ShowOutput> {
     let root = &config.root;
     let decls = findings
         .declarations
@@ -57,7 +77,7 @@ fn show_declaration(
             ));
         }
     }
-    extract_declaration_body(&file, id, section, mode, include_heading, config)
+    extract_declaration_body(&file, id, section, mode, include_heading, config, overlays)
 }
 
 /// Render an e2e case as an ID-query body: the invocation, expected exit, and
@@ -141,6 +161,7 @@ fn extract_declaration_body(
     mode: ShowRenderMode,
     include_heading: bool,
     config: &Config,
+    overlays: &TextOverlays,
 ) -> Result<ShowOutput> {
     // `--toc` = the default lead, then a blank line, then the nested section
     // headings (§FS-show.2.1.2). Internally: compose the Default body with an
@@ -153,9 +174,17 @@ fn extract_declaration_body(
             ShowRenderMode::Default,
             include_heading,
             config,
+            overlays,
         )?;
-        let outline_output =
-            extract_declaration_body(path, id, section, ShowRenderMode::Outline, false, config)?;
+        let outline_output = extract_declaration_body(
+            path,
+            id,
+            section,
+            ShowRenderMode::Outline,
+            false,
+            config,
+            overlays,
+        )?;
         default_output.body = join_with_blank(&default_output.body, &outline_output.body);
         default_output.sections = outline_output.sections;
         return Ok(default_output);
@@ -175,17 +204,18 @@ fn extract_declaration_body(
             ShowRenderMode::Default,
             want_h1_for_default,
             config,
+            overlays,
         )?;
         output.body = truncate_to_first_paragraph(&output.body);
         return Ok(output);
     }
 
-    let text = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    let text = read_text_with_overlays(path, overlays)?;
     let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
     let is_py = path.extension().and_then(|e| e.to_str()) == Some("py");
     let mut in_decl = false;
     let mut line_style_comment = false;
-    let mut in_py_docstring = false;
+    let mut py_docstring = PythonDocstringScanState::default();
     let mut found_section = section.is_none();
     let mut target_depth = usize::MAX;
     let mut lines = Vec::new();
@@ -194,20 +224,13 @@ fn extract_declaration_body(
 
     for (idx, line) in text.lines().enumerate() {
         let lineno = idx + 1;
-        let trimmed = line.trim_start();
-        if config.docstring_python
-            && is_py
-            && (trimmed.starts_with("\"\"\"") || trimmed.starts_with("'''"))
-        {
-            if in_decl && in_py_docstring {
-                break;
-            }
-            in_py_docstring = !in_py_docstring;
-            continue;
+        let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
+        let scan_line = scan.text;
+        if in_decl && scan.in_py_docstring && scan.closed_py_docstring && scan_line.trim().is_empty() {
+            break;
         }
-        let scan_line = if in_py_docstring { trimmed } else { line };
         if let Some(caps) =
-            declaration_captures(&config.grammar, scan_line, in_py_docstring, is_md)
+            declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
         {
             let found = parse_id(&caps);
             if in_decl && found.as_ref() != Some(id) {
@@ -220,7 +243,10 @@ fn extract_declaration_body(
                 // `md` format keeps the heading verbatim — including for `--brief`,
                 // which then prints heading + first paragraph (§FS-show.3.1).
                 if include_heading {
-                    lines.push(clean_body_line(scan_line, is_md || in_py_docstring));
+                    lines.push(clean_body_line(scan_line, is_md || scan.in_py_docstring));
+                }
+                if scan.closed_py_docstring {
+                    break;
                 }
                 continue;
             }
@@ -230,9 +256,10 @@ fn extract_declaration_body(
         }
         if !is_md {
             let blank = line.trim().is_empty();
-            if in_py_docstring {
-                // Python docstring content is plain Markdown; the surrounding
-                // triple-quote lines are skipped above (§FS-show.2.3.2).
+            if scan.in_py_docstring {
+                // Python docstring content is plain Markdown; delimiter-only
+                // triple-quote lines are skipped by `source_scan_line`
+                // (§AR-scanner.4, §FS-show.2.3.2).
             } else if blank {
                 // A blank line ends a line-style comment block (`//`, `#`, …);
                 // inside a `/* … */` block or a docstring it is part of the body
@@ -260,7 +287,7 @@ fn extract_declaration_body(
                             scan_line,
                             sec,
                             depth,
-                            is_md || in_py_docstring,
+                            is_md || scan.in_py_docstring,
                         );
                         continue;
                     }
@@ -271,7 +298,7 @@ fn extract_declaration_body(
                         target_depth = depth;
                         output_line = lineno;
                         if mode != ShowRenderMode::Outline {
-                            lines.push(clean_body_line(scan_line, is_md || in_py_docstring));
+                            lines.push(clean_body_line(scan_line, is_md || scan.in_py_docstring));
                         }
                         continue;
                     }
@@ -290,7 +317,7 @@ fn extract_declaration_body(
                             scan_line,
                             sec,
                             depth - target_depth,
-                            is_md || in_py_docstring,
+                            is_md || scan.in_py_docstring,
                         );
                         continue;
                     }
@@ -298,7 +325,10 @@ fn extract_declaration_body(
             }
         }
         if found_section && mode != ShowRenderMode::Outline {
-            lines.push(clean_body_line(scan_line, is_md || in_py_docstring));
+            lines.push(clean_body_line(scan_line, is_md || scan.in_py_docstring));
+        }
+        if in_decl && scan.closed_py_docstring {
+            break;
         }
     }
 
@@ -331,6 +361,14 @@ fn extract_declaration_body(
         json: None,
         sections,
     })
+}
+
+fn read_text_with_overlays(path: &Path, overlays: &TextOverlays) -> Result<String> {
+    if let Some(text) = overlay_text(overlays, path) {
+        Ok(text.to_string())
+    } else {
+        fs::read_to_string(path).with_context(|| format!("read {}", path.display()))
+    }
 }
 
 /// `--toc` joins the default body with the section-map body, separated by one

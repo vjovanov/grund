@@ -125,4 +125,4 @@ Three callers, one source of truth:
 
 1. **Authors.** Picking the next free number means listing a directory and squinting; one typo creates a duplicate that `grund check` will catch hours later. `id` removes the typo class.
 2. **Agents.** An LLM proposing a new declaration cannot reliably read a directory listing and increment the right number — and even if it can, the answer drifts with the next file added. Calling `grund id` is cheap, deterministic, and committed to the same regex grammar as the checker.
-3. **The optional LSP server.** A "new declaration" code action in [§FS-lsp](FS-lsp.md#fs-lsp-grund-will-ship-an-optional-lsp-server) would need the same number `grund id` would compute; sharing the engine through `grund-core` means there is exactly one allocator, not three subtly different ones.
+3. **The optional LSP server.** A "new declaration" code action in [§FS-lsp](FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server) would need the same number `grund id` would compute; sharing the engine through `grund-core` means there is exactly one allocator, not three subtly different ones.

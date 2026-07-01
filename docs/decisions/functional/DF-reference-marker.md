@@ -29,25 +29,25 @@ Why:
 
 - Semantic gold standard — the section sign means "section" in legal and academic citation.
 - Aesthetically dignified, established typographic tradition.
-- Almost never followed by `<KIND>-<digit>` in unrelated text; the regex `§<KIND>-\d+-` produces effectively zero false positives.
+- Almost never followed by a token matching a repo's configured grund ID grammar in unrelated text; under the default numbered grammar, the regex `§<KIND>-\d+-` produces effectively zero false positives.
 - Already supported in every modern font; renders crisply at any size.
 
 ### 2.2 Trigger
 
-Default trigger sequence is **`$$`**, transformed to `§` whenever immediately followed by `<KIND>-<digit>`.
+Default trigger sequence is **`$$`**, transformed to `§` whenever immediately followed by a token matching the repo's configured ID grammar (for example `FS-007-login` under the default numbered grammar, or `FS-login` under the slug-only grammar).
 
 Why `$$`:
 
 - Two same-keystrokes; both `$` are shift+4 on US layouts.
 - Visually rhymes with `§` (curving stroke + central crossbar).
-- The "only when followed by `<KIND>-<digit>`" constraint kills the LaTeX `$$` (display math) false positive entirely.
+- The "only when followed by a valid configured ID token" constraint kills the LaTeX `$$` (display math) false positive entirely.
 
 ### 2.3 Trigger ownership
 
 `grund` owns the trigger transformation. It runs in two places:
 
 - **Bulk, via `grund fmt` ([§FS-fmt](../../functional-spec/FS-fmt.md#fs-fmt-grund-normalizes-references-in-bulk)).** Walk files and rewrite `<trigger><ID>` to `<marker><ID>`. Idempotent. Used as a pre-commit hook and a CI safety net. This is the canonical, always-available path — every install of `grund` has it.
-- **Live, in the optional LSP server ([§FS-lsp.1.4](../../functional-spec/FS-lsp.md#14-live-trigger-transform)).** When `grund-lsp` is installed and configured in the user's editor, typing the trigger before `<KIND>-<digit>` rewrites it to the marker on the fly via `textDocument/onTypeFormatting`. This is the editor-friendly path; users without the LSP rely on the bulk pass.
+- **Live, in the optional LSP server ([§FS-lsp.1.4](../../functional-spec/FS-lsp.md#14-live-trigger-transform)).** When `grund-lsp` is installed and configured in the user's editor, typing the trigger before a configured ID token rewrites it to the marker on the fly via `textDocument/onTypeFormatting`. This is the editor-friendly path; users without the LSP rely on the bulk pass.
 
 Editor-native input methods (snippets, Compose, OS Unicode entry) remain available for power users — they bypass the trigger and write `§` directly.
 
@@ -73,7 +73,7 @@ Other valid markers we considered: `※` (U+203B, Japanese reference mark), `‡
 ## 3. Consequences
 
 - The citation rules ([§FS-check.1.1](../../functional-spec/FS-check.md#11-recognized-citations), [§FS-config.3.1](../../functional-spec/FS-config.md#31-reference--citation-form)) recognize only marker-prefixed citations by default, and recognize bare citations only under `strict = false`.
-- The optional LSP server ([§FS-lsp.1.4](../../functional-spec/FS-lsp.md#14-live-trigger-transform)) transforms `$$<KIND>-<digit>` to `§<KIND>-<digit>` on the fly when installed and wired into the user's editor.
+- The optional LSP server ([§FS-lsp.1.4](../../functional-spec/FS-lsp.md#14-live-trigger-transform)) transforms `<trigger><ID>` to `<marker><ID>` on the fly when installed and wired into the user's editor, using the trigger, marker, kind set, and ID grammar resolved for the edited file.
 - A new functional spec, [§FS-fmt](../../functional-spec/FS-fmt.md#fs-fmt-grund-normalizes-references-in-bulk), defines `grund fmt` for bulk transformation.
 - Existing repos that use bare citations can keep that behavior with `[reference] strict = false`. Migration to marker-prefixed citations is mechanical: `grund fmt --marker --check` reports unconverted citations; `grund fmt --marker` rewrites them.
 - The marker becomes the visible signal of a grund citation. A reader scanning a file sees `§FS-...` and immediately knows: this is a reference, follow it.

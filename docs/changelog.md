@@ -24,6 +24,24 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Added
+
+- [§FS-lsp](functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server) / [§AR-lsp](architecture/AR-lsp.md#ar-lsp-how-the-lsp-server-is-built): add the optional `grund-lsp` binary with LSP diagnostics (each anchored on the offending citation token, not merely the first citation on the line), `show --toc` hover previews on citations, go-to-definition and find-references that resolve declaration titles and numbered section headings (`<ID>.<section>`) to their citation sites, document links for resolving citations, and live `$$` trigger formatting. PR #25.
+- [§RM-lsp-completion-tab](roadmap.md#rm-lsp-completion-tab-lsp-id-autocomplete-accepted-with-tab) / [§RM-lsp-trigger-conversion-fix](roadmap.md#rm-lsp-trigger-conversion-fix-fix-the-lsp-trigger-conversion): roadmap LSP ID completion accepted through the editor's normal Tab flow and a follow-up hardening pass for live `$$` trigger conversion. PR #25.
+- [§RM-doc-comment-declarations](roadmap.md#rm-doc-comment-declarations-declarations-only-in-classmethod-doc-comments) / [§DISC-doc-comment-declarations](discussions/proposals/2026-05-21-doc-comment-declarations.md#disc-doc-comment-declarations-declarations-live-only-in-classmethod-doc-comments-never-inline): roadmap a tightening of the [§AR-scanner.4](architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) recognizer so a code-resident declaration is seen only inside a class/method doc-comment, never a plain inline comment, with a default-on `[scan]` switch and top-20-language coverage; design captured as a discussion proposal, not yet implemented. PR #25.
+
+### Changed
+
+- [§FS-lsp](functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server) / [§FS-distribution.1](functional-spec/FS-distribution.md#1-targets) / [§AR-bindings.4](architecture/AR-bindings.md#4-grund-lsp-the-lsp-server-binary): align the LSP specs and architecture with the implemented Cargo package, `lsp-server` transport, focused parity tests, and future npm/PyPI packaging scope. PR #25.
+- [§FS-lsp.1.1](functional-spec/FS-lsp.md#11-diagnostics): the LSP snapshot now classifies citing sides, so citation-direction errors — `missing-citation` ([§FS-check.3.11](functional-spec/FS-check.md#311-missing-required-citation)) and `forbidden-citation` ([§FS-check.3.12](functional-spec/FS-check.md#312-forbidden-citation)) — surface as editor diagnostics alongside the other `grund check` findings; the opt-in `should` / `should-not` suggestions channel stays off in the editor. PR #25.
+
+### Fixed
+
+- [§FS-lsp.1.1](functional-spec/FS-lsp.md#11-diagnostics) / [§FS-lsp.1.2](functional-spec/FS-lsp.md#12-hover-preview): hover on an unresolved citation now returns nothing instead of echoing the diagnostic message, and line-level diagnostics no longer borrow the citation token range. The `publishDiagnostics` entry (with its nearest-ID hint and Quick Fix) is the single source of the citation error text, so editors that render diagnostics inside the hover popup stop showing it twice. PR #25.
+- [§FS-lsp.1.3](functional-spec/FS-lsp.md#13-go-to-definition) / [§FS-lsp.1.3.2](functional-spec/FS-lsp.md#132-document-links): make Markdown declaration titles navigate as whole-title spans, make inline-spec stub titles link to the source doc-comment declaration, and keep source-comment citation references visible from Markdown navigation. Return go-to-definition results as `LocationLink`s carrying the whole `§<ID>` or title token as their origin span (for clients advertising definition-link support), so editors underline one navigable unit instead of the single word under the cursor. PR #25.
+- [§FS-lsp.1.3.2](functional-spec/FS-lsp.md#132-document-links): stop emitting a self-pointing document link on ordinary Markdown declaration titles. The self-link covered the same span as go-to-definition and won the editor's Ctrl-click, navigating the title onto its own line instead of showing the declaration's code-reference usages; the title now resolves to go-to-definition (and hover) usages on click. PR #25.
+- [§FS-lsp.1.4](functional-spec/FS-lsp.md#14-live-trigger-transform) / [§FS-distribution.4](functional-spec/FS-distribution.md#4-release-process): make LSP on-type formatting use each workspace member's trigger and marker, publish `grund-lsp` in the Cargo release path, and keep the checked-in VSCode setup portable. PR #25.
+
 ## 2. [0.5.0] — 2026-06-14
 
 ### Added

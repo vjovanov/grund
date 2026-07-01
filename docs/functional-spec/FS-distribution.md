@@ -1,24 +1,24 @@
 # FS-distribution: grund distribution targets
 
-`grund` is written in Rust; the target distribution is **all three** major language ecosystems — cargo, npm, and PyPI — with idiomatic API bindings on each. The check engine stays a single shared library; only the surfaces differ. Today the Cargo CLI is published to crates.io as `grund`; the npm and PyPI bindings, and the optional `grund-lsp` server, are tracked in `docs/roadmap.md`. Serves [§GOAL-multi-language](../goals.md#goal-multi-language-same-engine-three-platforms) and [§GOAL-friendliness-first](../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible).
+`grund` is written in Rust; the target distribution is **all three** major language ecosystems — cargo, npm, and PyPI — with idiomatic API bindings on each. The check engine stays a single shared library; only the surfaces differ. Today the implemented release path publishes the Rust crates: `grund-core`, the Cargo CLI package `grund`, and the optional Cargo LSP package `grund-lsp`. The npm and PyPI bindings, including their future `grund-lsp` packages, are tracked in `docs/roadmap.md`. Serves [§GOAL-multi-language](../goals.md#goal-multi-language-same-engine-three-platforms) and [§GOAL-friendliness-first](../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible).
 
 ## 1. Targets
 
-| Registry | Package name        | Contents                                                                  |
-|----------|---------------------|---------------------------------------------------------------------------|
-| cargo    | `grund-core`          | Shared engine library used by the CLI, LSP, and future bindings.            |
-| cargo    | `grund`               | CLI crate depending on `grund-core`; installs the `grund` binary.              |
-| cargo    | `grund-lsp`           | Optional LSP server binary ([§FS-lsp](FS-lsp.md#fs-lsp-grund-will-ship-an-optional-lsp-server)). Depends on `grund-core`.              |
-| npm      | `grund-cli`           | Prebuilt CLI binary + thin Node API surface (via `napi-rs`).              |
-| npm      | `grund-lsp`           | Optional LSP server binary, prebuilt per platform.                        |
-| PyPI     | `grund`               | Prebuilt CLI wheel + Python API surface (via `PyO3` / `maturin`).         |
-| PyPI     | `grund-lsp`           | Optional LSP server, distributed via wheel (`pipx install grund-lsp`).      |
+| Registry | Package name        | Status      | Contents                                                                  |
+|----------|---------------------|-------------|---------------------------------------------------------------------------|
+| cargo    | `grund-core`          | implemented | Shared engine library used by the CLI, LSP, and future bindings.            |
+| cargo    | `grund`               | implemented | CLI crate depending on `grund-core`; installs the `grund` binary.              |
+| cargo    | `grund-lsp`           | implemented | Optional LSP server binary ([§FS-lsp](FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server)). Depends on `grund-core`.              |
+| npm      | `grund-cli`           | planned     | Prebuilt CLI binary + thin Node API surface (via `napi-rs`).              |
+| npm      | `grund-lsp`           | planned     | Optional LSP server binary, prebuilt per platform.                        |
+| PyPI     | `grund`               | planned     | Prebuilt CLI wheel + Python API surface (via `PyO3` / `maturin`).         |
+| PyPI     | `grund-lsp`           | planned     | Optional LSP server, distributed via wheel (`pipx install grund-lsp`).      |
 
-On crates.io the shared engine crate is `grund-core`; the installable CLI crate is `grund`, which depends on `grund-core` and produces the `grund` binary, alongside `grund-lsp`. On PyPI the CLI package is also `grund`: the wheel installs the `grund` command and exposes the Python import module `grund`. On npm the published CLI package is `grund-cli` because the unscoped `grund` package is externally occupied; it still installs the `grund` command. `grund-lsp` is the optional server slot on each registry. The tool was renamed from its pre-release working title `gnd` to `grund` ([§DA-rename-to-grund](../decisions/architectural/DA-rename-to-grund.md#da-rename-to-grund-rename-gnd-to-grund-before-first-publish)); the final PyPI name is set by [§DA-pypi-uses-grund-as-the-package-name](../decisions/architectural/DA-pypi-uses-grund-as-the-package-name.md#da-pypi-uses-grund-as-the-package-name-pypi-uses-grund-as-the-package-name), which records why PyPI uses the bare name while npm keeps `grund-cli`. Every one of these names — and the still-unreserved LSP slots — is re-verified against the live registries before publish by the release process ([§FS-distribution.4](FS-distribution.md#4-release-process)).
+On crates.io the shared engine crate is `grund-core`; the installable CLI crate is `grund`, which depends on `grund-core` and produces the `grund` binary; and the optional LSP crate is `grund-lsp`, which depends on `grund-core` and produces the `grund-lsp` binary. On PyPI the planned CLI package is also `grund`: the wheel installs the `grund` command and exposes the Python import module `grund`. On npm the planned CLI package is `grund-cli` because the unscoped `grund` package is externally occupied; it still installs the `grund` command. `grund-lsp` is the optional server slot on each registry, but only the Cargo package is implemented today. The tool was renamed from its pre-release working title `gnd` to `grund` ([§DA-rename-to-grund](../decisions/architectural/DA-rename-to-grund.md#da-rename-to-grund-rename-gnd-to-grund-before-first-publish)); the final PyPI name is set by [§DA-pypi-uses-grund-as-the-package-name](../decisions/architectural/DA-pypi-uses-grund-as-the-package-name.md#da-pypi-uses-grund-as-the-package-name-pypi-uses-grund-as-the-package-name), which records why PyPI uses the bare name while npm keeps `grund-cli`. Every one of these names — and the remaining unreserved npm/PyPI LSP slots — is re-verified against the live registries before publish by the release process ([§FS-distribution.4](FS-distribution.md#4-release-process)).
 
 Support packages that are not the primary user-facing install, such as `grund-core`, publish registry README content that links users to the `grund` CLI and names sibling packages such as `grund-lsp` once they exist.
 
-The CLI install on each registry does **not** transitively pull in `grund-lsp` — they are independent published packages, per [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary). A user who only runs `grund check` in CI installs the CLI alone; a user who wants editor integration installs `grund-lsp` separately and configures their editor to launch it ([§FS-lsp.2](FS-lsp.md#2-installation-and-lifecycle)).
+The CLI install on each registry does **not** transitively pull in `grund-lsp` — they are independent packages, per [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary). A user who only runs `grund check` in CI installs the CLI alone; a user who wants editor integration installs `grund-lsp` separately and configures their editor to launch it ([§FS-lsp.2](FS-lsp.md#2-installation-and-lifecycle)).
 
 ## 2. CLI parity
 
@@ -111,15 +111,14 @@ Both Linux binaries are built on GitHub inside a `manylinux2014_<arch>` containe
 
 The distributed `grund` binaries are profile-guided-optimized: each platform build runs `scripts/pgo-build.sh`, which builds an instrumented binary, runs the [AR-benchmarks](../architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands) self-repo hot command list (the commands agents and CI invoke most) against `grund`'s own conformant tree to record a profile, then rebuilds against it. If a hosted runner's PGO training is platform-broken while the ordinary release build still self-checks cleanly, that platform may publish a self-checked LTO-only fallback binary instead of blocking the whole release. The rationale, and why the self-repo benchmark workload is also the PGO training corpus, is [§DA-pgo-release](../decisions/architectural/DA-pgo-release.md#da-pgo-release-distributed-binaries-are-pgo-built-trained-on-the-benchmark-workload). PGO is not part of development builds or push/PR CI; it is a release-packaging step, and an explicit benchmarking step when comparing the optimized release artifact. A `cargo install grund` from source is LTO-optimized but not PGO'd — `cargo install` runs no custom build step — and is byte-for-byte behavior-identical to the distributed binary; only its performance differs.
 
-After every platform binary passes its self-check, the workflow publishes `grund-core` and then `grund` to crates.io when crate publishing is enabled. The dependency order is fixed: `grund-core` publishes first, and any run that still needs to publish `grund` waits up to 30 minutes for Cargo to resolve the matching `grund-core` version before publishing the CLI crate that depends on it. GitHub release artifacts are uploaded only after the platform PGO builds pass and, when enabled, crates.io publishing succeeds.
+After every platform binary passes its self-check, the workflow publishes `grund-core`, `grund`, and `grund-lsp` to crates.io when crate publishing is enabled. The dependency order is fixed: `grund-core` publishes first, and any run that still needs to publish `grund` or `grund-lsp` waits up to 30 minutes for Cargo to resolve the matching `grund-core` version before publishing the dependent crate. GitHub release artifacts are uploaded only after the platform PGO builds pass and, when enabled, crates.io publishing succeeds.
 
 The future full-ecosystem release keeps the same shape but adds the remaining packages after their frontends exist:
 
-1. Publish the `grund-core`, `grund`, and `grund-lsp` crates to crates.io (in dependency order: `grund-core` first).
-2. Build per-platform Node binaries and publish `grund-cli` and `grund-lsp` to npm.
-3. Build per-platform Python wheels and publish `grund` and `grund-lsp` to PyPI.
+1. Build per-platform Node binaries and publish `grund-cli` and `grund-lsp` to npm.
+2. Build per-platform Python wheels and publish `grund` and `grund-lsp` to PyPI.
 
-All artifacts must succeed for a full ecosystem release to be considered complete. Versions across the CLI and the LSP move together within a release; `grund-lsp` pins its `grund-core` dependency to the same version the CLI ships, so a CLI/LSP version mismatch in editors is structurally impossible.
+All artifacts must succeed for a full ecosystem release to be considered complete. Versions across the CLI and the LSP move together within a release; each `grund-lsp` package pins or bundles the same `grund-core` version the matching CLI release ships, so a CLI/LSP version mismatch from the official packages is structurally avoided.
 
 ## 5. What we do not promise
 

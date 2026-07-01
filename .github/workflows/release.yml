@@ -10,7 +10,7 @@ on:
         description: "Version to release, without the leading v"
         required: true
       publish_crates:
-        description: "Publish grund-core and grund to crates.io"
+        description: "Publish grund-core, grund, and grund-lsp to crates.io"
         type: boolean
         default: true
       create_github_release:
@@ -557,18 +557,21 @@ jobs:
 
           core_published="$(check_published grund-core)"
           grund_published="$(check_published grund)"
+          lsp_published="$(check_published grund-lsp)"
 
           echo "core_published=$core_published" >> "$GITHUB_OUTPUT"
           echo "grund_published=$grund_published" >> "$GITHUB_OUTPUT"
+          echo "lsp_published=$lsp_published" >> "$GITHUB_OUTPUT"
           echo "grund-core $version already on crates.io: $core_published"
           echo "grund $version already on crates.io: $grund_published"
+          echo "grund-lsp $version already on crates.io: $lsp_published"
 
       - name: Publish grund-core
         if: steps.state.outputs.core_published == 'false'
         run: cargo publish -p grund-core --locked
 
       - name: Wait for grund-core dependency resolution
-        if: steps.state.outputs.grund_published == 'false'
+        if: steps.state.outputs.grund_published == 'false' || steps.state.outputs.lsp_published == 'false'
         shell: bash
         run: |
           set -euo pipefail
@@ -578,11 +581,23 @@ jobs:
           package_log="$(mktemp)"
 
           for attempt in $(seq 1 "$max_attempts"); do
-            if cargo package -p grund --locked --allow-dirty --no-verify >"$package_log" 2>&1; then
-              echo "grund-core $version is available for publishing grund"
+            ready=true
+            if [ "${{ steps.state.outputs.grund_published }}" = "false" ]; then
+              cargo package -p grund --locked --allow-dirty --no-verify >"$package_log" 2>&1 || {
+                echo "grund-core $version not resolvable for grund yet (${attempt}/${max_attempts})"
+                ready=false
+              }
+            fi
+            if [ "${{ steps.state.outputs.lsp_published }}" = "false" ]; then
+              cargo package -p grund-lsp --locked --allow-dirty --no-verify >"$package_log" 2>&1 || {
+                echo "grund-core $version not resolvable for grund-lsp yet (${attempt}/${max_attempts})"
+                ready=false
+              }
+            fi
+            if [ "$ready" = "true" ]; then
+              echo "grund-core $version is available for publishing requested crates"
               exit 0
             fi
-            echo "grund-core $version not resolvable by cargo yet; waiting (${attempt}/${max_attempts})"
             sleep "$sleep_seconds"
           done
 
@@ -593,6 +608,10 @@ jobs:
       - name: Publish grund
         if: steps.state.outputs.grund_published == 'false'
         run: cargo publish -p grund --locked
+
+      - name: Publish grund-lsp
+        if: steps.state.outputs.lsp_published == 'false'
+        run: cargo publish -p grund-lsp --locked
 
   github-release:
     name: publish GitHub release
