@@ -1,6 +1,6 @@
 # AR-bindings: target shape for exposing the Rust engine on three platforms
 
-Implements the planned distribution shape in [§FS-distribution](../functional-spec/FS-distribution.md#fs-distribution-grund-distribution-targets). Target state: the repo is a Cargo workspace with one core library and four frontends — three for batch use (CLI, Node, Python) and one for editor use (LSP). The release-blocking boundary is now in place: `grund-core` is the shared engine crate, and `crates/grund-cli` is the published Cargo package named `grund`. The later frontend crates (`grund-lsp`, `grund-node`, `grund-py`) build on that boundary.
+Implements the planned distribution shape in [§FS-distribution](../functional-spec/FS-distribution.md#fs-distribution-grund-distribution-targets). Target state: the repo is a Cargo workspace with one core library and four frontends — three for batch use (CLI, Node, Python) and one for editor use (LSP). The release-blocking boundary is now in place for Cargo: `grund-core` is the shared engine crate, `crates/grund-cli` is the published Cargo package named `grund`, and `crates/grund-lsp` is the optional Cargo package named `grund-lsp`. The later frontend crates (`grund-node`, `grund-py`) build on that boundary.
 
 ## 1. Target workspace layout
 
@@ -11,12 +11,13 @@ grund/
 ├── Cargo.toml          # virtual workspace root
 ├── crates/
 │   ├── grund-core/     # scanner + checker + show + fmt + config + public Rust API
-│   └── grund-cli/      # package `grund`; binary entrypoint, help, and top-level dispatch
+│   ├── grund-cli/      # package `grund`; binary entrypoint, help, and top-level dispatch
+│   └── grund-lsp/      # package `grund-lsp`; LSP transport over stdio
 ├── docs/
 └── e2e/
 ```
 
-This split keeps CLI behavior byte-identical while giving `grund-lsp` and the language bindings a library package they can depend on. `grund-core` exposes data-returning APIs for the CLI surfaces (`check`, `show`, `refs`, `list`, `cover`, `fmt`, `id`, `init`, and config inspection); the user-facing binary, help text, version handling, SIGPIPE setup, top-level command dispatch, flag parsing, text/JSON rendering, and exit-code mapping live in `grund-cli`.
+This split keeps CLI behavior byte-identical while giving `grund-lsp` and the language bindings a library package they can depend on. `grund-core` exposes data-returning APIs for the CLI and LSP surfaces (`check`, `show`, `refs`, `list`, `cover`, `fmt`, `id`, `init`, config inspection, and LSP snapshots); the user-facing binary, help text, version handling, SIGPIPE setup, top-level command dispatch, flag parsing, text/JSON rendering, and exit-code mapping live in `grund-cli`.
 
 Final frontend layout:
 
@@ -25,14 +26,14 @@ grund/
 ├── crates/
 │   ├── grund-core/   # the engine: scanner + checker + show + fmt + config. Pure Rust. No I/O policy.
 │   ├── grund-cli/    # the CLI binary. Command parsing, exit codes, terminal formatting. Published to cargo as `grund`.
-│   ├── grund-lsp/    # the LSP server binary. Speaks LSP over stdio. Published as `grund-lsp` on every registry.
+│   ├── grund-lsp/    # the LSP server binary. Speaks LSP over stdio. Published to Cargo as `grund-lsp`; npm/PyPI planned.
 │   ├── grund-node/   # napi-rs binding. Published to npm as `grund-cli` (with the prebuilt CLI binary).
 │   └── grund-py/     # PyO3 binding. Published to PyPI as `grund`.
 ├── docs/
 └── e2e/
 ```
 
-All four frontend crates depend on `grund-core` and only on `grund-core` for engine logic. None depend on each other. This is the property that lets [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary) hold: `grund-cli`'s dependency tree contains no async runtime, no JSON-RPC machinery, and no LSP types, because none of those reach `grund-core`.
+All four frontend crates depend on `grund-core` and only on `grund-core` for engine logic. None depend on each other. This is the property that lets [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary) hold: `grund-cli`'s dependency tree contains no JSON-RPC machinery and no LSP types, because none of those reach `grund-core`.
 
 ## 2. grund-core: the only place logic lives
 
@@ -60,7 +61,7 @@ The Cargo package named `grund`. It imports `grund-core`, owns the installed bin
 
 ## 4. grund-lsp: the LSP server binary
 
-Speaks LSP over stdio (per [§AR-lsp.4](AR-lsp.md#4-transport)). Imports `grund-core` for scan/check/show/fmt; imports `tower-lsp` (or equivalent) plus `tokio` for the protocol surface. Publishes as `grund-lsp` on every registry per [§FS-distribution.1](../functional-spec/FS-distribution.md#1-targets) and [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary). Independent of `grund-cli` — neither pulls the other in. The full architecture lives in [§AR-lsp](AR-lsp.md#ar-lsp-how-the-lsp-server-is-built).
+Speaks LSP over stdio (per [§AR-lsp.4](AR-lsp.md#4-transport)). Imports `grund-core` for scan/check/show/fmt-backed state; imports `lsp-server` for the stdio JSON-RPC loop and `lsp-types` for protocol data shapes. Publishes as `grund-lsp` on Cargo per [§FS-distribution.1](../functional-spec/FS-distribution.md#1-targets), with npm/PyPI packages kept as planned distribution targets. Independent of `grund-cli` — neither pulls the other in. The full architecture lives in [§AR-lsp](AR-lsp.md#ar-lsp-how-the-lsp-server-is-built).
 
 ## 5. grund-node: the napi-rs binding
 

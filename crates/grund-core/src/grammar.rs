@@ -247,6 +247,93 @@ fn comment_prefix_regex(comment_prefixes: &[String]) -> String {
     }
 }
 
+#[derive(Default)]
+struct PythonDocstringScanState {
+    quote: Option<&'static str>,
+}
+
+struct SourceScanLine<'a> {
+    text: &'a str,
+    in_py_docstring: bool,
+    column_offset: usize,
+    closed_py_docstring: bool,
+}
+
+/// Normalize one source line for scanner-style declaration/section/citation
+/// detection while preserving the original-file column offset for emitted
+/// ranges (§AR-scanner.4).
+fn source_scan_line<'a>(
+    line: &'a str,
+    is_py: bool,
+    docstring_python: bool,
+    py_docstring: &mut PythonDocstringScanState,
+) -> SourceScanLine<'a> {
+    if !docstring_python || !is_py {
+        return SourceScanLine {
+            text: line,
+            in_py_docstring: false,
+            column_offset: 0,
+            closed_py_docstring: false,
+        };
+    }
+
+    let trimmed = line.trim_start();
+    let indent = line.len() - trimmed.len();
+    if let Some(quote) = py_docstring.quote {
+        if let Some(close) = trimmed.find(quote) {
+            py_docstring.quote = None;
+            return SourceScanLine {
+                text: &trimmed[..close],
+                in_py_docstring: true,
+                column_offset: indent,
+                closed_py_docstring: true,
+            };
+        }
+        return SourceScanLine {
+            text: trimmed,
+            in_py_docstring: true,
+            column_offset: indent,
+            closed_py_docstring: false,
+        };
+    }
+
+    let Some(quote) = python_docstring_quote(line) else {
+        return SourceScanLine {
+            text: line,
+            in_py_docstring: false,
+            column_offset: 0,
+            closed_py_docstring: false,
+        };
+    };
+    let after_open = &trimmed[quote.len()..];
+    if let Some(close) = after_open.find(quote) {
+        return SourceScanLine {
+            text: &after_open[..close],
+            in_py_docstring: true,
+            column_offset: indent + quote.len(),
+            closed_py_docstring: true,
+        };
+    }
+    py_docstring.quote = Some(quote);
+    SourceScanLine {
+        text: after_open,
+        in_py_docstring: true,
+        column_offset: indent + quote.len(),
+        closed_py_docstring: false,
+    }
+}
+
+fn python_docstring_quote(line: &str) -> Option<&'static str> {
+    let trimmed = line.trim_start();
+    if trimmed.starts_with("\"\"\"") {
+        Some("\"\"\"")
+    } else if trimmed.starts_with("'''") {
+        Some("'''")
+    } else {
+        None
+    }
+}
+
 fn declaration_captures<'a>(
     grammar: &Grammar,
     line: &'a str,

@@ -151,10 +151,24 @@ mod tests {
 
         let config = legacy_fs_folder_config(root.clone());
         let (sequential, sequential_errors) =
-            scan_tree_with_workspace_threshold(&config, Some(&root), true, &[], usize::MAX)
+            scan_tree_with_workspace_threshold(
+                &config,
+                Some(&root),
+                true,
+                &[],
+                usize::MAX,
+                &TextOverlays::new(),
+            )
                 .expect("sequential scan");
         let (parallel, parallel_errors) =
-            scan_tree_with_workspace_threshold(&config, Some(&root), true, &[], 1)
+            scan_tree_with_workspace_threshold(
+                &config,
+                Some(&root),
+                true,
+                &[],
+                1,
+                &TextOverlays::new(),
+            )
                 .expect("parallel scan");
 
         assert_eq!(
@@ -226,6 +240,7 @@ members = ["packages/*"]
                     true,
                     &targets,
                     usize::MAX,
+                    &TextOverlays::new(),
                 )
                 .expect("sequential workspace project scan");
                 (
@@ -244,6 +259,7 @@ members = ["packages/*"]
                     true,
                     &targets,
                     1,
+                    &TextOverlays::new(),
                 )
                 .expect("parallel workspace project scan");
                 (
@@ -621,6 +637,41 @@ members = ["packages/*"]
     }
 
     #[test]
+    fn python_docstring_citations_keep_source_columns() {
+        let root = test_root("python_docstring_citations_keep_source_columns");
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: Login\n",
+        );
+        write(
+            &root.join("src/auth.py"),
+            "class Auth:\n    \"\"\"\n    Uses §FS-001-login.\n    \"\"\"\n\n\
+             def inline():\n    \"\"\"Inline §FS-001-login.\"\"\"\n",
+        );
+
+        let config = Config::default_for(root.clone());
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+        let mut citations = findings
+            .citations
+            .iter()
+            .filter(|citation| citation.file.ends_with("src/auth.py"))
+            .collect::<Vec<_>>();
+        citations.sort_by_key(|citation| (citation.line, citation.column));
+
+        assert_eq!(citations.len(), 2, "expected both Python docstring citations");
+        assert_eq!(
+            (citations[0].line, citations[0].column, citations[0].text.as_str()),
+            (3, 10, "§FS-001-login"),
+            "indented docstring body citation must use original source column (§AR-scanner.4)"
+        );
+        assert_eq!(
+            (citations[1].line, citations[1].column, citations[1].text.as_str()),
+            (7, 15, "§FS-001-login"),
+            "same-line triple-quoted docstring citation must be scanned after the opening delimiter (§AR-scanner.4)"
+        );
+    }
+
+    #[test]
     fn inline_style_strips_configured_comment_prefixes_for_note_detection() {
         let root = test_root("inline_style_strips_configured_comment_prefixes_for_note_detection");
         write(
@@ -913,6 +964,159 @@ members = ["packages/*"]
         assert_eq!(
             shown_json.json.as_deref(),
             Some(expected_json.as_str())
+        );
+
+        let lsp_root = test_root("public_embedding_api_lsp_snapshot");
+        write(
+            &lsp_root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n[scan]\nexclude = [\"ignored\"]\n",
+        );
+        write(&lsp_root.join(".gitignore"), "gitignored/\n");
+        write(
+            &lsp_root.join("docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n\nLead.\n\n## 1. Detail\nMore.\n",
+        );
+        write(&lsp_root.join("src/lib.rs"), "//! §FS-001-alpha.1\n");
+        write(&lsp_root.join("ignored/open.rs"), "//! §FS-001-alpha\n");
+        write(&lsp_root.join(".hidden/open.rs"), "//! §FS-001-alpha\n");
+        write(&lsp_root.join("gitignored/open.rs"), "//! §FS-001-alpha\n");
+        let snapshot = lsp_snapshot(LspSnapshotOpts {
+            path: lsp_root.clone(),
+            path_provided: true,
+            open_documents: BTreeMap::new(),
+        })
+        .expect("public lsp snapshot api");
+        let citation = snapshot
+            .citations
+            .iter()
+            .find(|citation| citation.display_path == "src/lib.rs")
+            .expect("source citation");
+        assert_eq!(citation.query_id, "FS-001-alpha.1");
+        let expected_target =
+            canonical_test_path(&lsp_root.join("docs/functional-spec/FS-001-alpha.md"));
+        assert_eq!(
+            citation.target_path.as_deref().map(canonical_test_path),
+            Some(expected_target)
+        );
+        assert_eq!(citation.target_line, Some(5));
+        assert!(is_valid_id_token(&lsp_root, "FS-001-alpha.1").expect("valid id token"));
+
+        let mut open_documents = BTreeMap::new();
+        open_documents.insert(
+            lsp_root.join("src/lib.rs"),
+            "//! §FS-999-missing\n".to_string(),
+        );
+        let snapshot = lsp_snapshot(LspSnapshotOpts {
+            path: lsp_root.clone(),
+            path_provided: true,
+            open_documents,
+        })
+        .expect("lsp snapshot uses open buffer overlay");
+        assert!(
+            snapshot
+                .report
+                .errors
+                .iter()
+                .any(|error| error.code == "dangling"
+                    && error.message == "unknown reference FS-999-missing"),
+            "unsaved overlay citation should drive diagnostics"
+        );
+
+        let mut open_documents = BTreeMap::new();
+        open_documents.insert(
+            lsp_root.join("ignored/open.rs"),
+            "//! §FS-999-excluded\n".to_string(),
+        );
+        open_documents.insert(
+            lsp_root.join(".hidden/open.rs"),
+            "//! §FS-999-hidden\n".to_string(),
+        );
+        open_documents.insert(
+            lsp_root.join("gitignored/open.rs"),
+            "//! §FS-999-gitignored\n".to_string(),
+        );
+        open_documents.insert(
+            lsp_root.join("gitignored/new.rs"),
+            "//! §FS-999-unsaved-gitignored\n".to_string(),
+        );
+        let snapshot = lsp_snapshot(LspSnapshotOpts {
+            path: lsp_root.clone(),
+            path_provided: true,
+            open_documents,
+        })
+        .expect("lsp snapshot respects scanner filters for overlays");
+        assert!(
+            snapshot
+                .report
+                .errors
+                .iter()
+                .all(|error| !matches!(error.code, "dangling")),
+            "ignored overlay files must not create diagnostics"
+        );
+
+        let mut open_documents = BTreeMap::new();
+        open_documents.insert(
+            lsp_root.join("docs/functional-spec/FS-002-beta.md"),
+            "# FS-002-beta: Beta\n\nUnsaved beta.\n".to_string(),
+        );
+        let snapshot = lsp_snapshot(LspSnapshotOpts {
+            path: lsp_root.clone(),
+            path_provided: true,
+            open_documents,
+        })
+        .expect("lsp snapshot reads declaration columns from overlays");
+        let declaration = snapshot
+            .declarations
+            .iter()
+            .find(|decl| decl.query_id == "FS-002-beta")
+            .expect("unsaved declaration");
+        assert_eq!(declaration.column, 3);
+
+        let mut open_documents = BTreeMap::new();
+        open_documents.insert(
+            lsp_root.join("docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n\nUnsaved lead.\n\n## 1. Detail\nUnsaved detail.\n"
+                .to_string(),
+        );
+        let shown_overlay = show_with_overlays(
+            "FS-001-alpha",
+            ShowOpts {
+                path: lsp_root.clone(),
+                mode: ShowMode::Toc,
+                ..ShowOpts::default()
+            },
+            open_documents,
+        )
+        .expect("show uses open buffer overlay");
+        assert!(shown_overlay.body.contains("Unsaved lead."));
+
+        write(&lsp_root.join("docs/note.md"), "Inline `$$FS-001-alpha`.\n");
+        assert!(
+            !can_replace_trigger_at(
+                &lsp_root.join("docs/note.md"),
+                "Inline `$$FS-001-alpha`.",
+                8,
+                "FS-001-alpha"
+            )
+            .expect("markdown inline code exclusion")
+        );
+        assert!(
+            !can_replace_trigger_at(
+                &lsp_root.join("src/lib.rs"),
+                "let s = \"$$FS-001-alpha\";",
+                9,
+                "FS-001-alpha"
+            )
+            .expect("source string exclusion")
+        );
+        assert!(
+            can_replace_trigger_at(
+                &lsp_root.join("src/lib.rs"),
+                "//! $$FS-001-alpha",
+                4,
+                "FS-001-alpha"
+            )
+            .expect("source comment trigger")
         );
 
         let init_root = test_root("public_embedding_api_init_dry_run");

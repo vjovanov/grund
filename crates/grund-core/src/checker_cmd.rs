@@ -190,6 +190,7 @@ fn append_scan_errors(
             code: "io",
             path: Some(file),
             line: None,
+            column: None,
             message,
             sites: Vec::new(),
         });

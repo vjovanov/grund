@@ -1,0 +1,20 @@
+[package]
+name = "grund-lsp"
+version.workspace = true
+edition.workspace = true
+description = "Optional Language Server Protocol server for grund citations."
+keywords = ["documentation", "references", "lsp", "language-server"]
+categories = ["development-tools"]
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "../../README.md"
+
+[dependencies]
+anyhow = "1"
+grund-core = { path = "../grund-core", version = "0.5.0" }
+lsp-server = "0.7"
+lsp-types = "0.95"
+serde = "1"
+serde_json = "1"
+url = "2"

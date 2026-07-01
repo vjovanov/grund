@@ -1,28 +1,29 @@
 # AR-lsp: how the LSP server is built
 
-Implements [§FS-lsp](../functional-spec/FS-lsp.md#fs-lsp-grund-will-ship-an-optional-lsp-server). The LSP server is a separate crate (`grund-lsp`) in the workspace defined by [§AR-bindings.1](AR-bindings.md#1-target-workspace-layout), depending only on `grund-core`. It has no shared runtime with `grund-cli`, no shared state with the bindings, and no own engine logic — everything it does delegates to `grund-core`.
+Implements [§FS-lsp](../functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server). The LSP server is a separate crate (`grund-lsp`) in the workspace defined by [§AR-bindings.1](AR-bindings.md#1-target-workspace-layout), depending only on `grund-core`. It has no shared runtime with `grund-cli`, no shared state with the bindings, and no own engine logic — everything it does delegates to `grund-core`.
 
 ## 1. Crate boundary
 
 `grund-lsp` is a binary crate with one job: speak LSP over stdio and translate each request into a `grund-core` call. The crate has:
 
 - No scanner, no checker, no `show` extraction, no `fmt` planning. All four are imports from `grund-core`.
-- No `tokio`/`tower-lsp`/`lsp-types` references in `grund-core`. The async runtime and the LSP machinery live entirely in `grund-lsp`. `grund-cli` continues to be synchronous and pulls none of this in.
+- No `lsp-server`/`lsp-types` references in `grund-core`. The JSON-RPC loop and LSP protocol data types live entirely in `grund-lsp`. `grund-cli` continues to be synchronous and pulls none of this in.
 - No filesystem walking outside what `grund-core::scan` already does. The LSP server does not invent its own walker.
 
 This is the architectural shape that lets the LSP be optional ([§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary)): the dependency cost stays in `grund-lsp`, and a user installing only `grund` (the CLI) pays none of it.
 
 ## 2. State
 
-The server holds an in-memory `Findings` (the same struct [§AR-scanner.3](AR-scanner.md#3-output) produces) per workspace:
+The server holds an in-memory `LspSnapshot` per workspace. The snapshot is built by `grund-core` from the same scan/check data [§AR-scanner.3](AR-scanner.md#3-output) produces, and adds resolved declaration, section-heading, stub, citation, and link ranges for editor requests:
 
 - On `initialize`, the server records the workspace root from the client's `rootUri`.
-- On `initialized`, the server runs a full scan and stores the resulting `Findings`.
+- During startup and again on `initialized`, the server runs a full scan and stores the resulting snapshot.
 - On `textDocument/didChange`, the server updates the in-memory copy of the changed file (LSP delivers the new text), then re-runs the scan over the workspace.
 - On `textDocument/didSave`, the server reconciles the in-memory copy against disk (handles cases where another tool wrote the file).
+- On `textDocument/didClose`, the server drops the in-memory overlay and re-runs the scan against disk.
 - On `workspace/didChangeWatchedFiles`, the server re-runs the scan to pick up creates and deletes the editor reported.
 
-The `Findings` is the cache for everything else: hover, definition, and diagnostics all answer from it.
+The snapshot is the cache for everything else: hover, definition, references, document links, and diagnostics all answer from it.
 
 ## 3. Scan strategy
 
@@ -42,16 +43,19 @@ LSP over **stdio only**. No TCP, no Unix socket, no named pipe. Reasoning: stdio
 
 ## 5. Determinism and parity tests
 
-The LSP must produce the same diagnostics for the same workspace state as `grund check` does — byte-for-byte on the message text, position-for-position on the line numbers ([§FS-non-goals.13](../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)). Parity is enforced by an e2e harness:
+The LSP must produce the same diagnostics for the same workspace state as `grund check` does — byte-for-byte on the message text, position-for-position on the line numbers ([§FS-non-goals.13](../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)). Current parity is enforced by keeping all engine work in `grund-core` and limiting `grund-lsp` to transport/range translation:
 
-- A test driver spawns `grund-lsp` as a child process, sends `initialize` with the workspace root pointing at an `e2e/cases/<id>/repo/` fixture, and asserts the published diagnostics match the case's `expected.stdout` and `expected.stderr` after format-translation (LSP diagnostic shape vs. CLI text shape).
-- A second sweep sends `textDocument/hover` for each citation in the fixture and asserts the hover body matches `grund <ID>` for that ID.
-- A third sweep sends `textDocument/definition` and asserts the resolved `path:line` matches the declaration recorded in the fixture's `Findings`.
+- `grund-core::lsp_snapshot` returns the report, declaration ranges, section-heading ranges, stub ranges, citation ranges, and resolved targets from one scan/check pass.
+- `textDocument/hover` answers only on citations, calling the same `show` engine used by `grund <ID> --toc` with open-document overlays applied; declaration-side title spans (Markdown declaration headings, numbered section headings, and inline-spec stub titles) carry no hover and expose their usages through go-to-definition and references instead ([§FS-lsp.1.2](../functional-spec/FS-lsp.md#12-hover-preview)).
+- `textDocument/onTypeFormatting` calls the same configured trigger/marker and ID-grammar checks as `grund fmt`.
+- Focused `grund-lsp` tests cover UTF-16 range conversion, hover linkification, configured trigger punctuation, member-local trigger/marker overrides, declaration/reference matching, section-heading definition and references, whole-title stub document links, the absence of a self-pointing link on ordinary declaration titles (so the click resolves to go-to-definition usages, [§FS-lsp.1.3.2](../functional-spec/FS-lsp.md#132-document-links)), and citation document-link line fragments.
+
+A broader child-process sweep over `e2e/cases/*` remains a useful hardening step, but it is not part of the current shipped test harness.
 
 This is what makes the LSP "the same engine with a different transport" rather than a parallel implementation that could drift.
 
 ## 6. What this does not contain
 
-- No editor-specific code. Per [§FS-lsp](../functional-spec/FS-lsp.md#fs-lsp-grund-will-ship-an-optional-lsp-server) and [§FS-non-goals](../functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do), no first-party VSCode/IntelliJ/Vim/Emacs wrappers ship; this crate is the only editor-facing surface.
+- No editor-specific code. Per [§FS-lsp](../functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server) and [§FS-non-goals](../functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do), no first-party VSCode/IntelliJ/Vim/Emacs wrappers ship; this crate is the only editor-facing surface.
 - No process supervision. The editor owns the lifecycle ([§FS-lsp.2.2](../functional-spec/FS-lsp.md#22-lifecycle)); `grund-lsp` does not respawn itself, does not background, does not write a PID file.
 - No telemetry, no auto-update, no crash reporter ([§FS-non-goals.11](../functional-spec/FS-non-goals.md#11-network-access-during-a-check) — no network I/O).

@@ -3,6 +3,7 @@ src/GoRouter.go:1: unknown reference FS-999-missing
 src/JavaRouter.java:2: unknown reference FS-999-missing
 src/KotlinRouter.kt:2: unknown reference FS-999-missing
 src/PhpRouter.php:3: unknown reference FS-999-missing
+src/PythonInlineRouter.py:2: unknown reference FS-999-missing
 src/PythonRouter.py:2: unknown reference FS-999-missing
 src/RustBlockRouter.rs:2: unknown reference FS-999-missing
 src/RustInnerRouter.rs:1: unknown reference FS-999-missing

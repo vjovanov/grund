@@ -413,19 +413,12 @@ fn section_heading_text(
     let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
     let is_py = path.extension().and_then(|e| e.to_str()) == Some("py");
     let mut in_decl = false;
-    let mut in_py_docstring = false;
+    let mut py_docstring = PythonDocstringScanState::default();
     for line in text.lines() {
-        let trimmed = line.trim_start();
-        if config.docstring_python
-            && is_py
-            && (trimmed.starts_with("\"\"\"") || trimmed.starts_with("'''"))
-        {
-            in_py_docstring = !in_py_docstring;
-            continue;
-        }
-        let scan_line = if in_py_docstring { trimmed } else { line };
+        let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
+        let scan_line = scan.text;
         if let Some(caps) =
-            declaration_captures(&config.grammar, scan_line, in_py_docstring, is_md)
+            declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
         {
             let found = parse_id(&caps);
             if in_decl && found.as_ref() != Some(id) {

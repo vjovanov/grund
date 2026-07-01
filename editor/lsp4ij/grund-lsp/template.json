@@ -1,0 +1,149 @@
+{
+  "id": "grund-lsp",
+  "name": "grund LSP",
+  "programArgs": {
+    "default": "sh -c \"cd $PROJECT_DIR$ && cargo run -q -p grund-lsp --\"",
+    "windows": "cmd /C \"cd /D $PROJECT_DIR$ && cargo run -q -p grund-lsp --\""
+  },
+  "fileTypeMappings": [
+    {
+      "fileType": {
+        "name": "Markdown",
+        "patterns": [
+          "*.md"
+        ]
+      },
+      "languageId": "markdown"
+    },
+    {
+      "fileType": {
+        "name": "Rust",
+        "patterns": [
+          "*.rs"
+        ]
+      },
+      "languageId": "rust"
+    },
+    {
+      "fileType": {
+        "name": "Go",
+        "patterns": [
+          "*.go"
+        ]
+      },
+      "languageId": "go"
+    },
+    {
+      "fileType": {
+        "name": "JAVA",
+        "patterns": [
+          "*.java"
+        ]
+      },
+      "languageId": "java"
+    },
+    {
+      "fileType": {
+        "name": "Kotlin",
+        "patterns": [
+          "*.kt"
+        ]
+      },
+      "languageId": "kotlin"
+    },
+    {
+      "fileType": {
+        "name": "TypeScript",
+        "patterns": [
+          "*.ts"
+        ]
+      },
+      "languageId": "typescript"
+    },
+    {
+      "fileType": {
+        "name": "TypeScript-React",
+        "patterns": [
+          "*.tsx"
+        ]
+      },
+      "languageId": "typescriptreact"
+    },
+    {
+      "fileType": {
+        "name": "JavaScript",
+        "patterns": [
+          "*.js"
+        ]
+      },
+      "languageId": "javascript"
+    },
+    {
+      "fileType": {
+        "patterns": [
+          "*.py"
+        ]
+      },
+      "languageId": "python"
+    },
+    {
+      "fileType": {
+        "patterns": [
+          "*.c"
+        ]
+      },
+      "languageId": "c"
+    },
+    {
+      "fileType": {
+        "patterns": [
+          "*.cpp"
+        ]
+      },
+      "languageId": "cpp"
+    },
+    {
+      "fileType": {
+        "patterns": [
+          "*.swift"
+        ]
+      },
+      "languageId": "swift"
+    },
+    {
+      "fileType": {
+        "name": "Scala",
+        "patterns": [
+          "*.scala"
+        ]
+      },
+      "languageId": "scala"
+    },
+    {
+      "fileType": {
+        "patterns": [
+          "*.rb"
+        ]
+      },
+      "languageId": "ruby"
+    },
+    {
+      "fileType": {
+        "name": "PHP",
+        "patterns": [
+          "*.php"
+        ]
+      },
+      "languageId": "php"
+    },
+    {
+      "fileType": {
+        "name": "C#",
+        "patterns": [
+          "*.cs"
+        ]
+      },
+      "languageId": "csharp"
+    }
+  ]
+}
