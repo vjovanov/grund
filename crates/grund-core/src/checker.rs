@@ -176,6 +176,7 @@ fn check_with_workspace(
                 code: "duplicate",
                 path: Some(primary.path),
                 line: Some(primary.line),
+                column: None,
                 message: format!("duplicate declaration of {}{suffix}", render_id(config, id)),
                 sites,
             });
@@ -195,6 +196,7 @@ fn check_with_workspace(
                     code: "misplaced-declaration",
                     path: Some(decl.file.clone()),
                     line: Some(decl.line),
+                    column: None,
                     message: format!(
                         "{} must be declared in {} (single-file kind)",
                         render_id(config, id),
@@ -213,6 +215,7 @@ fn check_with_workspace(
                     code: "misplaced-declaration",
                     path: Some(decl.file.clone()),
                     line: Some(decl.line),
+                    column: None,
                     message: format!(
                         "{} declares kind {} inside {} home {}",
                         render_id(config, id),
@@ -239,6 +242,7 @@ fn check_with_workspace(
                 code: "unknown-project",
                 path: Some(cite.file.clone()),
                 line: Some(cite.line),
+                column: Some(cite.column),
                 message: format!("unknown project alias {namespace}"),
                 sites: Vec::new(),
             });
@@ -254,6 +258,7 @@ fn check_with_workspace(
                 code: "dangling",
                 path: Some(cite.file.clone()),
                 line: Some(cite.line),
+                column: Some(cite.column),
                 message: message.unwrap_or_else(|| format!("unknown reference {unknown}")),
                 sites: Vec::new(),
             });
@@ -268,6 +273,7 @@ fn check_with_workspace(
                     code: "missing-section",
                     path: Some(cite.file.clone()),
                     line: Some(cite.line),
+                    column: Some(cite.column),
                     message: format!(
                         "missing section {}{}{}",
                         render_qualified_id(target.config, cite.namespace.as_deref(), &cite.id),
@@ -298,6 +304,7 @@ fn check_with_workspace(
                             code: "section-heading-level",
                             path: Some(decl.file.clone()),
                             line: Some(section.line),
+                            column: None,
                             message: format!(
                                 "section {}{}{} heading level mismatch: expected {} (level {}), found {} (level {})",
                                 render_id(config, id),
@@ -337,6 +344,7 @@ fn check_with_workspace(
                     code: "broken-stub",
                     path: Some(decl.file.clone()),
                     line: Some(decl.line),
+                    column: None,
                     message: format!("stub link target missing: {}", format_path(target)),
                     sites: Vec::new(),
                 });
@@ -352,6 +360,7 @@ fn check_with_workspace(
                     code: "broken-stub",
                     path: Some(decl.file.clone()),
                     line: Some(decl.line),
+                    column: None,
                     message: format!(
                         "stub link target lacks {}: {}",
                         render_id(config, id),
@@ -397,6 +406,7 @@ fn check_with_workspace(
                 code: "unused",
                 path: Some(decl.file.clone()),
                 line: Some(decl.line),
+                column: None,
                 message: format!("declared but never cited: {}", render_id(config, id)),
                 sites: Vec::new(),
             });
@@ -435,6 +445,7 @@ fn check_with_workspace(
                     code: "ungrounded",
                     path: Some(file.clone()),
                     line: Some(1),
+                    column: None,
                     message: format!(
                         "ungrounded source file: no {} citation to a declared ID",
                         config.marker
@@ -640,6 +651,7 @@ fn obligation_diagnostic(
         code,
         path: Some(unit.path.clone()),
         line: Some(unit.line),
+        column: None,
         message: format!(
             "{} {verb_level} cite {} (citation direction)",
             unit.subject(config),
@@ -682,6 +694,7 @@ fn prohibition_diagnostic(code: &'static str, cite: &Citation, verb: &str) -> Di
         code,
         path: Some(cite.file.clone()),
         line: Some(cite.line),
+        column: Some(cite.column),
         message: format!(
             "{} {verb} cite {} (citation direction)",
             cite.source_kind,
@@ -847,6 +860,7 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         code: "inline-citation-style",
                         path: Some(cite.file.clone()),
                         line: Some(site.first_line),
+                        column: None,
                         message: "inline citation must carry no prose".to_string(),
                         sites: Vec::new(),
                     });
@@ -859,6 +873,7 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         code: "inline-citation-style",
                         path: Some(cite.file.clone()),
                         line: Some(site.first_line),
+                        column: None,
                         message: format!(
                             "inline note exceeds {}-line maximum",
                             config.inline_note_max_lines
@@ -871,6 +886,7 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         code: "inline-citation-style",
                         path: Some(cite.file.clone()),
                         line: Some(site.first_line),
+                        column: None,
                         message: format!(
                             "inline note exceeds {}-column maximum",
                             config.inline_note_max_columns
@@ -886,6 +902,7 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         code: "inline-citation-style",
                         path: Some(cite.file.clone()),
                         line: Some(site.first_line),
+                        column: None,
                         message: format!(
                             "inline note exceeds {}-line preferred limit",
                             config.inline_note_suggested_lines
@@ -970,6 +987,7 @@ fn check_agents_block_version(config: &Config, report: &mut CheckReport) {
                 code: "io",
                 path: Some(path),
                 line: Some(1),
+                column: None,
                 message,
                 sites: Vec::new(),
             });
@@ -995,6 +1013,7 @@ fn check_agent_block_path(
             code: "io",
             path: Some(path.to_path_buf()),
             line: Some(1),
+            column: None,
             message: format!("cannot read {file_name}"),
             sites: Vec::new(),
         });
@@ -1007,6 +1026,7 @@ fn check_agent_block_path(
                 code: "agents-init",
                 path: Some(path.to_path_buf()),
                 line: Some(line),
+                column: None,
                 message: format!(
                     "outdated grund init block v{} (run `grund init` to update to v{})",
                     block.version, AGENTS_BLOCK_VERSION
@@ -1018,6 +1038,7 @@ fn check_agent_block_path(
                 code: "agents-init",
                 path: Some(path.to_path_buf()),
                 line: Some(line),
+                column: None,
                 message: format!(
                     "unsupported grund init block v{} (this grund supports v{})",
                     block.version, AGENTS_BLOCK_VERSION
@@ -1041,6 +1062,7 @@ fn check_agent_block_path(
                     code: "agents-init",
                     path: Some(path.to_path_buf()),
                     line: Some(line),
+                    column: None,
                     message:
                         "stale grund init block: citation directions differ from .agents/grund.toml (run `grund init` to refresh)"
                             .to_string(),
@@ -1057,6 +1079,7 @@ fn check_agent_block_path(
         code: "agents-init",
         path: Some(path.to_path_buf()),
         line: Some(1),
+        column: None,
         message: format!("missing grund init block v{}", AGENTS_BLOCK_VERSION),
         sites: Vec::new(),
     });
@@ -1295,19 +1318,12 @@ fn file_declares_inline_home(path: &Path, id: &Id, config: &Config) -> Result<bo
     let text = fs::read_to_string(path)?;
     let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
     let is_py = path.extension().and_then(|e| e.to_str()) == Some("py");
-    let mut in_py_docstring = false;
+    let mut py_docstring = PythonDocstringScanState::default();
     for line in text.lines() {
-        let trimmed = line.trim_start();
-        if config.docstring_python
-            && is_py
-            && (trimmed.starts_with("\"\"\"") || trimmed.starts_with("'''"))
-        {
-            in_py_docstring = !in_py_docstring;
-            continue;
-        }
-        let scan_line = if in_py_docstring { trimmed } else { line };
+        let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
+        let scan_line = scan.text;
         if let Some(caps) =
-            declaration_captures(&config.grammar, scan_line, in_py_docstring, is_md)
+            declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
             && let Some(found) = parse_id(&caps)
             && &found == id
         {

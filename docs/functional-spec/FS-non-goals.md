@@ -18,7 +18,7 @@ A non-goal is not the same as "we'll do it later." Non-goals are commitments. To
 
 ## 4. Cross-workspace ID renaming
 
-`grund` does not provide a "rename ID" refactoring. The reference scheme says IDs are forever; renaming an ID is a deliberate edit (`Supersedes:` chain), not an automated operation. The optional LSP server ([§FS-lsp](FS-lsp.md#fs-lsp-grund-will-ship-an-optional-lsp-server)) intentionally omits this affordance, and no first-party editor wrapper would add it ([§FS-non-goals.12.1](FS-non-goals.md#121-plugins-or-scripting-hooks-inside-the-engine)).
+`grund` does not provide a "rename ID" refactoring. The reference scheme says IDs are forever; renaming an ID is a deliberate edit (`Supersedes:` chain), not an automated operation. The optional LSP server ([§FS-lsp](FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server)) intentionally omits this affordance, and no first-party editor wrapper would add it ([§FS-non-goals.12.1](FS-non-goals.md#121-plugins-or-scripting-hooks-inside-the-engine)).
 
 ## 5. Documentation generation
 
@@ -58,7 +58,7 @@ Per [§GOAL-friendliness-first.2](../goals.md#2-what-this-rules-out) and [§FS-c
 
 ### 12.2 First-party per-editor plugins
 
-`grund` does not ship and does not maintain VSCode extensions, IntelliJ plugins, Vim/Neovim plugins, Emacs packages, or any other editor-specific wrapper. The optional LSP server ([§FS-lsp](FS-lsp.md#fs-lsp-grund-will-ship-an-optional-lsp-server)) is the only first-party editor surface; configuring an editor to talk to it is the user's one-time work, with example snippets in the README. Reasoning: per-editor plugins multiply maintenance surface across release cadences we do not control (marketplace review, extension manifests, native UI APIs), and the LSP protocol already gives every modern editor the four capabilities `grund-lsp` exposes ([§FS-lsp.1](FS-lsp.md#1-capabilities)) for free. Decided in [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary). Reconsidering this entry would require an architectural decision record overturning [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary).
+`grund` does not ship and does not maintain VSCode extensions, IntelliJ plugins, Vim/Neovim plugins, Emacs packages, or any other editor-specific wrapper. The optional LSP server ([§FS-lsp](FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server)) is the only first-party editor surface; configuring an editor to talk to it is the user's one-time work, with example snippets in the README. Reasoning: per-editor plugins multiply maintenance surface across release cadences we do not control (marketplace review, extension manifests, native UI APIs), and the LSP protocol already gives every modern editor the four capabilities `grund-lsp` exposes ([§FS-lsp.1](FS-lsp.md#1-capabilities)) for free. Decided in [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary). Reconsidering this entry would require an architectural decision record overturning [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary).
 
 ## 13. Anything that would let two `grund` installs disagree
 

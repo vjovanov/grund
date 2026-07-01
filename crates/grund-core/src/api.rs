@@ -57,6 +57,10 @@ pub struct Finding {
     pub code: &'static str,
     pub path: Option<String>,
     pub line: Option<usize>,
+    /// 1-based start column of the offending citation when the finding concerns
+    /// a specific token, so an LSP can anchor on that token rather than the first
+    /// citation on the line (§FS-lsp.1.1). `None` for line-anchored findings.
+    pub column: Option<usize>,
     pub message: String,
     pub sites: Vec<FindingSite>,
 }
@@ -162,6 +166,7 @@ fn public_finding(config: &Config, severity: &'static str, diagnostic: Diagnosti
         code: diagnostic.code,
         path: diagnostic.path.map(|path| public_path(config, &path)),
         line: diagnostic.line,
+        column: diagnostic.column,
         message: diagnostic.message,
         sites: diagnostic
             .sites
@@ -184,9 +189,26 @@ pub fn show(id_arg: &str, opts: ShowOpts) -> Result<ShowOutput> {
     show_with_scope(id_arg, opts, true)
 }
 
+pub fn show_with_overlays(
+    id_arg: &str,
+    opts: ShowOpts,
+    open_documents: BTreeMap<PathBuf, String>,
+) -> Result<ShowOutput> {
+    show_with_scope_and_overlays(id_arg, opts, true, &normalized_overlays(open_documents))
+}
+
 #[doc(hidden)]
 pub fn show_with_scope(id_arg: &str, opts: ShowOpts, path_provided: bool) -> Result<ShowOutput> {
-    let context = load_workspace_context(&opts.path, path_provided)?;
+    show_with_scope_and_overlays(id_arg, opts, path_provided, &TextOverlays::new())
+}
+
+fn show_with_scope_and_overlays(
+    id_arg: &str,
+    opts: ShowOpts,
+    path_provided: bool,
+    overlays: &TextOverlays,
+) -> Result<ShowOutput> {
+    let context = load_workspace_context_with_overlays(&opts.path, path_provided, overlays, false)?;
     let (alias, raw_id) = split_qualified_id_arg(id_arg)?;
     let project = match alias.as_deref() {
         Some(name) => context
@@ -227,13 +249,14 @@ pub fn show_with_scope(id_arg: &str, opts: ShowOpts, path_provided: bool) -> Res
         return Err(anyhow!("--section cannot be combined with an inline section"));
     }
     let section = opts.section.or(inline_section);
-    let mut output = show_declaration(
+    let mut output = show_declaration_with_overlays(
         config,
         &project.findings,
         &id,
         section.as_deref(),
         opts.mode.render_mode(),
         opts.format == ShowFormat::Markdown,
+        overlays,
     )?;
     if opts.format != ShowFormat::Markdown {
         output.body = flatten_cross_ref_links(&output.body, config);
@@ -455,6 +478,499 @@ pub fn effective_config(path: &Path) -> Result<Config> {
 /// Validate config discovery/parsing for a path without printing CLI output.
 pub fn validate_config(path: &Path) -> Result<()> {
     load_config(path).map(|_| ())
+}
+
+/// Test whether a token after the typing trigger matches the current project's
+/// configured ID grammar. Used by `grund-lsp` on-type formatting so the live
+/// `$$` replacement follows the same parser as `grund fmt` (§FS-lsp.1.4).
+pub fn is_valid_id_token(path: &Path, token: &str) -> Result<bool> {
+    let config = resolve_workspace_config(path)?;
+    Ok(parse_id_arg(token, &config.grammar).is_ok())
+}
+
+/// Reference marker and typing trigger resolved for one path. §FS-lsp.1.4
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReferenceStyle {
+    pub marker: String,
+    pub trigger: String,
+}
+
+/// Resolve the marker/trigger pair for a specific document. Workspace member
+/// files use the member config, matching `grund fmt` and `grund check`
+/// (§FS-lsp.1.4, §FS-workspace.5).
+pub fn reference_style(path: &Path) -> Result<ReferenceStyle> {
+    let config = resolve_workspace_config(path)?;
+    Ok(ReferenceStyle {
+        marker: config.marker,
+        trigger: config.trigger,
+    })
+}
+
+/// Check the same context exclusions as `grund fmt` before an LSP on-type
+/// `$$` rewrite (§FS-fmt.2.3, §FS-lsp.1.4).
+pub fn can_replace_trigger_at(
+    path: &Path,
+    line: &str,
+    trigger_start: usize,
+    token: &str,
+) -> Result<bool> {
+    let config = resolve_workspace_config(path)?;
+    let after = trigger_start + config.trigger.len();
+    let token_end = after + token.len();
+    if !config
+        .grammar
+        .citation_re
+        .find_at(line, after)
+        .is_some_and(|found| found.start() == after && found.end() == token_end)
+    {
+        return Ok(false);
+    }
+    let is_md = path.extension().and_then(|ext| ext.to_str()) == Some("md");
+    Ok((is_md || !is_inside_string_literal(line, trigger_start))
+        && (!is_md || !is_inside_inline_code(line, trigger_start))
+        && (!is_md || !is_inside_markdown_link_destination(line, trigger_start)))
+}
+
+#[derive(Clone)]
+pub struct LspSnapshotOpts {
+    pub path: PathBuf,
+    pub path_provided: bool,
+    pub open_documents: BTreeMap<PathBuf, String>,
+}
+
+impl Default for LspSnapshotOpts {
+    fn default() -> Self {
+        Self {
+            path: PathBuf::from("."),
+            path_provided: false,
+            open_documents: BTreeMap::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspSnapshot {
+    pub root: PathBuf,
+    pub marker: String,
+    pub trigger: String,
+    pub workspace: bool,
+    pub report: Report,
+    pub declarations: Vec<LspDeclaration>,
+    /// Numbered section headings (`<ID>.<section>`) inside declaration bodies,
+    /// each a declaration-side title editors can navigate to its section
+    /// citations (§FS-lsp.1.3.1). Kept separate from `declarations` so the
+    /// whole-ID home set stays the bare-ID declarations.
+    pub sections: Vec<LspDeclaration>,
+    pub stubs: Vec<LspStub>,
+    pub citations: Vec<LspCitation>,
+    pub scan_errors: Vec<ApiScanError>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspDeclaration {
+    pub project: Option<String>,
+    pub path: PathBuf,
+    pub display_path: String,
+    pub line: usize,
+    pub column: usize,
+    pub text: String,
+    pub query_id: String,
+    pub section_separator: String,
+}
+
+/// LSP token for an inline-spec stub title whose definition follows to the
+/// source doc-comment declaration. §FS-lsp.1.3
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspStub {
+    pub project: Option<String>,
+    pub path: PathBuf,
+    pub display_path: String,
+    pub line: usize,
+    pub column: usize,
+    pub text: String,
+    pub query_id: String,
+    pub section_separator: String,
+    pub target_path: PathBuf,
+    pub target_line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspCitation {
+    pub project: Option<String>,
+    pub path: PathBuf,
+    pub display_path: String,
+    pub line: usize,
+    pub column: usize,
+    pub text: String,
+    pub query_id: String,
+    pub declaration_query_id: String,
+    pub section_separator: String,
+    pub target_path: Option<PathBuf>,
+    pub target_line: Option<usize>,
+}
+
+/// Programmatic snapshot for `grund-lsp`: all scanner-derived declaration and
+/// citation ranges plus their resolved navigation targets. This keeps the LSP
+/// transport from re-implementing the reference grammar (§AR-lsp.1).
+pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
+    let overlays = normalized_overlays(opts.open_documents);
+    // §FS-lsp.1.1: classify citing sides so the citation-direction checks
+    // (`missing-citation` / `forbidden-citation`) run and surface as editor
+    // diagnostics, the same errors `grund check` reports.
+    let context =
+        load_workspace_context_with_overlays(&opts.path, opts.path_provided, &overlays, true)?;
+    let render_config = context.render_config().clone();
+    let report = public_report(&render_config, check_workspace_context(&context, false), false);
+    let mut declarations = Vec::new();
+    let mut sections = Vec::new();
+    let mut stubs = Vec::new();
+    let mut citations = Vec::new();
+    let mut scan_errors = Vec::new();
+
+    for project in &context.projects {
+        scan_errors.extend(
+            project
+                .scan_errors
+                .iter()
+                .map(|(file, message)| api_scan_error(&project.config, file, message)),
+        );
+        for (id, decls) in &project.findings.declarations {
+            let rendered = render_id(&project.config, id);
+            let query_id = lsp_query_id(&context, project, &rendered, None);
+            let mut homes: Vec<&Declaration> = decls
+                .iter()
+                .filter(|decl| !is_stub_for_inline_decl(&project.config.root, decl, decls))
+                .collect();
+            homes.sort_by(|a, b| {
+                (sort_path_key(&a.file), a.line).cmp(&(sort_path_key(&b.file), b.line))
+            });
+            for home in homes {
+                let display = if context.workspace_loaded {
+                    display_path(context.render_config(), &home.file)
+                } else {
+                    display_path(&project.config, &home.file)
+                };
+                let (column, text) = declaration_range_parts(home, &rendered, &overlays);
+                declarations.push(LspDeclaration {
+                    project: context.workspace_loaded.then(|| project.alias.clone()),
+                    path: absolutize_path(&home.file),
+                    display_path: display.clone(),
+                    line: home.line,
+                    column,
+                    text,
+                    query_id: query_id.clone(),
+                    section_separator: project.config.section_separator.clone(),
+                });
+                // Each numbered section heading is its own declaration-side
+                // title: editors navigate `<ID>.<section>` to that section's
+                // citations, the same way the whole-ID title does (§FS-lsp.1.3.1).
+                for (section, info) in &home.sections {
+                    let (column, text) =
+                        heading_span_parts(&home.file, info.line, section, &overlays);
+                    sections.push(LspDeclaration {
+                        project: context.workspace_loaded.then(|| project.alias.clone()),
+                        path: absolutize_path(&home.file),
+                        display_path: display.clone(),
+                        line: info.line,
+                        column,
+                        text,
+                        query_id: lsp_query_id(&context, project, &rendered, Some(section)),
+                        section_separator: project.config.section_separator.clone(),
+                    });
+                }
+            }
+            for stub in decls
+                .iter()
+                .filter(|decl| is_stub_for_inline_decl(&project.config.root, decl, decls))
+            {
+                let target = lsp_target_for_stub(project, stub, decls);
+                if let Some((target_path, target_line)) = target {
+                    let (column, text) = declaration_range_parts(stub, &rendered, &overlays);
+                    stubs.push(LspStub {
+                        project: context.workspace_loaded.then(|| project.alias.clone()),
+                        path: absolutize_path(&stub.file),
+                        display_path: if context.workspace_loaded {
+                            display_path(context.render_config(), &stub.file)
+                        } else {
+                            display_path(&project.config, &stub.file)
+                        },
+                        line: stub.line,
+                        column,
+                        text,
+                        query_id: query_id.clone(),
+                        section_separator: project.config.section_separator.clone(),
+                        target_path: absolutize_path(&target_path),
+                        target_line,
+                    });
+                }
+            }
+        }
+        for citation in &project.findings.citations {
+            let target_project = match citation.namespace.as_deref() {
+                Some(alias) => context.project_by_alias(alias),
+                None => Some(project),
+            };
+            let rendered_id = target_project
+                .map(|target| render_id(&target.config, &citation.id))
+                .unwrap_or_else(|| {
+                    citation
+                        .text
+                        .trim_start_matches(&render_config.marker)
+                        .to_string()
+                });
+            let query_id = target_project
+                .map(|target| {
+                    lsp_query_id(
+                        &context,
+                        target,
+                        &rendered_id,
+                        citation.section.as_deref(),
+                    )
+                })
+                .unwrap_or_else(|| rendered_id.clone());
+            let declaration_query_id = target_project
+                .map(|target| lsp_query_id(&context, target, &rendered_id, None))
+                .unwrap_or_else(|| rendered_id.clone());
+            let section_separator = target_project
+                .map(|target| target.config.section_separator.clone())
+                .unwrap_or_else(|| render_config.section_separator.clone());
+            let target = target_project.and_then(|target| lsp_target_for_citation(target, citation));
+            citations.push(LspCitation {
+                project: context.workspace_loaded.then(|| project.alias.clone()),
+                path: absolutize_path(&citation.file),
+                display_path: if context.workspace_loaded {
+                    display_path(context.render_config(), &citation.file)
+                } else {
+                    display_path(&project.config, &citation.file)
+                },
+                line: citation.line,
+                column: citation.column,
+                text: citation.text.clone(),
+                query_id,
+                declaration_query_id,
+                section_separator,
+                target_path: target.as_ref().map(|(path, _)| absolutize_path(path)),
+                target_line: target.map(|(_, line)| line),
+            });
+        }
+    }
+
+    let declaration_sort = |a: &LspDeclaration, b: &LspDeclaration| {
+        (sort_path_key(&a.path), a.line, a.column, &a.text).cmp(&(
+            sort_path_key(&b.path),
+            b.line,
+            b.column,
+            &b.text,
+        ))
+    };
+    declarations.sort_by(declaration_sort);
+    sections.sort_by(declaration_sort);
+    stubs.sort_by(|a, b| {
+        (sort_path_key(&a.path), a.line, a.column, &a.text).cmp(&(
+            sort_path_key(&b.path),
+            b.line,
+            b.column,
+            &b.text,
+        ))
+    });
+    citations.sort_by(|a, b| {
+        (sort_path_key(&a.path), a.line, a.column, &a.text).cmp(&(
+            sort_path_key(&b.path),
+            b.line,
+            b.column,
+            &b.text,
+        ))
+    });
+
+    Ok(LspSnapshot {
+        root: absolutize_path(&render_config.root),
+        marker: render_config.marker,
+        trigger: render_config.trigger,
+        workspace: context.workspace_loaded,
+        report,
+        declarations,
+        sections,
+        stubs,
+        citations,
+        scan_errors,
+    })
+}
+
+fn normalized_overlays(overlays: BTreeMap<PathBuf, String>) -> TextOverlays {
+    overlays
+        .into_iter()
+        .map(|(path, text)| (absolutize_path(&path), text))
+        .collect()
+}
+
+fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: bool) -> CheckReport {
+    let workspace = context
+        .projects
+        .iter()
+        .map(|project| {
+            (
+                project.alias.clone(),
+                WorkspaceCheckTarget {
+                    findings: &project.findings,
+                    config: &project.config,
+                },
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut report = CheckReport::default();
+    for project in &context.projects {
+        let mut config = project.config.clone();
+        if force_require_grounding {
+            config.require_grounding = true;
+        }
+        let mut project_report = if context.workspace_loaded {
+            check_with_workspace(
+                &project.findings,
+                &config,
+                Some(&project.alias),
+                &workspace,
+            )
+        } else {
+            check_findings(&project.findings, &config)
+        };
+        let project_has_findings =
+            !project_report.errors.is_empty() || !project_report.warnings.is_empty();
+        report.errors.append(&mut project_report.errors);
+        report.warnings.append(&mut project_report.warnings);
+        append_lsp_scan_errors(&mut report, project.scan_errors.iter().cloned());
+        if project.findings.scanned_files.is_empty()
+            && project.scan_errors.is_empty()
+            && !project_has_findings
+        {
+            report
+                .warnings
+                .push(empty_scan_warning(&config, &config.root, true));
+        }
+    }
+    sort_diagnostics(&mut report.errors);
+    sort_diagnostics(&mut report.warnings);
+    report
+}
+
+fn append_lsp_scan_errors(
+    report: &mut CheckReport,
+    scan_errors: impl IntoIterator<Item = (PathBuf, String)>,
+) {
+    for (file, message) in scan_errors {
+        report.errors.push(Diagnostic {
+            code: "io",
+            path: Some(file),
+            line: None,
+            column: None,
+            message,
+            sites: Vec::new(),
+        });
+    }
+}
+
+fn lsp_query_id(
+    context: &WorkspaceContext,
+    project: &WorkspaceProject,
+    rendered_id: &str,
+    section: Option<&str>,
+) -> String {
+    let mut query = if context.workspace_loaded {
+        format!("{}/{}", project.alias, rendered_id)
+    } else {
+        rendered_id.to_string()
+    };
+    if let Some(section) = section {
+        query.push_str(&project.config.section_separator);
+        query.push_str(section);
+    }
+    query
+}
+
+fn lsp_target_for_citation(
+    target_project: &WorkspaceProject,
+    citation: &Citation,
+) -> Option<(PathBuf, usize)> {
+    let decls = target_project.findings.declarations.get(&citation.id)?;
+    if let Some(section) = citation.section.as_deref()
+        && let Some(decl) = decls
+            .iter()
+            .find(|decl| decl.sections.contains_key(section))
+        && let Some(info) = decl.sections.get(section)
+    {
+        return Some((decl.file.clone(), info.line));
+    }
+    let mut homes: Vec<&Declaration> = decls
+        .iter()
+        .filter(|decl| !is_stub_for_inline_decl(&target_project.config.root, decl, decls))
+        .collect();
+    homes.sort_by(|a, b| {
+        (sort_path_key(&a.file), a.line).cmp(&(sort_path_key(&b.file), b.line))
+    });
+    let home = homes.first().copied().or_else(|| decls.first())?;
+    Some((home.file.clone(), home.line))
+}
+
+fn lsp_target_for_stub(
+    project: &WorkspaceProject,
+    stub: &Declaration,
+    decls: &[Declaration],
+) -> Option<(PathBuf, usize)> {
+    let target = stub.defined_in.as_ref()?;
+    let resolved = resolve_stub_target(&project.config.root, &stub.file, target);
+    let inline = decls
+        .iter()
+        .find(|decl| paths_same_location(&decl.file, &resolved) && decl.file != stub.file)?;
+    Some((inline.file.clone(), inline.line))
+}
+
+fn declaration_range_parts(
+    decl: &Declaration,
+    rendered_id: &str,
+    overlays: &TextOverlays,
+) -> (usize, String) {
+    heading_span_parts(&decl.file, decl.line, rendered_id, overlays)
+}
+
+/// The 1-based start column and title text of a heading-line token: the span
+/// from `needle` (the rendered ID for a declaration, the section number for a
+/// section heading) to the end of the trimmed line. Falls back to column 1 and
+/// the bare `needle` when the line cannot be read.
+fn heading_span_parts(
+    file: &Path,
+    line: usize,
+    needle: &str,
+    overlays: &TextOverlays,
+) -> (usize, String) {
+    overlay_text(overlays, file)
+        .map(str::to_string)
+        .or_else(|| fs::read_to_string(file).ok())
+        .and_then(|text| text.lines().nth(line.saturating_sub(1)).map(str::to_string))
+        .and_then(|line| {
+            let start = line.find(needle)?;
+            let end = line.trim_end().len();
+            let text = line
+                .get(start..end)
+                .filter(|text| !text.is_empty())
+                .unwrap_or(needle)
+                .to_string();
+            Some((start + 1, text))
+        })
+        .unwrap_or_else(|| (1, needle.to_string()))
+}
+
+fn absolutize_path(path: &Path) -> PathBuf {
+    canonicalize_existing_prefix(path)
+}
+
+/// Canonicalize `path` to the same normalized form `LspSnapshot` paths carry,
+/// so an LSP client's request URI matches the snapshot's declaration, stub,
+/// and citation paths (§AR-lsp.5). Existing files resolve through
+/// `fs::canonicalize`; a not-yet-saved overlay file resolves its existing
+/// prefix and appends the missing tail — the same absolutization the snapshot
+/// applies — so `grund-lsp` does not need a second, drift-prone copy of this
+/// logic.
+pub fn canonical_snapshot_path(path: &Path) -> PathBuf {
+    absolutize_path(path)
 }
 
 #[derive(Clone)]

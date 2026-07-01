@@ -1,0 +1,75 @@
+{
+  "glspc.server": {
+    "command": "grund-lsp",
+    "commandArguments": [],
+    "environmentVariables": {
+      "PATH": "$HOME/.cargo/bin:$PATH"
+    }
+  },
+  "glspc.server.languageId": [
+    "markdown",
+    "rust",
+    "go",
+    "java",
+    "kotlin",
+    "typescript",
+    "typescriptreact",
+    "javascript",
+    "python",
+    "c",
+    "cpp",
+    "swift",
+    "scala",
+    "ruby",
+    "php",
+    "csharp"
+  ],
+  "[markdown]": {
+    "editor.formatOnType": true
+  },
+  "[rust]": {
+    "editor.formatOnType": true
+  },
+  "[go]": {
+    "editor.formatOnType": true
+  },
+  "[java]": {
+    "editor.formatOnType": true
+  },
+  "[kotlin]": {
+    "editor.formatOnType": true
+  },
+  "[typescript]": {
+    "editor.formatOnType": true
+  },
+  "[typescriptreact]": {
+    "editor.formatOnType": true
+  },
+  "[javascript]": {
+    "editor.formatOnType": true
+  },
+  "[python]": {
+    "editor.formatOnType": true
+  },
+  "[c]": {
+    "editor.formatOnType": true
+  },
+  "[cpp]": {
+    "editor.formatOnType": true
+  },
+  "[swift]": {
+    "editor.formatOnType": true
+  },
+  "[scala]": {
+    "editor.formatOnType": true
+  },
+  "[ruby]": {
+    "editor.formatOnType": true
+  },
+  "[php]": {
+    "editor.formatOnType": true
+  },
+  "[csharp]": {
+    "editor.formatOnType": true
+  }
+}

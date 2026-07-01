@@ -216,6 +216,43 @@ cargo install grund
 
 That installs the `grund` binary from the [`grund` crate on crates.io](https://crates.io/crates/grund) onto your `PATH`. npm and PyPI bindings are planned — see [`FS-distribution`](docs/functional-spec/FS-distribution.md).
 
+## 🧑‍💻 Editor Support via [LSP](https://microsoft.github.io/language-server-protocol/)
+
+Install the optional language server separately when you want editor diagnostics, hover previews, definition jumps, document links, references, and live `$$` → `§` formatting:
+
+```bash
+cargo install grund-lsp
+```
+
+The server speaks LSP over stdio and has no daemon or socket. The [setup guide](docs/user-facing/lsp.md) has snippets for VSCode, IntelliJ family IDEs, Vim/Neovim, Emacs, Helix, Zed, and Sublime Text.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lsp/hover-preview.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/lsp/hover-preview-light.png">
+    <img src="docs/assets/lsp/hover-preview-light.png" width="96%" alt="Hover preview of §FS-check.3.7 shown directly above the grund code that implements the misplaced-declaration check">
+  </picture>
+  <br><sub><strong>Hover previews</strong> — the spec and the code that satisfies it, in one frame.</sub>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lsp/error-reporting.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/lsp/error-reporting-light.png">
+    <img src="docs/assets/lsp/error-reporting-light.png" width="96%" alt="Dangling citation diagnostic showing the nearest declared ID hint">
+  </picture>
+  <br><sub><strong>Error reporting</strong> — dangling citations are flagged inline with a "did you mean" hint and a one-click Quick Fix.</sub>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lsp/definitions.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/lsp/definitions-light.png">
+    <img src="docs/assets/lsp/definitions-light.png" width="96%" alt="Go-to-definition results listing FS-check.3.7 declaration and citation targets">
+  </picture>
+  <br><sub><strong>Definitions &amp; references</strong> — jump between a declaration and every §citation of it.</sub>
+</p>
+
 ## Set up a repo
 
 ```bash

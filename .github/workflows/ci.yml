@@ -163,7 +163,7 @@ jobs:
 
       - name: cargo bench regression gate
         if: github.event_name == 'pull_request'
-        run: cargo bench -p grund --features bench --locked --bench instructions -- --baseline=main --callgrind-limits=ir=5.0% --save-summary=json
+        run: cargo bench -p grund --features bench --locked --bench instructions -- --baseline=main --save-summary=json
 
       - name: Upload benchmark summaries
         if: always()

@@ -153,6 +153,7 @@ fn print_bare_query_json(config: &Config, code: &'static str, message: &str) {
         code,
         path: None,
         line: None,
+        column: None,
         message: message.to_string(),
         sites: Vec::new(),
     };
@@ -246,6 +247,7 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
         code: "empty-scan",
         path: None,
         line: None,
+        column: None,
         message,
         sites: Vec::new(),
     }

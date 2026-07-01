@@ -122,6 +122,8 @@ struct WorkspaceCitationTarget {
     config: Config,
 }
 
+type TextOverlays = BTreeMap<PathBuf, String>;
+
 /// Everything the scanner found in one tree walk — declarations grouped by ID
 /// (so duplicates surface, §FS-check.3.3) and citations in encounter order. This
 /// is the scanner's whole output; the checker (§AR-checker) consumes it without
@@ -501,10 +503,15 @@ struct Site {
 
 /// One finding in the located-finding shape of §FS-errors.2.1: a fixed `code`, the
 /// `path:line` it occurred at, the message text, and any cross-reference `sites`.
+/// `column` is the 1-based start column of the offending token when the finding
+/// concerns a specific citation, so a consumer can anchor on that token rather
+/// than the first one on the line (§FS-lsp.1.1); it is `None` for line-anchored
+/// findings.
 struct Diagnostic {
     code: &'static str,
     path: Option<PathBuf>,
     line: Option<usize>,
+    column: Option<usize>,
     message: String,
     sites: Vec<Site>,
 }

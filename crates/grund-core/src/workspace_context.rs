@@ -88,12 +88,24 @@ impl WorkspaceContext {
 /// — this helper is strictly the "load every project that's in scope" layer
 /// on top of it (§AR-workspace.5.1).
 fn load_workspace_context(path: &Path, path_provided: bool) -> Result<WorkspaceContext> {
+    load_workspace_context_with_overlays(path, path_provided, &TextOverlays::new(), false)
+}
+
+fn load_workspace_context_with_overlays(
+    path: &Path,
+    path_provided: bool,
+    overlays: &TextOverlays,
+    classify_citation_sources: bool,
+) -> Result<WorkspaceContext> {
     let mut config = resolve_workspace_config(path)?;
-    // §AR-scanner.2.4 / §AR-benchmarks: `load_workspace_context` backs the
-    // read-only commands (`list`, `show`, `refs`, `fmt`), none of which read
-    // citing-side classification — skip the scan post-pass. `grund check` uses
-    // `load_workspace_projects` directly and keeps the default (on).
-    config.classify_citation_sources = false;
+    // §AR-scanner.2.4 / §AR-benchmarks: the read-only commands (`list`, `show`,
+    // `refs`, `fmt`) never read citing-side classification, so they pass
+    // `classify_citation_sources = false` to skip the scan post-pass. The LSP
+    // snapshot passes `true` so `grund check`'s citation-direction errors
+    // (`missing-citation` / `forbidden-citation`, §FS-lsp.1.1) surface in the
+    // editor; `grund check` itself uses `load_workspace_projects` directly and
+    // keeps the default (on). Workspace members inherit this below.
+    config.classify_citation_sources = classify_citation_sources;
     // §FS-workspace.5 / §AR-workspace.6: workspace mode applies whenever
     // the discovered config carries `[workspace]` after member-scope
     // rewriting. A path that resolves member-local has already been
@@ -103,7 +115,8 @@ fn load_workspace_context(path: &Path, path_provided: bool) -> Result<WorkspaceC
     // command, so `grund alias/FS-x docs/`, `grund refs FS-y .`, and
     // `grund fmt --cross-refs subdir/` all see the same workspace.
     if !config.workspace_declared {
-        let (findings, scan_errors) = scan_tree(&config, Some(path), path_provided)?;
+        let (findings, scan_errors) =
+            scan_tree_with_workspace_overlays(&config, Some(path), path_provided, &[], overlays)?;
         let render_root = config.root.clone();
         let render_config = config.clone();
         return Ok(WorkspaceContext {
@@ -126,7 +139,7 @@ fn load_workspace_context(path: &Path, path_provided: bool) -> Result<WorkspaceC
     // §FS-workspace.8 intro: the current project is the root iff
     // `include_root = true` (the helper always emits the root first).
     let current = root_config.workspace_include_root.then_some(0);
-    let projects = load_workspace_projects(&mut root_config)?;
+    let projects = load_workspace_projects_with_overlays(&mut root_config, overlays)?;
     Ok(WorkspaceContext {
         projects,
         current,
@@ -145,6 +158,13 @@ fn load_workspace_context(path: &Path, path_provided: bool) -> Result<WorkspaceC
 /// order. Mutates `root_config.workspace_boundary_roots` so any subsequent
 /// root scan respects the member boundary (§AR-workspace.6).
 fn load_workspace_projects(root_config: &mut Config) -> Result<Vec<WorkspaceProject>> {
+    load_workspace_projects_with_overlays(root_config, &TextOverlays::new())
+}
+
+fn load_workspace_projects_with_overlays(
+    root_config: &mut Config,
+    overlays: &TextOverlays,
+) -> Result<Vec<WorkspaceProject>> {
     let member_roots = expand_workspace_members(root_config)?;
     root_config.workspace_boundary_roots = member_roots.clone();
 
@@ -235,13 +255,17 @@ fn load_workspace_projects(root_config: &mut Config) -> Result<Vec<WorkspaceProj
         entries
             .into_par_iter()
             .enumerate()
-            .map(|(index, (alias, config))| (index, load_workspace_project(alias, config, &targets)))
+            .map(|(index, (alias, config))| {
+                (index, load_workspace_project(alias, config, &targets, overlays))
+            })
             .collect::<Vec<_>>()
     } else {
         entries
             .into_iter()
             .enumerate()
-            .map(|(index, (alias, config))| (index, load_workspace_project(alias, config, &targets)))
+            .map(|(index, (alias, config))| {
+                (index, load_workspace_project(alias, config, &targets, overlays))
+            })
             .collect::<Vec<_>>()
     };
     indexed.sort_by_key(|(index, _)| *index);
@@ -255,9 +279,10 @@ fn load_workspace_project(
     alias: String,
     config: Config,
     targets: &[WorkspaceCitationTarget],
+    overlays: &TextOverlays,
 ) -> Result<WorkspaceProject> {
     let (findings, scan_errors) =
-        scan_tree_with_workspace(&config, Some(&config.root), true, targets)?;
+        scan_tree_with_workspace_overlays(&config, Some(&config.root), true, targets, overlays)?;
     Ok(WorkspaceProject {
         alias,
         config,
