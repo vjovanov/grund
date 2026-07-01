@@ -507,6 +507,22 @@ pub fn can_replace_trigger_at(
     token: &str,
 ) -> Result<bool> {
     let config = resolve_workspace_config(path)?;
+    Ok(can_replace_trigger_with_config(
+        &config,
+        path,
+        line,
+        trigger_start,
+        token,
+    ))
+}
+
+fn can_replace_trigger_with_config(
+    config: &Config,
+    path: &Path,
+    line: &str,
+    trigger_start: usize,
+    token: &str,
+) -> bool {
     let after = trigger_start + config.trigger.len();
     let token_end = after + token.len();
     if !config
@@ -515,15 +531,53 @@ pub fn can_replace_trigger_at(
         .find_at(line, after)
         .is_some_and(|found| found.start() == after && found.end() == token_end)
     {
-        return Ok(false);
+        return false;
     }
     let is_md = path.extension().and_then(|ext| ext.to_str()) == Some("md");
-    Ok(if is_md {
+    if is_md {
         !is_inside_inline_code(line, trigger_start)
             && !is_inside_markdown_link_destination(line, trigger_start)
     } else {
         !is_inside_string_literal(line, trigger_start)
-    })
+    }
+}
+
+/// A live `$$<ID>` → `§<ID>` trigger rewrite the LSP can apply: the trigger's
+/// byte span on the line and the marker to replace it with (§FS-lsp.1.4).
+pub struct TriggerReplacement {
+    /// Byte offset of the trigger's first byte on the line.
+    pub trigger_start: usize,
+    /// Length of the trigger in bytes.
+    pub trigger_len: usize,
+    /// The marker to write in the trigger's place.
+    pub marker: String,
+}
+
+/// Resolve the on-type trigger rewrite for `line` with the cursor at
+/// `cursor_byte`, resolving the edited file's config exactly once so the hot
+/// per-keystroke path does a single config walk rather than one per check
+/// (§FS-lsp.1.4). Returns `None` when there is no rewritable trigger before the
+/// cursor.
+pub fn on_type_trigger_replacement(
+    path: &Path,
+    line: &str,
+    cursor_byte: usize,
+) -> Result<Option<TriggerReplacement>> {
+    let config = resolve_workspace_config(path)?;
+    let cursor = cursor_byte.min(line.len());
+    let Some(trigger_start) = line[..cursor].rfind(&config.trigger) else {
+        return Ok(None);
+    };
+    let token = &line[trigger_start + config.trigger.len()..cursor];
+    if token.is_empty() || !can_replace_trigger_with_config(&config, path, line, trigger_start, token)
+    {
+        return Ok(None);
+    }
+    Ok(Some(TriggerReplacement {
+        trigger_start,
+        trigger_len: config.trigger.len(),
+        marker: config.marker,
+    }))
 }
 
 #[derive(Clone)]

@@ -241,7 +241,7 @@ The server speaks LSP over stdio and has no daemon or socket. The [setup guide](
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/lsp/error-reporting-light.png">
     <img src="docs/assets/lsp/error-reporting-light.png" width="96%" alt="Dangling citation diagnostic showing the nearest declared ID hint">
   </picture>
-  <br><sub><strong>Error reporting</strong> — dangling citations are flagged inline with a "did you mean" hint and a one-click Quick Fix.</sub>
+  <br><sub><strong>Error reporting</strong> — dangling citations are flagged inline with a "did you mean" hint.</sub>
 </p>
 
 <p align="center">
