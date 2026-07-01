@@ -192,10 +192,15 @@ fn scan_file_text(
             } else {
                 full.start()
             };
+            // §AR-scanner.2.3: the qualified `alias/ID` form collides with a path
+            // or module reference, so in a source file a marked qualified citation
+            // inside an inline-code span or string literal is not a citation. In
+            // Markdown (no string literals; inline code is prose) it always is.
             if namespace.is_some()
                 && has_marker
+                && !is_md
                 && (is_inside_inline_code(scan_line, start)
-                    || (!is_md && is_inside_string_literal(scan_line, start)))
+                    || is_inside_string_literal(scan_line, start))
             {
                 continue;
             }
@@ -777,10 +782,12 @@ fn scan_fallback_qualified_citations(
         if already_seen.contains(&marker_start) {
             continue;
         }
-        if is_inside_inline_code(line.scan_line, marker_start) {
-            continue;
-        }
-        if !line.is_md && is_inside_string_literal(line.scan_line, marker_start) {
+        // §AR-scanner.2.3: suppress a marked qualified citation inside inline code
+        // or a string literal only in source files; in Markdown it is a citation.
+        if !line.is_md
+            && (is_inside_inline_code(line.scan_line, marker_start)
+                || is_inside_string_literal(line.scan_line, marker_start))
+        {
             continue;
         }
         let token_start = marker_start + line.config.marker.len();
@@ -901,10 +908,12 @@ fn scan_workspace_qualified_pass(
         return;
     }
     for (marker_start, _) in line.scan_line.match_indices(&line.config.marker) {
-        if is_inside_inline_code(line.scan_line, marker_start) {
-            continue;
-        }
-        if !line.is_md && is_inside_string_literal(line.scan_line, marker_start) {
+        // §AR-scanner.2.3: suppress a marked qualified citation inside inline code
+        // or a string literal only in source files; in Markdown it is a citation.
+        if !line.is_md
+            && (is_inside_inline_code(line.scan_line, marker_start)
+                || is_inside_string_literal(line.scan_line, marker_start))
+        {
             continue;
         }
         let token_start = marker_start + line.config.marker.len();

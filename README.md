@@ -172,6 +172,8 @@ Rule of thumb: pick `{kind}-{slug}` until rename churn or ID count starts to hur
 
 Citations use the marker `§`, e.g. `§FS-user-login.3.1`; in a workspace, `§api/FS-user-login.3.1` targets the `api` project. Type `$$` in a `grund`-aware editor and it's rewritten to `§` automatically. Both marker and trigger are configurable in `.agents/grund.toml`.
 
+The marker is the whole signal: a `§`-prefixed token is a live, checked citation wherever it appears — including inside Markdown backticks — so to show an *example* ID that shouldn't resolve, write it without the marker (`FS-user-login`) or inside a fenced code block.
+
 **Specs can live inline in source.** Drop a one-line stub in `docs/architecture/AR-foo.md` whose H1 is `# AR-foo: [src/foo.rs](src/foo.rs)`, then declare the spec in the class doc-comment:
 
 ```rust
