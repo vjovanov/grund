@@ -80,6 +80,8 @@ group *and* the byte immediately preceding the match is the marker.
 | `<§>alias/<ID>` / `alias/<ID>`| qualified citation    | text (skip)        |
 | `<§><ID>` / `<ID>`            | unqualified citation  | bare ID in non-strict mode only; otherwise skip ([§AR-scanner.2.3](AR-scanner.md#23-citation-detection)) |
 
+Throughout the specs, `<§>` — angle-bracketed like `<ID>` — is schematic for the marker itself: it shows a citation's *shape* without being a live citation, because the literal characters `<§>` do not end with the marker and so never match. Use it (or drop the marker entirely) to write an illustrative citation in prose that `grund check` must not resolve.
+
 This is the rule that rules out the v1 regression where, under
 `[reference] strict = false`, the bare token `path/<ID>` in prose was promoted
 to a qualified citation and produced a spurious `unknown project alias`

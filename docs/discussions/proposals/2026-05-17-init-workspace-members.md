@@ -21,7 +21,7 @@ weaker for a workspace, though: at a root whose `.agents/grund.toml` declares
 nothing in the generated `AGENTS.md` tells a reading agent that sibling
 project namespaces exist or where to climb to read their rules. An agent
 arriving at the root therefore cannot tell — without scanning the toml itself —
-that `§api/FS-foo` style cross-project citations are even possible, or which
+that `<§>api/FS-foo` style cross-project citations are even possible, or which
 aliases are in scope.
 
 Making `init` *configure* the workspace is the heavier alternative discussed
