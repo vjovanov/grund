@@ -3,20 +3,21 @@
 use anyhow::{Context, Result, anyhow};
 use grund_core::{
     Finding, LspCitation, LspDeclaration, LspSnapshot, LspSnapshotOpts, LspStub, ShowFormat,
-    ShowMode, ShowOpts, can_replace_trigger_at, canonical_snapshot_path, lsp_snapshot,
-    reference_style, show_with_overlays,
+    ShowMode, ShowOpts, canonical_snapshot_path, lsp_snapshot, on_type_trigger_replacement,
+    show_with_overlays,
 };
-use lsp_server::{Connection, Message, Notification, Request, RequestId, Response};
+use lsp_server::{Connection, Message, Notification, Request, Response};
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, DocumentLink, DocumentLinkOptions,
-    DocumentOnTypeFormattingOptions, DocumentOnTypeFormattingParams, GotoDefinitionResponse, Hover,
-    HoverContents, InitializeParams, Location, LocationLink, MarkupContent, MarkupKind, OneOf,
-    Position, PublishDiagnosticsParams, Range, ReferenceParams, ServerCapabilities,
-    TextDocumentContentChangeEvent, TextDocumentPositionParams, TextDocumentSyncCapability,
-    TextDocumentSyncKind, TextDocumentSyncOptions, TextEdit, Url,
+    Diagnostic, DiagnosticSeverity, DocumentHighlight, DocumentHighlightKind, DocumentLink,
+    DocumentLinkOptions, DocumentOnTypeFormattingOptions, DocumentOnTypeFormattingParams,
+    GotoDefinitionResponse, Hover, HoverContents, InitializeParams, Location, LocationLink,
+    MarkupContent, MarkupKind, OneOf, Position, PublishDiagnosticsParams, Range, ReferenceParams,
+    ServerCapabilities, TextDocumentContentChangeEvent, TextDocumentPositionParams,
+    TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions, TextEdit, Url,
 };
 use serde_json::Value;
 use serde_json::json;
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -58,6 +59,7 @@ fn server_capabilities(trigger: &str) -> ServerCapabilities {
         hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
         definition_provider: Some(OneOf::Left(true)),
         references_provider: Some(OneOf::Left(true)),
+        document_highlight_provider: Some(OneOf::Left(true)),
         document_link_provider: Some(DocumentLinkOptions {
             resolve_provider: Some(false),
             work_done_progress_options: Default::default(),
@@ -85,11 +87,12 @@ fn on_type_trigger_characters(trigger: &str) -> Vec<String> {
     chars.into_iter().collect()
 }
 
-/// Whether the client opted into `LocationLink` definition results
+/// Whether the client can receive `LocationLink` definition results
 /// (`textDocument.definition.linkSupport`). Plain `Location` results carry no
 /// origin span, so editors fall back to underlining the word at the cursor;
-/// `LocationLink` lets us hand back the whole token span as one navigable unit
-/// (§FS-lsp.1.3).
+/// `LocationLink` lets us hand back the whole token span as one navigable unit.
+/// Some clients omit the flag even though they understand the union member, so
+/// only an explicit `false` opts out (§FS-lsp.1.3).
 fn client_supports_definition_links(params: &InitializeParams) -> bool {
     params
         .capabilities
@@ -97,7 +100,7 @@ fn client_supports_definition_links(params: &InitializeParams) -> bool {
         .as_ref()
         .and_then(|text_document| text_document.definition.as_ref())
         .and_then(|definition| definition.link_support)
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 fn initialize_root(params: &InitializeParams) -> Result<PathBuf> {
@@ -127,6 +130,11 @@ struct Server {
     open_docs: BTreeMap<Url, String>,
     diagnostic_uris: BTreeSet<Url>,
     definition_link_support: bool,
+    // Per-snapshot line cache so a file is read and split at most once between
+    // refreshes, rather than once per token: `document_links` and `references`
+    // walk every citation on a file and each used to re-read the whole file
+    // (§AR-lsp.5). Cleared in `refresh` whenever the snapshot is rebuilt.
+    line_cache: RefCell<BTreeMap<PathBuf, Vec<String>>>,
 }
 
 impl Server {
@@ -143,6 +151,7 @@ impl Server {
             open_docs: BTreeMap::new(),
             diagnostic_uris: BTreeSet::new(),
             definition_link_support,
+            line_cache: RefCell::new(BTreeMap::new()),
         })
     }
 
@@ -153,9 +162,21 @@ impl Server {
                     if self.connection.handle_shutdown(&request)? {
                         return Ok(());
                     }
+                    // A request that fails (bad params, resolution error) is
+                    // answered with an error response, never fatal to the
+                    // session (§FS-lsp.1).
                     self.handle_request(request)?;
                 }
-                Message::Notification(notification) => self.handle_notification(notification)?,
+                Message::Notification(notification) => {
+                    let method = notification.method.clone();
+                    // A malformed or failing notification — e.g. params that do
+                    // not deserialize — is logged to stderr and skipped, so one
+                    // bad message cannot tear the server down mid-session
+                    // (§FS-lsp.1).
+                    if let Err(err) = self.handle_notification(notification) {
+                        eprintln!("grund-lsp: notification `{method}` failed: {err:#}");
+                    }
+                }
                 Message::Response(_) => {}
             }
         }
@@ -163,38 +184,62 @@ impl Server {
     }
 
     fn refresh(&mut self) -> Result<()> {
+        // Each edit rebuilds the whole snapshot — a full workspace scan (and,
+        // for projects with `[citations]`, the direction classification pass).
+        // That is acceptable at the current scale; an incremental rescan keyed
+        // off the changed document is the natural optimization for large repos,
+        // left as future work.
         self.snapshot = lsp_snapshot(LspSnapshotOpts {
             path: self.root.clone(),
             path_provided: true,
             open_documents: self.open_document_overlays(),
         })?;
+        // The rebuilt snapshot reflects the new document contents, so any cached
+        // lines from before the edit are stale.
+        self.line_cache.borrow_mut().clear();
         Ok(())
     }
 
     fn handle_request(&mut self, request: Request) -> Result<()> {
         let id = request.id.clone();
-        let response = match request.method.as_str() {
-            "textDocument/hover" => self.request_ok(id, self.hover(request.params)?),
-            "textDocument/definition" => self.request_ok(id, self.definition(request.params)?),
-            "textDocument/references" => self.request_ok(id, self.references(request.params)?),
-            "textDocument/documentLink" => {
-                self.request_ok(id, self.document_links(request.params)?)
+        let method = request.method.clone();
+        let outcome = match method.as_str() {
+            "textDocument/hover" => self.hover(request.params).and_then(to_value),
+            "textDocument/definition" => self.definition(request.params).and_then(to_value),
+            "textDocument/references" => self.references(request.params).and_then(to_value),
+            "textDocument/documentHighlight" => {
+                self.document_highlights(request.params).and_then(to_value)
             }
+            "textDocument/documentLink" => self.document_links(request.params).and_then(to_value),
             "textDocument/onTypeFormatting" => {
-                self.request_ok(id, self.on_type_formatting(request.params)?)
+                self.on_type_formatting(request.params).and_then(to_value)
             }
-            _ => Response::new_err(
-                id,
-                lsp_server::ErrorCode::MethodNotFound as i32,
-                format!("unsupported request `{}`", request.method),
-            ),
+            _ => {
+                let response = Response::new_err(
+                    id,
+                    lsp_server::ErrorCode::MethodNotFound as i32,
+                    format!("unsupported request `{method}`"),
+                );
+                return self.send_response(response);
+            }
         };
-        self.connection.sender.send(Message::Response(response))?;
-        Ok(())
+        let response = match outcome {
+            Ok(value) => Response::new_ok(id, value),
+            Err(err) => {
+                eprintln!("grund-lsp: request `{method}` failed: {err:#}");
+                Response::new_err(
+                    id,
+                    lsp_server::ErrorCode::InternalError as i32,
+                    err.to_string(),
+                )
+            }
+        };
+        self.send_response(response)
     }
 
-    fn request_ok(&self, id: RequestId, value: impl serde::Serialize) -> Response {
-        Response::new_ok(id, value)
+    fn send_response(&self, response: Response) -> Result<()> {
+        self.connection.sender.send(Message::Response(response))?;
+        Ok(())
     }
 
     fn handle_notification(&mut self, notification: Notification) -> Result<()> {
@@ -252,16 +297,18 @@ impl Server {
         let Some(token) = self.token_at(&params.text_document.uri, params.position) else {
             return Ok(None);
         };
-        // Only citations preview a body. Declaration-side titles — Markdown
-        // declaration headings, numbered section headings, and inline-spec stub
-        // titles — expose their usages through go-to-definition and references,
-        // not a hover popup (§FS-lsp.1.2).
-        let Token::Citation(citation) = token else {
-            return Ok(None);
+        let citation = match token {
+            Token::Citation(citation) => citation,
+            Token::Declaration(decl) => {
+                return Ok(Some(title_hover(declaration_range(decl, self), &decl.text)));
+            }
+            Token::Stub(stub) => {
+                return Ok(Some(title_hover(stub_range(stub, self), &stub.text)));
+            }
         };
         // A citation that does not resolve has no preview body. Its diagnostic
-        // already carries the nearest-ID hint and Quick Fix through
-        // publishDiagnostics; returning that text from hover too would double it
+        // already carries the nearest-ID hint through publishDiagnostics;
+        // returning that text from hover too would double it
         // in editors that render diagnostics inside the hover popup (§FS-lsp.1.2).
         let body = match show_with_overlays(
             &citation.query_id,
@@ -439,6 +486,92 @@ impl Server {
                 })
             })
             .collect()
+    }
+
+    /// Mark the citation, declaration, section, or stub token under the cursor
+    /// as one span, plus every same-ID occurrence in the same document, so an
+    /// editor that would otherwise fall back to its word pattern boxes the whole
+    /// `§<ID>` token instead of a single sub-word (§FS-lsp.1.3.3).
+    fn document_highlights(&self, params: Value) -> Result<Option<Vec<DocumentHighlight>>> {
+        let params: TextDocumentPositionParams = serde_json::from_value(params)?;
+        let uri = &params.text_document.uri;
+        let Some(path) = uri.to_file_path().ok().map(normalize_path) else {
+            return Ok(None);
+        };
+        let Some(token) = self.token_at(uri, params.position) else {
+            return Ok(None);
+        };
+        // The token under the cursor is always highlighted; the sibling pass
+        // below may re-add its range, which the dedup at the end collapses.
+        let mut ranges = vec![token.range(self)];
+        match token {
+            Token::Citation(source) => {
+                for citation in &self.snapshot.citations {
+                    if same_path(&citation.path, &path)
+                        && (citation.declaration_query_id == source.declaration_query_id
+                            || query_matches_declaration(
+                                &source.declaration_query_id,
+                                &citation.query_id,
+                                &source.section_separator,
+                            ))
+                    {
+                        ranges.push(citation_range(citation, self));
+                    }
+                }
+                for decl in &self.snapshot.declarations {
+                    if same_path(&decl.path, &path) && decl.query_id == source.declaration_query_id
+                    {
+                        ranges.push(declaration_range(decl, self));
+                    }
+                }
+            }
+            Token::Declaration(decl) => {
+                for citation in &self.snapshot.citations {
+                    if same_path(&citation.path, &path)
+                        && (citation.query_id == decl.query_id
+                            || query_matches_declaration(
+                                &decl.query_id,
+                                &citation.query_id,
+                                &decl.section_separator,
+                            ))
+                    {
+                        ranges.push(citation_range(citation, self));
+                    }
+                }
+            }
+            Token::Stub(stub) => {
+                for citation in &self.snapshot.citations {
+                    if same_path(&citation.path, &path)
+                        && (citation.declaration_query_id == stub.query_id
+                            || query_matches_declaration(
+                                &stub.query_id,
+                                &citation.query_id,
+                                &stub.section_separator,
+                            ))
+                    {
+                        ranges.push(citation_range(citation, self));
+                    }
+                }
+            }
+        }
+        ranges.sort_by_key(|range| {
+            (
+                range.start.line,
+                range.start.character,
+                range.end.line,
+                range.end.character,
+            )
+        });
+        ranges.dedup();
+        Ok(Some(
+            ranges
+                .into_iter()
+                .map(|range| DocumentHighlight {
+                    range,
+                    kind: Some(DocumentHighlightKind::TEXT),
+                })
+                .collect(),
+        ))
     }
 
     fn document_links(&self, params: Value) -> Result<Option<Vec<DocumentLink>>> {
@@ -661,12 +794,13 @@ impl Server {
     }
 
     fn citation_location(&self, citation: &LspCitation) -> Option<Location> {
+        let target_path = citation.target_path.as_ref()?;
+        let target_line = citation.target_line?;
         Some(Location {
-            uri: path_uri(citation.target_path.as_ref()?)?,
-            range: single_line_range(
-                citation.target_path.as_ref()?,
-                citation.target_line?,
-                1,
+            uri: path_uri(target_path)?,
+            range: self.definition_target_range(
+                target_path,
+                target_line,
                 citation.query_id.len().max(1),
             ),
         })
@@ -682,34 +816,32 @@ impl Server {
     fn stub_target_location(&self, stub: &LspStub) -> Option<Location> {
         Some(Location {
             uri: path_uri(&stub.target_path)?,
-            range: single_line_range(
+            range: self.definition_target_range(
                 &stub.target_path,
                 stub.target_line,
-                1,
                 stub.query_id.len().max(1),
             ),
         })
     }
 
+    fn definition_target_range(&self, path: &Path, line: usize, fallback_width: usize) -> Range {
+        self.snapshot
+            .declarations
+            .iter()
+            .find(|decl| same_path(&decl.path, path) && decl.line == line)
+            .map(|decl| declaration_range(decl, self))
+            .or_else(|| {
+                self.snapshot
+                    .sections
+                    .iter()
+                    .find(|section| same_path(&section.path, path) && section.line == line)
+                    .map(|section| declaration_range(section, self))
+            })
+            .unwrap_or_else(|| single_line_range(path, line, 1, fallback_width))
+    }
+
     fn linkify_hover_body(&self, body: &str) -> String {
-        let mut links = Vec::new();
-        for citation in &self.snapshot.citations {
-            if let (Some(path), Some(line)) = (&citation.target_path, citation.target_line)
-                && let Some(uri) = file_uri_with_line(path, line)
-            {
-                links.push((
-                    format!("{}{}", self.snapshot.marker, citation.query_id),
-                    uri,
-                ));
-            }
-        }
-        links.sort_by(|a, b| b.0.len().cmp(&a.0.len()).then_with(|| a.0.cmp(&b.0)));
-        links.dedup_by(|a, b| a.0 == b.0);
-        let mut out = body.to_string();
-        for (token, uri) in links {
-            out = replace_unlinked_token(&out, &token, &uri);
-        }
-        out
+        linkify_hover_body(body, &self.snapshot.citations)
     }
 
     fn line_text(&self, uri: &Url, zero_based_line: u32) -> Option<String> {
@@ -733,6 +865,36 @@ impl Server {
             .filter_map(|(uri, text)| uri.to_file_path().ok().map(|path| (path, text.clone())))
             .collect()
     }
+
+    /// The full text of `path` — the live editor buffer if the document is open,
+    /// otherwise the on-disk contents. Matches `line_text`'s lookup so cached and
+    /// uncached reads agree.
+    fn file_text(&self, path: &Path) -> Option<String> {
+        if let Some(uri) = path_uri(path)
+            && let Some(text) = self.open_docs.get(&uri)
+        {
+            return Some(text.clone());
+        }
+        fs::read_to_string(path).ok()
+    }
+
+    /// One line of `path` (1-based), reading and splitting the file at most once
+    /// per snapshot via `line_cache` so token-range computations over many
+    /// citations on one file do not re-read it each time (§AR-lsp.5).
+    fn cached_line(&self, path: &Path, line: usize) -> Option<String> {
+        let key = normalize_path(path);
+        let mut cache = self.line_cache.borrow_mut();
+        if !cache.contains_key(&key) {
+            let lines = self
+                .file_text(path)
+                .map(|text| text.lines().map(str::to_string).collect())
+                .unwrap_or_default();
+            cache.insert(key.clone(), lines);
+        }
+        cache
+            .get(&key)
+            .and_then(|lines| lines.get(line.saturating_sub(1)).cloned())
+    }
 }
 
 enum Token<'a> {
@@ -755,12 +917,26 @@ fn full_change_text(changes: Vec<TextDocumentContentChangeEvent>) -> Option<Stri
     changes.into_iter().last().map(|change| change.text)
 }
 
+fn to_value<T: serde::Serialize>(value: T) -> Result<Value> {
+    Ok(serde_json::to_value(value)?)
+}
+
 fn location_link(origin: Range, location: Location) -> LocationLink {
     LocationLink {
         origin_selection_range: Some(origin),
         target_uri: location.uri,
         target_range: location.range,
         target_selection_range: location.range,
+    }
+}
+
+fn title_hover(range: Range, text: &str) -> Hover {
+    Hover {
+        contents: HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: format!("`{}`", text.replace('`', "\\`")),
+        }),
+        range: Some(range),
     }
 }
 
@@ -784,13 +960,7 @@ fn stub_range(stub: &LspStub, server: &Server) -> Range {
 
 fn token_range(server: &Server, path: &Path, line: usize, column: usize, text: &str) -> Range {
     let zero_line = line.saturating_sub(1) as u32;
-    let line_text = path_uri(path)
-        .and_then(|uri| server.line_text(&uri, zero_line))
-        .or_else(|| {
-            fs::read_to_string(path)
-                .ok()
-                .and_then(|body| body.lines().nth(line.saturating_sub(1)).map(str::to_string))
-        });
+    let line_text = server.cached_line(path, line);
     if let Some(line_text) = line_text {
         let start_byte = column.saturating_sub(1).min(line_text.len());
         let end_byte = start_byte.saturating_add(text.len()).min(line_text.len());
@@ -906,6 +1076,24 @@ fn file_uri_with_line(path: &Path, line: usize) -> Option<String> {
     Some(uri.to_string())
 }
 
+fn linkify_hover_body(body: &str, citations: &[LspCitation]) -> String {
+    let mut links = Vec::new();
+    for citation in citations {
+        if let (Some(path), Some(line)) = (&citation.target_path, citation.target_line)
+            && let Some(uri) = file_uri_with_line(path, line)
+        {
+            links.push((citation.text.clone(), uri));
+        }
+    }
+    links.sort_by(|a, b| b.0.len().cmp(&a.0.len()).then_with(|| a.0.cmp(&b.0)));
+    links.dedup_by(|a, b| a.0 == b.0);
+    let mut out = body.to_string();
+    for (token, uri) in links {
+        out = replace_unlinked_token(&out, &token, &uri);
+    }
+    out
+}
+
 fn replace_unlinked_token(body: &str, token: &str, uri: &str) -> String {
     let mut out = String::with_capacity(body.len());
     let mut rest = body;
@@ -943,17 +1131,14 @@ fn on_type_replacement_for_line(
     line: &str,
     position: Position,
 ) -> Result<Option<Vec<TextEdit>>> {
-    let style = reference_style(path)?;
     let cursor = utf16_to_byte(line, position.character);
-    let Some(trigger_start) = line[..cursor].rfind(&style.trigger) else {
+    // One config resolution per keystroke: the core helper resolves the edited
+    // file's marker/trigger and the fmt-context exclusions together (§FS-lsp.1.4).
+    let Some(replacement) = on_type_trigger_replacement(path, line, cursor)? else {
         return Ok(Some(Vec::new()));
     };
-    let token = &line[trigger_start + style.trigger.len()..cursor];
-    if token.is_empty() || !can_replace_trigger_at(path, line, trigger_start, token)? {
-        return Ok(Some(Vec::new()));
-    }
-    let start = byte_to_utf16(line, trigger_start);
-    let end = byte_to_utf16(line, trigger_start + style.trigger.len());
+    let start = byte_to_utf16(line, replacement.trigger_start);
+    let end = byte_to_utf16(line, replacement.trigger_start + replacement.trigger_len);
     Ok(Some(vec![TextEdit {
         range: Range {
             start: Position {
@@ -965,7 +1150,7 @@ fn on_type_replacement_for_line(
                 character: end,
             },
         },
-        new_text: style.marker,
+        new_text: replacement.marker,
     }]))
 }
 
@@ -1008,6 +1193,36 @@ mod tests {
     }
 
     #[test]
+    fn hover_linkifier_uses_displayed_citation_text_for_workspace_links() {
+        let root = test_root("hover_linkifier_uses_displayed_citation_text_for_workspace_links");
+        let target = root.join("docs/functional-spec/FS-002-b.md");
+        let citation = LspCitation {
+            project: Some("root".to_string()),
+            path: root.join("docs/functional-spec/FS-001-a.md"),
+            display_path: "docs/functional-spec/FS-001-a.md".to_string(),
+            line: 3,
+            column: 6,
+            text: "§FS-002-b".to_string(),
+            query_id: "root/FS-002-b".to_string(),
+            declaration_query_id: "root/FS-002-b".to_string(),
+            section_separator: ".".to_string(),
+            target_path: Some(target),
+            target_line: Some(1),
+        };
+
+        let linked = linkify_hover_body("See §FS-002-b.", &[citation]);
+
+        assert!(
+            linked.contains("[§FS-002-b]("),
+            "hover linkification must use the displayed citation text, not the workspace-qualified query ID (§FS-lsp.1.2): {linked}"
+        );
+        assert!(
+            !linked.contains("§root/FS-002-b"),
+            "workspace query IDs are not present in local hover prose: {linked}"
+        );
+    }
+
+    #[test]
     fn declaration_reference_match_includes_section_citations() {
         assert!(query_matches_declaration("FS-lsp", "FS-lsp.1", "."));
         assert!(query_matches_declaration("FS-lsp", "FS-lsp/1", "/"));
@@ -1036,6 +1251,27 @@ mod tests {
         let more = more_trigger_character.expect("more trigger characters");
         assert!(more.iter().any(|ch| ch == "%"));
         assert!(more.iter().any(|ch| ch == ":"));
+    }
+
+    #[test]
+    fn omitted_definition_link_support_still_uses_location_links() {
+        let omitted: InitializeParams = serde_json::from_value(json!({
+            "processId": std::process::id(),
+            "rootUri": "file:///tmp",
+            "capabilities": {}
+        }))
+        .expect("initialize params");
+        assert!(client_supports_definition_links(&omitted));
+
+        let explicit_false: InitializeParams = serde_json::from_value(json!({
+            "processId": std::process::id(),
+            "rootUri": "file:///tmp",
+            "capabilities": {
+                "textDocument": { "definition": { "linkSupport": false } }
+            }
+        }))
+        .expect("initialize params");
+        assert!(!client_supports_definition_links(&explicit_false));
     }
 
     #[test]
