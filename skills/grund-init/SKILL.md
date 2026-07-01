@@ -17,6 +17,7 @@ Guide the user through `grund` adoption. `grund init` itself is non-interactive,
 6. Run `grund init [path] [--name NAME] [--force]`, adding `--docs` only when the repo is fresh or the user selected a canonical-layout migration that needs the scaffold. Preview the run with `--dry-run` if the user wants to inspect what will change before committing.
 7. Run `grund config validate [path]` and `grund check [path]`.
 8. Summarize generated files, validation results, existing specs/artifacts found, and any follow-up cleanup.
+9. Optionally offer to wire the user's editor to the `grund-lsp` server (see Editor Setup). Editor configuration is the user's one-time work, not something `grund init` writes — so only offer it, and prefer editor **user** settings over a per-repo config so the server works in every project.
 
 ## Repo Analysis First
 
@@ -536,3 +537,11 @@ grund check .
 ```
 
 If custom config affects `AGENTS.md`, ensure `.agents/grund.toml` exists before `grund init` so the generated managed block reflects the selected ID grammar, marker, strict mode, kinds, and existing artifact layout.
+
+## Editor Setup
+
+Optional, and only if the user wants editor integration (diagnostics, hover previews, go-to-definition, references, and the live `$$` → `§` transform). `grund init` does not write editor config; wiring an editor to `grund-lsp` is the user's one-time work.
+
+- Confirm the CLI and server are installed: `grund --version` and `grund-lsp --version` (`cargo install grund-lsp` if missing).
+- Point the editor's LSP client at `grund-lsp` for Markdown plus the languages in `[scan].extensions`. Full per-editor snippets are in the user-facing LSP setup guide (`docs/user-facing/lsp.md`).
+- **Recommend placing the client config in the editor's user (global) settings, not a per-repo file.** A per-repo config (e.g. VSCode/VSCodium `.vscode/settings.json`) means the server silently does nothing in any repo that lacks it — the editor falls back to its built-in behavior, so citations underline only a single hyphen-delimited word and references miss most sites. User settings configure `grund-lsp` once for every project. Use a per-repo file only for a deliberate project-specific override.

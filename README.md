@@ -224,7 +224,7 @@ Install the optional language server separately when you want editor diagnostics
 cargo install grund-lsp
 ```
 
-The server speaks LSP over stdio and has no daemon or socket. The [setup guide](docs/user-facing/lsp.md) has snippets for VSCode, IntelliJ family IDEs, Vim/Neovim, Emacs, Helix, Zed, and Sublime Text.
+The server speaks LSP over stdio and has no daemon or socket. The [setup guide](docs/user-facing/lsp.md) has snippets for VSCode, IntelliJ family IDEs, Vim/Neovim, Emacs, Helix, Zed, and Sublime Text. Put the client config in your editor's **user (global) settings**, not a per-repo file, so `grund-lsp` works in every project rather than only repos that ship an editor config.
 
 <p align="center">
   <picture>

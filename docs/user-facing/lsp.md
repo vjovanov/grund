@@ -54,6 +54,8 @@ With "Simple LSP Client", add this to your settings (workspace `.vscode/settings
 
 The `cmd` is the path to the installed binary; `${userHome}/.cargo/bin/grund-lsp` is where `cargo install` places it. If `grund-lsp` is already on the editor's `PATH`, `["grund-lsp"]` works too. The `filetypes` are VS Code language IDs and must match the languages you scan. To get the live `$$` → `§` transform, also enable `"editor.formatOnType": true` for those languages.
 
+**Prefer user (global) settings over a per-repo `.vscode/settings.json`.** Put the `simpleLspClient.servers` block above in your user settings once and `grund-lsp` runs in every project you open. A per-repo `.vscode/settings.json` only wires the server for that one repo — open any repo without it and VSCode silently falls back to its built-in Markdown behavior: Ctrl-click underlines a single hyphen-delimited word instead of the whole `§<ID>` token, and find-references misses the `grund` citation sites. Use a workspace `.vscode/settings.json` only for a deliberate per-project override.
+
 A first-party VSCode extension is intentionally not shipped ([§FS-non-goals](../functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do)).
 
 ## IntelliJ family
