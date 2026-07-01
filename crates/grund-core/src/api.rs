@@ -480,14 +480,6 @@ pub fn validate_config(path: &Path) -> Result<()> {
     load_config(path).map(|_| ())
 }
 
-/// Test whether a token after the typing trigger matches the current project's
-/// configured ID grammar. Used by `grund-lsp` on-type formatting so the live
-/// `$$` replacement follows the same parser as `grund fmt` (§FS-lsp.1.4).
-pub fn is_valid_id_token(path: &Path, token: &str) -> Result<bool> {
-    let config = resolve_workspace_config(path)?;
-    Ok(parse_id_arg(token, &config.grammar).is_ok())
-}
-
 /// Reference marker and typing trigger resolved for one path. §FS-lsp.1.4
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReferenceStyle {
@@ -526,9 +518,12 @@ pub fn can_replace_trigger_at(
         return Ok(false);
     }
     let is_md = path.extension().and_then(|ext| ext.to_str()) == Some("md");
-    Ok((is_md || !is_inside_string_literal(line, trigger_start))
-        && (!is_md || !is_inside_inline_code(line, trigger_start))
-        && (!is_md || !is_inside_markdown_link_destination(line, trigger_start)))
+    Ok(if is_md {
+        !is_inside_inline_code(line, trigger_start)
+            && !is_inside_markdown_link_destination(line, trigger_start)
+    } else {
+        !is_inside_string_literal(line, trigger_start)
+    })
 }
 
 #[derive(Clone)]

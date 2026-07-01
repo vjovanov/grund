@@ -559,12 +559,10 @@ impl Server {
         };
         let uri = path_uri(&path)?;
         let line = finding.line.unwrap_or(1).saturating_sub(1) as u32;
-        let range = self
-            .range_for_finding(&path, &finding)
-            .unwrap_or_else(|| Range {
-                start: Position { line, character: 0 },
-                end: Position { line, character: 1 },
-            });
+        let range = self.range_for_finding(&path, &finding).unwrap_or(Range {
+            start: Position { line, character: 0 },
+            end: Position { line, character: 1 },
+        });
         Some((
             uri,
             Diagnostic {
