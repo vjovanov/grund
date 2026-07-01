@@ -35,7 +35,7 @@ The grammar is:
 letters, digits, or `-`. The slash is part of the citation namespace, not part of
 the ID. For an unqualified citation, the `ID[.section]` part uses the current
 project's ID and section grammar. For a qualified citation, it uses the target
-project's grammar: `§api/FS-001-session` is parsed with `api`'s `[id]` config,
+project's grammar: `<§>api/FS-001-session` is parsed with `api`'s `[id]` config,
 even when the citing/root project uses a different ID format.
 
 ## 2. Workspace configuration
@@ -119,7 +119,7 @@ resolves at the workspace root, which violates [§GOAL-no-dangling-refs](../goal
 `grund check` at the workspace root to validate cross-project citations.
 
 The member-local scanner recognizes the `<§>alias/` prefix before applying the
-member's local ID grammar. That way `§root/FS-root` is still an unknown-alias
+member's local ID grammar. That way `<§>root/FS-root` is still an unknown-alias
 citation inside a default `{kind}-{number}-{slug}` member, rather than plain
 text that disappears from `check`.
 

@@ -1,0 +1,3 @@
+apps/api/docs/functional-spec/FS-session.md:1: declared but never cited: FS-session
+docs/functional-spec/FS-root.md:1: declared but never cited: FS-root
+docs/functional-spec/FS-root.md:3: unknown reference api/FS-missing
