@@ -28,26 +28,31 @@ grund-lsp --version
 
 Use the same file types you scan in `.agents/grund.toml`. Markdown is the usual minimum; add Rust, Python, Go, JavaScript, TypeScript, or any other source languages in your `[scan] extensions`.
 
-## VSCode
+## VSCode / VSCodium
 
-Install a generic LSP client extension and configure it to launch `grund-lsp` for Markdown plus the source file types in your `[scan] extensions`. For example, with the "Generic LSP Client" extension (`zsol.vscode-glspc`), add this to your VSCode settings:
+Install a generic LSP client extension and configure it to launch `grund-lsp` for Markdown plus the source file types in your `[scan] extensions`. Use one that is available on your editor's marketplace: VSCodium installs from Open VSX, where "Simple LSP Client" (`wdomitrz.simple-lsp-client`) is published — the older `zsol.vscode-glspc` is only on the Microsoft Marketplace and cannot be installed in VSCodium.
+
+With "Simple LSP Client", add this to your settings (workspace `.vscode/settings.json` or user settings):
 
 ```json
 {
-  "glspc.server": {
-    "command": "grund-lsp",
-    "commandArguments": []
-  },
-  "glspc.server.languageId": [
-    "markdown",
-    "rust",
-    "python",
-    "go",
-    "javascript",
-    "typescript"
-  ]
+  "simpleLspClient.servers": {
+    "grund-lsp": {
+      "cmd": ["${userHome}/.cargo/bin/grund-lsp"],
+      "filetypes": [
+        "markdown",
+        "rust",
+        "python",
+        "go",
+        "javascript",
+        "typescript"
+      ]
+    }
+  }
 }
 ```
+
+The `cmd` is the path to the installed binary; `${userHome}/.cargo/bin/grund-lsp` is where `cargo install` places it. If `grund-lsp` is already on the editor's `PATH`, `["grund-lsp"]` works too. The `filetypes` are VS Code language IDs and must match the languages you scan. To get the live `$$` → `§` transform, also enable `"editor.formatOnType": true` for those languages.
 
 A first-party VSCode extension is intentionally not shipped ([§FS-non-goals](../functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do)).
 

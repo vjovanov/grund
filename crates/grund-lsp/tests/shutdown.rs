@@ -311,13 +311,21 @@ fn navigation_covers_source_comment_citations_and_stub_titles() {
         }),
     );
     let stub_definition = recv_response_or_panic(&receiver, &mut child, 2);
-    assert_eq!(
-        stub_definition["result"]["uri"].as_str(),
-        Some(file_uri(&source).as_str())
-    );
-    assert_eq!(
-        stub_definition["result"]["range"]["start"]["line"].as_i64(),
-        Some(0)
+    let stub_definition = stub_definition["result"]
+        .as_array()
+        .expect("stub definition links");
+    assert!(
+        stub_definition.iter().any(|link| {
+            link["targetUri"].as_str() == Some(file_uri(&source).as_str())
+                && link["originSelectionRange"]["start"]["character"].as_i64() == Some(2)
+                && link["originSelectionRange"]["end"]["character"].as_i64()
+                    == Some(stub_heading.len() as i64)
+                && link["targetSelectionRange"]["start"]["line"].as_i64() == Some(0)
+                && link["targetSelectionRange"]["start"]["character"].as_i64() == Some(4)
+                && link["targetSelectionRange"]["end"]["character"].as_i64()
+                    == Some("/// AR-001-router: Router".len() as i64)
+        }),
+        "stub definition should select the whole stub title and inline source title: {stub_definition:?}"
     );
 
     send_message(
@@ -410,9 +418,13 @@ fn navigation_covers_source_comment_citations_and_stub_titles() {
     );
     let declaration_hover_response = recv_response_or_panic(&receiver, &mut child, 6);
     assert!(
-        declaration_hover_response["result"].is_null(),
-        "declaration-title hover has no preview; usages are reached via \
-         go-to-definition and references (§FS-lsp.1.2): {declaration_hover_response:?}"
+        declaration_hover_response["result"]["range"]["start"]["character"].as_i64() == Some(2)
+            && declaration_hover_response["result"]["range"]["end"]["character"].as_i64()
+                == Some(spec_heading.len() as i64)
+            && declaration_hover_response["result"]["contents"]["value"]
+                .as_str()
+                .is_some_and(|value| value.contains("FS-001-alpha")),
+        "declaration-title hover should carry the whole title range for editor hover affordances (§FS-lsp.1.2): {declaration_hover_response:?}"
     );
 
     send_message(
@@ -485,11 +497,14 @@ fn navigation_covers_source_comment_citations_and_stub_titles() {
     let markdown_definition = recv_response_or_panic(&receiver, &mut child, 9);
     let markdown_definition = markdown_definition["result"]
         .as_array()
-        .expect("markdown definition locations");
+        .expect("markdown definition links");
     assert!(
-        markdown_definition.iter().any(|location| {
-            location["uri"].as_str() == Some(file_uri(&source).as_str())
-                && location["range"]["start"]["line"].as_i64() == Some(1)
+        markdown_definition.iter().any(|link| {
+            link["targetUri"].as_str() == Some(file_uri(&source).as_str())
+                && link["originSelectionRange"]["start"]["character"].as_i64() == Some(2)
+                && link["originSelectionRange"]["end"]["character"].as_i64()
+                    == Some(spec_heading.len() as i64)
+                && link["targetSelectionRange"]["start"]["line"].as_i64() == Some(1)
         }),
         "markdown title definition navigation should include source-comment citations: {markdown_definition:?}"
     );
@@ -512,13 +527,58 @@ fn navigation_covers_source_comment_citations_and_stub_titles() {
     let section_definition = recv_response_or_panic(&receiver, &mut child, 11);
     let section_definition = section_definition["result"]
         .as_array()
-        .expect("section definition locations");
+        .expect("section definition links");
     assert!(
-        section_definition.iter().any(|location| {
-            location["uri"].as_str() == Some(file_uri(&source).as_str())
-                && location["range"]["start"]["line"].as_i64() == Some(1)
+        section_definition.iter().any(|link| {
+            link["targetUri"].as_str() == Some(file_uri(&source).as_str())
+                && link["originSelectionRange"]["start"]["line"].as_i64() == Some(4)
+                && link["originSelectionRange"]["start"]["character"].as_i64() == Some(3)
+                && link["originSelectionRange"]["end"]["character"].as_i64()
+                    == Some("## 1. Detail".len() as i64)
+                && link["targetSelectionRange"]["start"]["line"].as_i64() == Some(1)
         }),
         "section-heading definition should navigate to the section citation: {section_definition:?}"
+    );
+
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 13,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": file_uri(&spec) },
+                "position": { "line": 4, "character": 6 }
+            }
+        }),
+    );
+    let section_hover_response = recv_response_or_panic(&receiver, &mut child, 13);
+    assert!(
+        section_hover_response["result"]["range"]["start"]["line"].as_i64() == Some(4)
+            && section_hover_response["result"]["range"]["start"]["character"].as_i64() == Some(3)
+            && section_hover_response["result"]["range"]["end"]["character"].as_i64()
+                == Some("## 1. Detail".len() as i64),
+        "section-heading hover should carry the whole section title range: {section_hover_response:?}"
+    );
+
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 14,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": file_uri(&stub) },
+                "position": { "line": 0, "character": 22 }
+            }
+        }),
+    );
+    let stub_hover_response = recv_response_or_panic(&receiver, &mut child, 14);
+    assert!(
+        stub_hover_response["result"]["range"]["start"]["character"].as_i64() == Some(2)
+            && stub_hover_response["result"]["range"]["end"]["character"].as_i64()
+                == Some(stub_heading.len() as i64),
+        "stub-title hover should carry the whole stub title range: {stub_hover_response:?}"
     );
 
     send_message(
@@ -773,9 +833,9 @@ fn line_anchored_diagnostic_does_not_overlap_dangling_citation() {
 #[test]
 fn hover_on_dangling_citation_defers_to_diagnostic() {
     // A citation that cannot resolve has no hover body. Its diagnostic already
-    // carries the nearest-ID hint and Quick Fix, so returning it from hover too
-    // would double the text in editors that render diagnostics in the hover
-    // popup; hover returns nothing and the diagnostic stands alone (§FS-lsp.1.2).
+    // carries the nearest-ID hint, so returning it from hover too would double
+    // the text in editors that render diagnostics in the hover popup; hover
+    // returns nothing and the diagnostic stands alone (§FS-lsp.1.2).
     let root = test_root("hover-dangling-defers");
     fs::write(
         root.join(".agents/grund.toml"),
@@ -1064,11 +1124,15 @@ fn definition_links_carry_whole_token_origin_span() {
                 && link["originSelectionRange"]["start"]["character"].as_i64() == Some(marker_index)
                 && link["originSelectionRange"]["end"]["character"].as_i64()
                     > Some(marker_index + 1)
+                && link["targetSelectionRange"]["start"]["line"].as_i64() == Some(0)
+                && link["targetSelectionRange"]["start"]["character"].as_i64() == Some(2)
+                && link["targetSelectionRange"]["end"]["character"].as_i64()
+                    == Some(spec_heading.len() as i64)
                 && link["targetUri"]
                     .as_str()
                     .is_some_and(|target| target.contains("FS-001-alpha.md"))
         }),
-        "citation definition link origin should span the whole §<ID> token: {citation_links:?}"
+        "citation definition link should span the source token and target title: {citation_links:?}"
     );
 
     send_message(
@@ -1076,6 +1140,108 @@ fn definition_links_carry_whole_token_origin_span() {
         json!({ "jsonrpc": "2.0", "id": 4, "method": "shutdown", "params": null }),
     );
     recv_response_or_panic(&receiver, &mut child, 4);
+    send_message(&mut stdin, json!({ "jsonrpc": "2.0", "method": "exit" }));
+    drop(stdin);
+
+    wait_for_exit(&mut child);
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn document_highlight_marks_whole_citation_token() {
+    // With no highlight provider an editor falls back to its word pattern and
+    // boxes only one sub-word of `§FS-001-alpha`. The server marks the whole
+    // token under the cursor as one span, plus the sibling citation of the same
+    // ID in the same file (§FS-lsp.1.3.3).
+    let root = test_root("document-highlight");
+    fs::create_dir_all(root.join("docs/functional-spec")).expect("create specs");
+    fs::create_dir_all(root.join("docs/architecture")).expect("create architecture");
+    let spec = root.join("docs/functional-spec/FS-001-alpha.md");
+    let user = root.join("docs/architecture/AR-002-user.md");
+    fs::write(&spec, "# FS-001-alpha: Alpha\n\nLead.\n").expect("write spec");
+    let citation_line = "Uses §FS-001-alpha and again §FS-001-alpha.";
+    fs::write(&user, format!("# AR-002-user: User\n\n{citation_line}\n")).expect("write user");
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
+        .current_dir(&root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn grund-lsp");
+    let mut stdin = child.stdin.take().expect("child stdin");
+    let receiver = read_messages(child.stdout.take().expect("child stdout"));
+
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "processId": std::process::id(),
+                "rootUri": file_uri(&root),
+                "capabilities": {}
+            }
+        }),
+    );
+    recv_response_or_panic(&receiver, &mut child, 1);
+    send_message(
+        &mut stdin,
+        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
+    );
+
+    // Byte and UTF-16 offsets of the first citation, then a cursor parked on a
+    // sub-word inside it (a few units past the marker).
+    let first_marker_byte = citation_line.find('§').expect("first marker");
+    let first_marker_col = citation_line[..first_marker_byte].encode_utf16().count();
+    let token_units = "§FS-001-alpha".encode_utf16().count();
+    let cursor = first_marker_col + 7;
+
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/documentHighlight",
+            "params": {
+                "textDocument": { "uri": file_uri(&user) },
+                "position": { "line": 2, "character": cursor }
+            }
+        }),
+    );
+    let response = recv_response_or_panic(&receiver, &mut child, 2);
+    let highlights = response["result"].as_array().expect("document highlights");
+
+    assert!(
+        highlights.iter().any(|highlight| {
+            highlight["range"]["start"]["line"].as_i64() == Some(2)
+                && highlight["range"]["start"]["character"].as_i64()
+                    == Some(first_marker_col as i64)
+                && highlight["range"]["end"]["character"].as_i64()
+                    == Some((first_marker_col + token_units) as i64)
+        }),
+        "highlight should cover the whole §FS-001-alpha token under the cursor, not a sub-word: {highlights:?}"
+    );
+
+    let second_marker_byte = citation_line
+        .match_indices('§')
+        .nth(1)
+        .expect("second marker")
+        .0;
+    let second_marker_col = citation_line[..second_marker_byte].encode_utf16().count();
+    assert!(
+        highlights.iter().any(|highlight| {
+            highlight["range"]["start"]["character"].as_i64() == Some(second_marker_col as i64)
+        }),
+        "the sibling citation of the same ID in this file should also be highlighted: {highlights:?}"
+    );
+
+    send_message(
+        &mut stdin,
+        json!({ "jsonrpc": "2.0", "id": 3, "method": "shutdown", "params": null }),
+    );
+    recv_response_or_panic(&receiver, &mut child, 3);
     send_message(&mut stdin, json!({ "jsonrpc": "2.0", "method": "exit" }));
     drop(stdin);
 
@@ -1159,6 +1325,107 @@ fn forbidden_citation_surfaces_as_diagnostic() {
             .is_some_and(|message| message.contains("AR")),
         "diagnostic should name the forbidden target kind: {:?}",
         forbidden[0]
+    );
+
+    send_message(
+        &mut stdin,
+        json!({ "jsonrpc": "2.0", "id": 4, "method": "shutdown", "params": null }),
+    );
+    recv_response_or_panic(&receiver, &mut child, 4);
+    send_message(&mut stdin, json!({ "jsonrpc": "2.0", "method": "exit" }));
+    drop(stdin);
+
+    wait_for_exit(&mut child);
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn malformed_message_does_not_crash_server() {
+    // A notification whose params do not deserialize, and a request that fails,
+    // must not tear the session down: the server logs and keeps serving, and a
+    // following request still gets a response (§FS-lsp.1).
+    let root = test_root("malformed-message");
+    fs::create_dir_all(root.join("docs/functional-spec")).expect("create specs");
+    fs::write(
+        root.join("docs/functional-spec/FS-001-alpha.md"),
+        "# FS-001-alpha: Alpha\n\nLead.\n",
+    )
+    .expect("write spec");
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
+        .current_dir(&root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn grund-lsp");
+    let mut stdin = child.stdin.take().expect("child stdin");
+    let receiver = read_messages(child.stdout.take().expect("child stdout"));
+
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "processId": std::process::id(),
+                "rootUri": file_uri(&root),
+                "capabilities": {}
+            }
+        }),
+    );
+    recv_response_or_panic(&receiver, &mut child, 1);
+    send_message(
+        &mut stdin,
+        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
+    );
+
+    // A `didChange` whose params are missing the required fields fails to
+    // deserialize inside the notification handler.
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didChange",
+            "params": { "unexpected": true }
+        }),
+    );
+    // A request whose params are likewise malformed fails inside the handler.
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/hover",
+            "params": { "unexpected": true }
+        }),
+    );
+    // The failed request still gets a response rather than silence …
+    let bad_response = recv_response_or_panic(&receiver, &mut child, 2);
+    assert!(
+        bad_response.get("error").is_some(),
+        "a malformed request should get an error response, not crash the server: {bad_response}"
+    );
+
+    // … and a well-formed request afterwards is still served, proving the loop
+    // survived both failures.
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": file_uri(&root.join("docs/functional-spec/FS-001-alpha.md")) },
+                "position": { "line": 0, "character": 0 }
+            }
+        }),
+    );
+    let ok_response = recv_response_or_panic(&receiver, &mut child, 3);
+    assert!(
+        ok_response.get("result").is_some() && ok_response.get("error").is_none(),
+        "the server must keep answering after a malformed message: {ok_response}"
     );
 
     send_message(

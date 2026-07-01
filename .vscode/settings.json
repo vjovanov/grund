@@ -1,29 +1,27 @@
 {
-  "glspc.server": {
-    "command": "grund-lsp",
-    "commandArguments": [],
-    "environmentVariables": {
-      "PATH": "$HOME/.cargo/bin:$PATH"
+  "simpleLspClient.servers": {
+    "grund-lsp": {
+      "cmd": ["${userHome}/.cargo/bin/grund-lsp"],
+      "filetypes": [
+        "markdown",
+        "rust",
+        "go",
+        "java",
+        "kotlin",
+        "typescript",
+        "typescriptreact",
+        "javascript",
+        "python",
+        "c",
+        "cpp",
+        "swift",
+        "scala",
+        "ruby",
+        "php",
+        "csharp"
+      ]
     }
   },
-  "glspc.server.languageId": [
-    "markdown",
-    "rust",
-    "go",
-    "java",
-    "kotlin",
-    "typescript",
-    "typescriptreact",
-    "javascript",
-    "python",
-    "c",
-    "cpp",
-    "swift",
-    "scala",
-    "ruby",
-    "php",
-    "csharp"
-  ],
   "[markdown]": {
     "editor.formatOnType": true
   },
