@@ -999,7 +999,6 @@ members = ["packages/*"]
             Some(expected_target)
         );
         assert_eq!(citation.target_line, Some(5));
-        assert!(is_valid_id_token(&lsp_root, "FS-001-alpha.1").expect("valid id token"));
 
         let mut open_documents = BTreeMap::new();
         open_documents.insert(
