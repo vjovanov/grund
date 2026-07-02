@@ -262,15 +262,19 @@ fn check_with_workspace(
         // §FS-check.3.1 / §FS-workspace.4: a citation whose ID is declared
         // nowhere in its target namespace is dangling.
         let Some(decls) = target.findings.declarations.get(&cite.id) else {
-            let unknown = render_qualified_id(target.config, cite.namespace.as_deref(), &cite.id);
-            let message =
-                dangling_message(target.config, cite.namespace.as_deref(), target.findings, &cite.id);
+            let message = dangling_message(
+                target.config,
+                cite.namespace.as_deref(),
+                target.findings,
+                &cite.id,
+                citation_in_markdown_inline_code(cite),
+            );
             report.errors.push(Diagnostic {
                 code: "dangling",
                 path: Some(cite.file.clone()),
                 line: Some(cite.line),
                 column: Some(cite.column),
-                message: message.unwrap_or_else(|| format!("unknown reference {unknown}")),
+                message,
                 sites: Vec::new(),
             });
             continue;
@@ -804,15 +808,50 @@ fn render_target_phrase(entry: &CitationDisjunction) -> String {
         .join(" or ")
 }
 
+/// §FS-check.3.1: the dangling message. A near same-kind ID is a likely typo; a
+/// Markdown inline-code context is a likely illustration. Offer whichever
+/// applies — and both when a dangling citation in backticks also has a near
+/// match. Outside inline code the escape hint is withheld so a prose typo is
+/// nudged toward the near ID, not toward escaping.
 fn dangling_message(
     config: &Config,
     namespace: Option<&str>,
     findings: &Findings,
     missing: &Id,
-) -> Option<String> {
+    in_inline_code: bool,
+) -> String {
     let unknown = render_qualified_id(config, namespace, missing);
-    let suggestion = nearest_declared_id(config, namespace, findings, missing)?;
-    Some(format!("unknown reference {unknown}; did you mean {suggestion}?"))
+    let near = nearest_declared_id(config, namespace, findings, missing);
+    let escape = in_inline_code.then(|| format!("<{}>{unknown}", config.marker));
+    match (near, escape) {
+        (Some(near), Some(escape)) => format!(
+            "unknown reference {unknown}; did you mean {near}? (or write {escape} if this is an illustration)"
+        ),
+        (Some(near), None) => format!("unknown reference {unknown}; did you mean {near}?"),
+        (None, Some(escape)) => {
+            format!("unknown reference {unknown}; write {escape} if this is an illustration")
+        }
+        (None, None) => format!("unknown reference {unknown}"),
+    }
+}
+
+/// §FS-check.3.1: whether a citation site sits inside a Markdown inline-code
+/// span, the signal that a dangling `§`-citation may be an illustration. Only
+/// the rare dangling path asks, so this re-reads the one line rather than
+/// widening every `Citation`; source files (columns shifted by stripped comment
+/// prefixes) never qualify. Any read/bounds failure yields `false` — no hint.
+fn citation_in_markdown_inline_code(cite: &Citation) -> bool {
+    if cite.file.extension().and_then(|e| e.to_str()) != Some("md") {
+        return false;
+    }
+    let Ok(text) = fs::read_to_string(&cite.file) else {
+        return false;
+    };
+    let Some(line) = text.lines().nth(cite.line.saturating_sub(1)) else {
+        return false;
+    };
+    let pos = cite.column.saturating_sub(1);
+    pos <= line.len() && is_inside_inline_code(line, pos)
 }
 
 fn nearest_declared_id(

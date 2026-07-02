@@ -537,6 +537,51 @@ members = ["packages/*"]
         assert!(escaped[0].message.contains("FS-001-login"));
     }
 
+    /// §FS-check.3.1: the near-ID nudge and the `<§>`-escape hint are independent
+    /// — the near ID appears whenever one is close, the escape only inside inline
+    /// code, and both together when a dangling citation in backticks also has a
+    /// near match. This is the matrix behind the "context-aware, one line" rule.
+    #[test]
+    fn dangling_hint_combines_near_id_and_inline_code_escape() {
+        let root = test_root("dangling_hint_combines_near_id_and_inline_code_escape");
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: Login\n",
+        );
+        let config = legacy_fs_folder_config(root.clone());
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+
+        let near = Id {
+            kind: "FS".to_string(),
+            num: Some(1),
+            slug: Some("logon".to_string()),
+        };
+        let far = Id {
+            kind: "FS".to_string(),
+            num: Some(999),
+            slug: Some("zzz".to_string()),
+        };
+        let msg = |id, inline| dangling_message(&config, None, &findings, id, inline);
+
+        // near ID, plain prose: only the "did you mean?" nudge.
+        assert_eq!(
+            msg(&near, false),
+            "unknown reference FS-001-logon; did you mean FS-001-login?"
+        );
+        // near ID, inline code: both hints.
+        assert_eq!(
+            msg(&near, true),
+            "unknown reference FS-001-logon; did you mean FS-001-login? (or write <§>FS-001-logon if this is an illustration)"
+        );
+        // no near ID, plain prose: neither hint.
+        assert_eq!(msg(&far, false), "unknown reference FS-999-zzz");
+        // no near ID, inline code: only the escape hint.
+        assert_eq!(
+            msg(&far, true),
+            "unknown reference FS-999-zzz; write <§>FS-999-zzz if this is an illustration"
+        );
+    }
+
     #[test]
     fn require_grounding_off_by_default() {
         let root = test_root("require_grounding_off_by_default");
