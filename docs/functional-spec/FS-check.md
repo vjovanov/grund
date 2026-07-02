@@ -100,6 +100,18 @@ deterministic edit distance, the diagnostic appends one hint:
 is close enough, the message stays `unknown reference <ID>` so unrelated missing
 IDs do not produce noisy guesses.
 
+When the dangling citation sits inside a Markdown inline-code span — where a
+`§`-citation is as often an illustration as a live reference — the diagnostic
+also offers the `<§>` escape ([§FS-workspace.1](FS-workspace.md#1-citation-syntax)):
+`unknown reference api/FS-zzz; write <§>api/FS-zzz if this is an illustration`.
+The two hints combine when a near-ID match and an inline-code context apply at
+once: `unknown reference api/FS-login; did you mean api/FS-logout? (or write
+<§>api/FS-login if this is an illustration)`. Outside inline code the escape hint
+is withheld, so an ordinary prose typo is nudged toward the near ID, not toward
+escaping. This is the live-citation counterpart to §2.3.1's escaped-citation
+suggestion: there an escape resolves and might be live; here a live citation
+dangles and might be an escape.
+
 ### 3.2 Missing section
 
 A citation with a section suffix (`§FS-<user-login>.3.1`) where the declaration exists but the requested section heading does not.
