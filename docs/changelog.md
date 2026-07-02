@@ -24,7 +24,19 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
-## 2. [0.7.0] — 2026-08-07
+### Added
+
+- [§DF-neural-link-generation](decisions/functional/DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command): record the clickable-citations experiment and decision for ephemeral, user-facing text (agent TUI messages, PR descriptions, issue and ticket bodies) and decide it as an agent convention, not a tool: locally the plain `§<ID>` citation is the clickable form (resolution belongs to the rendering layer — productization tracked in issue #46), while GitHub surfaces get agent-composed blob-URL links with the `github` anchor slug rule stated in `AGENTS.md`, the declaration heading as hover title, and the plain citation as the fallback ladder's floor. `grund` grows no `link` command (a prototype was built and reverted on the PR branch); `grund fmt --cross-refs` ([§FS-fmt.6](functional-spec/FS-fmt.md#6-cross-reference-emission)) remains the only link emitter, for repository Markdown. This repository is the testbed: the convention ships in `AGENTS.md` and its observations accumulate in the decision's test matrix. PR #45.
+
+## 2. [0.6.0] — 2026-07-02
+
+### Added
+
+- [§FS-lsp](functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server) / [§AR-lsp](architecture/AR-lsp.md#ar-lsp-how-the-lsp-server-is-built): add the optional `grund-lsp` binary with LSP diagnostics (each anchored on the offending citation token, not merely the first citation on the line), `show --toc` hover previews on citations, go-to-definition and find-references that resolve declaration titles and numbered section headings (`<ID>.<section>`) to their citation sites, document links for resolving citations, and live `$$` trigger formatting. PR #25.
+- [§RM-lsp-completion-tab](roadmap.md#rm-lsp-completion-tab-lsp-id-autocomplete-accepted-with-tab) / [§RM-lsp-trigger-conversion-fix](roadmap.md#rm-lsp-trigger-conversion-fix-fix-the-lsp-trigger-conversion): roadmap LSP ID completion accepted through the editor's normal Tab flow and a follow-up hardening pass for live `$$` trigger conversion. PR #25.
+- [§RM-doc-comment-declarations](roadmap.md#rm-doc-comment-declarations-declarations-only-in-classmethod-doc-comments) / [§DISC-doc-comment-declarations](discussions/proposals/2026-05-21-doc-comment-declarations.md#disc-doc-comment-declarations-declarations-live-only-in-classmethod-doc-comments-never-inline): roadmap a tightening of the [§AR-scanner.4](architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) recognizer so a code-resident declaration is seen only inside a class/method doc-comment, never a plain inline comment, with a default-on `[scan]` switch and top-20-language coverage; design captured as a discussion proposal, not yet implemented. PR #25.
+- [§FS-check.2.3.1](functional-spec/FS-check.md#231-escaped-citation-resolves) / [§AR-scanner.2.5](architecture/AR-scanner.md#25-escaped-citation-illustrations): `grund check --suggestions` now emits an `escaped-citation-resolves` suggestion when a `<§>`-escaped illustration's ID resolves to a real declaration — the mirror of the dangling-citation check, catching a live citation whose marker was bracketed by accident (the escaped form is otherwise silently inert). Advisory only: it never affects the exit code and is withheld from the default run. PR #44.
+- [§FS-check.3.1](functional-spec/FS-check.md#31-dangling-citation): a dangling `§`-citation inside a Markdown inline-code span now also offers the `<§>` escape (`write <§>api/FS-x if this is an illustration`), combined with the existing near-ID "did you mean?" nudge when both apply. Outside inline code the escape hint is withheld, so a prose typo is still pointed only at the nearest real ID. The live-citation counterpart to the escaped-citation suggestion. PR #44.
 
 ### Changed
 

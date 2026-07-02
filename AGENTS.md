@@ -60,6 +60,10 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 Unlisted kinds and pairs are fine.
 <!-- END GRUND MANAGED BLOCK -->
 
+## Clickable citations in user-facing text
+
+Locally, a plain `§<ID>` citation is the clickable, hoverable form — resolution belongs to the rendering layer (editor/terminal integrations — §DF-neural-link-generation) — so write plain citations in TUI messages and never spend a tool call or Markdown-link syntax on them. Only GitHub-rendered text (PR and issue bodies) needs composed links, `[§<ID>](https://github.com/vjovanov/grund/blob/<ref>/<path>#<anchor> "<heading>")` with anchors copied from existing `grund fmt --cross-refs` wraps; when unsure fall back to the plain citation, and never rewrite repository files this way — full recipe, rationale, and test matrix in §DF-neural-link-generation.
+
 ## Repository workflow
 
 - Every PR for this repository needs a `docs/changelog.md` `## Unreleased` bullet that mentions its PR number (`PR #N`); the pre-push hook checks this once the branch has a PR (§FS-distribution.4).
