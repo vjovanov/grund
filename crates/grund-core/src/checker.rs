@@ -102,6 +102,17 @@
 /// `forbidden-citation` error; a `should-not` hit is a `discouraged-citation`
 /// suggestion, emitted only under `--suggestions` (§FS-check.2.3).
 ///
+/// ### 2.11 Escaped citations that resolve (§FS-check.2.3.1)
+///
+/// The scanner records every `<§>`-escaped illustration (§AR-scanner.2.5) into
+/// `findings.escaped_citations`, a list inert to every rule above. This pass is
+/// its only reader: for each escape it runs the same resolver as the dangling
+/// check (§2.3) and, when the ID resolves to a real declaration, emits an
+/// `escaped-citation-resolves` suggestion — the mirror of dangling, which fires
+/// when a *live* citation does not resolve. It is a suggestion, never a warning
+/// or error, so it is withheld unless `--suggestions` is passed and never moves
+/// the exit code; illustrating a real ID is legitimate.
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and
@@ -283,6 +294,29 @@ fn check_with_workspace(
                     sites: Vec::new(),
                 });
             }
+        }
+    }
+
+    // §FS-check.2.3.1 / §AR-checker.2.11: a `<§>`-escaped illustration whose ID
+    // resolves to a real declaration is likely a live citation someone bracketed
+    // by mistake — the escape silently makes it inert. Surface it as a suggestion
+    // (never an error: illustrating a real ID is legitimate), so it is withheld
+    // unless the caller passes `--suggestions`.
+    for esc in &findings.escaped_citations {
+        if citation_resolves(esc, findings, config, workspace) {
+            report.suggestions.push(Diagnostic {
+                code: "escaped-citation-resolves",
+                path: Some(esc.file.clone()),
+                line: Some(esc.line),
+                column: Some(esc.column),
+                message: format!(
+                    "escaped citation {} resolves to a declaration; write {}{} for a live citation, or leave it escaped if it is only an illustration",
+                    esc.text.trim(),
+                    config.marker,
+                    render_qualified_id(config, esc.namespace.as_deref(), &esc.id)
+                ),
+                sites: Vec::new(),
+            });
         }
     }
 
