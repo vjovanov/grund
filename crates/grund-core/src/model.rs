@@ -137,6 +137,13 @@ pub struct Findings {
     /// §DF-require-grounding). Files that failed to read are not here; they are in
     /// the walk's `ScanError` list instead.
     pub scanned_files: Vec<PathBuf>,
+    /// `<§>`-escaped citation illustrations (§AR-scanner.2.5): the schematic
+    /// `<§>[alias/]ID[.section]` shape the detection passes deliberately skip
+    /// because the literal `<§>` does not end with the marker. Inert to every
+    /// existing check; recorded only so the checker can flag one whose ID
+    /// resolves to a real declaration — a likely bracketed live citation rather
+    /// than an intended illustration (§FS-check.2.3.1, §AR-checker.2.11).
+    pub escaped_citations: Vec<Citation>,
 }
 
 /// ID-query slice mode (§FS-show.1): each rung adds to the previous one —

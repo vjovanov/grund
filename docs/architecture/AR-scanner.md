@@ -68,6 +68,10 @@ Two scan-time additions carry it:
 
 The enclosing declaration is also recorded on the citation, so the obligation pass ([§AR-checker.2.9](../../crates/grund-core/src/checker.rs)) can ask "does this declaration's body cite the target?" as a lookup rather than a re-scan.
 
+### 2.5 Escaped-citation illustrations
+
+The `<§>`-escape ([§AR-workspace.3.1](AR-workspace.md#31-the-rule)) writes a citation's *shape* without it being live: the literal `<§>alias/ID` puts a `>` between the marker and the ID, so the citation pass (§2.3) never matches it. That silent inertness is the whole point in prose, but it also hides a slip — a real citation with the marker accidentally bracketed looks identical and raises no dangling error. A dedicated pass therefore records these escapes into a separate, check-inert `escaped_citations` list so the checker can flag one that resolves ([§FS-check.2.3.1](../functional-spec/FS-check.md#231-escaped-citation-resolves)); nothing else reads the list, so it never affects an existing check. The pass is cheap — a line that lacks the literal `<§>` needle short-circuits before any parsing — and runs uniformly in Markdown and source, since the escaped form is inert in both. Both unqualified `<§>ID` and qualified `<§>alias/ID` shapes are collected; the trailing ID is parsed with the citing project's grammar ([§FS-workspace.5](../functional-spec/FS-workspace.md#5-command-scope)'s loose parser is the cross-namespace fallback), so an exotic target grammar can miss a match — only ever costing a suggestion, never a false error. Escapes inside a fenced code block are skipped along with everything else there (§1).
+
 ## 3. Output
 
 The scanner produces a `Findings` struct containing:
