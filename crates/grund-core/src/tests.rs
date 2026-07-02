@@ -439,6 +439,104 @@ members = ["packages/*"]
         );
     }
 
+    /// §AR-scanner.2.3: a marked *qualified* citation is suppressed inside an
+    /// inline-code span or a string literal **only** in source files; in Markdown
+    /// it is always a citation. This pins the whole (file-type × context) matrix
+    /// end-to-end so no single detection pass can drift from the shared
+    /// `qualified_suppressed_in_source` rule again — the exact divergence PR #44
+    /// fixed (one pass gated differently from the others).
+    #[test]
+    fn qualified_citation_suppression_is_uniform_across_passes() {
+        let root = test_root("qualified_citation_suppression_is_uniform_across_passes");
+        // Markdown: plain prose and backticked inline code both resolve.
+        write(&root.join("docs/prose.md"), "See §api/FS-001-login here.\n");
+        write(&root.join("docs/code.md"), "See `§api/FS-001-login` here.\n");
+        // Source: a plain comment resolves; inline code and a string suppress.
+        write(&root.join("src/plain.rs"), "// see §api/FS-001-login\n");
+        write(&root.join("src/inline.rs"), "/// see `§api/FS-001-login`\n");
+        write(
+            &root.join("src/string.rs"),
+            "fn f() { let _ = \"§api/FS-001-login\"; }\n",
+        );
+
+        let config = Config::default_for(root.clone());
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+
+        let mut detected: Vec<String> = findings
+            .citations
+            .iter()
+            .filter(|c| c.namespace.as_deref() == Some("api"))
+            .filter_map(|c| c.file.file_name().map(|n| n.to_string_lossy().into_owned()))
+            .collect();
+        detected.sort();
+        detected.dedup();
+        assert_eq!(
+            detected,
+            vec![
+                "code.md".to_string(),
+                "plain.rs".to_string(),
+                "prose.md".to_string(),
+            ],
+            "markdown (prose + inline code) and a plain source comment detect; \
+             source inline-code and string-literal contexts stay suppressed"
+        );
+    }
+
+    /// §FS-check.2.3.1: a `<§>`-escaped illustration is inert to every check, but
+    /// one whose ID resolves is surfaced as a suggestion (not an error). Also
+    /// guards the per-file findings merge (§AR-scanner) — both escapes must
+    /// survive `merge_findings`, which once dropped `escaped_citations`.
+    #[test]
+    fn escaped_citation_that_resolves_is_suggested_not_errored() {
+        let root = test_root("escaped_citation_that_resolves_is_suggested_not_errored");
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: Login\n",
+        );
+        // A live citation keeps FS-001-login from being "unused"; the file also
+        // holds a resolving escape and a dangling escape.
+        write(
+            &root.join("docs/guide.md"),
+            "Live §FS-001-login. Escaped `<§>FS-001-login`. Ghost `<§>FS-999-ghost`.\n",
+        );
+
+        let config = legacy_fs_folder_config(root.clone());
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+
+        // The escape is inert: exactly one *live* citation, not three.
+        assert_eq!(
+            findings.citations.len(),
+            1,
+            "a `<§>`-escaped token is never counted as a live citation"
+        );
+        // Both escapes are recorded and survive the per-file merge.
+        assert_eq!(
+            findings.escaped_citations.len(),
+            2,
+            "both escapes recorded across the findings merge"
+        );
+
+        let report = check_findings(&findings, &config);
+        assert!(
+            !report
+                .errors
+                .iter()
+                .any(|d| matches!(d.code, "dangling" | "unknown-project")),
+            "an escaped citation never raises a dangling or unknown-project error"
+        );
+        let escaped: Vec<_> = report
+            .suggestions
+            .iter()
+            .filter(|d| d.code == "escaped-citation-resolves")
+            .collect();
+        assert_eq!(
+            escaped.len(),
+            1,
+            "only the escape whose ID resolves is suggested; the ghost stays quiet"
+        );
+        assert!(escaped[0].message.contains("FS-001-login"));
+    }
+
     #[test]
     fn require_grounding_off_by_default() {
         let root = test_root("require_grounding_off_by_default");

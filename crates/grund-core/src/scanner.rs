@@ -28,6 +28,18 @@ struct CitationLine<'a> {
     inline_sites: &'a BTreeMap<usize, InlineCitationSite>,
 }
 
+/// §AR-scanner.2.3: the qualified `alias/ID` form collides with a path, module
+/// reference, or URL, so in a **source** file a marked qualified citation whose
+/// start column falls inside an inline-code span or a string literal is not a
+/// citation (the same path-collision caution as §AR-workspace.3.1). Markdown has
+/// no string literals and its inline code is prose formatting, so a marked
+/// qualified citation there is always a citation. Shared by every detection pass
+/// so the rule lives in one place; returns whether the citation at `pos` must be
+/// suppressed.
+fn qualified_suppressed_in_source(scan_line: &str, is_md: bool, pos: usize) -> bool {
+    !is_md && (is_inside_inline_code(scan_line, pos) || is_inside_string_literal(scan_line, pos))
+}
+
 /// The per-file scan (§AR-scanner.2): line by line, find declaration headings
 /// (§AR-scanner.2.1 — in Markdown or in a code/`"""` doc-comment, §AR-scanner.4),
 /// nested section headings (§AR-scanner.2.2), and `<ID>[.<section>]` citations
@@ -192,15 +204,9 @@ fn scan_file_text(
             } else {
                 full.start()
             };
-            // §AR-scanner.2.3: the qualified `alias/ID` form collides with a path
-            // or module reference, so in a source file a marked qualified citation
-            // inside an inline-code span or string literal is not a citation. In
-            // Markdown (no string literals; inline code is prose) it always is.
             if namespace.is_some()
                 && has_marker
-                && !is_md
-                && (is_inside_inline_code(scan_line, start)
-                    || is_inside_string_literal(scan_line, start))
+                && qualified_suppressed_in_source(scan_line, is_md, start)
             {
                 continue;
             }
@@ -251,6 +257,7 @@ fn scan_file_text(
                 findings,
             );
         }
+        scan_escaped_citations(&citation_line, findings);
     }
 
     if let Some(decl) = current.take() {
@@ -782,12 +789,7 @@ fn scan_fallback_qualified_citations(
         if already_seen.contains(&marker_start) {
             continue;
         }
-        // §AR-scanner.2.3: suppress a marked qualified citation inside inline code
-        // or a string literal only in source files; in Markdown it is a citation.
-        if !line.is_md
-            && (is_inside_inline_code(line.scan_line, marker_start)
-                || is_inside_string_literal(line.scan_line, marker_start))
-        {
+        if qualified_suppressed_in_source(line.scan_line, line.is_md, marker_start) {
             continue;
         }
         let token_start = marker_start + line.config.marker.len();
@@ -908,12 +910,7 @@ fn scan_workspace_qualified_pass(
         return;
     }
     for (marker_start, _) in line.scan_line.match_indices(&line.config.marker) {
-        // §AR-scanner.2.3: suppress a marked qualified citation inside inline code
-        // or a string literal only in source files; in Markdown it is a citation.
-        if !line.is_md
-            && (is_inside_inline_code(line.scan_line, marker_start)
-                || is_inside_string_literal(line.scan_line, marker_start))
-        {
+        if qualified_suppressed_in_source(line.scan_line, line.is_md, marker_start) {
             continue;
         }
         let token_start = marker_start + line.config.marker.len();
@@ -951,6 +948,61 @@ fn scan_workspace_qualified_pass(
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
             // §AR-scanner.2.4: classified in the post-pass in `scan_file`.
+            source_kind: String::new(),
+            enclosing_declaration: None,
+        });
+    }
+}
+
+/// §AR-scanner.2.5: collect `<§>`-escaped citation illustrations. The literal
+/// `<§>[alias/]ID[.section]` is deliberately *not* a live citation — the `<` and
+/// `>` around the marker mean `§` is not immediately followed by an ID, so no
+/// detection pass matches it (§AR-workspace.3.1). We record the shape anyway,
+/// into a check-inert list, so the checker can flag one whose ID resolves to a
+/// real declaration (§FS-check.4.2): an escape of a *real* ID is a likely
+/// bracketed live citation, not an intended illustration. IDs are parsed with
+/// the citing project's grammar; a cross-namespace target with an exotic grammar
+/// may be missed, which only ever costs a suggestion, never a false error.
+fn scan_escaped_citations(line: &CitationLine<'_>, findings: &mut Findings) {
+    if line.config.marker.is_empty() {
+        return;
+    }
+    let escape = format!("<{}>", line.config.marker);
+    if !line.scan_line.contains(&escape) {
+        return;
+    }
+    for (escape_start, _) in line.scan_line.match_indices(&escape) {
+        let token_start = escape_start + escape.len();
+        let Some(rest) = line.scan_line.get(token_start..) else {
+            continue;
+        };
+        let (namespace, id_rest, alias_len) = match QUALIFIED_CITATION_PREFIX
+            .captures(rest)
+            .and_then(|p| p.name("namespace").map(|m| (m.as_str().to_string(), p.get(0).unwrap().end())))
+        {
+            Some((alias, alias_len)) => {
+                let Some(id_rest) = rest.get(alias_len..) else {
+                    continue;
+                };
+                (Some(alias), id_rest, alias_len)
+            }
+            None => (None, rest, 0),
+        };
+        let Some((id, section, id_len)) = parse_longest_id_prefix(id_rest, &line.config.grammar)
+        else {
+            continue;
+        };
+        let token_end = token_start + alias_len + id_len;
+        findings.escaped_citations.push(Citation {
+            namespace,
+            id,
+            section,
+            file: line.path.to_path_buf(),
+            line: line.lineno,
+            column: line.column_offset + escape_start + 1,
+            has_marker: false,
+            text: line.scan_line[escape_start..token_end].to_string(),
+            inline_site: None,
             source_kind: String::new(),
             enclosing_declaration: None,
         });
@@ -1394,6 +1446,7 @@ fn merge_findings(target: &mut Findings, mut source: Findings) {
             .append(&mut declarations);
     }
     target.citations.append(&mut source.citations);
+    target.escaped_citations.append(&mut source.escaped_citations);
     target.scanned_files.append(&mut source.scanned_files);
 }
 
