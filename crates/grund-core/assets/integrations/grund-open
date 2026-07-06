@@ -39,7 +39,22 @@ if [ -n "${GRUND_OPEN_CMD:-}" ]; then
         *) exec sh -c "$GRUND_OPEN_CMD \"$path:$lineno\"" ;;
     esac
 elif [ -n "${EDITOR:-}" ]; then
-    exec "$EDITOR" "+$lineno" "$path"
+    # EDITOR may carry flags (e.g. "code -w" or "emacsclient -t"), so word-split
+    # it, then pass the line in the syntax the editor understands: only the
+    # vi/emacs family take "+LINE FILE"; VS Code / Sublime want "--goto
+    # FILE:LINE"; helix/micro take "FILE:LINE". Unknown editors just open FILE.
+    # shellcheck disable=SC2086
+    set -- $EDITOR
+    case $(basename "$1") in
+        code|code-insiders|codium|vscodium|cursor|subl|sublime_text)
+            exec "$@" --goto "$path:$lineno" ;;
+        vi|vim|nvim|nano|emacs|emacsclient|kak)
+            exec "$@" "+$lineno" "$path" ;;
+        hx|micro)
+            exec "$@" "$path:$lineno" ;;
+        *)
+            exec "$@" "$path" ;;
+    esac
 elif command -v code >/dev/null 2>&1; then
     exec code --goto "$path:$lineno"
 else

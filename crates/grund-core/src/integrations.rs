@@ -16,6 +16,10 @@ const VSCODE_EXTENSION_JS: &str = include_str!("../assets/integrations/vscode/ex
 /// Bumped when an embedded snippet changes in a way a re-run should propagate.
 const INTEGRATIONS_BLOCK_VERSION: u32 = 1;
 
+/// Where `--write` installs the `grund-open` resolver for terminal clients; a
+/// single source so the descriptor plan and the writer cannot drift.
+const RESOLVER_TARGET: &str = "~/.local/bin/grund-open";
+
 /// The rendering-layer clients grund ships an integration for. The set is closed
 /// and frozen (§FS-integrations.1); the ordering here is the frozen output order
 /// used by detection and every listing.
@@ -97,14 +101,10 @@ fn known_clients_line() -> String {
 /// order, deduplicated, so a given environment always yields the same list.
 fn detect_clients() -> Vec<IntegrationClient> {
     let has = |name: &str| std::env::var_os(name).is_some_and(|value| !value.is_empty());
+    // `IntegrationClient` variants are declared in the same order as `ALL`, so the
+    // discriminant is the index into this presence table.
     let mut matched = [false; 4];
-    let mut mark = |client: IntegrationClient| {
-        let idx = IntegrationClient::ALL
-            .iter()
-            .position(|candidate| *candidate == client)
-            .expect("client is in ALL");
-        matched[idx] = true;
-    };
+    let mut mark = |client: IntegrationClient| matched[client as usize] = true;
     if has("WEZTERM_EXECUTABLE") {
         mark(IntegrationClient::Wezterm);
     }
@@ -195,6 +195,13 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
         eprintln!("{}", known_clients_line());
         return Err(ExitCode::from(2));
     }
+    if write && json {
+        // `--write` reports what it changed on stderr; there is no JSON install
+        // plan. Reject rather than run the side effect and silently drop the
+        // format the caller asked for.
+        eprintln!("error: integrations --write does not support --format json");
+        return Err(ExitCode::from(2));
+    }
     Ok(IntegrationsInvocation {
         client,
         write,
@@ -264,7 +271,7 @@ fn detection_plan_json(detected: &[IntegrationClient]) -> String {
                 "{{\"client\":\"{}\",\"detected\":{},\"install\":\"{}\"}}",
                 client.name(),
                 detected.contains(client),
-                json_escape_str(&client.install_command()),
+                json_escape(&client.install_command()),
             )
         })
         .collect::<Vec<_>>()
@@ -281,7 +288,7 @@ fn client_descriptor_json(client: IntegrationClient) -> String {
         "editor"
     };
     let resolver = if client.is_terminal() {
-        format!(",\"resolver_target\":\"{}\"", "~/.local/bin/grund-open")
+        format!(",\"resolver_target\":\"{}\"", json_escape(RESOLVER_TARGET))
     } else {
         String::new()
     };
@@ -289,8 +296,8 @@ fn client_descriptor_json(client: IntegrationClient) -> String {
         "{{\"client\":\"{}\",\"kind\":\"{}\",\"install\":\"{}\",\"config_target\":\"{}\"{}}}\n",
         client.name(),
         kind,
-        json_escape_str(&client.install_command()),
-        json_escape_str(client.config_target()),
+        json_escape(&client.install_command()),
+        json_escape(client.config_target()),
         resolver,
     )
 }
@@ -366,6 +373,17 @@ fn install_managed_block(existing: &str, snippet: &str) -> Result<(String, Block
             BlockOutcome::Updated
         };
         Ok((updated, outcome))
+    } else if line_start_of(existing, &begin).is_some() {
+        // A begin marker with no matching end marker (a truncated write or a hand
+        // edit that dropped the `<<<` line). Appending a second block would leave
+        // two begin markers and one end marker, and the *next* `--write` would
+        // splice from the orphan begin to the appended end — silently deleting
+        // every user line in between. Refuse rather than guess where the block
+        // ends (§FS-integrations.4.1: content outside the block is preserved).
+        Err(format!(
+            "found a `{begin}` marker with no matching `{end}`; \
+             repair or remove the partial grund integrations block, then re-run"
+        ))
     } else {
         let mut appended = String::with_capacity(existing.len() + block.len() + 2);
         appended.push_str(existing);
@@ -489,10 +507,18 @@ fn block_outcome_verb(outcome: BlockOutcome) -> &'static str {
 /// Install `grund-open` to `~/.local/bin` when absent or out of date. Returns the
 /// path when written, `None` when already current.
 fn write_resolver_script() -> Result<Option<PathBuf>, (PathBuf, String)> {
-    let Some(path) = expand_target("~/.local/bin/grund-open") else {
-        return Err((PathBuf::from("~/.local/bin/grund-open"), "cannot resolve home directory".to_string()));
+    let Some(path) = expand_target(RESOLVER_TARGET) else {
+        return Err((
+            PathBuf::from(RESOLVER_TARGET),
+            "cannot resolve home directory".to_string(),
+        ));
     };
     if fs::read_to_string(&path).is_ok_and(|current| current == GRUND_OPEN_RESOLVER) {
+        // Content already matches, but a copy restored by a dotfile manager (or
+        // written under a +x-stripping umask) may not be executable — clicking a
+        // citation would then fail with "permission denied". Ensure the bit is
+        // set before reporting the resolver as current.
+        set_executable(&path);
         return Ok(None);
     }
     if let Some(parent) = path.parent()
@@ -560,21 +586,4 @@ fn expand_target(target: &str) -> Option<PathBuf> {
     } else {
         Some(PathBuf::from(target))
     }
-}
-
-/// Minimal JSON string escaper for the integrations plan (no serde in core).
-fn json_escape_str(raw: &str) -> String {
-    let mut out = String::with_capacity(raw.len());
-    for ch in raw.chars() {
-        match ch {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            other if other.is_control() => out.push_str(&format!("\\u{:04x}", other as u32)),
-            other => out.push(other),
-        }
-    }
-    out
 }
