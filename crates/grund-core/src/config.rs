@@ -96,7 +96,8 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             let is_array_table = line.starts_with("[[") && line.ends_with("]]");
             section = line.trim_matches(['[', ']']).to_string();
             match section.as_str() {
-                "reference" | "scan" | "output" | "id" | "fmt.cross_refs" | "workspace" => {
+                "reference" | "scan" | "output" | "id" | "fmt.cross_refs" | "render.links"
+                | "workspace" => {
                     if section == "workspace" && is_array_table {
                         bail_config(
                             path,
@@ -352,6 +353,44 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                     bail_config(path, line_no, "unknown md link anchor format".to_string())?;
                 }
                 config.cross_ref_anchor_format = format;
+            }
+            // §FS-config.3.10: `[render.links]` clickable-citation keys.
+            ("render.links", "web_base") => {
+                config.render_links_web_base = parse_string(path, line_no, value)?;
+                if config.render_links_web_base.is_empty() {
+                    bail_config(
+                        path,
+                        line_no,
+                        "render.links.web_base must be \"auto\" or a non-empty https URL prefix"
+                            .to_string(),
+                    )?;
+                }
+            }
+            ("render.links", "web_ref") => {
+                let web_ref = parse_string(path, line_no, value)?;
+                if !matches!(web_ref.as_str(), "branch" | "main" | "commit") {
+                    bail_config(
+                        path,
+                        line_no,
+                        "render.links.web_ref must be one of branch | main | commit".to_string(),
+                    )?;
+                }
+                config.render_links_web_ref = web_ref;
+            }
+            ("render.links", "hover_title") => {
+                config.render_links_hover_title = parse_bool(path, line_no, value)?;
+            }
+            ("render.links", "local") => {
+                let local = parse_string(path, line_no, value)?;
+                if !matches!(local.as_str(), "plain" | "path-text" | "editor-url") {
+                    bail_config(
+                        path,
+                        line_no,
+                        "render.links.local must be one of plain | path-text | editor-url"
+                            .to_string(),
+                    )?;
+                }
+                config.render_links_local = local;
             }
             ("workspace", "members") => {
                 config.workspace_members = parse_string_list(path, line_no, value)?;
@@ -970,6 +1009,12 @@ fn command_config(args: &[String]) -> ExitCode {
                 println!("[fmt.cross_refs]");
                 println!("enabled = {}", config.fmt_cross_refs_enabled);
                 println!("anchor_format = \"{}\"", config.cross_ref_anchor_format);
+                println!();
+                println!("[render.links]");
+                println!("web_base = \"{}\"", config.render_links_web_base);
+                println!("web_ref = \"{}\"", config.render_links_web_ref);
+                println!("hover_title = {}", config.render_links_hover_title);
+                println!("local = \"{}\"", config.render_links_local);
                 if config.workspace_declared {
                     println!();
                     println!("[workspace]");

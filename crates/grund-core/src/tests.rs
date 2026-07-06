@@ -3390,4 +3390,78 @@ default = "must-not"
             "CLAUDE.md symlinked to AGENTS.md should be covered by AGENTS.md"
         );
     }
+
+    // §FS-integrations.4.1: managed dotfile block splice is idempotent.
+    #[test]
+    fn integrations_block_appends_then_is_idempotent() {
+        let (appended, outcome) = install_managed_block("# my config\n", "SNIPPET").unwrap();
+        assert_eq!(outcome, BlockOutcome::Appended);
+        assert!(appended.starts_with("# my config\n"));
+        assert!(appended.contains("# >>> grund integrations (v1) >>>\nSNIPPET\n# <<< grund integrations (v1) <<<\n"));
+
+        let (again, outcome) = install_managed_block(&appended, "SNIPPET").unwrap();
+        assert_eq!(outcome, BlockOutcome::Unchanged, "re-applying the same snippet is a no-op");
+        assert_eq!(again, appended);
+    }
+
+    // §FS-integrations.4.1: a changed snippet updates only the marked region.
+    #[test]
+    fn integrations_block_updates_in_place() {
+        let (first, _) = install_managed_block("keep-before\n", "OLD").unwrap();
+        let with_tail = format!("{first}keep-after\n");
+        let (updated, outcome) = install_managed_block(&with_tail, "NEW").unwrap();
+        assert_eq!(outcome, BlockOutcome::Updated);
+        assert!(updated.starts_with("keep-before\n"));
+        assert!(updated.ends_with("keep-after\n"), "content after the block is preserved");
+        assert!(updated.contains("NEW"));
+        assert!(!updated.contains("OLD"));
+    }
+
+    // §FS-integrations.4.1: a block newer than this binary is a hard error.
+    #[test]
+    fn integrations_block_rejects_newer_version() {
+        let newer = "# >>> grund integrations (v99) >>>\nx\n# <<< grund integrations (v99) <<<\n";
+        assert!(install_managed_block(newer, "SNIPPET").is_err());
+    }
+
+    // §FS-init.2.3.6: the clickable-citations section renders deterministically
+    // from `[render.links]` and reflects the `local` and `web_ref` keys.
+    #[test]
+    fn clickable_citations_section_reflects_render_links() {
+        let mut config = Config::default_for(PathBuf::from("."));
+        let default = clickable_citations_section(&config);
+        assert!(default.starts_with("### Clickable citations in user-facing text\n"));
+        assert!(default.contains("`grund integrations`"), "plain default points at the integration");
+        assert!(default.contains("<web-base>/<branch>/<path>#<anchor>"));
+        assert!(default.contains(" \"<heading>\""), "hover_title=true keeps the title");
+
+        config.render_links_local = "path-text".into();
+        config.render_links_web_ref = "main".into();
+        config.render_links_hover_title = false;
+        config.render_links_web_base = "https://example.test/blob".into();
+        let custom = clickable_citations_section(&config);
+        assert!(custom.contains("followed by its `path:line`"));
+        assert!(custom.contains("https://example.test/blob/main/<path>#<anchor>)"));
+        assert!(!custom.contains("\"<heading>\""), "hover_title=false drops the title");
+    }
+
+    // §FS-config.3.10: `[render.links]` parses valid keys and rejects bad values.
+    #[test]
+    fn render_links_config_parses_and_validates() {
+        let root = test_root("render_links_config_parses_and_validates");
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n[render.links]\nlocal = \"editor-url\"\nweb_ref = \"commit\"\nhover_title = false\n",
+        );
+        let config = load_config(&root).expect("valid render.links config loads");
+        assert_eq!(config.render_links_local, "editor-url");
+        assert_eq!(config.render_links_web_ref, "commit");
+        assert!(!config.render_links_hover_title);
+
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n[render.links]\nlocal = \"nope\"\n",
+        );
+        assert!(load_config(&root).is_err(), "an invalid local value is rejected");
+    }
 }

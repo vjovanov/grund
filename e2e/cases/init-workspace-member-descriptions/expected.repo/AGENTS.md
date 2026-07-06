@@ -1,6 +1,5 @@
 # repo — agent instructions
 
-<!-- BEGIN GRUND MANAGED BLOCK -->
 ## Grounding with grund (v4)
 
 This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<NNN>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, AR, DF, DA, E2E, RM}`), cited with the marker `§` — e.g. `<§>FS-042-user-login.3.1` (the `FS-042-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `.agents/grund.toml`, so only `§`-prefixed citations are checked.
@@ -59,4 +58,7 @@ Declarations are heading lines `# FS-042-user-login: …` in markdown. In a code
 ### Citation directions
 
 Specs cite goals, architecture cites specs, code and executable tests cite the specs they realize.
-<!-- END GRUND MANAGED BLOCK -->
+
+### Clickable citations in user-facing text
+
+Locally, a plain `§<ID>` citation is the clickable, hoverable form — resolution belongs to the rendering layer (editor/terminal integrations — §DF-neural-link-generation) — so write plain `§<ID>` citations in TUI messages and never spend a tool call or Markdown-link syntax on them — an installed integration (`grund integrations`) resolves them. Only GitHub-rendered text (PR and issue bodies) needs composed links, `[§<ID>](<web-base>/<branch>/<path>#<anchor> "<heading>")` with anchors copied from existing `grund fmt --cross-refs` wraps; when unsure fall back to the plain citation, and never rewrite repository files this way — full recipe, rationale, and test matrix in §DF-neural-link-generation.

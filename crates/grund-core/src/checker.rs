@@ -1160,6 +1160,23 @@ fn check_agent_block_path(
                     sites: Vec::new(),
                 });
             }
+            // §FS-check.3.5 / §FS-init.2.3.6: the clickable-citations section is
+            // generated from `[render.links]`, so the same drift check applies.
+            let expected_links = clickable_citations_section(config);
+            if section_in_block(&block_text, "### Clickable citations in user-facing text")
+                != Some(expected_links.trim_end())
+            {
+                report.errors.push(Diagnostic {
+                    code: "agents-init",
+                    path: Some(path.to_path_buf()),
+                    line: Some(line),
+                    column: None,
+                    message:
+                        "stale grund init block: clickable citations differ from .agents/grund.toml (run `grund init` to refresh)"
+                            .to_string(),
+                    sites: Vec::new(),
+                });
+            }
         }
         return;
     }
@@ -1177,7 +1194,17 @@ fn check_agent_block_path(
 }
 
 fn citation_directions_section_in_block(block_text: &str) -> Option<&str> {
-    let heading = "### Citation directions";
+    section_in_block(block_text, "### Citation directions")
+}
+
+/// The text of a `heading`-led section inside the managed block, from the heading
+/// line to the next heading of any level (or block end), trailing blank lines
+/// trimmed. Used to byte-compare config-derived sections against a fresh render
+/// (§FS-check.3.5). The boundary is *any* following heading, not just H1/H2, so
+/// two adjacent config-derived `###` sections (Citation directions, Clickable
+/// citations — §FS-init.2.3.5/2.3.6) do not bleed into each other; neither
+/// rendered section contains a `#`-led line, so this cannot cut one short.
+fn section_in_block<'a>(block_text: &'a str, heading: &str) -> Option<&'a str> {
     let start = block_text.match_indices(heading).find_map(|(index, _)| {
         let at_line_start = index == 0 || block_text.as_bytes().get(index - 1) == Some(&b'\n');
         let after = index + heading.len();
@@ -1186,24 +1213,21 @@ fn citation_directions_section_in_block(block_text: &str) -> Option<&str> {
         (at_line_start && line_ends).then_some(index)
     })?;
     let section_body_start = start + heading.len();
-    // The section runs to the next H1/H2 or — in a delimited block — to the
-    // `<!-- END GRUND MANAGED BLOCK -->` line, whichever comes first: the END
-    // delimiter belongs to the block's frame, not to this section's body.
-    let end = [
-        AGENTS_SECTION_BOUNDARY.find_at(block_text, section_body_start),
-        AGENTS_BLOCK_END.find_at(block_text, section_body_start),
-    ]
-    .into_iter()
-    .flatten()
-    .map(|m| m.start())
-    .min()
-    .unwrap_or(block_text.len());
-    // The section runs to the next H1/H2 (or block end). Trailing blank lines
-    // before that boundary are not meaningful drift — the rendered section
-    // carries no trailing newline — so trim them rather than special-casing
-    // EOF. This keeps the comparison sound wherever the section sits in the
-    // block, not only when it is block-final.
+    let end = next_heading_offset(block_text, section_body_start).unwrap_or(block_text.len());
     Some(block_text[start..end].trim_end())
+}
+
+/// Offset of the next heading line (any `#`-led line) at or after `from`, scanning
+/// line by line so a `#` mid-line never counts.
+fn next_heading_offset(text: &str, from: usize) -> Option<usize> {
+    let mut offset = from;
+    for line in text[from..].split_inclusive('\n') {
+        if line.trim_start().starts_with('#') {
+            return Some(offset);
+        }
+        offset += line.len();
+    }
+    None
 }
 
 fn line_for_byte_index(text: &str, byte_index: usize) -> usize {

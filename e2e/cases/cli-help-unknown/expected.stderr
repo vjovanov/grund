@@ -1,2 +1,2 @@
 error: unknown command: bogus
-known commands: check, show, list, refs, cover, fmt, id, init, config, agent-setup-instructions, completions
+known commands: check, show, list, refs, cover, fmt, id, init, config, agent-setup-instructions, completions, integrations

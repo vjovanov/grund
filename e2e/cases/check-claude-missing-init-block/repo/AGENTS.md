@@ -1,9 +1,53 @@
-<!-- BEGIN GRUND MANAGED BLOCK -->
 ## Grounding with grund (v4)
 
-current managed block
+This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<NNN>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, AR, DF, DA, E2E, RM}`), cited with the marker `§` — e.g. `§FS-042-user-login.3.1` (the `FS-042-user-login` here is a shape illustration, not a real ID in this repo). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are also recognized as citations because `[reference] strict = false` is set in `.agents/grund.toml`; remove that compatibility override or set strict back to `true` to require the `§` marker (run `grund fmt --marker` first to upgrade existing bare citations).
+
+### Grounding from a citation
+
+A `§<ID>` is a pointer to a fact, not a file path. Resolve it with `grund` and climb only as far as needed:
+
+- `grund <ID>` — the lead (heading-less, cut at the first child section). The cheap first read for a bare `§<ID>` citation.
+- `grund <ID> --toc` — the lead plus the nested section map. Use to choose which subsection to fetch next.
+- `grund <ID> --full` — the entire body. Escalate to this when narrower reads aren't enough.
+- `grund <ID> --brief` — heading + first paragraph only.
+- `grund refs <ID>` — every site that cites the ID; add `--summary` for one line per file. Run before renaming or moving a declaration.
+- `grund list` / `grund list --kind FS,AR` — discover IDs if you get lost
+
+### Project map
+
+- [GRUND](docs/grund.md): Why: project motivation
+- [GOAL](docs/goals.md): Where: project direction and outcomes
+- [FS](docs/functional-spec): What: behavior, requirements, and constraints
+- [AR](docs/architecture): How: high-level implementation, structure, and design
+- [DF](docs/decisions/functional): Product behavior decisions and tradeoffs
+- [DA](docs/decisions/architectural): Architecture decisions and tradeoffs
+- [E2E](e2e/cases): Executable user scenarios
+- [RM](docs/roadmap.md): Planned milestones and sequencing
+
+### Project namespaces
+
+A namespace is a project boundary, not a docs folder. The current project is the local namespace: cite its IDs as `§<ID>`.
+
+Create or use a separate namespace when work introduces an independently checked app, package, service, or subproject. Give that project its own `.agents/grund.toml`, add it to the workspace root's `[workspace] members`, run `grund init` there, and set a stable `project_name`.
+
+Do not create a namespace for a regular module or component that still belongs to this project. Cite across namespaces as `§alias/<ID>` and run `grund check` from the workspace root.
+
+### Declarations and citations
+
+Declarations are heading lines `# FS-042-user-login: …` in markdown. In a code doc-comment (Rustdoc, Javadoc, JSDoc, Python docstring, Go `//`, …) drop the `#` — write `/// FS-042-user-login: …` directly. Numbered headings inside a declaration are citable sections: use depth-matching headings (`## 1. …`, `### 1.1 …`, etc.) so `§<ID>.1` / `§<ID>.1.1` resolve; mismatched heading depth is a `grund check` error. Plain headings or bold labels are fine for non-citable local structure. One doc-comment may declare multiple IDs (e.g. an `AR-` and an `FS-` on the same class) — each gets its own body. An inline source declaration is reachable from the configured kind home via a one-line stub: `# <ID>: [<path>](<path>)`.
+
+### Rules
+
+- **Spec first.** For behavior or design changes, write or update the most-specific spec point before code.
+- **Cite as you write.** Place `§<ID>` at the point a claim or behavior is made — on the doc-comment for a whole behavior, inline beside the clause it enforces.
+- **Marker = live citation.** A `§`-prefixed token resolves and is checked wherever it appears — including inside Markdown backticks. To mention an ID as an example rather than cite it, omit the marker or put it in a fenced code block.
+- **Inline citation style.** Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns.
+- **Always cite the most-specific point.**
 
 ### Citation directions
 
 Specs cite goals, architecture cites specs, code and executable tests cite the specs they realize.
-<!-- END GRUND MANAGED BLOCK -->
+
+### Clickable citations in user-facing text
+
+Locally, a plain `§<ID>` citation is the clickable, hoverable form — resolution belongs to the rendering layer (editor/terminal integrations — §DF-neural-link-generation) — so write plain `§<ID>` citations in TUI messages and never spend a tool call or Markdown-link syntax on them — an installed integration (`grund integrations`) resolves them. Only GitHub-rendered text (PR and issue bodies) needs composed links, `[§<ID>](<web-base>/<branch>/<path>#<anchor> "<heading>")` with anchors copied from existing `grund fmt --cross-refs` wraps; when unsure fall back to the plain citation, and never rewrite repository files this way — full recipe, rationale, and test matrix in §DF-neural-link-generation.

@@ -1,0 +1,13 @@
+{
+  "name": "grund-terminal-citations",
+  "displayName": "grund terminal citations",
+  "description": "Makes §<ID> grund citations in the integrated terminal clickable, jumping to the cited declaration.",
+  "version": "1.0.0",
+  "publisher": "grund",
+  "engines": { "vscode": "^1.74.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "repository": { "type": "git", "url": "https://github.com/vjovanov/grund" },
+  "license": "MIT"
+}

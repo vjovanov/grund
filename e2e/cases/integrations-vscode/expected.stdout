@@ -1,0 +1,75 @@
+# grund vscode terminal-citations extension
+# Install with: grund integrations vscode --write
+#
+# package.json:
+
+{
+  "name": "grund-terminal-citations",
+  "displayName": "grund terminal citations",
+  "description": "Makes §<ID> grund citations in the integrated terminal clickable, jumping to the cited declaration.",
+  "version": "1.0.0",
+  "publisher": "grund",
+  "engines": { "vscode": "^1.74.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "repository": { "type": "git", "url": "https://github.com/vjovanov/grund" },
+  "license": "MIT"
+}
+
+# extension.js:
+
+// grund terminal citations — a VS Code TerminalLinkProvider that turns §<ID>
+// citations printed in the integrated terminal into links. Clicking one runs
+// `grund` to resolve the citation to its declaration site and opens it
+// (§FS-integrations). Nothing is published to a marketplace; this extension is
+// materialized on disk by `grund integrations vscode --write`.
+const vscode = require('vscode');
+const { execFile } = require('child_process');
+
+const CITATION = /§[A-Z]+-[a-z0-9][a-z0-9-]*(?:\.[0-9]+)*/g;
+
+function activate(context) {
+  const provider = vscode.window.registerTerminalLinkProvider({
+    provideTerminalLinks(ctx) {
+      const links = [];
+      let m;
+      CITATION.lastIndex = 0;
+      while ((m = CITATION.exec(ctx.line)) !== null) {
+        links.push({
+          startIndex: m.index,
+          length: m[0].length,
+          tooltip: 'Open grund declaration',
+          data: m[0],
+        });
+      }
+      return links;
+    },
+    handleTerminalLink(link) {
+      const id = link.data.replace(/^§/, '').split('.')[0];
+      const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      execFile('grund', ['list', '--format', 'json'], { cwd }, (err, stdout) => {
+        if (err) {
+          vscode.window.showErrorMessage(`grund: ${err.message}`);
+          return;
+        }
+        for (const raw of stdout.split('\n')) {
+          if (!raw) continue;
+          let decl;
+          try { decl = JSON.parse(raw); } catch { continue; }
+          if (decl.id !== id) continue;
+          const abs = cwd ? vscode.Uri.joinPath(vscode.Uri.file(cwd), decl.path) : vscode.Uri.file(decl.path);
+          const pos = new vscode.Position(Math.max(0, (decl.line || 1) - 1), 0);
+          vscode.window.showTextDocument(abs, { selection: new vscode.Range(pos, pos) });
+          return;
+        }
+        vscode.window.showWarningMessage(`grund: unknown id ${id}`);
+      });
+    },
+  });
+  context.subscriptions.push(provider);
+}
+
+function deactivate() {}
+
+module.exports = { activate, deactivate };

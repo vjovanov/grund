@@ -265,6 +265,20 @@ Config validation rejects: a `[citations.<KIND>]` table whose kind is neither a 
 
 Adding `[citations]` does **not** bump `grund_config_version` (§5): it is additive surface, like `[workspace]` and `require_grounding`. An older binary meeting it fails loudly with `unknown config section`.
 
+### 3.10 `[render.links]` — clickable-citation rendering
+
+```toml
+[render.links]
+web_base    = "auto"     # default; "auto" derives a blob prefix from the origin remote, or pin a https://…/blob prefix
+web_ref     = "branch"   # default; one of branch | main | commit — which ref a composed web link points at
+hover_title = true       # default; put the declaration heading in the link title on web surfaces, so hover shows the fact
+local       = "plain"    # default; one of plain | path-text | editor-url — what an agent writes for a citation in TUI messages
+```
+
+The block carries repository truths about how a `§<ID>` citation renders as a clickable link, so the convention sentences an agent follows are a rendering of config rather than hand-edited prose ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)). `web_base` and `web_ref` fix the blob-URL prefix and ref policy for GitHub-rendered surfaces; `hover_title` toggles the heading-as-title on those links. `local` names what an agent writes for a citation in ephemeral, on-machine text: `plain` (the default) writes the bare `§<ID>` and lets an installed integration ([§FS-integrations](FS-integrations.md#fs-integrations-grund-prints-and-installs-its-rendering-layer-integrations)) do the resolving, `path-text` writes an explicit `path:line`, `editor-url` writes an editor-scheme link. The user's editor choice is **not** a `[render.links]` key — it lives in the user's installed integration or `GRUND_OPEN_CMD`, never in shared repository text ([§DF-neural-link-generation](../decisions/functional/DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command)). With an integration installed, `local = "plain"` is the natural default because the rendering layer does the work.
+
+The table is optional; without it every key takes its default and citations render exactly as the shipped convention describes. Every key is enum- or shape-validated on load, and an unknown key under `[render.links]` is an error like any other config typo (§4.3). Adding `[render.links]` does **not** bump `grund_config_version` (§5): it is additive surface like `[workspace]`, `[citations]`, and `[fmt.cross_refs]`. An older binary meeting it fails loudly with `unknown config section`.
+
 ## 4. Validation and inspection
 
 ### 4.1 `grund config validate [path]`
@@ -284,6 +298,8 @@ For concrete stderr examples and the distinction between `config validate` exit 
 ## 5. Schema versioning
 
 The TOML file may include a top-level `grund_config_version = N`. The current version is **1**. Future incompatible schema changes increment this; grund refuses to load a config whose version is greater than the grund binary's known maximum, with an error suggesting an upgrade. Configs with no version key are interpreted as version 1.
+
+The version tracks **incompatible** changes to the meaning of existing keys, not the arrival of new ones. Adding an optional table or key — `[workspace]`, `[citations]`, `[render.links]` (§3.10), a future `anchor_format` profile — is additive and does not bump the version, because a config that uses it is only ever written for a binary that understands it, and an older binary meeting it fails loudly and locatably through the unknown-section / unknown-key rejection (§4.3) rather than silently misreading it. So the version stays **1** for the `[render.links]` addition; the safety net for the forward direction is the closed section and key allow-list, not the version integer.
 
 ## 6. What is NOT configured here
 

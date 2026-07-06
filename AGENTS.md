@@ -1,6 +1,5 @@
 # grund — agent instructions
 
-<!-- BEGIN GRUND MANAGED BLOCK -->
 ## Grounding with grund (v4)
 
 This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, AR, DF, DA, E2E, RM, DISC}`), cited with the marker `§` — e.g. `<§>FS-user-login.3.1` (the `FS-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `.agents/grund.toml`, so only `§`-prefixed citations are checked.
@@ -44,7 +43,7 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 
 - **Spec first.** For behavior or design changes, write or update the most-specific spec point before code.
 - **Cite as you write.** Place `§<ID>` at the point a claim or behavior is made — on the doc-comment for a whole behavior, inline beside the clause it enforces.
-- **Marker = live citation.** A `§`-prefixed token resolves and is checked wherever it appears — including inside Markdown backticks. To mention an ID without citing it, write `<§><ID>`, omit the marker, or use a fenced code block.
+- **Marker = live citation.** A `§`-prefixed token resolves and is checked wherever it appears — including inside Markdown backticks. To mention an ID as an example rather than cite it, omit the marker or put it in a fenced code block.
 - **Inline citation style.** Inline notes: ≤ 1 line preferred, hard cap 25 lines; ≤ 180 columns.
 - **Always cite the most-specific point.**
 
@@ -58,11 +57,10 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 - **E2E** must cite FS.
 - **code** (any file outside a kind home) should cite FS or AR.
 Unlisted kinds and pairs are fine.
-<!-- END GRUND MANAGED BLOCK -->
 
-## Clickable citations in user-facing text
+### Clickable citations in user-facing text
 
-Locally, a plain `§<ID>` citation is the clickable, hoverable form — resolution belongs to the rendering layer (editor/terminal integrations — §DF-neural-link-generation) — so write plain citations in TUI messages and never spend a tool call or Markdown-link syntax on them. Only GitHub-rendered text (PR and issue bodies) needs composed links, `[§<ID>](https://github.com/vjovanov/grund/blob/<ref>/<path>#<anchor> "<heading>")` with anchors copied from existing `grund fmt --cross-refs` wraps; when unsure fall back to the plain citation, and never rewrite repository files this way — full recipe, rationale, and test matrix in §DF-neural-link-generation.
+Locally, a plain `§<ID>` citation is the clickable, hoverable form — resolution belongs to the rendering layer (editor/terminal integrations — §DF-neural-link-generation) — so write plain `§<ID>` citations in TUI messages and never spend a tool call or Markdown-link syntax on them — an installed integration (`grund integrations`) resolves them. Only GitHub-rendered text (PR and issue bodies) needs composed links, `[§<ID>](<web-base>/<branch>/<path>#<anchor> "<heading>")` with anchors copied from existing `grund fmt --cross-refs` wraps; when unsure fall back to the plain citation, and never rewrite repository files this way — full recipe, rationale, and test matrix in §DF-neural-link-generation.
 
 ## Repository workflow
 
