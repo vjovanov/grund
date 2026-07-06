@@ -545,3 +545,12 @@ Optional, and only if the user wants editor integration (diagnostics, hover prev
 - Confirm the CLI and server are installed: `grund --version` and `grund-lsp --version` (`cargo install grund-lsp` if missing).
 - Point the editor's LSP client at `grund-lsp` for Markdown plus the languages in `[scan].extensions`. Full per-editor snippets are in the user-facing LSP setup guide (`docs/user-facing/lsp.md`).
 - **Recommend placing the client config in the editor's user (global) settings, not a per-repo file.** A per-repo config (e.g. VSCode/VSCodium `.vscode/settings.json`) means the server silently does nothing in any repo that lacks it — the editor falls back to its built-in behavior, so citations underline only a single hyphen-delimited word and references miss most sites. User settings configure `grund-lsp` once for every project. Use a per-repo file only for a deliberate project-specific override.
+
+## Clickable Citation Integrations
+
+Optional, and only if the user wants a plain `§<ID>` citation to be clickable in their terminal or editor (`grund integrations`, §FS-integrations). These are one-time, user-side, and env-specific, so propose rather than apply silently:
+
+- Detect what applies: `grund integrations --format json` names the terminal/editor found in the environment and, for each, the exact `--write` command.
+- Show the user the change before touching disk: `grund integrations <client>` prints the config snippet and the `grund-open` resolver (or, for `vscode`, the unpacked extension) so they can read it first.
+- Install only on confirmation: `grund integrations <client> --write` splices a managed, marked block into the client's config and drops the resolver — idempotent, so re-running is safe and upgrades are diffs. Never write without the user's go-ahead.
+- The user's editor choice lives in `GRUND_OPEN_CMD` (or `EDITOR`), not in shared repo config; the repo's `[render.links]` keys only fix how a citation renders as a web link and what an agent writes locally.

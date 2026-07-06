@@ -10,7 +10,8 @@ use grund_core::{
     InitAgentEntrypointSelection, InitFsHome, InitNext, InitOpts, InitOutput, ListEntry, ListOpts,
     NamespaceMatch, RefHit, RefsOpts, Report, ShowFormat, ShowMode, ShowOpts,
     canonical_template_text, check_with_opts, complete_ids, cover, cover_text, effective_config,
-    format_references, init, list, propose_id, refs, show_with_scope, validate_config,
+    format_references, init, list, propose_id, refs, run_integrations, show_with_scope,
+    validate_config,
 };
 
 const SUBCOMMANDS: &[&str] = &[
@@ -25,6 +26,7 @@ const SUBCOMMANDS: &[&str] = &[
     "config",
     "agent-setup-instructions",
     "completions",
+    "integrations",
 ];
 
 include!("cli_help.rs");

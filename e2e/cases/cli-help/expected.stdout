@@ -1,6 +1,5 @@
 grund — ground your agents in the spec.
-Checks ID-based citations (§<ID>.<section>) across Markdown docs and source-code
-doc-comments, so every reader — human or AI — points at the same facts.
+Checks ID-based citations (§<ID>.<section>) across Markdown docs and source-code doc-comments, so every reader — human or AI — points at the same facts.
 
 Usage:
   grund <ID>[.<section>] [OPTIONS]    print one declaration body
@@ -19,6 +18,7 @@ Commands:
   config   Validate or show the effective .agents/grund.toml.       e.g. grund config show
   agent-setup-instructions  Print AI setup guide.                   e.g. grund agent-setup-instructions
   completions  Print shell completion scripts.                      e.g. grund completions bash
+  integrations  Print/install clickable-citation integrations.      e.g. grund integrations wezterm
 
 Options:  --format text|json   per-command (place after the subcommand); text is the default.
           --version, -V        print version.   --help, -h   show this screen.   Docs: docs/functional-spec/

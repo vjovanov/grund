@@ -10,15 +10,11 @@ const E2E_README_TEMPLATE: &str = include_str!("../assets/templates/e2e-README.m
 const AS_README_TEMPLATE: &str = include_str!("../assets/templates/architecture-README.md");
 const GITKEEP_TEMPLATE: &str = include_str!("../assets/templates/gitkeep.md");
 pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-init/SKILL.md");
-// v3 (§FS-init.2.3.5, §DF-citation-directions): the hand-written climbing-rule
-// bullet is replaced by a generated `### Citation directions` section derived
-// from `[citations]`, byte-compared by `grund check` for drift (§FS-check.3.5).
-// v4 (§FS-init.2.3, §DF-managed-block-delimiters): the block is bounded by
-// explicit `<!-- BEGIN/END GRUND MANAGED BLOCK -->` delimiters instead of the
-// implicit H2-to-next-heading region, and the worked citation example is
-// written in the `<§>`-escaped illustration form so freshly generated output
-// passes `grund check` unmodified. The bump makes pre-delimiter binaries
-// refuse a delimited file instead of splicing over its END marker.
+// v4 (§FS-init.2.3.6, §DF-integrations-command): adds a generated `### Clickable
+// citations in user-facing text` section derived from `[render.links]`,
+// byte-compared by `grund check` for drift (§FS-check.3.5). v3 (§FS-init.2.3.5,
+// §DF-citation-directions) replaced the hand-written climbing-rule bullet with a
+// generated `### Citation directions` section derived from `[citations]`.
 const AGENTS_BLOCK_VERSION: u32 = 4;
 const CANONICAL_AGENT_ENTRYPOINT: &str = "AGENTS.md";
 const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
@@ -225,6 +221,7 @@ fn agents_template_substitutions(
         ("{TRIGGER}", config.trigger.clone()),
         ("{DECLARATION_MAP}", declaration_map(config)),
         ("{CITATION_DIRECTIONS}", citation_directions_section(config)),
+        ("{CLICKABLE_CITATIONS}", clickable_citations_section(config)),
         (
             "{WORKSPACE_MEMBERS}",
             render_workspace_members_section(
@@ -352,6 +349,41 @@ fn citation_directions_section(config: &Config) -> String {
         lines.push("Unlisted kinds and pairs follow their configured defaults.".to_string());
     }
     lines.join("\n")
+}
+
+/// Render the `### Clickable citations in user-facing text` managed-block section
+/// (§FS-init.2.3.6) from the effective `[render.links]` config. Deterministic —
+/// each key selects one of a fixed set of phrases — so `grund check` can
+/// re-render and byte-compare it for drift (§FS-check.3.5). Returned without a
+/// trailing newline; the `{CLICKABLE_CITATIONS}` placeholder supplies the final
+/// newline, so `grund init` stays idempotent on re-run.
+fn clickable_citations_section(config: &Config) -> String {
+    let local = match config.render_links_local.as_str() {
+        "path-text" => "write the plain `§<ID>` citation followed by its `path:line` so the location is explicit and clickable",
+        "editor-url" => "write the citation as a Markdown link over an editor-scheme URL whose visible text is exactly `§<ID>`, so a click opens the declaration in your editor",
+        // "plain" and any future default.
+        _ => "write plain `§<ID>` citations in TUI messages and never spend a tool call or Markdown-link syntax on them — an installed integration (`grund integrations`) resolves them",
+    };
+    let base = if config.render_links_web_base == "auto" {
+        "<web-base>".to_string()
+    } else {
+        config.render_links_web_base.trim_end_matches('/').to_string()
+    };
+    let web_ref = match config.render_links_web_ref.as_str() {
+        "main" => "main",
+        "commit" => "<commit>",
+        // "branch" and any future default.
+        _ => "<branch>",
+    };
+    let title = if config.render_links_hover_title {
+        " \"<heading>\""
+    } else {
+        ""
+    };
+    let composed = format!("[§<ID>]({base}/{web_ref}/<path>#<anchor>{title})");
+    format!(
+        "### Clickable citations in user-facing text\n\nLocally, a plain `§<ID>` citation is the clickable, hoverable form — resolution belongs to the rendering layer (editor/terminal integrations — §DF-neural-link-generation) — so {local}. Only GitHub-rendered text (PR and issue bodies) needs composed links, `{composed}` with anchors copied from existing `grund fmt --cross-refs` wraps; when unsure fall back to the plain citation, and never rewrite repository files this way — full recipe, rationale, and test matrix in §DF-neural-link-generation.",
+    )
 }
 
 /// The verb-phrase clauses for one citing kind's rules, joined by "; " in the

@@ -21,6 +21,7 @@ The subcommands a user runs on the command line.
 The editor surface — an optional LSP server that any LSP-aware editor can talk to. No first-party per-editor plugins ship; configuration is the user's one-time work.
 
 - [§FS-lsp](FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server) — optional LSP server (`grund-lsp`)
+- [§FS-integrations](FS-integrations.md#fs-integrations-grund-prints-and-installs-its-rendering-layer-integrations) — print and install the clickable-citation terminal/editor integrations
 
 ## Packaging
 

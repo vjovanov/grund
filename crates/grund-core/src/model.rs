@@ -297,6 +297,13 @@ pub struct Config {
     /// Parsed `[citations]` direction rules (§FS-config.3.9). Empty/absent unless
     /// the config declares the section.
     pub citations: CitationRules,
+    /// `[render.links]` clickable-citation rendering keys (§FS-config.3.10). All
+    /// carry defaults, so the block renders the shipped convention even with no
+    /// `[render.links]` table.
+    pub render_links_web_base: String,
+    pub render_links_web_ref: String,
+    pub render_links_hover_title: bool,
+    pub render_links_local: String,
     /// Whether the scan computes citing-side classification — declaration body
     /// ranges and each citation's `source_kind` (§AR-scanner.2.4). Only the
     /// citation-direction checks read it, so `grund check` leaves it on while the
@@ -413,6 +420,10 @@ impl Config {
             workspace_include_root: true,
             workspace_boundary_roots: Vec::new(),
             citations: CitationRules::default(),
+            render_links_web_base: "auto".into(),
+            render_links_web_ref: "branch".into(),
+            render_links_hover_title: true,
+            render_links_local: "plain".into(),
             // On by default so `grund check` (and tests) classify; the read-only
             // commands turn it off (§AR-scanner.2.4, §AR-benchmarks).
             classify_citation_sources: true,

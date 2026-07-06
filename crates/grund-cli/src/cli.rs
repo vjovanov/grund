@@ -1387,6 +1387,12 @@ fn print_effective_config(config: &Config) {
     println!("[fmt.cross_refs]");
     println!("enabled = {}", config.fmt_cross_refs_enabled);
     println!("anchor_format = \"{}\"", config.cross_ref_anchor_format);
+    println!();
+    println!("[render.links]");
+    println!("web_base = \"{}\"", config.render_links_web_base);
+    println!("web_ref = \"{}\"", config.render_links_web_ref);
+    println!("hover_title = {}", config.render_links_hover_title);
+    println!("local = \"{}\"", config.render_links_local);
     if config.workspace_declared {
         println!();
         println!("[workspace]");
@@ -1827,6 +1833,7 @@ pub fn main_entry() -> ExitCode {
         Some("config") => command_config(&args[1..]),
         Some("agent-setup-instructions") => command_agent_setup_instructions(&args[1..]),
         Some("completions") => command_completions(&args[1..]),
+        Some("integrations") => run_integrations(&args[1..]),
         Some("complete") => command_complete(&args[1..]),
         // Any first argument that is not a known subcommand is an ID query
         // (§FS-cli.1). Check is explicit as `grund check [path]`.

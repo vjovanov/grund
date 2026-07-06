@@ -10,7 +10,7 @@ grund completions <bash|zsh|fish>
 
 Prints a completion script for the requested shell on stdout, empty stderr, exit `0`. Unsupported shells are CLI-level errors: `error: unsupported shell \`<shell>\`` plus `known shells: bash, zsh, fish` on stderr, empty stdout, exit `2`.
 
-The generated scripts complete top-level subcommands (`check`, `show`, `list`, `refs`, `cover`, `fmt`, `id`, `init`, `config`, `agent-setup-instructions`, `completions`) and complete declared IDs in the first ID position of:
+The generated scripts complete top-level subcommands (`check`, `show`, `list`, `refs`, `cover`, `fmt`, `id`, `init`, `config`, `agent-setup-instructions`, `completions`, `integrations`) and complete declared IDs in the first ID position of:
 
 - `grund <ID>` ([§FS-cli.1](FS-cli.md#1-the-default-subcommand))
 - explicit `show` form

@@ -10,6 +10,7 @@ const COMPAT_SUBCOMMANDS: &[&str] = &[
     "config",
     "agent-setup-instructions",
     "completions",
+    "integrations",
 ];
 
 fn compat_agent_setup_instructions(args: &[String]) -> ExitCode {
@@ -127,6 +128,7 @@ pub fn main_entry() -> ExitCode {
         Some("config") => command_config(&args[1..]),
         Some("agent-setup-instructions") => compat_agent_setup_instructions(&args[1..]),
         Some("completions") => command_completions(&args[1..]),
+        Some("integrations") => run_integrations(&args[1..]),
         Some("complete") => command_complete(&args[1..]),
         Some(_) => command_show_default(&args),
     }

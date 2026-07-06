@@ -2,8 +2,7 @@
 /// global flags (§FS-cli.2). `grund help <cmd>` defers to `print_subcommand_help`.
 fn print_help() {
     println!("grund — ground your agents in the spec.");
-    println!("Checks ID-based citations (§<ID>.<section>) across Markdown docs and source-code");
-    println!("doc-comments, so every reader — human or AI — points at the same facts.");
+    println!("Checks ID-based citations (§<ID>.<section>) across Markdown docs and source-code doc-comments, so every reader — human or AI — points at the same facts.");
     println!();
     println!("Usage:");
     println!(
@@ -45,6 +44,9 @@ fn print_help() {
     );
     println!(
         "  completions  Print shell completion scripts.                      e.g. grund completions bash"
+    );
+    println!(
+        "  integrations  Print/install clickable-citation integrations.      e.g. grund integrations wezterm"
     );
     println!();
     println!(
@@ -424,6 +426,25 @@ fn print_subcommand_help(cmd: &str) {
             println!("  grund completions fish > ~/.config/fish/completions/grund.fish");
             println!();
             println!("Exit:  0 script printed · 2 unsupported shell.");
+        }
+        "integrations" => {
+            println!(
+                "grund integrations — print or install the clickable-citation terminal/editor integrations."
+            );
+            println!();
+            println!("Usage:  grund integrations [<client>] [--write] [--format text|json]");
+            println!();
+            println!("With no client, detects the terminal/editor from the environment and prints");
+            println!("what applies. With a client — kitty, tmux, vscode, or wezterm — prints that");
+            println!("integration's snippet and the grund-open resolver; --write installs it as a");
+            println!("managed, idempotent block instead of printing. --format json emits a plan.");
+            println!();
+            println!("Preview and install examples:");
+            println!("  grund integrations                    # detect and list what applies");
+            println!("  grund integrations wezterm            # print the snippet + resolver");
+            println!("  grund integrations wezterm --write    # install it, idempotently");
+            println!();
+            println!("Exit:  0 printed or installed · 2 unknown client, --write with no client, or a newer block.");
         }
         "agent-setup-instructions" => {
             println!(

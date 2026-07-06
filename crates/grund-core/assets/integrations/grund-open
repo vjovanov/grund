@@ -1,0 +1,48 @@
+#!/bin/sh
+# grund-open — resolve a §<ID> citation to its declaration site and open it.
+#
+# Installed by `grund integrations <client> --write` (§FS-integrations). A
+# terminal integration hands this script the clicked token; the script resolves
+# it with `grund` and opens the declaration in the user's editor. The editor is
+# GRUND_OPEN_CMD when set, else EDITOR, else a platform default — the user's
+# editor choice lives here, never in shared repository text.
+#
+# Usage: grund-open <§ID | ID>[.<section>]
+set -eu
+
+token=${1:-}
+[ -n "$token" ] || { echo "grund-open: no citation given" >&2; exit 2; }
+
+# Strip a leading citation marker (default §) and any trailing .<section>; the
+# declaration line is what we open.
+id=${token#§}
+id=${id%%.*}
+[ -n "$id" ] || { echo "grund-open: empty id in '$token'" >&2; exit 2; }
+
+# Resolve ID -> path:line from the ID catalog. `grund list --format json` emits
+# one NDJSON object per declaration; pull the matching id's path and line.
+line=$(grund list --format json 2>/dev/null | grep "\"id\":\"$id\"" | head -n 1)
+[ -n "$line" ] || { echo "grund-open: unknown id '$id'" >&2; exit 1; }
+
+path=$(printf '%s\n' "$line" | sed -n 's/.*"path":"\([^"]*\)".*/\1/p')
+lineno=$(printf '%s\n' "$line" | sed -n 's/.*"line":\([0-9]*\).*/\1/p')
+[ -n "$path" ] || { echo "grund-open: could not resolve path for '$id'" >&2; exit 1; }
+lineno=${lineno:-1}
+
+if [ -n "${GRUND_OPEN_CMD:-}" ]; then
+    # GRUND_OPEN_CMD is a template: {path} and {line} are substituted, else the
+    # path:line is appended. e.g. GRUND_OPEN_CMD='code --goto {path}:{line}'
+    case "$GRUND_OPEN_CMD" in
+        *'{path}'*|*'{line}'*)
+            cmd=$(printf '%s\n' "$GRUND_OPEN_CMD" | sed -e "s|{path}|$path|g" -e "s|{line}|$lineno|g")
+            exec sh -c "$cmd" ;;
+        *) exec sh -c "$GRUND_OPEN_CMD \"$path:$lineno\"" ;;
+    esac
+elif [ -n "${EDITOR:-}" ]; then
+    exec "$EDITOR" "+$lineno" "$path"
+elif command -v code >/dev/null 2>&1; then
+    exec code --goto "$path:$lineno"
+else
+    echo "grund-open: set GRUND_OPEN_CMD or EDITOR to open $path:$lineno" >&2
+    exit 1
+fi

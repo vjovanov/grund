@@ -29,6 +29,7 @@ include!("refs.rs");
 include!("cover.rs");
 include!("list.rs");
 include!("completions.rs");
+include!("integrations.rs");
 include!("init_templates.rs");
 include!("init.rs");
 include!("api.rs");
