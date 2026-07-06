@@ -3304,20 +3304,20 @@ default = "must-not"
         // Block-final with trailing blank lines: still matches the rendered form.
         let block_final = format!("{section}\n\n");
         assert_eq!(
-            citation_directions_section_in_block(&block_final),
+            section_in_block(&block_final, "### Citation directions"),
             Some(section)
         );
         // Followed by another managed H2 section: the extractor stops at the
         // boundary and drops the intervening blank line, so no false drift.
         let with_following = format!("{section}\n\n## Next steps\n\nbody\n");
         assert_eq!(
-            citation_directions_section_in_block(&with_following),
+            section_in_block(&with_following, "### Citation directions"),
             Some(section)
         );
         // A changed bullet is genuine drift even with the same surroundings.
         let drifted = with_following.replace("must cite FS", "should cite GOAL");
         assert_ne!(
-            citation_directions_section_in_block(&drifted),
+            section_in_block(&drifted, "### Citation directions"),
             Some(section)
         );
     }
@@ -3422,6 +3422,19 @@ default = "must-not"
     fn integrations_block_rejects_newer_version() {
         let newer = "# >>> grund integrations (v99) >>>\nx\n# <<< grund integrations (v99) <<<\n";
         assert!(install_managed_block(newer, "SNIPPET").is_err());
+    }
+
+    // §FS-integrations.4.1: a begin marker with no matching end marker is a hard
+    // error, not an append — appending would let the next --write splice from the
+    // orphan begin to the appended end and delete the user config in between.
+    #[test]
+    fn integrations_block_rejects_orphan_begin_marker() {
+        let orphan = "# >>> grund integrations (v1) >>>\nkeep-me\nmore-user-config\n";
+        let result = install_managed_block(orphan, "SNIPPET");
+        assert!(result.is_err(), "orphan begin marker must not append");
+        // The user's content is never touched: the error path returns before any
+        // rewrite, so a caller that surfaces the error leaves the file intact.
+        assert!(result.unwrap_err().contains("no matching"));
     }
 
     // §FS-init.2.3.6: the clickable-citations section renders deterministically

@@ -1137,45 +1137,43 @@ fn check_agent_block_path(
                 sites: Vec::new(),
             });
         } else {
-            // §FS-check.3.5 / §FS-init.2.3.5: the citation-directions section is
-            // generated from `[citations]`, so the version marker alone cannot
-            // catch a config edit that left the block stale. Re-render the
-            // section and byte-compare — rendering is deterministic, so the
+            // §FS-check.3.5 / §FS-init.2.3.5–2.3.6: the citation-directions and
+            // clickable-citations sections are generated from config
+            // (`[citations]` / `[render.links]`), so the version marker alone
+            // cannot catch a config edit that left the block stale. Re-render
+            // each section and byte-compare — rendering is deterministic, so the
             // render *is* the hash.
-            let expected = citation_directions_section(config);
+            //
             // Strip `\r` so a CRLF checkout (the managed `AGENTS.md` is not
             // pinned to LF in `.gitattributes`, so Windows checks it out with
             // CRLF) compares equal to the LF-rendered section rather than
             // reading as drift.
             let block_text = text[block.start..block.end].replace('\r', "");
-            if citation_directions_section_in_block(&block_text) != Some(expected.trim_end()) {
-                report.errors.push(Diagnostic {
-                    code: "agents-init",
-                    path: Some(path.to_path_buf()),
-                    line: Some(line),
-                    column: None,
-                    message:
-                        "stale grund init block: citation directions differ from .agents/grund.toml (run `grund init` to refresh)"
-                            .to_string(),
-                    sites: Vec::new(),
-                });
-            }
-            // §FS-check.3.5 / §FS-init.2.3.6: the clickable-citations section is
-            // generated from `[render.links]`, so the same drift check applies.
-            let expected_links = clickable_citations_section(config);
-            if section_in_block(&block_text, "### Clickable citations in user-facing text")
-                != Some(expected_links.trim_end())
-            {
-                report.errors.push(Diagnostic {
-                    code: "agents-init",
-                    path: Some(path.to_path_buf()),
-                    line: Some(line),
-                    column: None,
-                    message:
-                        "stale grund init block: clickable citations differ from .agents/grund.toml (run `grund init` to refresh)"
-                            .to_string(),
-                    sites: Vec::new(),
-                });
+            let generated_sections = [
+                (
+                    "### Citation directions",
+                    citation_directions_section(config),
+                    "citation directions",
+                ),
+                (
+                    "### Clickable citations in user-facing text",
+                    clickable_citations_section(config),
+                    "clickable citations",
+                ),
+            ];
+            for (heading, expected, noun) in generated_sections {
+                if section_in_block(&block_text, heading) != Some(expected.trim_end()) {
+                    report.errors.push(Diagnostic {
+                        code: "agents-init",
+                        path: Some(path.to_path_buf()),
+                        line: Some(line),
+                        column: None,
+                        message: format!(
+                            "stale grund init block: {noun} differ from .agents/grund.toml (run `grund init` to refresh)"
+                        ),
+                        sites: Vec::new(),
+                    });
+                }
             }
         }
         return;
@@ -1191,10 +1189,6 @@ fn check_agent_block_path(
         message: format!("missing grund init block v{}", AGENTS_BLOCK_VERSION),
         sites: Vec::new(),
     });
-}
-
-fn citation_directions_section_in_block(block_text: &str) -> Option<&str> {
-    section_in_block(block_text, "### Citation directions")
 }
 
 /// The text of a `heading`-led section inside the managed block, from the heading
