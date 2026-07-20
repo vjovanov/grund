@@ -3567,7 +3567,7 @@ default = "must-not"
         let default = clickable_citations_section(&config);
         assert_eq!(
             default,
-            "### Clickable citations\n\nIn conversations, write plain `§<ID>` citations."
+            "### Clickable citations\n\nIn conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable."
         );
 
         config.render_links_conversation = "link".into();

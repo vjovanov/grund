@@ -52,4 +52,4 @@ Specs cite goals, architecture cites specs, code and executable tests cite the s
 
 ### Clickable citations
 
-In conversations, write plain `§<ID>` citations.
+In conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable.

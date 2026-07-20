@@ -359,7 +359,7 @@ fn citation_directions_section(config: &Config) -> String {
 /// newline, so `grund init` stays idempotent on re-run.
 fn clickable_citations_section(config: &Config) -> String {
     if config.render_links_conversation == "plain" {
-        return "### Clickable citations\n\nIn conversations, write plain `§<ID>` citations."
+        return "### Clickable citations\n\nIn conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable."
             .to_string();
     }
     "### Clickable citations\n\nIn conversations, link `§<ID>` to its declaration; fall back to plain when unsure."

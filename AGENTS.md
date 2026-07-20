@@ -60,7 +60,7 @@ Unlisted kinds and pairs are fine.
 
 ### Clickable citations
 
-In conversations, write plain `§<ID>` citations.
+In conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable.
 
 ## Repository workflow
 

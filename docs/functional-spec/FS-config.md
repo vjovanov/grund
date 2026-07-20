@@ -269,10 +269,10 @@ Adding `[citations]` does **not** bump `grund_config_version` (§5): it is addit
 
 ```toml
 [render.links]
-conversation = "plain"    # default; plain | link — how an agent writes citations in conversation
+conversation = "plain"    # default; plain with `grund integrations`, link otherwise
 ```
 
-The block carries one repository policy for conversation text, so the convention an agent follows is generated rather than hand-edited ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)): `plain` writes the bare citation and lets an installed integration ([§FS-integrations](FS-integrations.md#fs-integrations-grund-prints-and-installs-its-rendering-layer-integrations)) resolve it; `link` wraps the citation in a context-valid declaration link and falls back to plain when uncertain. Link targets, refs, titles, and the user's editor choice are deliberately not shared repository configuration; they come from the writing context or installed integration ([§DF-neural-link-generation](../decisions/functional/DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command)).
+The block carries one repository policy for conversation text, so the convention an agent follows is generated rather than hand-edited ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)): choose `plain` when conversation readers use an installed integration ([§FS-integrations](FS-integrations.md#fs-integrations-grund-prints-and-installs-its-rendering-layer-integrations)); choose `link` when they cannot rely on that rendering layer. `plain` writes the bare citation, while `link` wraps it in a context-valid declaration link and falls back to plain when uncertain. Link targets, refs, titles, and the user's editor choice are deliberately not shared repository configuration; they come from the writing context or installed integration ([§DF-neural-link-generation](../decisions/functional/DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command)).
 
 The table is optional; without it `conversation = "plain"`. The value is enum-validated on load, and any other key under `[render.links]` is an error like any other config typo (§4.3). Adding `[render.links]` does **not** bump `grund_config_version` (§5): it is additive surface like `[workspace]`, `[citations]`, and `[fmt.cross_refs]`. An older binary meeting it fails loudly with `unknown config section`.
 
