@@ -553,4 +553,4 @@ Optional, and only if the user wants a plain `§<ID>` citation to be clickable i
 - Detect what applies: `grund integrations --format json` names the terminal/editor found in the environment and, for each, the exact `--write` command.
 - Show the user the change before touching disk: `grund integrations <client>` prints the config snippet and the `grund-open` resolver (or, for `vscode`, the unpacked extension) so they can read it first.
 - Install only on confirmation: `grund integrations <client> --write` splices a managed, marked block into the client's config and drops the resolver — idempotent, so re-running is safe and upgrades are diffs. Never write without the user's go-ahead.
-- The user's editor choice lives in `GRUND_OPEN_CMD` (or `EDITOR`), not in shared repo config; the repo's `[render.links]` keys only fix how a citation renders as a web link and what an agent writes locally.
+- The user's editor choice lives in `GRUND_OPEN_CMD` (or `EDITOR`), not in shared repo config; `[render.links].conversation` only chooses plain or linked conversation citations.

@@ -58,9 +58,9 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 - **code** (any file outside a kind home) should cite FS or AR.
 Unlisted kinds and pairs are fine.
 
-### Clickable citations in user-facing text
+### Clickable citations
 
-Locally, a plain `§<ID>` citation is the clickable, hoverable form — resolution belongs to the rendering layer (editor/terminal integrations — §DF-neural-link-generation) — so write plain `§<ID>` citations in TUI messages and never spend a tool call or Markdown-link syntax on them — an installed integration (`grund integrations`) resolves them. Only GitHub-rendered text (PR and issue bodies) needs composed links, `[§<ID>](<web-base>/<branch>/<path>#<anchor> "<heading>")` with anchors copied from existing `grund fmt --cross-refs` wraps; when unsure fall back to the plain citation, and never rewrite repository files this way — full recipe, rationale, and test matrix in §DF-neural-link-generation.
+In conversations, write plain `§<ID>` citations.
 
 ## Repository workflow
 

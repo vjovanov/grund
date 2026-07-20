@@ -3434,28 +3434,152 @@ default = "must-not"
         assert!(result.is_err(), "orphan begin marker must not append");
         // The user's content is never touched: the error path returns before any
         // rewrite, so a caller that surfaces the error leaves the file intact.
-        assert!(result.unwrap_err().contains("no matching"));
+        assert!(result.unwrap_err().contains("incomplete"));
+    }
+
+    // §FS-integrations.4.1: an older supported block is upgraded in place rather
+    // than left active beside a newly appended current block.
+    #[test]
+    fn integrations_block_upgrades_older_version_in_place() {
+        let old = "before\n# >>> grund integrations (v0) >>>\nOLD\n# <<< grund integrations (v0) <<<\nafter\n";
+        let (updated, outcome) = install_managed_block(old, "NEW").expect("upgrade old block");
+
+        assert_eq!(outcome, BlockOutcome::Updated);
+        assert_eq!(updated.matches("# >>> grund integrations").count(), 1);
+        assert!(updated.contains("# >>> grund integrations (v1) >>>\nNEW\n"));
+        assert!(updated.starts_with("before\n"));
+        assert!(updated.ends_with("after\n"));
+    }
+
+    // §FS-integrations.4.1: indentation accepted by marker recognition is part
+    // of the marker line and must be consumed during replacement.
+    #[test]
+    fn integrations_block_consumes_complete_indented_marker_lines() {
+        let indented = "before\n  # >>> grund integrations (v1) >>>  \nOLD\n  # <<< grund integrations (v1) <<<  \nafter\n";
+        let (updated, _) = install_managed_block(indented, "NEW").expect("replace block");
+
+        assert!(!updated.contains("  >>>"));
+        assert!(!updated.contains("  <<<"));
+        assert_eq!(updated, "before\n# >>> grund integrations (v1) >>>\nNEW\n# <<< grund integrations (v1) <<<\nafter\n");
+    }
+
+    #[test]
+    fn integrations_block_rejects_multiple_blocks() {
+        let block = "# >>> grund integrations (v1) >>>\nx\n# <<< grund integrations (v1) <<<\n";
+        assert!(install_managed_block(&format!("{block}{block}"), "NEW").is_err());
+    }
+
+    // §FS-integrations.4.2: a matching marker alone does not hide a missing or
+    // damaged extension file from the repair path.
+    #[test]
+    fn vscode_installation_state_checks_owned_files() {
+        let root = test_root("vscode_installation_state_checks_owned_files");
+        write(&root.join(".grund-version"), &INTEGRATIONS_BLOCK_VERSION.to_string());
+        write(&root.join("package.json"), VSCODE_PACKAGE_JSON);
+        write(&root.join("extension.js"), VSCODE_EXTENSION_JS);
+        assert!(vscode_integration_is_current(&root));
+
+        std::fs::remove_file(root.join("extension.js")).expect("remove provider");
+        assert!(!vscode_integration_is_current(&root));
+    }
+
+    // §FS-integrations.5: the machine detection plan distinguishes ambient
+    // detection from actual installation state.
+    #[test]
+    fn integrations_detection_json_reports_installed_state() {
+        let json = detection_plan_json(&[IntegrationClient::Wezterm]);
+        assert!(json.contains("\"client\":\"wezterm\",\"detected\":true,\"installed\":"));
+        assert!(json.contains("\"client\":\"kitty\",\"detected\":false,\"installed\":"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolver_does_not_evaluate_repository_paths_as_shell_source() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = test_root("resolver_does_not_evaluate_repository_paths_as_shell_source");
+        let bin = root.join("bin");
+        std::fs::create_dir_all(&bin).expect("create mock bin");
+        let pwned = root.join("pwned");
+        let capture = root.join("opened-argument");
+        let mock_grund = bin.join("grund");
+        let opener = bin.join("opener");
+        let resolver = root.join("grund-open");
+        write(
+            &mock_grund,
+            &format!(
+                "#!/bin/sh\nprintf '%s\\n' '{{\"id\":\"FS-safe\",\"path\":\"docs/$(touch {})evil.md\",\"line\":7}}'\n",
+                pwned.display()
+            ),
+        );
+        write(&opener, "#!/bin/sh\nprintf '%s\\n' \"$1\" > \"$CAPTURE\"\n");
+        write(&resolver, GRUND_OPEN_RESOLVER);
+        for path in [&mock_grund, &opener, &resolver] {
+            let mut permissions = std::fs::metadata(path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(path, permissions).unwrap();
+        }
+        let path = format!(
+            "{}:{}",
+            bin.display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
+        let output = std::process::Command::new(&resolver)
+            .arg(format!("{}FS-safe", '\u{a7}'))
+            .current_dir(&root)
+            .env("PATH", &path)
+            .env("GRUND_OPEN_CMD", &opener)
+            .env("CAPTURE", &capture)
+            .env_remove("EDITOR")
+            .output()
+            .expect("run resolver");
+
+        assert!(output.status.success(), "resolver failed: {}", String::from_utf8_lossy(&output.stderr));
+        assert!(!pwned.exists(), "repository path was evaluated as shell source");
+        assert!(std::fs::read_to_string(capture).unwrap().contains("$(touch"));
+
+        let empty_command = std::process::Command::new(&resolver)
+            .arg(format!("{}FS-safe", '\u{a7}'))
+            .current_dir(&root)
+            .env("PATH", &path)
+            .env("GRUND_OPEN_CMD", "   ")
+            .env_remove("EDITOR")
+            .output()
+            .expect("run resolver with empty command");
+        assert_eq!(empty_command.status.code(), Some(2));
+        assert!(
+            String::from_utf8_lossy(&empty_command.stderr).contains("contains no command")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn set_executable_surfaces_io_errors() {
+        let missing = test_root("set_executable_surfaces_io_errors").join("missing");
+        assert!(set_executable(&missing).is_err());
     }
 
     // §FS-init.2.3.6: the clickable-citations section renders deterministically
-    // from `[render.links]` and reflects the `local` and `web_ref` keys.
+    // from the plain/link conversation policy and link-shaping keys.
     #[test]
     fn clickable_citations_section_reflects_render_links() {
         let mut config = Config::default_for(PathBuf::from("."));
         let default = clickable_citations_section(&config);
-        assert!(default.starts_with("### Clickable citations in user-facing text\n"));
-        assert!(default.contains("`grund integrations`"), "plain default points at the integration");
-        assert!(default.contains("<web-base>/<branch>/<path>#<anchor>"));
-        assert!(default.contains(" \"<heading>\""), "hover_title=true keeps the title");
+        assert_eq!(
+            default,
+            "### Clickable citations\n\nIn conversations, write plain `§<ID>` citations."
+        );
 
-        config.render_links_local = "path-text".into();
-        config.render_links_web_ref = "main".into();
+        config.render_links_conversation = "link".into();
         config.render_links_hover_title = false;
         config.render_links_web_base = "https://example.test/blob".into();
         let custom = clickable_citations_section(&config);
-        assert!(custom.contains("followed by its `path:line`"));
-        assert!(custom.contains("https://example.test/blob/main/<path>#<anchor>)"));
-        assert!(!custom.contains("\"<heading>\""), "hover_title=false drops the title");
+        assert!(custom.contains("https://example.test/blob/<ref>/<path>#<anchor>)"));
+        assert!(custom.contains("choose the target from context"));
+        assert!(!custom.contains("\"<heading>\""));
+
+        config.render_links_hover_title = true;
+        assert!(clickable_citations_section(&config).contains(" \"<heading>\""));
     }
 
     // §FS-config.3.10: `[render.links]` parses valid keys and rejects bad values.
@@ -3464,17 +3588,48 @@ default = "must-not"
         let root = test_root("render_links_config_parses_and_validates");
         write(
             &root.join(".agents/grund.toml"),
-            "grund_config_version = 1\n[render.links]\nlocal = \"editor-url\"\nweb_ref = \"commit\"\nhover_title = false\n",
+            "grund_config_version = 1\n[render.links]\nconversation = \"link\"\nhover_title = false\n",
         );
         let config = load_config(&root).expect("valid render.links config loads");
-        assert_eq!(config.render_links_local, "editor-url");
-        assert_eq!(config.render_links_web_ref, "commit");
+        assert_eq!(config.render_links_conversation, "link");
         assert!(!config.render_links_hover_title);
 
         write(
             &root.join(".agents/grund.toml"),
-            "grund_config_version = 1\n[render.links]\nlocal = \"nope\"\n",
+            "grund_config_version = 1\n[render.links]\nconversation = \"nope\"\n",
         );
-        assert!(load_config(&root).is_err(), "an invalid local value is rejected");
+        assert!(
+            load_config(&root).is_err(),
+            "an invalid conversation value is rejected"
+        );
+
+        for removed_key in ["local = \"plain\"", "web_ref = \"branch\""] {
+            write(
+                &root.join(".agents/grund.toml"),
+                &format!("grund_config_version = 1\n[render.links]\n{removed_key}\n"),
+            );
+            assert!(
+                load_config(&root).is_err(),
+                "removed rendering policy unexpectedly accepted: {removed_key}"
+            );
+        }
+
+        for web_base in [
+            "http://example.test/blob",
+            "javascript:alert(1)",
+            "https://example.test/bad path",
+            "https://example.test/blob#fragment",
+        ] {
+            write(
+                &root.join(".agents/grund.toml"),
+                &format!(
+                    "grund_config_version = 1\n[render.links]\nweb_base = \"{web_base}\"\n"
+                ),
+            );
+            assert!(
+                load_config(&root).is_err(),
+                "unsafe web_base unexpectedly accepted: {web_base}"
+            );
+        }
     }
 }
