@@ -3571,15 +3571,11 @@ default = "must-not"
         );
 
         config.render_links_conversation = "link".into();
-        config.render_links_hover_title = false;
-        config.render_links_web_base = "https://example.test/blob".into();
         let custom = clickable_citations_section(&config);
-        assert!(custom.contains("https://example.test/blob/<ref>/<path>#<anchor>)"));
-        assert!(custom.contains("choose the target from context"));
-        assert!(!custom.contains("\"<heading>\""));
-
-        config.render_links_hover_title = true;
-        assert!(clickable_citations_section(&config).contains(" \"<heading>\""));
+        assert_eq!(
+            custom,
+            "### Clickable citations\n\nIn conversations, link `§<ID>` to its declaration; fall back to plain when unsure."
+        );
     }
 
     // §FS-config.3.10: `[render.links]` parses valid keys and rejects bad values.
@@ -3588,11 +3584,10 @@ default = "must-not"
         let root = test_root("render_links_config_parses_and_validates");
         write(
             &root.join(".agents/grund.toml"),
-            "grund_config_version = 1\n[render.links]\nconversation = \"link\"\nhover_title = false\n",
+            "grund_config_version = 1\n[render.links]\nconversation = \"link\"\n",
         );
         let config = load_config(&root).expect("valid render.links config loads");
         assert_eq!(config.render_links_conversation, "link");
-        assert!(!config.render_links_hover_title);
 
         write(
             &root.join(".agents/grund.toml"),
@@ -3603,7 +3598,12 @@ default = "must-not"
             "an invalid conversation value is rejected"
         );
 
-        for removed_key in ["local = \"plain\"", "web_ref = \"branch\""] {
+        for removed_key in [
+            "local = \"plain\"",
+            "web_ref = \"branch\"",
+            "web_base = \"auto\"",
+            "hover_title = true",
+        ] {
             write(
                 &root.join(".agents/grund.toml"),
                 &format!("grund_config_version = 1\n[render.links]\n{removed_key}\n"),
@@ -3614,22 +3614,5 @@ default = "must-not"
             );
         }
 
-        for web_base in [
-            "http://example.test/blob",
-            "javascript:alert(1)",
-            "https://example.test/bad path",
-            "https://example.test/blob#fragment",
-        ] {
-            write(
-                &root.join(".agents/grund.toml"),
-                &format!(
-                    "grund_config_version = 1\n[render.links]\nweb_base = \"{web_base}\"\n"
-                ),
-            );
-            assert!(
-                load_config(&root).is_err(),
-                "unsafe web_base unexpectedly accepted: {web_base}"
-            );
-        }
     }
 }

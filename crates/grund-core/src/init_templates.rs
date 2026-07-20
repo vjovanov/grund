@@ -362,20 +362,8 @@ fn clickable_citations_section(config: &Config) -> String {
         return "### Clickable citations\n\nIn conversations, write plain `§<ID>` citations."
             .to_string();
     }
-    let base = if config.render_links_web_base == "auto" {
-        "<web-base>".to_string()
-    } else {
-        config.render_links_web_base.trim_end_matches('/').to_string()
-    };
-    let title = if config.render_links_hover_title {
-        " \"<heading>\""
-    } else {
-        ""
-    };
-    let composed = format!("[§<ID>]({base}/<ref>/<path>#<anchor>{title})");
-    format!(
-        "### Clickable citations\n\nIn conversations, use `{composed}`; choose the target from context and fall back to plain when unsure.",
-    )
+    "### Clickable citations\n\nIn conversations, link `§<ID>` to its declaration; fall back to plain when unsure."
+        .to_string()
 }
 
 /// The verb-phrase clauses for one citing kind's rules, joined by "; " in the

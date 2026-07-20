@@ -78,8 +78,6 @@ anchor_format = "github"
 
 [render.links]
 conversation = "plain"
-web_base = "auto"
-hover_title = true
 
 [workspace]
 members = ["apps/api"]
