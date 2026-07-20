@@ -36,7 +36,9 @@ function activate(context) {
           if (!raw) continue;
           let decl;
           try { decl = JSON.parse(raw); } catch { continue; }
-          if (decl.id !== id) continue;
+          // In a workspace `grund list` qualifies the id as `<alias>/<ID>`; accept
+          // the bare id or any `/`-suffixed qualification of it (§FS-integrations.3.1).
+          if (decl.id !== id && !decl.id.endsWith('/' + id)) continue;
           const abs = cwd ? vscode.Uri.joinPath(vscode.Uri.file(cwd), decl.path) : vscode.Uri.file(decl.path);
           const pos = new vscode.Position(Math.max(0, (decl.line || 1) - 1), 0);
           vscode.window.showTextDocument(abs, { selection: new vscode.Range(pos, pos) });
