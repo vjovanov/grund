@@ -6,13 +6,13 @@ With no client, detects the terminal/editor from the environment and prints
 what applies. With a client — kitty, tmux, vscode, or wezterm — prints that
 integration's snippet and the grund-open resolver; --write installs it as a
 managed, idempotent block instead of printing. A write also records the local
-conversation preference and updates global agent instructions; override the
-plain default with --conversation link. --format json emits a plan.
+conversation preference and updates global agent instructions. With no client,
+--write --conversation changes only that preference. --format json emits a plan.
 
 Preview and install examples:
   grund integrations                    # detect and list what applies
   grund integrations wezterm            # print the snippet + resolver
   grund integrations wezterm --write    # install it, idempotently
-  grund integrations wezterm --write --conversation link
+  grund integrations --write --conversation link  # preference only
 
-Exit:  0 printed or installed · 2 invalid options, missing client, or a newer block.
+Exit:  0 printed or installed · 2 invalid options, missing write target, or a newer block.
