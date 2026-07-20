@@ -345,7 +345,7 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!();
             println!(
-                "Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] [--dry-run] [--agents-md] [--claude] [--gemini] [--copilot] [--cursor] [--windsurf] [--zed]"
+                "Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] [--dry-run] [--agents-md] [--claude] [--gemini] [--pi] [--copilot] [--cursor] [--windsurf] [--zed]"
             );
             println!();
             println!("Options:");
@@ -369,6 +369,7 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!("  --claude       create/update CLAUDE.md and .claude/CLAUDE.md");
             println!("  --gemini       create/update GEMINI.md");
+            println!("  --pi           create/update .pi/AGENTS.md");
             println!("  --copilot      create/update .github/copilot-instructions.md");
             println!(
                 "  --cursor       create/update .cursor/rules/grund.mdc (legacy .cursorrules is updated only if present)"

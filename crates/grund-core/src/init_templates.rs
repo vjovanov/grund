@@ -46,6 +46,13 @@ const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
         create_on_request: true,
     },
     CompanionAgentEntrypoint {
+        rel: ".pi/AGENTS.md",
+        workspace: Some(".pi"),
+        agent: Some(AgentEntrypoint::Pi),
+        discovery: true,
+        create_on_request: true,
+    },
+    CompanionAgentEntrypoint {
         rel: ".github/copilot-instructions.md",
         workspace: None,
         agent: Some(AgentEntrypoint::Copilot),
@@ -95,6 +102,7 @@ const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
 enum AgentEntrypoint {
     Claude,
     Gemini,
+    Pi,
     Copilot,
     Cursor,
     Windsurf,
@@ -106,6 +114,7 @@ pub struct InitAgentEntrypointSelection {
     pub canonical: bool,
     pub claude: bool,
     pub gemini: bool,
+    pub pi: bool,
     pub copilot: bool,
     pub cursor: bool,
     pub windsurf: bool,
@@ -117,6 +126,7 @@ impl InitAgentEntrypointSelection {
         self.canonical
             || self.claude
             || self.gemini
+            || self.pi
             || self.copilot
             || self.cursor
             || self.windsurf
@@ -127,6 +137,7 @@ impl InitAgentEntrypointSelection {
         match agent {
             AgentEntrypoint::Claude => self.claude,
             AgentEntrypoint::Gemini => self.gemini,
+            AgentEntrypoint::Pi => self.pi,
             AgentEntrypoint::Copilot => self.copilot,
             AgentEntrypoint::Cursor => self.cursor,
             AgentEntrypoint::Windsurf => self.windsurf,

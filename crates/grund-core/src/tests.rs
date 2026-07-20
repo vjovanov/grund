@@ -2350,6 +2350,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         write(&root.join("CLAUDE.md"), "# Claude notes\n");
         write(&root.join(".claude/CLAUDE.md"), "# Claude project notes\n");
         write(&root.join("GEMINI.md"), "# Gemini notes\n");
+        write(&root.join(".pi/AGENTS.md"), "# Pi notes\n");
         write(
             &root.join(".github/copilot-instructions.md"),
             "# Copilot notes\n",
@@ -2373,6 +2374,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
                 "CLAUDE.md",
                 ".claude/CLAUDE.md",
                 "GEMINI.md",
+                ".pi/AGENTS.md",
                 ".github/copilot-instructions.md"
             ]
         );
@@ -2383,6 +2385,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         let root = test_root("init_discovers_missing_aliases_for_existing_agent_workspaces");
         fs::create_dir_all(root.join(".claude")).expect("create .claude");
         fs::create_dir_all(root.join(".gemini")).expect("create .gemini");
+        fs::create_dir_all(root.join(".pi")).expect("create pi");
         fs::create_dir_all(root.join(".github/workflows")).expect("create github metadata");
 
         let companions = workspace_init_companion_agent_entrypoints(&root);
@@ -2403,7 +2406,8 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
             vec![
                 "CLAUDE.md",
                 ".claude/CLAUDE.md",
-                "GEMINI.md"
+                "GEMINI.md",
+                ".pi/AGENTS.md"
             ]
         );
     }

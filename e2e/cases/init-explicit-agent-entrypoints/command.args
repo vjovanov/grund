@@ -1,1 +1,1 @@
-init --claude --gemini --copilot {repo_copy}
+init --claude --gemini --pi --copilot {repo_copy}

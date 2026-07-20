@@ -789,6 +789,7 @@ fn command_init(args: &[String]) -> ExitCode {
             "--agents-md" => agent_selection.canonical = true,
             "--claude" => agent_selection.claude = true,
             "--gemini" => agent_selection.gemini = true,
+            "--pi" => agent_selection.pi = true,
             "--copilot" => agent_selection.copilot = true,
             "--cursor" => agent_selection.cursor = true,
             "--windsurf" => agent_selection.windsurf = true,
