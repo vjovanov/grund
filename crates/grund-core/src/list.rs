@@ -319,6 +319,10 @@ fn command_list(args: &[String]) -> ExitCode {
             }
         }
     } else if format == "json" {
+        // One compact object per line, no interior spaces. The shipped
+        // `grund-open` resolver and the VS Code extension parse this by
+        // substring/regex (`"id":"…"`, `"path":"…"`, `"line":N`), so keep the
+        // field shape stable (§FS-integrations.3).
         for entry in &entries {
             let project_field = if context.workspace_loaded {
                 format!("\"project\":\"{}\",", json_escape(entry.project_alias))

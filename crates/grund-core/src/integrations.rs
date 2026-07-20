@@ -16,6 +16,15 @@ const VSCODE_EXTENSION_JS: &str = include_str!("../assets/integrations/vscode/ex
 /// Bumped when an embedded snippet changes in a way a re-run should propagate.
 const INTEGRATIONS_BLOCK_VERSION: u32 = 1;
 
+/// Version for the user-level agent-instruction block (§FS-integrations.4.3).
+const AGENT_GUIDANCE_BLOCK_VERSION: u32 = 1;
+
+const GLOBAL_AGENT_INSTRUCTION_TARGETS: [&str; 3] = [
+    "~/.codex/AGENTS.md",
+    "~/.claude/CLAUDE.md",
+    "~/.gemini/GEMINI.md",
+];
+
 /// Where `--write` installs the `grund-open` resolver for terminal clients; a
 /// single source so the descriptor plan and the writer cannot drift.
 const RESOLVER_TARGET: &str = "~/.local/bin/grund-open";
@@ -29,6 +38,36 @@ enum IntegrationClient {
     Tmux,
     Vscode,
     Wezterm,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ConversationRendering {
+    Plain,
+    Link,
+}
+
+impl ConversationRendering {
+    fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "plain" => Some(Self::Plain),
+            "link" => Some(Self::Link),
+            _ => None,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Plain => "plain",
+            Self::Link => "link",
+        }
+    }
+
+    fn instruction(self) -> &'static str {
+        match self {
+            Self::Plain => "In local conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable.",
+            Self::Link => "In local conversations, link `§<ID>` to its declaration; fall back to plain when unsure.",
+        }
+    }
 }
 
 impl IntegrationClient {
@@ -139,6 +178,7 @@ struct IntegrationsInvocation {
     client: Option<IntegrationClient>,
     write: bool,
     json: bool,
+    conversation: Option<ConversationRendering>,
 }
 
 /// Parse args, or return an error `ExitCode` after printing a CLI-level message.
@@ -146,10 +186,22 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
     let mut client = None;
     let mut write = false;
     let mut format: Option<String> = None;
+    let mut conversation: Option<String> = None;
     let mut idx = 0;
     while idx < args.len() {
         match args[idx].as_str() {
             "--write" => write = true,
+            "--conversation" => {
+                idx += 1;
+                if idx >= args.len() {
+                    eprintln!("error: --conversation requires a value");
+                    return Err(ExitCode::from(2));
+                }
+                conversation = Some(args[idx].clone());
+            }
+            other if other.starts_with("--conversation=") => {
+                conversation = Some(other.trim_start_matches("--conversation=").to_string());
+            }
             "--format" => {
                 idx += 1;
                 if idx >= args.len() {
@@ -190,6 +242,20 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
             return Err(ExitCode::from(2));
         }
     };
+    let conversation = match conversation.as_deref() {
+        None => None,
+        Some(value) => match ConversationRendering::from_name(value) {
+            Some(value) => Some(value),
+            None => {
+                eprintln!("error: --conversation must be one of plain | link");
+                return Err(ExitCode::from(2));
+            }
+        },
+    };
+    if conversation.is_some() && !write {
+        eprintln!("error: --conversation requires --write");
+        return Err(ExitCode::from(2));
+    }
     if write && client.is_none() {
         eprintln!("error: integrations --write requires a client");
         eprintln!("{}", known_clients_line());
@@ -206,6 +272,7 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
         client,
         write,
         json,
+        conversation,
     })
 }
 
@@ -218,7 +285,7 @@ pub fn run_integrations(args: &[String]) -> ExitCode {
     };
     match invocation.client {
         None => print_detection(invocation.json),
-        Some(client) if invocation.write => write_integration(client),
+        Some(client) if invocation.write => write_integration(client, invocation.conversation),
         Some(client) if invocation.json => {
             print!("{}", client_descriptor_json(client));
             ExitCode::SUCCESS
@@ -486,11 +553,22 @@ fn vscode_integration_is_current(dir: &Path) -> bool {
 
 /// Apply an integration to disk under `--write` (§FS-integrations.4). Reports on
 /// stderr; exit `0` on success, `2` on a newer-block or IO error.
-fn write_integration(client: IntegrationClient) -> ExitCode {
-    match client.snippet() {
+fn write_integration(
+    client: IntegrationClient,
+    conversation: Option<ConversationRendering>,
+) -> ExitCode {
+    let integration_status = match client.snippet() {
         Some(snippet) => write_terminal_integration(client, snippet),
         None => write_vscode_integration(),
+    };
+    if integration_status != ExitCode::SUCCESS {
+        return integration_status;
     }
+    if let Err((path, message)) = write_user_citation_guidance(conversation) {
+        eprintln!("error: {}: {message}", path.display());
+        return ExitCode::from(2);
+    }
+    ExitCode::SUCCESS
 }
 
 fn write_terminal_integration(client: IntegrationClient, snippet: &str) -> ExitCode {
@@ -636,6 +714,272 @@ fn write_vscode_integration() -> ExitCode {
     let verb = if current.is_some() { "updated" } else { "wrote" };
     eprintln!("{verb} {}", dir.display());
     ExitCode::SUCCESS
+}
+
+/// Persist the machine-local conversation preference and synchronize it into
+/// global agent instructions (§FS-integrations.4.3). All files are planned
+/// before the first write so malformed managed blocks fail without touching any
+/// of these user-guidance targets.
+fn write_user_citation_guidance(
+    requested: Option<ConversationRendering>,
+) -> Result<(), (PathBuf, String)> {
+    let config_path = user_grund_config_path().ok_or_else(|| {
+        (
+            PathBuf::from("~/.config/grund/config.toml"),
+            "cannot resolve user configuration directory".to_string(),
+        )
+    })?;
+    let config_existing = read_optional_text(&config_path)?;
+    let stored = conversation_preference(&config_existing)
+        .map_err(|message| (config_path.clone(), message))?;
+    let effective = requested.or(stored).unwrap_or(ConversationRendering::Plain);
+    let (config_updated, config_outcome) = install_conversation_preference(
+        &config_existing,
+        effective,
+    )
+    .map_err(|message| (config_path.clone(), message))?;
+
+    let mut plans = vec![(config_path, config_updated, config_outcome)];
+    for target in GLOBAL_AGENT_INSTRUCTION_TARGETS {
+        let path = expand_target(target).ok_or_else(|| {
+            (PathBuf::from(target), "cannot resolve home directory".to_string())
+        })?;
+        let existing = read_optional_text(&path)?;
+        let (updated, outcome) = install_agent_guidance_block(&existing, effective)
+            .map_err(|message| (path.clone(), message))?;
+        plans.push((path, updated, outcome));
+    }
+
+    for (path, updated, outcome) in plans {
+        if outcome != BlockOutcome::Unchanged {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|err| (parent.to_path_buf(), err.to_string()))?;
+            }
+            fs::write(&path, updated).map_err(|err| (path.clone(), err.to_string()))?;
+        }
+        eprintln!("{} {}", block_outcome_verb(outcome), path.display());
+    }
+    Ok(())
+}
+
+fn read_optional_text(path: &Path) -> Result<String, (PathBuf, String)> {
+    match fs::read_to_string(path) {
+        Ok(text) => Ok(text),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(err) => Err((path.to_path_buf(), err.to_string())),
+    }
+}
+
+fn user_grund_config_path() -> Option<PathBuf> {
+    if let Some(base) = std::env::var_os("XDG_CONFIG_HOME").filter(|value| !value.is_empty()) {
+        return Some(PathBuf::from(base).join("grund/config.toml"));
+    }
+    let home = std::env::var_os("HOME")?;
+    Some(PathBuf::from(home).join(".config/grund/config.toml"))
+}
+
+/// Read the single user-level preference while ignoring unrelated user config.
+/// A duplicate section/key or malformed value is rejected rather than guessed.
+fn conversation_preference(text: &str) -> Result<Option<ConversationRendering>, String> {
+    let mut in_render_links = false;
+    let mut section_seen = false;
+    let mut preference = None;
+    for (idx, raw_line) in text.lines().enumerate() {
+        let line = strip_comment(raw_line).trim();
+        if line.starts_with('[') && line.ends_with(']') {
+            in_render_links = line == "[render.links]";
+            if in_render_links {
+                if section_seen {
+                    return Err("duplicate [render.links] section in user config".to_string());
+                }
+                section_seen = true;
+            }
+            continue;
+        }
+        if !in_render_links || line.is_empty() {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        if key.trim() != "conversation" {
+            continue;
+        }
+        if preference.is_some() {
+            return Err("duplicate render.links.conversation in user config".to_string());
+        }
+        let value = value.trim();
+        let value = value
+            .strip_prefix('"')
+            .and_then(|value| value.strip_suffix('"'))
+            .ok_or_else(|| {
+                format!(
+                    "line {}: render.links.conversation must be a quoted plain | link value",
+                    idx + 1
+                )
+            })?;
+        preference = Some(ConversationRendering::from_name(value).ok_or_else(|| {
+            format!(
+                "line {}: render.links.conversation must be one of plain | link",
+                idx + 1
+            )
+        })?);
+    }
+    Ok(preference)
+}
+
+/// Install or replace the preference line while preserving unrelated bytes.
+fn install_conversation_preference(
+    existing: &str,
+    preference: ConversationRendering,
+) -> Result<(String, BlockOutcome), String> {
+    // Validate duplicates and existing syntax before attempting a surgical edit.
+    let _ = conversation_preference(existing)?;
+    let replacement = format!("conversation = \"{}\"\n", preference.name());
+    let mut offset = 0;
+    let mut in_render_links = false;
+    let mut section_stop = None;
+    for raw_line in existing.split_inclusive('\n') {
+        let stop = offset + raw_line.len();
+        let line = strip_comment(raw_line.trim_end_matches(['\n', '\r'])).trim();
+        if line.starts_with('[') && line.ends_with(']') {
+            in_render_links = line == "[render.links]";
+            if in_render_links {
+                section_stop = Some(stop);
+            }
+        } else if in_render_links
+            && line
+                .split_once('=')
+                .is_some_and(|(key, _)| key.trim() == "conversation")
+        {
+            let mut updated = String::with_capacity(existing.len() + replacement.len());
+            updated.push_str(&existing[..offset]);
+            updated.push_str(&replacement);
+            updated.push_str(&existing[stop..]);
+            let outcome = if updated == existing {
+                BlockOutcome::Unchanged
+            } else {
+                BlockOutcome::Updated
+            };
+            return Ok((updated, outcome));
+        }
+        offset = stop;
+    }
+
+    if let Some(insert_at) = section_stop {
+        let mut updated = String::with_capacity(existing.len() + replacement.len());
+        updated.push_str(&existing[..insert_at]);
+        if !existing[..insert_at].ends_with('\n') {
+            updated.push('\n');
+        }
+        updated.push_str(&replacement);
+        updated.push_str(&existing[insert_at..]);
+        return Ok((updated, BlockOutcome::Updated));
+    }
+
+    let mut updated = String::with_capacity(existing.len() + replacement.len() + 18);
+    updated.push_str(existing);
+    if !existing.is_empty() && !existing.ends_with('\n') {
+        updated.push('\n');
+    }
+    if !existing.is_empty() {
+        updated.push('\n');
+    }
+    updated.push_str("[render.links]\n");
+    updated.push_str(&replacement);
+    Ok((updated, BlockOutcome::Appended))
+}
+
+fn agent_guidance_markers(version: u32) -> (String, String) {
+    (
+        format!("<!-- >>> grund integrations citation rendering (v{version}) >>> -->"),
+        format!("<!-- <<< grund integrations citation rendering (v{version}) <<< -->"),
+    )
+}
+
+fn install_agent_guidance_block(
+    existing: &str,
+    preference: ConversationRendering,
+) -> Result<(String, BlockOutcome), String> {
+    let (begin, end) = agent_guidance_markers(AGENT_GUIDANCE_BLOCK_VERSION);
+    let block = format!(
+        "{begin}\n## Grund citation rendering\n\n{}\n{end}\n",
+        preference.instruction()
+    );
+    if let Some(span) = find_agent_guidance_block(existing)? {
+        let mut updated = String::with_capacity(existing.len() + block.len());
+        updated.push_str(&existing[..span.start]);
+        updated.push_str(&block);
+        updated.push_str(&existing[span.stop..]);
+        let outcome = if updated == existing {
+            BlockOutcome::Unchanged
+        } else {
+            BlockOutcome::Updated
+        };
+        Ok((updated, outcome))
+    } else {
+        let mut appended = String::with_capacity(existing.len() + block.len() + 2);
+        appended.push_str(existing);
+        if !existing.is_empty() && !existing.ends_with('\n') {
+            appended.push('\n');
+        }
+        if !existing.is_empty() {
+            appended.push('\n');
+        }
+        appended.push_str(&block);
+        Ok((appended, BlockOutcome::Appended))
+    }
+}
+
+fn find_agent_guidance_block(text: &str) -> Result<Option<ManagedBlockSpan>, String> {
+    let mut offset = 0;
+    let mut begins = Vec::new();
+    let mut ends = Vec::new();
+    for line in text.split_inclusive('\n') {
+        let trimmed = line.trim_end_matches(['\n', '\r']).trim();
+        let stop = offset + line.len();
+        if let Some(version) = agent_guidance_marker_version(trimmed, true) {
+            begins.push((version, offset, stop));
+        }
+        if let Some(version) = agent_guidance_marker_version(trimmed, false) {
+            ends.push((version, offset, stop));
+        }
+        offset = stop;
+    }
+    if begins.is_empty() && ends.is_empty() {
+        return Ok(None);
+    }
+    if begins.len() != 1 || ends.len() != 1 {
+        return Err("found incomplete or multiple grund citation-rendering blocks; repair or remove the managed markers, then re-run".to_string());
+    }
+    let (version, start, _) = begins[0];
+    let (end_version, end_start, stop) = ends[0];
+    if version > AGENT_GUIDANCE_BLOCK_VERSION {
+        return Err(format!(
+            "instructions contain newer grund citation-rendering block v{version}; this binary supports v{AGENT_GUIDANCE_BLOCK_VERSION}"
+        ));
+    }
+    if version != end_version || end_start < start {
+        return Err("found mismatched grund citation-rendering block markers; repair or remove the managed block, then re-run".to_string());
+    }
+    Ok(Some(ManagedBlockSpan {
+        version,
+        start,
+        stop,
+    }))
+}
+
+fn agent_guidance_marker_version(line: &str, begin: bool) -> Option<u32> {
+    let (prefix, suffix) = if begin {
+        ("<!-- >>> grund integrations citation rendering (v", ") >>> -->")
+    } else {
+        ("<!-- <<< grund integrations citation rendering (v", ") <<< -->")
+    };
+    line.strip_prefix(prefix)?
+        .strip_suffix(suffix)?
+        .parse::<u32>()
+        .ok()
 }
 
 /// Expand a leading `~` in an install-target hint against `$HOME`.

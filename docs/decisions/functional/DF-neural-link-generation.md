@@ -4,9 +4,11 @@
 
 Clickable citation rendering for ephemeral, user-facing text — agent TUI messages, PR
 descriptions, issue and ticket bodies, review comments — is the **writing agent's job**,
-specified as a generated `AGENTS.md` convention: `[render.links].conversation` chooses plain
-citations or context-valid links whose visible text is exactly the citation, and plain is
-always the fallback. Rendering-layer integrations make the plain form clickable locally.
+specified through two instruction scopes. `grund integrations --write` records the user's local
+conversation preference and synchronizes it into supported user-level agent instructions, while
+repository `AGENTS.md` files carry one fixed rule for context-valid repository-web links whose
+visible text is exactly the citation; plain is always the fallback. Rendering-layer integrations
+make the plain form clickable locally.
 `grund` itself ships no `link` subcommand and no linkify filter;
 `grund fmt --cross-refs` ([§FS-fmt.6](../../functional-spec/FS-fmt.md#6-cross-reference-emission)) stays the only link emitter, and it emits only into
 repository Markdown. This repository is the convention's testbed; the experiment that decided
@@ -64,7 +66,7 @@ Target forms: **rel** = repo-relative path, **abs** = absolute path, **file** = 
 | 7 | Terminal TUI (assistant message) | Markdown link over an editor URL | editor | click opens the file in the editor | viable only for ephemeral messages on the user's own machine; specimens emitted 2026-07-02, pending click-through |
 | 8 | GitHub (hover) | Markdown link with a `"title"` attribute carrying the declaration heading | web | browser tooltip shows the title on hover | specimen posted on PR #45 (2026-07-02); pending hover check |
 | 9 | LSP editor (hover) | plain `§<ID>` citation | — | declaration preview on hover | shipped behavior — `grund-lsp` hover ([§FS-lsp](../../functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server)); no markup needed |
-| 10 | Terminal TUI (hover) | any link form | — | declaration content on hover | not achievable from the text side: terminals only preview the target URL on hover; content hover needs client-side integration — a VSCodium `TerminalLinkProvider` prototype validated this; productization is issue #46 |
+| 10 | Terminal TUI (hover) | any link form | — | declaration content on hover | not achievable from the text side: terminals only preview the target URL on hover; content hover needs client-side integration — a VSCodium `TerminalLinkProvider` prototype validated this; productized as `grund integrations vscode` (issue #46, PR #45) |
 
 ## Recipe
 
@@ -73,14 +75,15 @@ The long form behind the two-sentence `AGENTS.md` instruction:
 - **Shape**: `[§<ID>](<target>)` / `[§<ID>.<sec>](<target>#<anchor>)` — the same wrap
   `grund fmt --cross-refs` writes ([§FS-fmt.6.2](../../functional-spec/FS-fmt.md#62-form)); the cheapest correct move is to copy an
   existing wrap's target from a file already read and re-base it.
-- **TUI messages**: write the plain citation — the rendering layer resolves it (row 10;
-  issue #46). Where a location must be explicit, plain `path:line` text (row 2), or an
-  editor-scheme link on the user's own machine (row 7); never a relative-path Markdown link
-  (row 1).
-- **GitHub surfaces**: a blob URL, `https://github.com/<owner>/<repo>/blob/<ref>/<path>#<anchor>`,
-  with the declaration heading as the link's Markdown title so hover shows the fact (row 8).
-  The writing context selects the ref: PR branch in PR bodies, reviewed commit in reviews,
-  default branch in issues, explicit commit for permalinks. When unsure, keep the plain citation.
+- **TUI messages**: follow the user-level instruction installed by `grund integrations --write`.
+  Its default says to write the plain citation because the rendering layer resolves it (row 10);
+  users without that layer may select the link override. Where a location must be explicit, use
+  plain `path:line` text (row 2) or an editor-scheme link on the user's own machine (row 7), never
+  a relative-path Markdown link (row 1).
+- **Repository web surfaces**: use the forge's file URL with the declaration heading as the
+  link's Markdown title so hover shows the fact (row 8). The writing context selects the ref:
+  PR branch in PR bodies, reviewed commit in reviews, explicit commit for permalinks, and the
+  default branch otherwise. When unsure, keep the plain citation.
 - **Anchor** (this repo's `github` profile, [§FS-fmt.6.7](../../functional-spec/FS-fmt.md#67-configurability)): slugify the heading's rendered text —
   lowercase, delete every character that is not a letter, digit, `_`, or `-`, each space
   becomes one `-`, no run-collapsing and no trimming. A bare-ID citation anchors on the
@@ -98,5 +101,6 @@ The long form behind the two-sentence `AGENTS.md` instruction:
   files plain, exactly as before.
 - Rendering-layer integrations (the local-clickability half of the convention) are user-side,
   one-time configuration in the [§FS-lsp.2.3](../../functional-spec/FS-lsp.md#23-editor-configuration-one-time-per-editor) spirit; their survey, reference implementation,
-  and productization (`grund integrations`, config-rendered convention sentences) are tracked
-  in issue #46.
+  and productization shipped as `grund integrations`; the local convention is rendered from a
+  user preference into global agent instructions, while the repository-web convention is fixed
+  in each repository's generated instructions (issue #46, PR #45).

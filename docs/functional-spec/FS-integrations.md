@@ -5,12 +5,13 @@ Locally, a plain `§<ID>` citation is meant to be clickable and hoverable — re
 ## 1. User-facing command
 
 ```
-grund integrations [<client>] [--write] [--format text|json]
+grund integrations [<client>] [--write] [--conversation plain|link] [--format text|json]
 ```
 
 - With no `<client>`, grund detects the caller's environment (§2) and prints the integrations that apply, each with its one-line install command. `--format json` prints the same detection as a machine-shaped plan (§5).
 - With a `<client>` — one of `kitty`, `tmux`, `vscode`, `wezterm` — grund prints that client's integration: the config snippet plus, for the terminal clients, the embedded `grund-open` resolver script (§3). Deterministic and environment-independent (§6).
-- `--write` applies the integration to the client's real configuration instead of printing it, as a managed, marked block (§4). Requires an explicit `<client>`; `grund integrations --write` with no client is a CLI-level error, because there is no single target to write.
+- `--write` applies the integration to the client's real configuration instead of printing it, as a managed, marked block (§4), and synchronizes the user's local-conversation preference into global agent instructions (§4.3). Requires an explicit `<client>`; `grund integrations --write` with no client is a CLI-level error, because there is no single integration target to write.
+- `--conversation plain|link` overrides the user preference while writing. It is accepted only with `--write`. With no override, a first installation records `plain`; later installations preserve the recorded preference. `plain` tells agents to write bare citations for the installed rendering layer, while `link` tells them to write declaration links and fall back to plain when uncertain.
 
 An unknown client is a CLI-level error: `error: unknown integration client \`<client>\`` plus `known clients: kitty, tmux, vscode, wezterm` on stderr, empty stdout, exit `2`. The client set is closed and frozen the same way the subcommand surface is ([§FS-cli.4](FS-cli.md#4-errors-with-no-source-location)), so adding a client is a deliberate, changelog-gated change.
 
@@ -39,7 +40,9 @@ Each prints two things on stdout, exit `0`:
 1. A config snippet for that terminal that registers a click/hover handler for `§<ID>` citations, wired to run the resolver.
 2. The embedded `grund-open` resolver script — a POSIX shell script that takes a citation or bare `<ID>`, resolves it with `grund` to a `path:line` declaration site, and opens it. The command it opens with is `GRUND_OPEN_CMD` when set, else `EDITOR`, else a platform default; the user's editor choice lives in that environment variable, never in shared repository text ([§DF-neural-link-generation](../decisions/functional/DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command)).
 
-The snippet and the resolver are printed together so a human can read both before installing. `GRUND_OPEN_CMD` is an argv-style command prefix, not shell source: grund-open appends one `path:line` argument without evaluating repository-controlled paths as commands; users who need more elaborate argument placement use a wrapper executable. The one-line install shown by detection (§2) is the `--write` form (§4).
+The snippet and the resolver are printed together so a human can read both before installing. `GRUND_OPEN_CMD` is an argv-style command prefix, not shell source: grund-open appends one `path:line` argument without evaluating repository-controlled paths as commands; users who need more elaborate argument placement use a wrapper executable. Any text the handler passes in — a tmux copy buffer, a kitty hint — reaches grund-open as a single quoted argument, never as shell source. The one-line install shown by detection (§2) is the `--write` form (§4).
+
+The click matchers and the resolver key on a bare local `§<ID>` citation; a namespace-qualified `§<alias>/<ID>` is out of scope and is not made clickable.
 
 ### 3.2 Editor client: `vscode`
 
@@ -67,6 +70,14 @@ Outcomes map to stderr verbs `appended` / `updated` / `exists`, and to `would-ap
 
 `vscode --write` writes the unpacked extension directory (its `package.json`, the provider script, and a marker file recording the embedded version) into the editor extensions directory. A present, byte-current same-version extension is left untouched (`exists`); a different, missing, or damaged grund-owned file is repaired. grund writes only files it owns inside its own extension directory; it never edits the user's `settings.json`.
 
+### 4.3 User preference and global agent instructions
+
+Every successful `--write` also records the effective local-conversation preference in the user's Grund configuration at `$XDG_CONFIG_HOME/grund/config.toml`, or `~/.config/grund/config.toml` when `XDG_CONFIG_HOME` is unset. This is deliberately user-scoped: whether a TUI has the rendering integration is a property of the user's machine, not a repository. The first write defaults to `plain`; a stored value survives later writes unless `--conversation` explicitly changes it. Only `plain` and `link` are accepted. The repository `.agents/grund.toml` schema has no rendering keys ([§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents)).
+
+The same write synchronizes a marked `## Grund citation rendering` block into the global instruction files for Codex (`~/.codex/AGENTS.md`), Claude (`~/.claude/CLAUDE.md`), and Gemini (`~/.gemini/GEMINI.md`). The `plain` block says `In local conversations, write plain §<ID> citations; grund integrations makes them clickable.` The `link` block says `In local conversations, link §<ID> to its declaration; fall back to plain when unsure.` These blocks are user-global and intentionally contain no repository-web rule; repository entrypoints own that fixed context-sensitive instruction ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)).
+
+The global instruction block uses versioned HTML-comment begin/end markers. The replacement, append, newer-version refusal, malformed/multiple-block rejection, preservation, idempotence, and stderr outcome rules are the same as the dotfile block in §4.1. Existing global instruction files keep all text outside the managed block byte-for-byte; missing parent directories and files are created because `--write` is the explicit installation action. A failure to update the preference or any instruction file is an error; an earlier integration artifact may already have been written, and re-running after correction safely completes the installation.
+
 ## 5. JSON format
 
 `grund integrations --format json` (no client) emits the detection plan as one JSON object on stdout: the detected clients in frozen order, and for each the client name, whether it is detected, whether its grund-owned artifacts are installed and current, and the exact `--write` command an agent would run. Installation checks read only the four fixed integration targets; they never search the filesystem. `grund integrations <client> --format json` emits one deterministic object describing that client's artifact — its target path(s) and the `--write` command — without printing the artifact bytes. The stream split follows the rest of the surface ([§FS-errors.1](FS-errors.md#1-streams)): the plan is stdout, any CLI-level `error:` is stderr. This is the machine surface `grund agent-setup-instructions` points an agent at ([§FS-init.5](FS-init.md#5-agent-setup-instructions)): detect, show the diff, write only on user confirmation.
@@ -75,4 +86,4 @@ Outcomes map to stderr verbs `appended` / `updated` / `exists`, and to `would-ap
 
 With an explicit `<client>`, output is a pure function of the binary version and the flags — no environment, no tree scan, no clock — so it is byte-identical across machines and safe to golden. The no-client detection form (§2) is a pure function of the binary version, the named environment variables, and, for JSON, the four fixed installation targets; it is byte-identical for a fixed environment and installation state. `--write` is idempotent: a second run against an up-to-date target is a no-op that reports `exists`.
 
-Exit codes follow the frozen mapping ([§FS-cli.5](FS-cli.md#5-exit-code-mapping-is-fixed)): `0` printed, written, or already current; `2` an unknown client, `--write` with no client, an unknown flag, or a configuration file whose managed block is newer than this binary understands. There is no `1` outcome — `integrations` has no findings surface.
+Exit codes follow the frozen mapping ([§FS-cli.5](FS-cli.md#5-exit-code-mapping-is-fixed)): `0` printed, written, or already current; `2` an unknown client, `--write` with no client, `--conversation` without `--write`, an invalid preference, an unknown flag, or a configuration file whose managed block is newer than this binary understands. There is no `1` outcome — `integrations` has no findings surface.

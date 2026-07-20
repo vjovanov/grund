@@ -1387,12 +1387,6 @@ fn print_effective_config(config: &Config) {
     println!("[fmt.cross_refs]");
     println!("enabled = {}", config.fmt_cross_refs_enabled);
     println!("anchor_format = \"{}\"", config.cross_ref_anchor_format);
-    println!();
-    println!("[render.links]");
-    println!(
-        "conversation = \"{}\"",
-        config.render_links_conversation
-    );
     if config.workspace_declared {
         println!();
         println!("[workspace]");

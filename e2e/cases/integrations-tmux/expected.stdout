@@ -4,14 +4,17 @@
 # 1. Terminal config — add to ~/.tmux.conf:
 
 # grund citation integration for tmux.
-# tmux cannot make text clickable, so this binds a key that captures the word
-# under the cursor and hands it to the installed `grund-open` resolver, which
-# resolves the §<ID> citation and opens its declaration (§FS-integrations).
+# tmux cannot make text clickable, so this binds a key that hands the copied
+# buffer to the installed `grund-open` resolver, which resolves the §<ID>
+# citation and opens its declaration (§FS-integrations).
 # Paste into tmux.conf, or let `grund integrations tmux --write` manage it.
 #
 # prefix + g opens the citation currently copied to the tmux buffer; use copy
 # mode to select a §<ID> first, then prefix + g.
-bind-key g run-shell 'grund-open "#{buffer_sample}"'
+#
+# #{q:...} shell-quotes the buffer so the selection reaches grund-open as one
+# argument, never evaluated as shell source — the buffer is arbitrary text.
+bind-key g run-shell 'grund-open #{q:buffer_sample}'
 
 # 2. Resolver — install grund-open to a directory on PATH (e.g. ~/.local/bin):
 

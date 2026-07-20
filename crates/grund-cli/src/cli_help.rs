@@ -432,19 +432,22 @@ fn print_subcommand_help(cmd: &str) {
                 "grund integrations — print or install the clickable-citation terminal/editor integrations."
             );
             println!();
-            println!("Usage:  grund integrations [<client>] [--write] [--format text|json]");
+            println!("Usage:  grund integrations [<client>] [--write] [--conversation plain|link] [--format text|json]");
             println!();
             println!("With no client, detects the terminal/editor from the environment and prints");
             println!("what applies. With a client — kitty, tmux, vscode, or wezterm — prints that");
             println!("integration's snippet and the grund-open resolver; --write installs it as a");
-            println!("managed, idempotent block instead of printing. --format json emits a plan.");
+            println!("managed, idempotent block instead of printing. A write also records the local");
+            println!("conversation preference and updates global agent instructions; override the");
+            println!("plain default with --conversation link. --format json emits a plan.");
             println!();
             println!("Preview and install examples:");
             println!("  grund integrations                    # detect and list what applies");
             println!("  grund integrations wezterm            # print the snippet + resolver");
             println!("  grund integrations wezterm --write    # install it, idempotently");
+            println!("  grund integrations wezterm --write --conversation link");
             println!();
-            println!("Exit:  0 printed or installed · 2 unknown client, --write with no client, or a newer block.");
+            println!("Exit:  0 printed or installed · 2 invalid options, missing client, or a newer block.");
         }
         "agent-setup-instructions" => {
             println!(
