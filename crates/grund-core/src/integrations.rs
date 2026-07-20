@@ -256,8 +256,8 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
         eprintln!("error: --conversation requires --write");
         return Err(ExitCode::from(2));
     }
-    if write && client.is_none() {
-        eprintln!("error: integrations --write requires a client");
+    if write && client.is_none() && conversation.is_none() {
+        eprintln!("error: integrations --write requires a client or --conversation");
         eprintln!("{}", known_clients_line());
         return Err(ExitCode::from(2));
     }
@@ -284,6 +284,7 @@ pub fn run_integrations(args: &[String]) -> ExitCode {
         Err(code) => return code,
     };
     match invocation.client {
+        None if invocation.write => write_user_citation_guidance_command(invocation.conversation),
         None => print_detection(invocation.json),
         Some(client) if invocation.write => write_integration(client, invocation.conversation),
         Some(client) if invocation.json => {
@@ -564,11 +565,19 @@ fn write_integration(
     if integration_status != ExitCode::SUCCESS {
         return integration_status;
     }
-    if let Err((path, message)) = write_user_citation_guidance(conversation) {
-        eprintln!("error: {}: {message}", path.display());
-        return ExitCode::from(2);
+    write_user_citation_guidance_command(conversation)
+}
+
+fn write_user_citation_guidance_command(
+    conversation: Option<ConversationRendering>,
+) -> ExitCode {
+    match write_user_citation_guidance(conversation) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err((path, message)) => {
+            eprintln!("error: {}: {message}", path.display());
+            ExitCode::from(2)
+        }
     }
-    ExitCode::SUCCESS
 }
 
 fn write_terminal_integration(client: IntegrationClient, snippet: &str) -> ExitCode {

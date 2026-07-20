@@ -3469,6 +3469,20 @@ default = "must-not"
         assert!(install_managed_block(&format!("{block}{block}"), "NEW").is_err());
     }
 
+    // §FS-integrations.1 / §FS-integrations.4.3: an explicit conversation
+    // preference is a complete clientless write target.
+    #[test]
+    fn integrations_accepts_preference_only_write() {
+        let args = ["--write", "--conversation", "link"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        let invocation = parse_integrations_args(&args).expect("parse preference-only write");
+        assert!(invocation.client.is_none());
+        assert!(invocation.write);
+        assert_eq!(invocation.conversation, Some(ConversationRendering::Link));
+    }
+
     // §FS-integrations.4.3: the user preference is installed without rewriting
     // unrelated configuration and an explicit override replaces only its line.
     #[test]

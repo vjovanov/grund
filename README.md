@@ -237,8 +237,9 @@ repository's `.agents/grund.toml`.
 
 The default asks agents for plain citations because the installed integration
 makes them clickable. To override that for a TUI without rendering support, run
-`grund integrations <client> --write --conversation link`; the command updates
-the preference and global instructions together. Repository web links remain a
+`grund integrations --write --conversation link`; this preference-only form
+updates the user config and global instructions without installing an arbitrary
+client. Repository web links remain a
 fixed project instruction: `grund init` teaches agents to use the PR branch in
 PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and
 the default branch otherwise. See [§FS-integrations](docs/functional-spec/FS-integrations.md).

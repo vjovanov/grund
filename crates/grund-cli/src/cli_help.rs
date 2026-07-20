@@ -438,16 +438,16 @@ fn print_subcommand_help(cmd: &str) {
             println!("what applies. With a client — kitty, tmux, vscode, or wezterm — prints that");
             println!("integration's snippet and the grund-open resolver; --write installs it as a");
             println!("managed, idempotent block instead of printing. A write also records the local");
-            println!("conversation preference and updates global agent instructions; override the");
-            println!("plain default with --conversation link. --format json emits a plan.");
+            println!("conversation preference and updates global agent instructions. With no client,");
+            println!("--write --conversation changes only that preference. --format json emits a plan.");
             println!();
             println!("Preview and install examples:");
             println!("  grund integrations                    # detect and list what applies");
             println!("  grund integrations wezterm            # print the snippet + resolver");
             println!("  grund integrations wezterm --write    # install it, idempotently");
-            println!("  grund integrations wezterm --write --conversation link");
+            println!("  grund integrations --write --conversation link  # preference only");
             println!();
-            println!("Exit:  0 printed or installed · 2 invalid options, missing client, or a newer block.");
+            println!("Exit:  0 printed or installed · 2 invalid options, missing write target, or a newer block.");
         }
         "agent-setup-instructions" => {
             println!(

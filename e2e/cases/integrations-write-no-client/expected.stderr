@@ -1,2 +1,2 @@
-error: integrations --write requires a client
+error: integrations --write requires a client or --conversation
 known clients: kitty, tmux, vscode, wezterm

@@ -7,8 +7,9 @@ descriptions, issue and ticket bodies, review comments — is the **writing agen
 specified through two instruction scopes. `grund integrations --write` records the user's local
 conversation preference and synchronizes it into supported user-level agent instructions, while
 repository `AGENTS.md` files carry one fixed rule for context-valid repository-web links whose
-visible text is exactly the citation; plain is always the fallback. Rendering-layer integrations
-make the plain form clickable locally.
+visible text is exactly the citation; plain is always the fallback. Repository-web links do not
+carry Markdown title attributes for hover text. Rendering-layer integrations make the plain form
+clickable locally.
 `grund` itself ships no `link` subcommand and no linkify filter;
 `grund fmt --cross-refs` ([§FS-fmt.6](../../functional-spec/FS-fmt.md#6-cross-reference-emission)) stays the only link emitter, and it emits only into
 repository Markdown. This repository is the convention's testbed; the experiment that decided
@@ -34,6 +35,11 @@ this is recorded below.
    repository exercises the `AGENTS.md` recipe; observations land in the test matrix below.
    If neural anchors prove unreliable in practice, the recorded fallback is to revisit a
    *data* surface first (e.g. the anchor as a field in the ID query's JSON) before any command.
+5. **Hover titles cost more than they return.** GitHub preserves an optional Markdown link title
+   and desktop browsers can expose it as a delayed native tooltip, but it is not a declaration
+   preview, has no touch equivalent, and has inconsistent accessibility. Repeating the declaration
+   heading inside every linked citation also spends output tokens on a secondary presentation hint.
+   That tradeoff fails [§GOAL-token-economy](../../goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file), so agents emit no link title.
 
 ## The experiment
 
@@ -49,6 +55,9 @@ stay exactly the citation. Approaches considered:
    prototyped on this decision's PR branch, then **reverted** for the reasons above.
 4. **Agent instructions** — **chosen**: the recipe is short because the canonical wrapped form
    already exists throughout the repo's Markdown for the agent to copy.
+5. **Declaration heading as a Markdown link title** — verified to survive GitHub rendering as an
+   HTML `title` attribute, then **rejected**: it adds heading-sized output to every citation for a
+   limited native tooltip rather than a rich, portable declaration preview.
 
 ## Test matrix
 
@@ -64,7 +73,7 @@ Target forms: **rel** = repo-relative path, **abs** = absolute path, **file** = 
 | 5 | GitHub PR description / issue / review comment | Markdown link | web | clickable, anchor jumps to the heading | standard GitHub Markdown rendering; web links posted on issue #33 and PR #45 (2026-07-02) |
 | 6 | GitHub PR description / issue | Markdown link | rel / abs / file | **not** clickable or wrong host | known GitHub behavior: local paths do not resolve in issue/PR bodies |
 | 7 | Terminal TUI (assistant message) | Markdown link over an editor URL | editor | click opens the file in the editor | viable only for ephemeral messages on the user's own machine; specimens emitted 2026-07-02, pending click-through |
-| 8 | GitHub (hover) | Markdown link with a `"title"` attribute carrying the declaration heading | web | browser tooltip shows the title on hover | specimen posted on PR #45 (2026-07-02); pending hover check |
+| 8 | GitHub (hover) | Markdown link with a `"title"` attribute carrying the declaration heading | web | browser tooltip shows the title on hover | GitHub's Markdown API preserved the `title` attribute (verified 2026-07-20); **rejected** because the native tooltip is limited and inaccessible on touch while repeating the heading costs output tokens |
 | 9 | LSP editor (hover) | plain `§<ID>` citation | — | declaration preview on hover | shipped behavior — `grund-lsp` hover ([§FS-lsp](../../functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server)); no markup needed |
 | 10 | Terminal TUI (hover) | any link form | — | declaration content on hover | not achievable from the text side: terminals only preview the target URL on hover; content hover needs client-side integration — a VSCodium `TerminalLinkProvider` prototype validated this; productized as `grund integrations vscode` (issue #46, PR #45) |
 
@@ -80,10 +89,10 @@ The long form behind the two-sentence `AGENTS.md` instruction:
   users without that layer may select the link override. Where a location must be explicit, use
   plain `path:line` text (row 2) or an editor-scheme link on the user's own machine (row 7), never
   a relative-path Markdown link (row 1).
-- **Repository web surfaces**: use the forge's file URL with the declaration heading as the
-  link's Markdown title so hover shows the fact (row 8). The writing context selects the ref:
-  PR branch in PR bodies, reviewed commit in reviews, explicit commit for permalinks, and the
-  default branch otherwise. When unsure, keep the plain citation.
+- **Repository web surfaces**: use the forge's file URL without a Markdown link title (row 8).
+  The writing context selects the ref: PR branch in PR bodies, reviewed commit in reviews,
+  explicit commit for permalinks, and the default branch otherwise. When unsure, keep the plain
+  citation.
 - **Anchor** (this repo's `github` profile, [§FS-fmt.6.7](../../functional-spec/FS-fmt.md#67-configurability)): slugify the heading's rendered text —
   lowercase, delete every character that is not a letter, digit, `_`, or `-`, each space
   becomes one `-`, no run-collapsing and no trimming. A bare-ID citation anchors on the
@@ -96,6 +105,8 @@ The long form behind the two-sentence `AGENTS.md` instruction:
 
 - Anchor fidelity is on the agent; the visible text can stay exactly the citation on every
   surface, so it remains greppable and `grund check`-able wherever it is quoted back.
+- Repository-web links carry no declaration-heading title: navigation earns its token cost;
+  limited native hover text does not.
 - No stdin filter: PR and ticket bodies get their links at writing time.
 - Repository files are unchanged: plain citations wrapped by `grund fmt --cross-refs`, source
   files plain, exactly as before.
