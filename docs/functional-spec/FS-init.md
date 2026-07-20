@@ -214,7 +214,7 @@ The block always emits a `### Project namespaces` section that teaches agents th
 
 ##### 2.3.4.17 Clickable Citations
 
-The block teaches how a `§<ID>` citation renders in conversation as a rendering of the effective `[render.links].conversation` policy ([§FS-config.3.10](FS-config.md#310-renderlinks--clickable-citation-rendering)): `plain` tells agents to write the bare citation; `link` tells them to wrap it in a context-valid declaration link, falling back to plain when uncertain ([§DF-neural-link-generation](../decisions/functional/DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command)). The full recipe, rationale, and test matrix stay in the cited decision; the managed block carries only the compact convention.
+The block teaches how a `§<ID>` citation renders in conversation as a rendering of the effective `[render.links].conversation` policy ([§FS-config.3.10](FS-config.md#310-renderlinks--clickable-citation-rendering)): `plain` tells agents to write the bare citation and names `grund integrations` as its rendering layer; `link` tells them to wrap it in a context-valid declaration link, falling back to plain when uncertain ([§DF-neural-link-generation](../decisions/functional/DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command)). The full recipe, rationale, and test matrix stay in the cited decision; the managed block carries only the compact convention.
 
 #### 2.3.5 Citation directions
 

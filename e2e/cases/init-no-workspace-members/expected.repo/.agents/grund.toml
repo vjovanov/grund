@@ -78,7 +78,7 @@ enabled = true
 anchor_format = "github" # github | gitlab | mkdocs | pandoc | none
 
 [render.links]
-conversation = "plain" # plain | link — how an agent writes citations in conversation
+conversation = "plain" # plain with `grund integrations`; link otherwise
 
 # Citation directions (FS-config.3.9): encode which kinds may cite which, with
 # RFC-2119 levels. must/must-not gate `grund check`; should/should-not surface
