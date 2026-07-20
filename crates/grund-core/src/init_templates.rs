@@ -11,7 +11,7 @@ const AS_README_TEMPLATE: &str = include_str!("../assets/templates/architecture-
 const GITKEEP_TEMPLATE: &str = include_str!("../assets/templates/gitkeep.md");
 pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-init/SKILL.md");
 // v4 (§FS-init.2.3.6, §DF-integrations-command): adds a generated `### Clickable
-// citations in user-facing text` section derived from `[render.links]`,
+// citations` section derived from `[render.links]`,
 // byte-compared by `grund check` for drift (§FS-check.3.5). v3 (§FS-init.2.3.5,
 // §DF-citation-directions) replaced the hand-written climbing-rule bullet with a
 // generated `### Citation directions` section derived from `[citations]`.
@@ -351,38 +351,30 @@ fn citation_directions_section(config: &Config) -> String {
     lines.join("\n")
 }
 
-/// Render the `### Clickable citations in user-facing text` managed-block section
+/// Render the `### Clickable citations` managed-block section
 /// (§FS-init.2.3.6) from the effective `[render.links]` config. Deterministic —
 /// each key selects one of a fixed set of phrases — so `grund check` can
 /// re-render and byte-compare it for drift (§FS-check.3.5). Returned without a
 /// trailing newline; the `{CLICKABLE_CITATIONS}` placeholder supplies the final
 /// newline, so `grund init` stays idempotent on re-run.
 fn clickable_citations_section(config: &Config) -> String {
-    let local = match config.render_links_local.as_str() {
-        "path-text" => "write the plain `§<ID>` citation followed by its `path:line` so the location is explicit and clickable",
-        "editor-url" => "write the citation as a Markdown link over an editor-scheme URL whose visible text is exactly `§<ID>`, so a click opens the declaration in your editor",
-        // "plain" and any future default.
-        _ => "write plain `§<ID>` citations in TUI messages and never spend a tool call or Markdown-link syntax on them — an installed integration (`grund integrations`) resolves them",
-    };
+    if config.render_links_conversation == "plain" {
+        return "### Clickable citations\n\nIn conversations, write plain `§<ID>` citations."
+            .to_string();
+    }
     let base = if config.render_links_web_base == "auto" {
         "<web-base>".to_string()
     } else {
         config.render_links_web_base.trim_end_matches('/').to_string()
-    };
-    let web_ref = match config.render_links_web_ref.as_str() {
-        "main" => "main",
-        "commit" => "<commit>",
-        // "branch" and any future default.
-        _ => "<branch>",
     };
     let title = if config.render_links_hover_title {
         " \"<heading>\""
     } else {
         ""
     };
-    let composed = format!("[§<ID>]({base}/{web_ref}/<path>#<anchor>{title})");
+    let composed = format!("[§<ID>]({base}/<ref>/<path>#<anchor>{title})");
     format!(
-        "### Clickable citations in user-facing text\n\nLocally, a plain `§<ID>` citation is the clickable, hoverable form — resolution belongs to the rendering layer (editor/terminal integrations — §DF-neural-link-generation) — so {local}. Only GitHub-rendered text (PR and issue bodies) needs composed links, `{composed}` with anchors copied from existing `grund fmt --cross-refs` wraps; when unsure fall back to the plain citation, and never rewrite repository files this way — full recipe, rationale, and test matrix in §DF-neural-link-generation.",
+        "### Clickable citations\n\nIn conversations, use `{composed}`; choose the target from context and fall back to plain when unsure.",
     )
 }
 

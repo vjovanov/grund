@@ -77,10 +77,9 @@ enabled = true
 anchor_format = "github"
 
 [render.links]
+conversation = "plain"
 web_base = "auto"
-web_ref = "branch"
 hover_title = true
-local = "plain"
 
 [workspace]
 members = ["apps/api"]

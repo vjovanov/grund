@@ -1156,7 +1156,7 @@ fn check_agent_block_path(
                     "citation directions",
                 ),
                 (
-                    "### Clickable citations in user-facing text",
+                    "### Clickable citations",
                     clickable_citations_section(config),
                     "clickable citations",
                 ),

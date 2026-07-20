@@ -4,10 +4,10 @@
 
 Clickable citation rendering for ephemeral, user-facing text — agent TUI messages, PR
 descriptions, issue and ticket bodies, review comments — is the **writing agent's job**,
-specified as an `AGENTS.md` convention: locally the plain `§<ID>` citation *is* the clickable
-form (resolution belongs to the rendering layer), GitHub-rendered surfaces get composed
-blob-URL links whose visible text is exactly the citation, and the plain citation is always
-the fallback. `grund` itself ships no `link` subcommand and no linkify filter;
+specified as a generated `AGENTS.md` convention: `[render.links].conversation` chooses plain
+citations or context-valid links whose visible text is exactly the citation, and plain is
+always the fallback. Rendering-layer integrations make the plain form clickable locally.
+`grund` itself ships no `link` subcommand and no linkify filter;
 `grund fmt --cross-refs` ([§FS-fmt.6](../../functional-spec/FS-fmt.md#6-cross-reference-emission)) stays the only link emitter, and it emits only into
 repository Markdown. This repository is the convention's testbed; the experiment that decided
 this is recorded below.
@@ -79,7 +79,8 @@ The long form behind the two-sentence `AGENTS.md` instruction:
   (row 1).
 - **GitHub surfaces**: a blob URL, `https://github.com/<owner>/<repo>/blob/<ref>/<path>#<anchor>`,
   with the declaration heading as the link's Markdown title so hover shows the fact (row 8).
-  PR bodies use the PR branch; text that must outlive the branch pins `main` or a commit.
+  The writing context selects the ref: PR branch in PR bodies, reviewed commit in reviews,
+  default branch in issues, explicit commit for permalinks. When unsure, keep the plain citation.
 - **Anchor** (this repo's `github` profile, [§FS-fmt.6.7](../../functional-spec/FS-fmt.md#67-configurability)): slugify the heading's rendered text —
   lowercase, delete every character that is not a letter, digit, `_`, or `-`, each space
   becomes one `-`, no run-collapsing and no trimming. A bare-ID citation anchors on the

@@ -24,7 +24,8 @@ map ctrl+shift+g kitten hints --type regex --regex '§[A-Z]+-[a-z0-9][a-z0-9-]*(
 # terminal integration hands this script the clicked token; the script resolves
 # it with `grund` and opens the declaration in the user's editor. The editor is
 # GRUND_OPEN_CMD when set, else EDITOR, else a platform default — the user's
-# editor choice lives here, never in shared repository text.
+# editor choice lives here, never in shared repository text. GRUND_OPEN_CMD is
+# an argv-style command prefix; use a wrapper executable for custom placement.
 #
 # Usage: grund-open <§ID | ID>[.<section>]
 set -eu
@@ -49,14 +50,15 @@ lineno=$(printf '%s\n' "$line" | sed -n 's/.*"line":\([0-9]*\).*/\1/p')
 lineno=${lineno:-1}
 
 if [ -n "${GRUND_OPEN_CMD:-}" ]; then
-    # GRUND_OPEN_CMD is a template: {path} and {line} are substituted, else the
-    # path:line is appended. e.g. GRUND_OPEN_CMD='code --goto {path}:{line}'
-    case "$GRUND_OPEN_CMD" in
-        *'{path}'*|*'{line}'*)
-            cmd=$(printf '%s\n' "$GRUND_OPEN_CMD" | sed -e "s|{path}|$path|g" -e "s|{line}|$lineno|g")
-            exec sh -c "$cmd" ;;
-        *) exec sh -c "$GRUND_OPEN_CMD \"$path:$lineno\"" ;;
-    esac
+    # Never interpolate the repository-controlled path into shell source. The
+    # command itself is user-controlled and may carry simple flags; it receives
+    # one path:line argument. More complex layouts belong in a wrapper script.
+    # shellcheck disable=SC2086
+    set -f
+    set -- $GRUND_OPEN_CMD
+    set +f
+    [ "$#" -gt 0 ] || { echo "grund-open: GRUND_OPEN_CMD contains no command" >&2; exit 2; }
+    exec "$@" "$path:$lineno"
 elif [ -n "${EDITOR:-}" ]; then
     # EDITOR may carry flags (e.g. "code -w" or "emacsclient -t"), so word-split
     # it, then pass the line in the syntax the editor understands: only the

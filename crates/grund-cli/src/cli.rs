@@ -1389,10 +1389,15 @@ fn print_effective_config(config: &Config) {
     println!("anchor_format = \"{}\"", config.cross_ref_anchor_format);
     println!();
     println!("[render.links]");
-    println!("web_base = \"{}\"", config.render_links_web_base);
-    println!("web_ref = \"{}\"", config.render_links_web_ref);
+    println!(
+        "conversation = \"{}\"",
+        config.render_links_conversation
+    );
+    println!(
+        "web_base = \"{}\"",
+        escape_toml_basic(&config.render_links_web_base)
+    );
     println!("hover_title = {}", config.render_links_hover_title);
-    println!("local = \"{}\"", config.render_links_local);
     if config.workspace_declared {
         println!();
         println!("[workspace]");

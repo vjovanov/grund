@@ -78,10 +78,9 @@ enabled = true
 anchor_format = "github" # github | gitlab | mkdocs | pandoc | none
 
 [render.links]
+conversation = "plain" # plain | link — how an agent writes citations in conversation
 web_base = "auto" # "auto" derives a blob prefix from the origin remote, or pin a https://…/blob prefix
-web_ref = "branch" # branch | main | commit — which ref a composed web link points at
 hover_title = true # declaration heading as the link title on web surfaces
-local = "plain" # plain | path-text | editor-url — what an agent writes for a citation in TUI messages
 
 # Citation directions (FS-config.3.9): encode which kinds may cite which, with
 # RFC-2119 levels. must/must-not gate `grund check`; should/should-not surface

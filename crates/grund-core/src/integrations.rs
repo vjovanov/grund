@@ -268,9 +268,10 @@ fn detection_plan_json(detected: &[IntegrationClient]) -> String {
         .iter()
         .map(|client| {
             format!(
-                "{{\"client\":\"{}\",\"detected\":{},\"install\":\"{}\"}}",
+                "{{\"client\":\"{}\",\"detected\":{},\"installed\":{},\"install\":\"{}\"}}",
                 client.name(),
                 detected.contains(client),
+                integration_is_current(*client),
                 json_escape(&client.install_command()),
             )
         })
@@ -349,41 +350,32 @@ fn integrations_block_markers(version: u32) -> (String, String) {
     )
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ManagedBlockSpan {
+    version: u32,
+    start: usize,
+    stop: usize,
+}
+
 /// Splice the managed integrations block carrying `snippet` into `existing`
 /// (§FS-integrations.4.1): replace the bytes between the current-version markers
 /// when a block is present, else append after a blank-line separator. Everything
 /// outside the block is preserved. Returns the new text and what changed. A block
 /// whose version is newer than this binary understands is an error.
 fn install_managed_block(existing: &str, snippet: &str) -> Result<(String, BlockOutcome), String> {
-    if let Some(version) = newer_integrations_block_version(existing) {
-        return Err(format!(
-            "config contains newer grund integrations block v{version}; this binary supports v{INTEGRATIONS_BLOCK_VERSION}"
-        ));
-    }
     let (begin, end) = integrations_block_markers(INTEGRATIONS_BLOCK_VERSION);
     let block = format!("{begin}\n{}\n{end}\n", snippet.trim_end_matches('\n'));
-    if let Some((start, stop)) = find_block_span(existing, &begin, &end) {
+    if let Some(span) = find_managed_block(existing)? {
         let mut updated = String::with_capacity(existing.len());
-        updated.push_str(&existing[..start]);
+        updated.push_str(&existing[..span.start]);
         updated.push_str(&block);
-        updated.push_str(&existing[stop..]);
+        updated.push_str(&existing[span.stop..]);
         let outcome = if updated == existing {
             BlockOutcome::Unchanged
         } else {
             BlockOutcome::Updated
         };
         Ok((updated, outcome))
-    } else if line_start_of(existing, &begin).is_some() {
-        // A begin marker with no matching end marker (a truncated write or a hand
-        // edit that dropped the `<<<` line). Appending a second block would leave
-        // two begin markers and one end marker, and the *next* `--write` would
-        // splice from the orphan begin to the appended end — silently deleting
-        // every user line in between. Refuse rather than guess where the block
-        // ends (§FS-integrations.4.1: content outside the block is preserved).
-        Err(format!(
-            "found a `{begin}` marker with no matching `{end}`; \
-             repair or remove the partial grund integrations block, then re-run"
-        ))
     } else {
         let mut appended = String::with_capacity(existing.len() + block.len() + 2);
         appended.push_str(existing);
@@ -398,45 +390,98 @@ fn install_managed_block(existing: &str, snippet: &str) -> Result<(String, Block
     }
 }
 
-/// Byte span `[start, stop)` of an existing managed block, marker lines included,
-/// with the trailing newline after the end marker consumed when present.
-fn find_block_span(text: &str, begin: &str, end: &str) -> Option<(usize, usize)> {
-    let start = line_start_of(text, begin)?;
-    let end_line_start = line_start_of(&text[start..], end).map(|offset| start + offset)?;
-    let after_end = end_line_start + end.len();
-    // Consume the newline that terminates the end-marker line, if any.
-    let stop = match text[after_end..].find('\n') {
-        Some(0) => after_end + 1,
-        _ => after_end,
-    };
-    Some((start, stop))
-}
-
-/// Offset of the start of the line that equals `marker` (trimmed), or `None`.
-fn line_start_of(text: &str, marker: &str) -> Option<usize> {
+/// Find exactly one complete managed block at any supported version. Marker
+/// spans are whole physical lines, so accepted indentation cannot leak suffix
+/// bytes into the rewritten config (§FS-integrations.4.1).
+fn find_managed_block(text: &str) -> Result<Option<ManagedBlockSpan>, String> {
     let mut offset = 0;
+    let mut begins = Vec::new();
+    let mut ends = Vec::new();
     for line in text.split_inclusive('\n') {
-        if line.trim_end_matches(['\n', '\r']).trim() == marker {
-            return Some(offset);
+        let trimmed = line.trim_end_matches(['\n', '\r']).trim();
+        let stop = offset + line.len();
+        if let Some(version) = integration_marker_version(trimmed, true) {
+            begins.push((version, offset, stop));
         }
-        offset += line.len();
+        if let Some(version) = integration_marker_version(trimmed, false) {
+            ends.push((version, offset, stop));
+        }
+        offset = stop;
     }
-    None
+    if begins.is_empty() && ends.is_empty() {
+        return Ok(None);
+    }
+    if begins.len() != 1 || ends.len() != 1 {
+        return Err("found incomplete or multiple grund integrations blocks; repair or remove the managed markers, then re-run".to_string());
+    }
+    let (version, start, _) = begins[0];
+    let (end_version, end_start, stop) = ends[0];
+    if version > INTEGRATIONS_BLOCK_VERSION {
+        return Err(format!(
+            "config contains newer grund integrations block v{version}; this binary supports v{INTEGRATIONS_BLOCK_VERSION}"
+        ));
+    }
+    if version != end_version || end_start < start {
+        return Err("found mismatched grund integrations block markers; repair or remove the managed block, then re-run".to_string());
+    }
+    Ok(Some(ManagedBlockSpan {
+        version,
+        start,
+        stop,
+    }))
 }
 
-/// The version of a managed block newer than this binary, if any is present.
-fn newer_integrations_block_version(text: &str) -> Option<u32> {
-    for line in text.lines() {
-        let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix("# >>> grund integrations (v")
-            && let Some(digits) = rest.strip_suffix(") >>>")
-            && let Ok(version) = digits.parse::<u32>()
-            && version > INTEGRATIONS_BLOCK_VERSION
-        {
-            return Some(version);
-        }
+fn integration_marker_version(line: &str, begin: bool) -> Option<u32> {
+    let (prefix, suffix) = if begin {
+        ("# >>> grund integrations (v", ") >>>")
+    } else {
+        ("# <<< grund integrations (v", ") <<<")
+    };
+    line.strip_prefix(prefix)?
+        .strip_suffix(suffix)?
+        .parse::<u32>()
+        .ok()
+}
+
+/// Whether every grund-owned artifact for a client is present and byte-current
+/// (§FS-integrations.5). Only the client's fixed target paths are read.
+fn integration_is_current(client: IntegrationClient) -> bool {
+    match client.snippet() {
+        Some(snippet) => terminal_integration_is_current(client, snippet),
+        None => expand_target(client.config_target())
+            .is_some_and(|dir| vscode_integration_is_current(&dir)),
     }
-    None
+}
+
+fn terminal_integration_is_current(client: IntegrationClient, snippet: &str) -> bool {
+    let Some(config_path) = expand_target(client.config_target()) else {
+        return false;
+    };
+    let Ok(existing) = fs::read_to_string(config_path) else {
+        return false;
+    };
+    let Ok(Some(span)) = find_managed_block(&existing) else {
+        return false;
+    };
+    let (begin, end) = integrations_block_markers(INTEGRATIONS_BLOCK_VERSION);
+    let expected = format!("{begin}\n{}\n{end}\n", snippet.trim_end_matches('\n'));
+    if span.version != INTEGRATIONS_BLOCK_VERSION || existing[span.start..span.stop] != expected {
+        return false;
+    }
+    let Some(resolver_path) = expand_target(RESOLVER_TARGET) else {
+        return false;
+    };
+    fs::read_to_string(&resolver_path).is_ok_and(|text| text == GRUND_OPEN_RESOLVER)
+        && is_executable(&resolver_path)
+}
+
+fn vscode_integration_is_current(dir: &Path) -> bool {
+    fs::read_to_string(dir.join(".grund-version"))
+        .is_ok_and(|text| text == INTEGRATIONS_BLOCK_VERSION.to_string())
+        && fs::read_to_string(dir.join("package.json"))
+            .is_ok_and(|text| text == VSCODE_PACKAGE_JSON)
+        && fs::read_to_string(dir.join("extension.js"))
+            .is_ok_and(|text| text == VSCODE_EXTENSION_JS)
 }
 
 /// Apply an integration to disk under `--write` (§FS-integrations.4). Reports on
@@ -514,11 +559,14 @@ fn write_resolver_script() -> Result<Option<PathBuf>, (PathBuf, String)> {
         ));
     };
     if fs::read_to_string(&path).is_ok_and(|current| current == GRUND_OPEN_RESOLVER) {
+        if is_executable(&path) {
+            return Ok(None);
+        }
         // Content already matches, but a copy restored by a dotfile manager (or
         // written under a +x-stripping umask) may not be executable — clicking a
         // citation would then fail with "permission denied". Ensure the bit is
         // set before reporting the resolver as current.
-        set_executable(&path);
+        set_executable(&path).map_err(|err| (path.clone(), err.to_string()))?;
         return Ok(None);
     }
     if let Some(parent) = path.parent()
@@ -527,22 +575,34 @@ fn write_resolver_script() -> Result<Option<PathBuf>, (PathBuf, String)> {
         return Err((parent.to_path_buf(), err.to_string()));
     }
     fs::write(&path, GRUND_OPEN_RESOLVER).map_err(|err| (path.clone(), err.to_string()))?;
-    set_executable(&path);
+    set_executable(&path).map_err(|err| (path.clone(), err.to_string()))?;
     Ok(Some(path))
 }
 
 #[cfg(unix)]
-fn set_executable(path: &Path) {
+fn set_executable(path: &Path) -> std::io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
-    if let Ok(metadata) = fs::metadata(path) {
-        let mut perms = metadata.permissions();
-        perms.set_mode(perms.mode() | 0o755);
-        let _ = fs::set_permissions(path, perms);
-    }
+    let metadata = fs::metadata(path)?;
+    let mut perms = metadata.permissions();
+    perms.set_mode(perms.mode() | 0o111);
+    fs::set_permissions(path, perms)
 }
 
 #[cfg(not(unix))]
-fn set_executable(_path: &Path) {}
+fn set_executable(_path: &Path) -> std::io::Result<()> {
+    Ok(())
+}
+
+#[cfg(unix)]
+fn is_executable(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    fs::metadata(path).is_ok_and(|metadata| metadata.permissions().mode() & 0o111 != 0)
+}
+
+#[cfg(not(unix))]
+fn is_executable(path: &Path) -> bool {
+    path.is_file()
+}
 
 /// Materialize the unpacked VS Code extension into the extensions directory
 /// (§FS-integrations.4.2). Overwrites only the grund-owned files.
@@ -553,7 +613,7 @@ fn write_vscode_integration() -> ExitCode {
     };
     let marker = dir.join(".grund-version");
     let current = fs::read_to_string(&marker).ok();
-    if current.as_deref() == Some(&INTEGRATIONS_BLOCK_VERSION.to_string()) {
+    if vscode_integration_is_current(&dir) {
         eprintln!("exists {}", dir.display());
         return ExitCode::SUCCESS;
     }
