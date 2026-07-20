@@ -1,7 +1,7 @@
 grund init — scaffold agent instructions + `.agents/grund.toml` (and, with --docs, the docs/ and e2e/ layout).
 Idempotent: re-running updates the managed agent-instructions block in place and leaves your edits alone.
 
-Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] [--dry-run] [--agents-md] [--claude] [--gemini] [--copilot] [--cursor] [--windsurf] [--zed]
+Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] [--dry-run] [--agents-md] [--claude] [--gemini] [--pi] [--copilot] [--cursor] [--windsurf] [--zed]
 
 Options:
   --docs         also write docs/ (grund, goals, roadmap, changelog, spec READMEs) and e2e/
@@ -12,6 +12,7 @@ Options:
   --agents-md    create/update canonical AGENTS.md even when another entrypoint exists
   --claude       create/update CLAUDE.md and .claude/CLAUDE.md
   --gemini       create/update GEMINI.md
+  --pi           create/update .pi/AGENTS.md
   --copilot      create/update .github/copilot-instructions.md
   --cursor       create/update .cursor/rules/grund.mdc (legacy .cursorrules is updated only if present)
   --windsurf     create/update .windsurfrules

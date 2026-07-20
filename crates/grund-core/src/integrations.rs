@@ -19,10 +19,16 @@ const INTEGRATIONS_BLOCK_VERSION: u32 = 1;
 /// Version for the user-level agent-instruction block (§FS-integrations.4.3).
 const AGENT_GUIDANCE_BLOCK_VERSION: u32 = 1;
 
-const GLOBAL_AGENT_INSTRUCTION_TARGETS: [&str; 3] = [
+/// The file-backed global instruction surfaces for every agent grund supports
+/// end-to-end (§FS-integrations.4.3). Keep this superset aligned with the
+/// repository entrypoints in §FS-init.2.1.
+const GLOBAL_AGENT_INSTRUCTION_TARGETS: [&str; 6] = [
     "~/.codex/AGENTS.md",
     "~/.claude/CLAUDE.md",
     "~/.gemini/GEMINI.md",
+    "~/.copilot/copilot-instructions.md",
+    "~/.config/zed/AGENTS.md",
+    "~/.pi/agent/AGENTS.md",
 ];
 
 /// Where `--write` installs the `grund-open` resolver for terminal clients; a
