@@ -3624,6 +3624,65 @@ default = "must-not"
         );
     }
 
+    // §FS-integrations.3.1: in workspace mode `grund list --format json` qualifies
+    // the id as `<alias>/<ID>`; the resolver must still open a clicked bare local
+    // `§<ID>`. Runs the real embedded grund-open against a mock grund emitting the
+    // qualified shape, so a future `list --format json` change that broke this in a
+    // workspace would fail here rather than silently disable clicks.
+    #[cfg(unix)]
+    #[test]
+    fn resolver_matches_workspace_qualified_id() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = test_root("resolver_matches_workspace_qualified_id");
+        let bin = root.join("bin");
+        std::fs::create_dir_all(&bin).expect("create mock bin");
+        let capture = root.join("opened-argument");
+        let mock_grund = bin.join("grund");
+        let opener = bin.join("opener");
+        let resolver = root.join("grund-open");
+        // The mock lists two projects that share the FS-target slug under different
+        // aliases; the resolver takes the first `/`-suffixed match.
+        write(
+            &mock_grund,
+            "#!/bin/sh\nprintf '%s\\n' \
+             '{\"project\":\"app\",\"id\":\"app/FS-target\",\"path\":\"docs/target.md\",\"line\":12}' \
+             '{\"project\":\"lib\",\"id\":\"lib/FS-target\",\"path\":\"lib/other.md\",\"line\":3}'\n",
+        );
+        write(&opener, "#!/bin/sh\nprintf '%s\\n' \"$1\" > \"$CAPTURE\"\n");
+        write(&resolver, GRUND_OPEN_RESOLVER);
+        for path in [&mock_grund, &opener, &resolver] {
+            let mut permissions = std::fs::metadata(path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(path, permissions).unwrap();
+        }
+        let path = format!(
+            "{}:{}",
+            bin.display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
+        let output = std::process::Command::new(&resolver)
+            .arg(format!("{}FS-target.2", '\u{a7}'))
+            .current_dir(&root)
+            .env("PATH", &path)
+            .env("GRUND_OPEN_CMD", &opener)
+            .env("CAPTURE", &capture)
+            .env_remove("EDITOR")
+            .output()
+            .expect("run resolver");
+
+        assert!(
+            output.status.success(),
+            "resolver failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            std::fs::read_to_string(&capture).unwrap().trim_end(),
+            "docs/target.md:12",
+            "bare local citation must resolve against the workspace-qualified id"
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn set_executable_surfaces_io_errors() {

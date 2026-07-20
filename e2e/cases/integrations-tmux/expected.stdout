@@ -41,8 +41,11 @@ id=${id%%.*}
 [ -n "$id" ] || { echo "grund-open: empty id in '$token'" >&2; exit 2; }
 
 # Resolve ID -> path:line from the ID catalog. `grund list --format json` emits
-# one NDJSON object per declaration; pull the matching id's path and line.
-line=$(grund list --format json 2>/dev/null | grep "\"id\":\"$id\"" | head -n 1)
+# one NDJSON object per declaration; pull the matching id's path and line. In a
+# workspace the id field is namespace-qualified (`"id":"<alias>/<ID>"`), so accept
+# either the bare id or any `/`-suffixed qualification of it (§FS-integrations.3.1).
+# A validly matched citation slug carries no regex metacharacters.
+line=$(grund list --format json 2>/dev/null | grep -E "\"id\":\"([^\"]*/)?$id\"" | head -n 1)
 [ -n "$line" ] || { echo "grund-open: unknown id '$id'" >&2; exit 1; }
 
 path=$(printf '%s\n' "$line" | sed -n 's/.*"path":"\([^"]*\)".*/\1/p')

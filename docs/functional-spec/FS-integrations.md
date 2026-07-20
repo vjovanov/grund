@@ -42,7 +42,7 @@ Each prints two things on stdout, exit `0`:
 
 The snippet and the resolver are printed together so a human can read both before installing. `GRUND_OPEN_CMD` is an argv-style command prefix, not shell source: grund-open appends one `path:line` argument without evaluating repository-controlled paths as commands; users who need more elaborate argument placement use a wrapper executable. Any text the handler passes in — a tmux copy buffer, a kitty hint — reaches grund-open as a single quoted argument, never as shell source. The one-line install shown by detection (§2) is the `--write` form (§4).
 
-The click matchers and the resolver key on a bare local `§<ID>` citation; a namespace-qualified `§<alias>/<ID>` is out of scope and is not made clickable.
+The click matchers and the resolver key on a bare local `§<ID>` citation; a namespace-qualified `§<alias>/<ID>` is out of scope and is not made clickable. Resolution still succeeds inside a workspace: `grund list --format json` qualifies its `id` field as `<alias>/<ID>` in workspace mode ([§FS-workspace.8.3](FS-workspace.md#83-grund-list)), so the resolver matches the clicked local `<ID>` against either the bare or the `/`-suffixed qualified form.
 
 ### 3.2 Editor client: `vscode`
 
