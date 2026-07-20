@@ -366,20 +366,6 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                 }
                 config.render_links_conversation = conversation;
             }
-            ("render.links", "web_base") => {
-                config.render_links_web_base = parse_string(path, line_no, value)?;
-                if !valid_render_links_web_base(&config.render_links_web_base) {
-                    bail_config(
-                        path,
-                        line_no,
-                        "render.links.web_base must be \"auto\" or an https URL prefix safe for a Markdown link"
-                            .to_string(),
-                    )?;
-                }
-            }
-            ("render.links", "hover_title") => {
-                config.render_links_hover_title = parse_bool(path, line_no, value)?;
-            }
             ("workspace", "members") => {
                 config.workspace_members = parse_string_list(path, line_no, value)?;
                 config.workspace_members_source = Some(ConfigLocation {
@@ -612,24 +598,6 @@ fn parse_bool(path: &Path, line: usize, value: &str) -> Result<bool> {
         "false" => Ok(false),
         _ => bail_config(path, line, "expected boolean".to_string()),
     }
-}
-
-fn valid_render_links_web_base(value: &str) -> bool {
-    if value == "auto" {
-        return true;
-    }
-    let Some(rest) = value.strip_prefix("https://") else {
-        return false;
-    };
-    let authority = rest.split('/').next().unwrap_or_default();
-    !authority.is_empty()
-        && !authority.starts_with('.')
-        && !authority.ends_with('.')
-        && !value.chars().any(|character| {
-            character.is_whitespace()
-                || character.is_control()
-                || matches!(character, '"' | '`' | '<' | '>' | '[' | ']' | '(' | ')' | '\\' | '?' | '#')
-        })
 }
 
 fn parse_usize(path: &Path, line: usize, value: &str) -> Result<usize> {
@@ -1021,11 +989,6 @@ fn command_config(args: &[String]) -> ExitCode {
                     "conversation = \"{}\"",
                     config.render_links_conversation
                 );
-                println!(
-                    "web_base = \"{}\"",
-                    escape_toml_basic(&config.render_links_web_base)
-                );
-                println!("hover_title = {}", config.render_links_hover_title);
                 if config.workspace_declared {
                     println!();
                     println!("[workspace]");

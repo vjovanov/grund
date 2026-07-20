@@ -1393,11 +1393,6 @@ fn print_effective_config(config: &Config) {
         "conversation = \"{}\"",
         config.render_links_conversation
     );
-    println!(
-        "web_base = \"{}\"",
-        escape_toml_basic(&config.render_links_web_base)
-    );
-    println!("hover_title = {}", config.render_links_hover_title);
     if config.workspace_declared {
         println!();
         println!("[workspace]");
