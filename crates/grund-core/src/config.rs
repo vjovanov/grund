@@ -96,8 +96,7 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             let is_array_table = line.starts_with("[[") && line.ends_with("]]");
             section = line.trim_matches(['[', ']']).to_string();
             match section.as_str() {
-                "reference" | "scan" | "output" | "id" | "fmt.cross_refs" | "render.links"
-                | "workspace" => {
+                "reference" | "scan" | "output" | "id" | "fmt.cross_refs" | "workspace" => {
                     if section == "workspace" && is_array_table {
                         bail_config(
                             path,
@@ -353,18 +352,6 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                     bail_config(path, line_no, "unknown md link anchor format".to_string())?;
                 }
                 config.cross_ref_anchor_format = format;
-            }
-            // §FS-config.3.10: `[render.links]` clickable-citation keys.
-            ("render.links", "conversation") => {
-                let conversation = parse_string(path, line_no, value)?;
-                if !matches!(conversation.as_str(), "plain" | "link") {
-                    bail_config(
-                        path,
-                        line_no,
-                        "render.links.conversation must be one of plain | link".to_string(),
-                    )?;
-                }
-                config.render_links_conversation = conversation;
             }
             ("workspace", "members") => {
                 config.workspace_members = parse_string_list(path, line_no, value)?;
@@ -983,12 +970,6 @@ fn command_config(args: &[String]) -> ExitCode {
                 println!("[fmt.cross_refs]");
                 println!("enabled = {}", config.fmt_cross_refs_enabled);
                 println!("anchor_format = \"{}\"", config.cross_ref_anchor_format);
-                println!();
-                println!("[render.links]");
-                println!(
-                    "conversation = \"{}\"",
-                    config.render_links_conversation
-                );
                 if config.workspace_declared {
                     println!();
                     println!("[workspace]");

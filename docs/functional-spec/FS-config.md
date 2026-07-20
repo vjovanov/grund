@@ -265,17 +265,6 @@ Config validation rejects: a `[citations.<KIND>]` table whose kind is neither a 
 
 Adding `[citations]` does **not** bump `grund_config_version` (§5): it is additive surface, like `[workspace]` and `require_grounding`. An older binary meeting it fails loudly with `unknown config section`.
 
-### 3.10 `[render.links]` — clickable-citation rendering
-
-```toml
-[render.links]
-conversation = "plain"    # default; plain with `grund integrations`, link otherwise
-```
-
-The block carries one repository policy for conversation text, so the convention an agent follows is generated rather than hand-edited ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)): choose `plain` when conversation readers use an installed integration ([§FS-integrations](FS-integrations.md#fs-integrations-grund-prints-and-installs-its-rendering-layer-integrations)); choose `link` when they cannot rely on that rendering layer. `plain` writes the bare citation, while `link` wraps it in a context-valid declaration link and falls back to plain when uncertain. Link targets, refs, titles, and the user's editor choice are deliberately not shared repository configuration; they come from the writing context or installed integration ([§DF-neural-link-generation](../decisions/functional/DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command)).
-
-The table is optional; without it `conversation = "plain"`. The value is enum-validated on load, and any other key under `[render.links]` is an error like any other config typo (§4.3). Adding `[render.links]` does **not** bump `grund_config_version` (§5): it is additive surface like `[workspace]`, `[citations]`, and `[fmt.cross_refs]`. An older binary meeting it fails loudly with `unknown config section`.
-
 ## 4. Validation and inspection
 
 ### 4.1 `grund config validate [path]`
@@ -296,7 +285,7 @@ For concrete stderr examples and the distinction between `config validate` exit 
 
 The TOML file may include a top-level `grund_config_version = N`. The current version is **1**. Future incompatible schema changes increment this; grund refuses to load a config whose version is greater than the grund binary's known maximum, with an error suggesting an upgrade. Configs with no version key are interpreted as version 1.
 
-The version tracks **incompatible** changes to the meaning of existing keys, not the arrival of new ones. Adding an optional table or key — `[workspace]`, `[citations]`, `[render.links]` (§3.10), a future `anchor_format` profile — is additive and does not bump the version, because a config that uses it is only ever written for a binary that understands it, and an older binary meeting it fails loudly and locatably through the unknown-section / unknown-key rejection (§4.3) rather than silently misreading it. So the version stays **1** for the `[render.links]` addition; the safety net for the forward direction is the closed section and key allow-list, not the version integer.
+The version tracks **incompatible** changes to the meaning of existing keys, not the arrival of new ones. Adding an optional table or key — `[workspace]`, `[citations]`, a future `anchor_format` profile — is additive and does not bump the version, because a config that uses it is only ever written for a binary that understands it, and an older binary meeting it fails loudly and locatably through the unknown-section / unknown-key rejection (§4.3) rather than silently misreading it. The safety net for the forward direction is the closed section and key allow-list, not the version integer.
 
 ## 6. What is NOT configured here
 
@@ -306,3 +295,4 @@ Per [§GOAL-friendliness-first](../goals.md#goal-friendliness-first-as-user--and
 - The exit code mapping (`0`/`1`/`2` per [§FS-check.2](FS-check.md#2-outputs)).
 - The ordering of the report (always deterministic).
 - Anything that would let two correctly-configured grund installs disagree on whether a given repo is well-formed.
+- Local conversation citation rendering: it follows the user's TUI setup and is installed through `grund integrations --write` ([§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions)), never shared in `.agents/grund.toml`. Repository-web guidance is fixed in the generated agent entrypoint ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)).

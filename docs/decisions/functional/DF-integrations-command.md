@@ -26,7 +26,10 @@ The clients are a frozen, enumerated set ([§FS-integrations.1](../../functional
 
 - The frozen subcommand surface grows by one verb — a change gated by [§GOAL-no-silent-breakage](../../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path), justified by one-time setup value rather than per-use convenience — the line `link` failed to clear.
 - `cargo install grund` now delivers the rendering layer, not just the checker, so the plain-citation-is-clickable half of [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) is reachable without this repository as a testbed.
-- The convention sentences agents follow become a rendering of configuration ([§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents) render keys), so a repo that pins a web base or an editor-URL local style teaches its agents the matching recipe automatically rather than by hand-edited prose.
+- The local-conversation sentence becomes user configuration installed into detected global agent
+  instruction files, so it follows the user's TUI setup without making repositories encode a
+  machine-local preference. Repository instructions remain deterministic and carry only the
+  fixed repository-web rule ([§FS-init.2.3.6](../../functional-spec/FS-init.md#236-clickable-citations)).
 
 ## 4. Alternatives considered
 

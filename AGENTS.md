@@ -60,7 +60,7 @@ Unlisted kinds and pairs are fine.
 
 ### Clickable citations
 
-In conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable.
+On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure.
 
 ## Repository workflow
 

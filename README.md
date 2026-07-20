@@ -218,6 +218,31 @@ cargo install grund
 
 That installs the `grund` binary from the [`grund` crate on crates.io](https://crates.io/crates/grund) onto your `PATH`. npm and PyPI bindings are planned — see [`FS-distribution`](docs/functional-spec/FS-distribution.md).
 
+## Make citations clickable
+
+See which terminal or editor integrations match the current environment, then
+preview one before installing it:
+
+```bash
+grund integrations
+grund integrations wezterm
+grund integrations wezterm --write
+```
+
+Supported clients are `kitty`, `tmux`, `vscode`, and `wezterm`. `--write` is a
+one-time, idempotent user setup: it installs the selected integration, records
+the local-conversation preference in the user Grund config, and updates global
+instruction blocks for Codex, Claude, and Gemini. It does not change any
+repository's `.agents/grund.toml`.
+
+The default asks agents for plain citations because the installed integration
+makes them clickable. To override that for a TUI without rendering support, run
+`grund integrations <client> --write --conversation link`; the command updates
+the preference and global instructions together. Repository web links remain a
+fixed project instruction: `grund init` teaches agents to use the PR branch in
+PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and
+the default branch otherwise. See [§FS-integrations](docs/functional-spec/FS-integrations.md).
+
 ## 🧑‍💻 Editor Support via [LSP](https://microsoft.github.io/language-server-protocol/)
 
 Install the optional language server separately when you want editor diagnostics, hover previews, definition jumps, document links, references, and live `$$` → `§` formatting:

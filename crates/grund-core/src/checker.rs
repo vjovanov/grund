@@ -1137,30 +1137,21 @@ fn check_agent_block_path(
                 sites: Vec::new(),
             });
         } else {
-            // §FS-check.3.5 / §FS-init.2.3.5–2.3.6: the citation-directions and
-            // clickable-citations sections are generated from config
-            // (`[citations]` / `[render.links]`), so the version marker alone
-            // cannot catch a config edit that left the block stale. Re-render
-            // each section and byte-compare — rendering is deterministic, so the
-            // render *is* the hash.
+            // §FS-check.3.5 / §FS-init.2.3.5: citation directions are generated
+            // from `[citations]`, so the version marker alone cannot catch a
+            // config edit that left the block stale. Re-render the section and
+            // byte-compare — rendering is deterministic, so the render is the hash.
             //
             // Strip `\r` so a CRLF checkout (the managed `AGENTS.md` is not
             // pinned to LF in `.gitattributes`, so Windows checks it out with
             // CRLF) compares equal to the LF-rendered section rather than
             // reading as drift.
             let block_text = text[block.start..block.end].replace('\r', "");
-            let generated_sections = [
-                (
-                    "### Citation directions",
-                    citation_directions_section(config),
-                    "citation directions",
-                ),
-                (
-                    "### Clickable citations",
-                    clickable_citations_section(config),
-                    "clickable citations",
-                ),
-            ];
+            let generated_sections = [(
+                "### Citation directions",
+                citation_directions_section(config),
+                "citation directions",
+            )];
             for (heading, expected, noun) in generated_sections {
                 if section_in_block(&block_text, heading) != Some(expected.trim_end()) {
                     report.errors.push(Diagnostic {

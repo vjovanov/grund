@@ -76,9 +76,6 @@ relative_paths = true
 enabled = true
 anchor_format = "github"
 
-[render.links]
-conversation = "plain"
-
 [workspace]
 members = ["apps/api"]
 include_root = false

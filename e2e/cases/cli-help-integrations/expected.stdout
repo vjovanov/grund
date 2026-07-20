@@ -1,15 +1,18 @@
 grund integrations — print or install the clickable-citation terminal/editor integrations.
 
-Usage:  grund integrations [<client>] [--write] [--format text|json]
+Usage:  grund integrations [<client>] [--write] [--conversation plain|link] [--format text|json]
 
 With no client, detects the terminal/editor from the environment and prints
 what applies. With a client — kitty, tmux, vscode, or wezterm — prints that
 integration's snippet and the grund-open resolver; --write installs it as a
-managed, idempotent block instead of printing. --format json emits a plan.
+managed, idempotent block instead of printing. A write also records the local
+conversation preference and updates global agent instructions; override the
+plain default with --conversation link. --format json emits a plan.
 
 Preview and install examples:
   grund integrations                    # detect and list what applies
   grund integrations wezterm            # print the snippet + resolver
   grund integrations wezterm --write    # install it, idempotently
+  grund integrations wezterm --write --conversation link
 
-Exit:  0 printed or installed · 2 unknown client, --write with no client, or a newer block.
+Exit:  0 printed or installed · 2 invalid options, missing client, or a newer block.

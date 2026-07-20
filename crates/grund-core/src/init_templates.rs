@@ -10,9 +10,8 @@ const E2E_README_TEMPLATE: &str = include_str!("../assets/templates/e2e-README.m
 const AS_README_TEMPLATE: &str = include_str!("../assets/templates/architecture-README.md");
 const GITKEEP_TEMPLATE: &str = include_str!("../assets/templates/gitkeep.md");
 pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-init/SKILL.md");
-// v4 (§FS-init.2.3.6, §DF-integrations-command): adds a generated `### Clickable
-// citations` section derived from `[render.links]`,
-// byte-compared by `grund check` for drift (§FS-check.3.5). v3 (§FS-init.2.3.5,
+// v4 (§FS-init.2.3.6, §DF-integrations-command): adds the fixed repository-web
+// `### Clickable citations` convention. v3 (§FS-init.2.3.5,
 // §DF-citation-directions) replaced the hand-written climbing-rule bullet with a
 // generated `### Citation directions` section derived from `[citations]`.
 const AGENTS_BLOCK_VERSION: u32 = 4;
@@ -221,7 +220,7 @@ fn agents_template_substitutions(
         ("{TRIGGER}", config.trigger.clone()),
         ("{DECLARATION_MAP}", declaration_map(config)),
         ("{CITATION_DIRECTIONS}", citation_directions_section(config)),
-        ("{CLICKABLE_CITATIONS}", clickable_citations_section(config)),
+        ("{CLICKABLE_CITATIONS}", clickable_citations_section()),
         (
             "{WORKSPACE_MEMBERS}",
             render_workspace_members_section(
@@ -351,18 +350,11 @@ fn citation_directions_section(config: &Config) -> String {
     lines.join("\n")
 }
 
-/// Render the `### Clickable citations` managed-block section
-/// (§FS-init.2.3.6) from the effective `[render.links]` config. Deterministic —
-/// each key selects one of a fixed set of phrases — so `grund check` can
-/// re-render and byte-compare it for drift (§FS-check.3.5). Returned without a
-/// trailing newline; the `{CLICKABLE_CITATIONS}` placeholder supplies the final
-/// newline, so `grund init` stays idempotent on re-run.
-fn clickable_citations_section(config: &Config) -> String {
-    if config.render_links_conversation == "plain" {
-        return "### Clickable citations\n\nIn conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable."
-            .to_string();
-    }
-    "### Clickable citations\n\nIn conversations, link `§<ID>` to its declaration; fall back to plain when unsure."
+/// Render the fixed repository-web convention (§FS-init.2.3.6). Local
+/// conversation rendering belongs to user-level instructions installed by
+/// `grund integrations --write` (§FS-integrations.4.3).
+fn clickable_citations_section() -> String {
+    "### Clickable citations\n\nOn repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure."
         .to_string()
 }
 

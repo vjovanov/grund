@@ -3469,6 +3469,78 @@ default = "must-not"
         assert!(install_managed_block(&format!("{block}{block}"), "NEW").is_err());
     }
 
+    // §FS-integrations.4.3: the user preference is installed without rewriting
+    // unrelated configuration and an explicit override replaces only its line.
+    #[test]
+    fn conversation_preference_appends_and_updates() {
+        let existing = "keep = true\n";
+        let (plain, outcome) =
+            install_conversation_preference(existing, ConversationRendering::Plain).unwrap();
+        assert_eq!(outcome, BlockOutcome::Appended);
+        assert_eq!(
+            plain,
+            "keep = true\n\n[render.links]\nconversation = \"plain\"\n"
+        );
+        assert_eq!(
+            conversation_preference(&plain).unwrap(),
+            Some(ConversationRendering::Plain)
+        );
+
+        let (linked, outcome) =
+            install_conversation_preference(&plain, ConversationRendering::Link).unwrap();
+        assert_eq!(outcome, BlockOutcome::Updated);
+        assert!(linked.starts_with("keep = true\n\n[render.links]\n"));
+        assert!(linked.ends_with("conversation = \"link\"\n"));
+        let (again, outcome) =
+            install_conversation_preference(&linked, ConversationRendering::Link).unwrap();
+        assert_eq!(outcome, BlockOutcome::Unchanged);
+        assert_eq!(again, linked);
+    }
+
+    #[test]
+    fn conversation_preference_rejects_duplicates_and_invalid_values() {
+        assert!(conversation_preference(
+            "[render.links]\nconversation = \"plain\"\nconversation = \"link\"\n"
+        )
+        .is_err());
+        assert!(conversation_preference(
+            "[render.links]\nconversation = \"neither\"\n"
+        )
+        .is_err());
+    }
+
+    // §FS-integrations.4.3: global agent guidance is versioned, idempotent, and
+    // preserves user-authored text around its managed block.
+    #[test]
+    fn agent_guidance_block_tracks_user_preference() {
+        let (plain, outcome) =
+            install_agent_guidance_block("# My instructions\n", ConversationRendering::Plain)
+                .unwrap();
+        assert_eq!(outcome, BlockOutcome::Appended);
+        assert!(plain.starts_with("# My instructions\n\n<!-- >>>"));
+        assert!(plain.contains("write plain `§<ID>` citations"));
+
+        let with_tail = format!("{plain}keep-after\n");
+        let (linked, outcome) =
+            install_agent_guidance_block(&with_tail, ConversationRendering::Link).unwrap();
+        assert_eq!(outcome, BlockOutcome::Updated);
+        assert!(linked.starts_with("# My instructions\n"));
+        assert!(linked.ends_with("keep-after\n"));
+        assert!(linked.contains("link `§<ID>` to its declaration"));
+        assert!(!linked.contains("write plain `§<ID>` citations"));
+
+        let (again, outcome) =
+            install_agent_guidance_block(&linked, ConversationRendering::Link).unwrap();
+        assert_eq!(outcome, BlockOutcome::Unchanged);
+        assert_eq!(again, linked);
+    }
+
+    #[test]
+    fn agent_guidance_block_rejects_newer_version() {
+        let newer = "<!-- >>> grund integrations citation rendering (v99) >>> -->\nx\n<!-- <<< grund integrations citation rendering (v99) <<< -->\n";
+        assert!(install_agent_guidance_block(newer, ConversationRendering::Plain).is_err());
+    }
+
     // §FS-integrations.4.2: a matching marker alone does not hide a missing or
     // damaged extension file from the repair path.
     #[test]
@@ -3559,60 +3631,29 @@ default = "must-not"
         assert!(set_executable(&missing).is_err());
     }
 
-    // §FS-init.2.3.6: the clickable-citations section renders deterministically
-    // from the plain/link conversation policy and link-shaping keys.
+    // §FS-init.2.3.6: repositories get one fixed web-surface convention.
     #[test]
-    fn clickable_citations_section_reflects_render_links() {
-        let mut config = Config::default_for(PathBuf::from("."));
-        let default = clickable_citations_section(&config);
+    fn clickable_citations_section_is_fixed() {
+        let rendered = clickable_citations_section();
         assert_eq!(
-            default,
-            "### Clickable citations\n\nIn conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable."
-        );
-
-        config.render_links_conversation = "link".into();
-        let custom = clickable_citations_section(&config);
-        assert_eq!(
-            custom,
-            "### Clickable citations\n\nIn conversations, link `§<ID>` to its declaration; fall back to plain when unsure."
+            rendered,
+            "### Clickable citations\n\nOn repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure."
         );
     }
 
-    // §FS-config.3.10: `[render.links]` parses valid keys and rejects bad values.
+    // §FS-integrations.4.3: the TUI preference is user-scoped and therefore not
+    // accepted by the repository configuration parser.
     #[test]
-    fn render_links_config_parses_and_validates() {
-        let root = test_root("render_links_config_parses_and_validates");
+    fn repository_config_rejects_render_links() {
+        let root = test_root("repository_config_rejects_render_links");
         write(
             &root.join(".agents/grund.toml"),
-            "grund_config_version = 1\n[render.links]\nconversation = \"link\"\n",
+            "grund_config_version = 1\n[render.links]\nconversation = \"plain\"\n",
         );
-        let config = load_config(&root).expect("valid render.links config loads");
-        assert_eq!(config.render_links_conversation, "link");
-
-        write(
-            &root.join(".agents/grund.toml"),
-            "grund_config_version = 1\n[render.links]\nconversation = \"nope\"\n",
-        );
-        assert!(
-            load_config(&root).is_err(),
-            "an invalid conversation value is rejected"
-        );
-
-        for removed_key in [
-            "local = \"plain\"",
-            "web_ref = \"branch\"",
-            "web_base = \"auto\"",
-            "hover_title = true",
-        ] {
-            write(
-                &root.join(".agents/grund.toml"),
-                &format!("grund_config_version = 1\n[render.links]\n{removed_key}\n"),
-            );
-            assert!(
-                load_config(&root).is_err(),
-                "removed rendering policy unexpectedly accepted: {removed_key}"
-            );
-        }
-
+        let error = match load_config(&root) {
+            Ok(_) => panic!("repo render.links must be rejected"),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains("unknown config section"));
     }
 }
