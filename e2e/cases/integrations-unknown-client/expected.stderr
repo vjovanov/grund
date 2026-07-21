@@ -1,2 +1,2 @@
 error: unknown integration client `bogus`
-known clients: iterm2, kitty, tmux, vscode, wezterm
+known clients: codium, iterm2, kitty, tmux, vscode, wezterm

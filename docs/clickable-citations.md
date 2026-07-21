@@ -71,7 +71,8 @@ read both before anything touches your dotfiles.
 grund integrations kitty --write
 ```
 
-The supported clients are `kitty`, `tmux`, `vscode`, and `wezterm`. The write is
+The supported clients are `codium`, `iterm2`, `kitty`, `tmux`, `vscode`, and
+`wezterm`. The write is
 idempotent and lands as a marked block, so re-running is safe and removing it
 later is a matter of deleting the block.
 
@@ -84,6 +85,12 @@ Each client then needs one more step:
 | **tmux** | select the citation in copy mode, then `prefix` + `g` | `tmux source-file ~/.tmux.conf` |
 | **vscode** | click the link in the integrated terminal | *Developer: Reload Window* |
 | **iterm2** | cmd-click the citation | **apply the rule by hand — see below** |
+| **codium** | click the link in the integrated terminal | *Developer: Reload Window* |
+
+**Use `codium`, not `vscode`, if you run VSCodium.** They are separate
+applications with separate extension roots, and installing into the wrong one
+fails silently — the install reports success and no link ever appears. If you are
+unsure, `grund integrations` will name whichever it can detect.
 
 **iTerm2 is applied by hand.** It keeps its settings in a binary property list,
 not a text file, so there is no config to manage a block in and grund will not
@@ -189,7 +196,7 @@ On **iTerm2**, peek is the second action on the Smart Selection rule, which puts
 it on the citation's right-click menu — iTerm2 fires only the first action on
 cmd-click.
 
-**VS Code gets real hover instead.** Its extension attaches the declaration's
+**VS Code and VSCodium get real hover instead.** The extension attaches the declaration's
 heading and first paragraph to the link as a tooltip, so you just point at a
 citation — no click, no binding. No terminal can do this: none of them expose a
 hover event or a link tooltip to configuration, and
@@ -265,7 +272,25 @@ a custom `marker`. The matchers accept any short punctuation marker, not just
 clickable, because that would make every `FS-`-prefixed word in your terminal a
 link.
 
-## 8. Remove it
+## 8. Terminals that are not supported
+
+Some terminals have no way to make arbitrary text clickable, so there is nothing
+to install:
+
+- **Ghostty** documents the exact option needed — `link`, matching a regex and
+  running an action — but its reference currently reads
+  *"TODO: This can't currently be set!"*. Only built-in URL matching works, and
+  Ghostty has no `path:line` opener either, so the `link` conversation mode does
+  not help as a fallback. When upstream ships `link`, support is a few lines.
+- **Apple Terminal.app** and **Windows Terminal** have no regex-to-action hook at
+  all.
+
+On Windows, use **WSL** — it is Linux, so kitty, tmux, and wezterm all work
+unchanged. Native Windows is not supported: the resolver is a POSIX shell
+script. The exception is VS Code, which never uses the resolver and works there
+today.
+
+## 9. Remove it
 
 Delete the marked block from the client's config — it is bracketed by
 `>>> grund integrations` and `<<< grund integrations` comments — and delete
