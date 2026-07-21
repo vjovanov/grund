@@ -1,0 +1,187 @@
+# grund iterm2 citation integration
+# Install with: grund integrations iterm2 --write
+#
+# 1. Terminal config — add to Settings > Profiles > Advanced > Smart Selection:
+
+grund citation integration for iTerm2.
+
+iTerm2 keeps its configuration in a binary property list, not a text file, so
+there is no config to splice a managed block into — this integration is applied
+by hand, once, through Settings. `--write` still installs the `grund-open`
+resolver everything else depends on (§FS-integrations.3.4).
+
+Smart Selection binds an action to a regex, and the first action fires on
+cmd-click, so a citation becomes cmd-clickable the same way kitty's hints make
+one hintable.
+
+1. Open  Settings → Profiles → <your profile> → Advanced
+2. Under "Smart Selection", press Edit, then + to add a rule
+3. Fill it in exactly:
+
+     Regular expression:
+       [^\w\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z]+-[a-z0-9][a-z0-9-]*(?:\.[0-9]+)*
+
+     Precision:
+       Very High
+
+4. With the rule selected, press "Edit Actions…", then + , and set:
+
+     Action:     Run Command…
+     Parameter:  grund-open \0
+
+5. To also get peek — the declaration in a window instead of your editor — add a
+   second action to the same rule:
+
+     Action:     Run Command in Window…
+     Parameter:  grund-open --peek \0
+
+   Actions after the first do not fire on cmd-click; they appear in the
+   right-click menu for a matched citation. So cmd-click opens, right-click
+   offers peek.
+
+Notes
+
+  \0 is the whole match, which is what grund-open expects: it strips any
+  citation marker itself, so a repository using a marker other than § still
+  works, and no capture group is needed.
+
+  Precision "Very High" keeps the rule from losing to iTerm2's built-in
+  filesystem-path rule when a citation appears next to a path.
+
+  grund-open must be on the PATH that iTerm2 sees. On macOS ~/.local/bin is not
+  on PATH by default; if cmd-click does nothing, that is the first thing to
+  check, and putting an absolute path in the Parameter is the quick way to rule
+  it in or out.
+
+You may not need this at all. iTerm2's Semantic History already makes a plain
+`path:line` cmd-clickable, so `grund integrations --write --conversation link`
+makes agents write the location next to each citation and iTerm2 handles the
+rest with no rule (§FS-integrations.4.3).
+
+# 2. Resolver — install grund-open to a directory on PATH (e.g. ~/.local/bin):
+
+#!/bin/sh
+# grund-open — resolve a §<ID> citation to its cited line and open it.
+#
+# Installed by `grund integrations <client> --write` (§FS-integrations). A
+# terminal integration hands this script the clicked token; the script resolves
+# it with `grund` and opens the declaration in the user's editor. The editor is
+# GRUND_OPEN_CMD when set, else EDITOR, else a platform default — the user's
+# editor choice lives here, never in shared repository text. GRUND_OPEN_CMD is
+# an argv-style command prefix; use a wrapper executable for custom placement.
+#
+# With --peek it prints the declaration through a pager instead, for clients that
+# can put it in an overlay, popup, or split pane. Both modes share one resolution
+# path so a peek and a click can never disagree about where a citation points.
+#
+# Usage: grund-open [--peek] <§ID | ID>[.<section>]
+set -eu
+
+peek=
+if [ "${1:-}" = "--peek" ]; then
+    peek=1
+    shift
+fi
+
+token=${1:-}
+[ -n "$token" ] || { echo "grund-open: no citation given" >&2; exit 2; }
+
+# Find the grund root: the nearest ancestor holding `.agents/grund.toml`. The
+# terminal hands us a token, never a directory, so the click may arrive with the
+# shell anywhere — including a subdirectory, where a repo-root-relative path
+# would not resolve. Everything below runs against this root
+# (§FS-integrations.3.1).
+root=$PWD
+while [ "$root" != "/" ] && [ ! -f "$root/.agents/grund.toml" ]; do
+    root=$(dirname "$root")
+done
+[ -f "$root/.agents/grund.toml" ] || {
+    echo "grund-open: no .agents/grund.toml at or above $PWD" >&2
+    exit 1
+}
+
+# Strip the citation marker without hardcoding one: `[reference] marker` is
+# per-repo, so drop any leading run of non-alphanumeric characters instead of a
+# literal §. This keeps a workspace-qualified `<alias>/<ID>` intact (the alias
+# starts alphanumeric) and tolerates stray punctuation the terminal's match
+# swept in, e.g. `(§FS-x`. The section suffix is deliberately kept: `grund`
+# resolves `<ID>.<section>` to that section's own line.
+id=$(printf '%s' "$token" | sed 's/^[^A-Za-z0-9]*//')
+[ -n "$id" ] || { echo "grund-open: empty id in '$token'" >&2; exit 2; }
+
+# Resolve the citation to path:line. `grund <ID>[.<section>] --format json` emits
+# one object whose `path` is relative to the config root above and whose `line`
+# is the cited section's line, not merely the declaration's (§FS-integrations.3.1).
+json=$(cd "$root" && grund "$id" --format json 2>/dev/null) || json=''
+[ -n "$json" ] || { echo "grund-open: unknown id '$id'" >&2; exit 1; }
+
+# Anchor both extractions to the end of the object: `body` carries arbitrary
+# declaration prose that may itself contain `"path":` or `"line":`, and an
+# unanchored match would happily read that instead of the real field.
+path=$(printf '%s\n' "$json" | sed -n 's/.*"path":"\([^"]*\)","line":[0-9]*}$/\1/p')
+lineno=$(printf '%s\n' "$json" | sed -n 's/.*,"line":\([0-9]*\)}$/\1/p')
+[ -n "$path" ] || { echo "grund-open: could not resolve path for '$id'" >&2; exit 1; }
+lineno=${lineno:-1}
+
+# Hand the editor an absolute path. `grund` never emits one (§FS-errors.4 keeps
+# reports deterministic); composing it here is what makes the click work from a
+# subdirectory.
+path="$root/$path"
+
+if [ -n "$peek" ]; then
+    # Print, don't open. The caller has already put us somewhere disposable — a
+    # kitty overlay, a tmux popup, a wezterm split — and every one of those
+    # closes when this process exits, so the output goes through a pager to stay
+    # readable until dismissed. The location header is what makes the peek
+    # actionable: it is the same `path:line` a click would open.
+    {
+        printf '%s:%s\n\n' "$path" "$lineno"
+        (cd "$root" && grund "$id") 2>/dev/null || printf 'could not render %s\n' "$id"
+    } | {
+        if [ -n "${PAGER:-}" ]; then
+            # shellcheck disable=SC2086
+            exec $PAGER
+        elif command -v less >/dev/null 2>&1; then
+            exec less -R
+        else
+            cat
+            printf '\n[enter to close] '
+            read -r _dismiss || true
+        fi
+    }
+    exit 0
+fi
+
+if [ -n "${GRUND_OPEN_CMD:-}" ]; then
+    # Never interpolate the repository-controlled path into shell source. The
+    # command itself is user-controlled and may carry simple flags; it receives
+    # one path:line argument. More complex layouts belong in a wrapper script.
+    # shellcheck disable=SC2086
+    set -f
+    set -- $GRUND_OPEN_CMD
+    set +f
+    [ "$#" -gt 0 ] || { echo "grund-open: GRUND_OPEN_CMD contains no command" >&2; exit 2; }
+    exec "$@" "$path:$lineno"
+elif [ -n "${EDITOR:-}" ]; then
+    # EDITOR may carry flags (e.g. "code -w" or "emacsclient -t"), so word-split
+    # it, then pass the line in the syntax the editor understands: only the
+    # vi/emacs family take "+LINE FILE"; VS Code / Sublime want "--goto
+    # FILE:LINE"; helix/micro take "FILE:LINE". Unknown editors just open FILE.
+    # shellcheck disable=SC2086
+    set -- $EDITOR
+    case $(basename "$1") in
+        code|code-insiders|codium|vscodium|cursor|subl|sublime_text)
+            exec "$@" --goto "$path:$lineno" ;;
+        vi|vim|nvim|nano|emacs|emacsclient|kak)
+            exec "$@" "+$lineno" "$path" ;;
+        hx|micro)
+            exec "$@" "$path:$lineno" ;;
+        *)
+            exec "$@" "$path" ;;
+    esac
+elif command -v code >/dev/null 2>&1; then
+    exec code --goto "$path:$lineno"
+else
+    echo "grund-open: set GRUND_OPEN_CMD or EDITOR to open $path:$lineno" >&2
+    exit 1
+fi

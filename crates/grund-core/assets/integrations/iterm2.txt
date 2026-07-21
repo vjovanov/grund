@@ -1,0 +1,54 @@
+grund citation integration for iTerm2.
+
+iTerm2 keeps its configuration in a binary property list, not a text file, so
+there is no config to splice a managed block into — this integration is applied
+by hand, once, through Settings. `--write` still installs the `grund-open`
+resolver everything else depends on (§FS-integrations.3.4).
+
+Smart Selection binds an action to a regex, and the first action fires on
+cmd-click, so a citation becomes cmd-clickable the same way kitty's hints make
+one hintable.
+
+1. Open  Settings → Profiles → <your profile> → Advanced
+2. Under "Smart Selection", press Edit, then + to add a rule
+3. Fill it in exactly:
+
+     Regular expression:
+       [^\w\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z]+-[a-z0-9][a-z0-9-]*(?:\.[0-9]+)*
+
+     Precision:
+       Very High
+
+4. With the rule selected, press "Edit Actions…", then + , and set:
+
+     Action:     Run Command…
+     Parameter:  grund-open \0
+
+5. To also get peek — the declaration in a window instead of your editor — add a
+   second action to the same rule:
+
+     Action:     Run Command in Window…
+     Parameter:  grund-open --peek \0
+
+   Actions after the first do not fire on cmd-click; they appear in the
+   right-click menu for a matched citation. So cmd-click opens, right-click
+   offers peek.
+
+Notes
+
+  \0 is the whole match, which is what grund-open expects: it strips any
+  citation marker itself, so a repository using a marker other than § still
+  works, and no capture group is needed.
+
+  Precision "Very High" keeps the rule from losing to iTerm2's built-in
+  filesystem-path rule when a citation appears next to a path.
+
+  grund-open must be on the PATH that iTerm2 sees. On macOS ~/.local/bin is not
+  on PATH by default; if cmd-click does nothing, that is the first thing to
+  check, and putting an absolute path in the Parameter is the quick way to rule
+  it in or out.
+
+You may not need this at all. iTerm2's Semantic History already makes a plain
+`path:line` cmd-clickable, so `grund integrations --write --conversation link`
+makes agents write the location next to each citation and iTerm2 handles the
+rest with no rule (§FS-integrations.4.3).

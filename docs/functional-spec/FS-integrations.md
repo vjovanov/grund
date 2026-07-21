@@ -9,11 +9,11 @@ grund integrations [<client>] [--write] [--conversation plain|link] [--format te
 ```
 
 - With no `<client>` and no write flags, grund detects the caller's environment (§2) and prints the integrations that apply, each with its one-line install command. `--format json` prints the same detection as a machine-shaped plan (§5).
-- With a `<client>` — one of `kitty`, `tmux`, `vscode`, `wezterm` — grund prints that client's integration: the config snippet plus, for the terminal clients, the embedded `grund-open` resolver script (§3). Deterministic and environment-independent (§6).
-- With an explicit client, `--write` applies the integration to the client's real configuration instead of printing it, as a managed, marked block (§4), and synchronizes the user's local-conversation preference into global agent instructions (§4.3).
+- With a `<client>` — one of `iterm2`, `kitty`, `tmux`, `vscode`, `wezterm` — grund prints that client's integration: the config snippet plus, for the terminal clients, the embedded `grund-open` resolver script (§3). Deterministic and environment-independent (§6).
+- With an explicit client, `--write` applies the integration to the client's real configuration instead of printing it, as a managed, marked block (§4), and synchronizes the user's local-conversation preference into global agent instructions (§4.3). A client with no writable configuration installs what it can and prints the rest for the user to apply (§3.4).
 - `--conversation plain|link` overrides the user preference while writing. It is accepted only with `--write`. When present without a client, the command updates only the user preference and global agent instructions; this preference-only form is unambiguous and does not install an arbitrary client. With no override, a client installation records `plain` on first use and preserves the stored preference thereafter. `plain` tells agents to write bare citations for the installed rendering layer, while `link` tells them to follow a citation with its declaration location as plain `path:line` text — never a Markdown link ([§DF-repo-conversation-opinion.2.1](../decisions/functional/DF-repo-conversation-opinion.md#21-the-link-form-is-plain-pathline-text)) — and fall back to the bare citation when uncertain. Bare `grund integrations --write`, with neither a client nor a conversation value, remains an error.
 
-An unknown client is a CLI-level error: `error: unknown integration client \`<client>\`` plus `known clients: kitty, tmux, vscode, wezterm` on stderr, empty stdout, exit `2`. The client set is closed and frozen the same way the subcommand surface is ([§FS-cli.4](FS-cli.md#4-errors-with-no-source-location)), so adding a client is a deliberate, changelog-gated change.
+An unknown client is a CLI-level error: `error: unknown integration client \`<client>\`` plus `known clients: iterm2, kitty, tmux, vscode, wezterm` on stderr, empty stdout, exit `2`. The client set is closed and frozen the same way the subcommand surface is ([§FS-cli.4](FS-cli.md#4-errors-with-no-source-location)), so adding a client is a deliberate, changelog-gated change.
 
 ## 2. Detection
 
@@ -21,11 +21,11 @@ With no `<client>`, grund inspects the environment to decide which integrations 
 
 - `WEZTERM_EXECUTABLE` → `wezterm`
 - `KITTY_WINDOW_ID` → `kitty`
-- `TERM_PROGRAM` — value `WezTerm` → `wezterm`, `tmux` → `tmux`, `vscode` → `vscode`
+- `TERM_PROGRAM` — value `WezTerm` → `wezterm`, `iTerm.app` → `iterm2`, `tmux` → `tmux`, `vscode` → `vscode`
 - `VSCODE_PID` or any `VSCODE_*` marker → `vscode`
 - `TMUX` (non-empty) → `tmux`
 
-Zero, one, or several clients may match at once (a VS Code integrated terminal running under tmux inside WezTerm matches three). Matches are reported in the frozen client order `kitty, tmux, vscode, wezterm`, deduplicated, never in environment-probe order, so a given environment always prints the same text. When nothing matches, grund prints the full catalog of clients with their one-line installs and a note that none was detected — a discoverable menu rather than an error. Detection succeeds with exit `0` in every case; an unrecognized terminal is not a failure.
+Zero, one, or several clients may match at once (a VS Code integrated terminal running under tmux inside WezTerm matches three). Matches are reported in the frozen client order `iterm2, kitty, tmux, vscode, wezterm`, deduplicated, never in environment-probe order, so a given environment always prints the same text. When nothing matches, grund prints the full catalog of clients with their one-line installs and a note that none was detected — a discoverable menu rather than an error. Detection succeeds with exit `0` in every case; an unrecognized terminal is not a failure.
 
 Because detection depends on ambient environment variables, only the explicit-`<client>` form (§1) and `--help` are byte-stable across machines; the no-client form is stable only for a fixed environment. Golden coverage therefore pins explicit clients (§6).
 
@@ -33,7 +33,7 @@ Because detection depends on ambient environment variables, only the explicit-`<
 
 Every artifact is embedded in the binary, like the `init` templates and `completions` scripts; nothing is fetched and nothing is published to a marketplace, so the no-first-party-plugins stance ([§FS-lsp.2.3](FS-lsp.md#23-editor-configuration-one-time-per-editor)) holds.
 
-### 3.1 Terminal clients: `wezterm`, `kitty`, `tmux`
+### 3.1 Terminal clients: `wezterm`, `kitty`, `tmux`, `iterm2`
 
 Each prints two things on stdout, exit `0`:
 
@@ -73,6 +73,16 @@ The terminal clients cannot hover: no terminal exposes a hover event or a link t
 Peek is the same resolver in a different mode — `grund-open --peek <citation>` (§3.1) — so a peek and a click can never disagree about where a citation points. It prints the resolved `path:line` followed by the declaration lead, through a pager, because each of those surfaces closes when the process exits.
 
 WezTerm needs one indirection worth recording, because it looks like an accident otherwise: Lua cannot ask which link is under the mouse — only the built-in `OpenLinkAtMouseCursor` knows, and it exposes only the resulting URI through `open-uri`, while `window:current_event()` does not carry modifiers. The peek binding therefore records the intent, delegates to that built-in action, and the `open-uri` handler reads the intent back. Both run inside one synchronous event, so the flag cannot leak across clicks.
+
+### 3.4 Manual client: `iterm2`
+
+iTerm2 stores its configuration in a binary property list, not a text file. There is no comment syntax to carry markers and no safe place to put them, so the managed-block contract (§4.1) simply does not apply — and rewriting a live profile blob under the user is not a trade grund makes for a convenience.
+
+`iterm2` is therefore the one **manual** client. `grund integrations iterm2` prints the Smart Selection rule to add: the citation regex from §3.1, precision `Very High` so it does not lose to iTerm2's built-in filesystem-path rule, and a `Run Command…` action of `grund-open \0` — the first action on a rule is what fires on cmd-click. A second action, `grund-open --peek \0`, is offered for the right-click menu, which is where actions after the first appear; that is peek (§3.3) in the form iTerm2 can express. `\0` is the whole match, and needs no capture group because the resolver strips the marker itself.
+
+`grund integrations iterm2 --write` installs everything grund *can* install — the `grund-open` resolver and the user preference and global agent instructions (§4.3) — then prints the steps it cannot apply, reporting `manual <client> (<where>)` on stderr. The exit code is `0`: nothing failed, and the remaining work is the user's. `integration_is_current` (§5) always reports `installed: false` for a manual client, because grund never reads that plist and reporting a guess would be worse than reporting nothing; the detection plan carries `"install_kind":"manual"` so a caller can tell the difference between *not installed* and *not knowable*.
+
+A Mac user may not need the rule at all. iTerm2's Semantic History already makes a plain `path:line` cmd-clickable, so `--conversation link` (§4.3) — which has agents write the declaration location beside each citation — produces clickable citations there with no integration installed. That is the same reason `link` exists for TUIs: it degrades to something the host already understands.
 
 ## 4. Managed writes (`--write`)
 
@@ -114,6 +124,6 @@ The global instruction block uses versioned HTML-comment begin/end markers. The 
 
 ## 6. Determinism and exit codes
 
-With an explicit `<client>`, output is a pure function of the binary version and the flags — no environment, no tree scan, no clock — so it is byte-identical across machines and safe to golden. The no-client detection form (§2) is a pure function of the binary version, the named environment variables, and, for JSON, the four fixed installation targets; it is byte-identical for a fixed environment and installation state. `--write` is idempotent: a second run against an up-to-date target is a no-op that reports `exists`.
+With an explicit `<client>`, output is a pure function of the binary version and the flags — no environment, no tree scan, no clock — so it is byte-identical across machines and safe to golden. The no-client detection form (§2) is a pure function of the binary version, the named environment variables, and, for JSON, the four fixed installation targets; it is byte-identical for a fixed environment and installation state. `--write` is idempotent: a second run against an up-to-date target is a no-op that reports `exists`. A manual client (§3.4) has no target to compare, so its `--write` is idempotent in the weaker sense that it re-installs the resolver only when stale and re-prints the same steps.
 
 Exit codes follow the frozen mapping ([§FS-cli.5](FS-cli.md#5-exit-code-mapping-is-fixed)): `0` printed, written, or already current; `2` an unknown client, bare `--write` with neither a client nor a conversation value, `--conversation` without `--write`, an invalid preference, an unknown flag, or a configuration file whose managed block is newer than this binary understands. There is no `1` outcome — `integrations` has no findings surface.

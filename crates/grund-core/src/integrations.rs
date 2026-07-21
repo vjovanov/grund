@@ -6,6 +6,7 @@
 // from both the live CLI and the deprecated compat frontend.
 
 const GRUND_OPEN_RESOLVER: &str = include_str!("../assets/integrations/grund-open");
+const ITERM2_SNIPPET: &str = include_str!("../assets/integrations/iterm2.txt");
 const WEZTERM_SNIPPET: &str = include_str!("../assets/integrations/wezterm.lua");
 const KITTY_SNIPPET: &str = include_str!("../assets/integrations/kitty.conf");
 const TMUX_SNIPPET: &str = include_str!("../assets/integrations/tmux.conf");
@@ -42,10 +43,36 @@ const RESOLVER_TARGET: &str = "~/.local/bin/grund-open";
 /// used by detection and every listing.
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum IntegrationClient {
+    Iterm2,
     Kitty,
     Tmux,
     Vscode,
     Wezterm,
+}
+
+/// How `--write` applies a client's integration (§FS-integrations.4).
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum InstallKind {
+    /// A marked block spliced into the client's text config.
+    Block,
+    /// An unpacked extension directory.
+    Vscode,
+    /// Nothing writable: the client stores configuration somewhere no managed
+    /// block can live, so `--write` installs the resolver and prints the steps
+    /// the user has to apply by hand (§FS-integrations.3.4).
+    Manual,
+}
+
+impl InstallKind {
+    /// Reported in the detection plan so a caller can tell why a `manual`
+    /// client never reports `installed` (§FS-integrations.5).
+    fn name(self) -> &'static str {
+        match self {
+            InstallKind::Block => "block",
+            InstallKind::Vscode => "extension",
+            InstallKind::Manual => "manual",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -83,8 +110,9 @@ impl ConversationRendering {
 }
 
 impl IntegrationClient {
-    /// Frozen order: `kitty, tmux, vscode, wezterm`.
-    const ALL: [IntegrationClient; 4] = [
+    /// Frozen order: `iterm2, kitty, tmux, vscode, wezterm`.
+    const ALL: [IntegrationClient; 5] = [
+        IntegrationClient::Iterm2,
         IntegrationClient::Kitty,
         IntegrationClient::Tmux,
         IntegrationClient::Vscode,
@@ -93,6 +121,7 @@ impl IntegrationClient {
 
     fn name(self) -> &'static str {
         match self {
+            IntegrationClient::Iterm2 => "iterm2",
             IntegrationClient::Kitty => "kitty",
             IntegrationClient::Tmux => "tmux",
             IntegrationClient::Vscode => "vscode",
@@ -110,9 +139,20 @@ impl IntegrationClient {
         !matches!(self, IntegrationClient::Vscode)
     }
 
+    fn install_kind(self) -> InstallKind {
+        match self {
+            IntegrationClient::Iterm2 => InstallKind::Manual,
+            IntegrationClient::Vscode => InstallKind::Vscode,
+            IntegrationClient::Kitty | IntegrationClient::Tmux | IntegrationClient::Wezterm => {
+                InstallKind::Block
+            }
+        }
+    }
+
     /// The terminal config snippet for a terminal client; `None` for vscode.
     fn snippet(self) -> Option<&'static str> {
         match self {
+            IntegrationClient::Iterm2 => Some(ITERM2_SNIPPET),
             IntegrationClient::Kitty => Some(KITTY_SNIPPET),
             IntegrationClient::Tmux => Some(TMUX_SNIPPET),
             IntegrationClient::Wezterm => Some(WEZTERM_SNIPPET),
@@ -124,6 +164,9 @@ impl IntegrationClient {
     /// so it stays byte-stable across machines (§FS-integrations.6).
     fn config_target(self) -> &'static str {
         match self {
+            // Not a path: iTerm2's rules live in a binary plist, so this names
+            // the place a human applies them (§FS-integrations.3.4).
+            IntegrationClient::Iterm2 => "Settings > Profiles > Advanced > Smart Selection",
             IntegrationClient::Kitty => "~/.config/kitty/kitty.conf",
             IntegrationClient::Tmux => "~/.tmux.conf",
             IntegrationClient::Wezterm => "~/.config/wezterm/wezterm.lua",
@@ -143,7 +186,7 @@ impl IntegrationClient {
     /// (§FS-integrations.4.1).
     fn comment_prefix(self) -> &'static str {
         match self {
-            IntegrationClient::Kitty | IntegrationClient::Tmux => "#",
+            IntegrationClient::Iterm2 | IntegrationClient::Kitty | IntegrationClient::Tmux => "#",
             IntegrationClient::Wezterm => "--",
             // vscode installs unpacked files, not a block inside a host config.
             IntegrationClient::Vscode => "//",
@@ -202,7 +245,7 @@ fn detect_clients() -> Vec<IntegrationClient> {
     let has = |name: &str| std::env::var_os(name).is_some_and(|value| !value.is_empty());
     // `IntegrationClient` variants are declared in the same order as `ALL`, so the
     // discriminant is the index into this presence table.
-    let mut matched = [false; 4];
+    let mut matched = [false; 5];
     let mut mark = |client: IntegrationClient| matched[client as usize] = true;
     if has("WEZTERM_EXECUTABLE") {
         mark(IntegrationClient::Wezterm);
@@ -212,6 +255,7 @@ fn detect_clients() -> Vec<IntegrationClient> {
     }
     match std::env::var("TERM_PROGRAM").ok().as_deref() {
         Some("WezTerm") => mark(IntegrationClient::Wezterm),
+        Some("iTerm.app") => mark(IntegrationClient::Iterm2),
         Some("tmux") => mark(IntegrationClient::Tmux),
         Some("vscode") => mark(IntegrationClient::Vscode),
         _ => {}
@@ -422,10 +466,11 @@ fn client_descriptor_json(client: IntegrationClient) -> String {
         String::new()
     };
     format!(
-        "{{\"client\":\"{}\",\"kind\":\"{}\",\"install\":\"{}\",\"config_target\":\"{}\"{}}}\n",
+        "{{\"client\":\"{}\",\"kind\":\"{}\",\"install\":\"{}\",\"install_kind\":\"{}\",\"config_target\":\"{}\"{}}}\n",
         client.name(),
         kind,
         json_escape(&client.install_command()),
+        client.install_kind().name(),
         json_escape(client.config_target()),
         resolver,
     )
@@ -587,10 +632,15 @@ fn integration_marker_version(comment: &str, line: &str, begin: bool) -> Option<
 /// Whether every grund-owned artifact for a client is present and byte-current
 /// (§FS-integrations.5). Only the client's fixed target paths are read.
 fn integration_is_current(client: IntegrationClient) -> bool {
-    match client.snippet() {
-        Some(snippet) => terminal_integration_is_current(client, snippet),
-        None => expand_target(client.config_target())
+    match client.install_kind() {
+        InstallKind::Block => {
+            terminal_integration_is_current(client, client.snippet().unwrap_or(""))
+        }
+        InstallKind::Vscode => expand_target(client.config_target())
             .is_some_and(|dir| vscode_integration_is_current(&dir)),
+        // Applied by hand in a binary plist we never read: grund cannot know,
+        // and guessing "installed" would be worse than reporting nothing.
+        InstallKind::Manual => false,
     }
 }
 
@@ -632,9 +682,10 @@ fn write_integration(
     client: IntegrationClient,
     conversation: Option<ConversationRendering>,
 ) -> ExitCode {
-    let integration_status = match client.snippet() {
-        Some(snippet) => write_terminal_integration(client, snippet),
-        None => write_vscode_integration(),
+    let integration_status = match client.install_kind() {
+        InstallKind::Block => write_terminal_integration(client, client.snippet().unwrap_or("")),
+        InstallKind::Vscode => write_vscode_integration(),
+        InstallKind::Manual => write_manual_integration(client),
     };
     if integration_status != ExitCode::SUCCESS {
         return integration_status;
@@ -652,6 +703,26 @@ fn write_user_citation_guidance_command(
             ExitCode::from(2)
         }
     }
+}
+
+/// `--write` for a client with no writable configuration: install the resolver
+/// the manual steps depend on, then print those steps (§FS-integrations.3.4).
+/// Reported as `manual` rather than a block verb, so a script can tell that a
+/// human still has to act.
+fn write_manual_integration(client: IntegrationClient) -> ExitCode {
+    match write_resolver_script() {
+        Ok(Some(path)) => eprintln!("wrote {}", path.display()),
+        Ok(None) => {}
+        Err((path, message)) => {
+            eprintln!("error: {}: {message}", path.display());
+            return ExitCode::from(2);
+        }
+    }
+    eprintln!("manual {} ({})", client.name(), client.config_target());
+    if let Some(snippet) = client.snippet() {
+        println!("{snippet}");
+    }
+    ExitCode::SUCCESS
 }
 
 fn write_terminal_integration(client: IntegrationClient, snippet: &str) -> ExitCode {
