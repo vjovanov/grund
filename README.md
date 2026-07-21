@@ -220,6 +220,11 @@ That installs the `grund` binary from the [`grund` crate on crates.io](https://c
 
 ## Make citations clickable
 
+Turn a `§<ID>` in your terminal into something you click, landing at the exact
+line it cites. **[Clickable citations](docs/clickable-citations.md)** is the
+full setup guide — prerequisites, per-client steps, how to check it works, and
+what to do when a click does nothing. The short version:
+
 See which terminal or editor integrations match the current environment, then
 preview one before installing it:
 
@@ -328,6 +333,7 @@ That rule plus a clean `grund check` is the whole contract: every reference reso
 
 `grund` follows its own scheme. Start at [`AGENTS.md`](AGENTS.md), then read down through [`docs/`](docs/):
 
+- [`docs/clickable-citations.md`](docs/clickable-citations.md) — make citations clickable in your terminal
 - [`docs/grund.md`](docs/grund.md) — why this exists
 - [`docs/goals.md`](docs/goals.md) — what we measure ourselves against
 - [`docs/roadmap.md`](docs/roadmap.md) — what's next
