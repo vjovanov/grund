@@ -33,13 +33,57 @@ function grund_apply_hyperlink_rule(config)
     regex = '[^\\w\\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z]+-[a-z0-9][a-z0-9-]*(?:\\.[0-9]+)*',
     format = 'grund:$0',
   })
+  -- Adding the peek binding here rather than in the scaffold means an existing
+  -- config that already calls this function gets peek without re-wiring.
+  -- WezTerm's own defaults still apply to anything not listed here.
+  config.mouse_bindings = config.mouse_bindings or {}
+  table.insert(config.mouse_bindings, grund_peek_mouse_binding())
+end
+
+-- Ctrl-click opens the declaration in your editor; Ctrl-Shift-click peeks at it
+-- in a split pane instead (§FS-integrations.3.3). WezTerm has no hover event and
+-- no link tooltip (wez/wezterm#4, open since 2018), so peek is the read-without-
+-- leaving path here.
+--
+-- Lua cannot ask which link is under the mouse — only the built-in
+-- OpenLinkAtMouseCursor knows that, and all it exposes is the resulting URI via
+-- open-uri. window:current_event() does not carry modifiers either. So the
+-- binding records the intent and delegates; the handler below reads it back.
+-- This is safe because both run in one synchronous event, not across ticks.
+grund_peek_requested = false
+
+function grund_peek_mouse_binding()
+  return {
+    event = { Up = { streak = 1, button = 'Left' } },
+    mods = 'CTRL|SHIFT',
+    action = wezterm.action_callback(function(window, pane)
+      grund_peek_requested = true
+      window:perform_action(wezterm.action.OpenLinkAtMouseCursor, pane)
+      -- Cleared here too: a Ctrl-Shift-click on non-link text never reaches
+      -- open-uri, and a stale flag would turn the next plain click into a peek.
+      grund_peek_requested = false
+    end),
+  }
 end
 
 -- Resolve a grund: URI by handing the citation to grund-open.
-wezterm.on('open-uri', function(_window, _pane, uri)
+wezterm.on('open-uri', function(window, pane, uri)
   local citation = uri:match '^grund:(.+)$'
   if citation then
-    wezterm.background_child_process { 'grund-open', citation }
+    if grund_peek_requested then
+      grund_peek_requested = false
+      window:perform_action(
+        wezterm.action.SplitPane {
+          direction = 'Right',
+          size = { Percent = 45 },
+          -- argv, never shell source: the citation is arbitrary screen text.
+          command = { args = { 'grund-open', '--peek', citation } },
+        },
+        pane
+      )
+    else
+      wezterm.background_child_process { 'grund-open', citation }
+    end
     return false -- handled; don't let WezTerm open it as a normal URL
   end
 end)
@@ -56,8 +100,18 @@ end)
 # editor choice lives here, never in shared repository text. GRUND_OPEN_CMD is
 # an argv-style command prefix; use a wrapper executable for custom placement.
 #
-# Usage: grund-open <§ID | ID>[.<section>]
+# With --peek it prints the declaration through a pager instead, for clients that
+# can put it in an overlay, popup, or split pane. Both modes share one resolution
+# path so a peek and a click can never disagree about where a citation points.
+#
+# Usage: grund-open [--peek] <§ID | ID>[.<section>]
 set -eu
+
+peek=
+if [ "${1:-}" = "--peek" ]; then
+    peek=1
+    shift
+fi
 
 token=${1:-}
 [ -n "$token" ] || { echo "grund-open: no citation given" >&2; exit 2; }
@@ -103,6 +157,30 @@ lineno=${lineno:-1}
 # reports deterministic); composing it here is what makes the click work from a
 # subdirectory.
 path="$root/$path"
+
+if [ -n "$peek" ]; then
+    # Print, don't open. The caller has already put us somewhere disposable — a
+    # kitty overlay, a tmux popup, a wezterm split — and every one of those
+    # closes when this process exits, so the output goes through a pager to stay
+    # readable until dismissed. The location header is what makes the peek
+    # actionable: it is the same `path:line` a click would open.
+    {
+        printf '%s:%s\n\n' "$path" "$lineno"
+        (cd "$root" && grund "$id") 2>/dev/null || printf 'could not render %s\n' "$id"
+    } | {
+        if [ -n "${PAGER:-}" ]; then
+            # shellcheck disable=SC2086
+            exec $PAGER
+        elif command -v less >/dev/null 2>&1; then
+            exec less -R
+        else
+            cat
+            printf '\n[enter to close] '
+            read -r _dismiss || true
+        fi
+    }
+    exit 0
+fi
 
 if [ -n "${GRUND_OPEN_CMD:-}" ]; then
     # Never interpolate the repository-controlled path into shell source. The

@@ -150,6 +150,16 @@ impl IntegrationClient {
         }
     }
 
+    /// Whether a newly-added block goes at the top of the host file rather than
+    /// the bottom. A settings file does not care, but a config that is a
+    /// *program* does: an appended block lands after the file's `return`, where
+    /// its definitions are unreachable and the helper the user is told to call
+    /// is nil. Placing it first also matches how one reads Lua — definitions
+    /// above use (§FS-integrations.4.1).
+    fn prepends_block(self) -> bool {
+        matches!(self, IntegrationClient::Wezterm)
+    }
+
     /// Emitted below the managed block when `--write` creates the config file
     /// from scratch, so a fresh install is a *working* config rather than one
     /// the user must finish by hand. Unmanaged: later writes rewrite only the
@@ -482,6 +492,7 @@ struct ManagedBlockSpan {
 /// whose version is newer than this binary understands is an error.
 fn install_managed_block(
     comment: &str,
+    prepend: bool,
     existing: &str,
     snippet: &str,
 ) -> Result<(String, BlockOutcome), String> {
@@ -498,6 +509,14 @@ fn install_managed_block(
             BlockOutcome::Updated
         };
         Ok((updated, outcome))
+    } else if prepend {
+        let mut prepended = String::with_capacity(existing.len() + block.len() + 2);
+        prepended.push_str(&block);
+        if !existing.is_empty() {
+            prepended.push('\n');
+            prepended.push_str(existing);
+        }
+        Ok((prepended, BlockOutcome::Appended))
     } else {
         let mut appended = String::with_capacity(existing.len() + block.len() + 2);
         appended.push_str(existing);
@@ -651,6 +670,7 @@ fn write_terminal_integration(client: IntegrationClient, snippet: &str) -> ExitC
     let fresh = existing.is_empty();
     let (mut updated, outcome) = match install_managed_block(
         client.comment_prefix(),
+        client.prepends_block(),
         &existing,
         snippet,
     ) {

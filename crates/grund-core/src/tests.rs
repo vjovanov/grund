@@ -3460,12 +3460,12 @@ default = "must-not"
     // §FS-integrations.4.1: managed dotfile block splice is idempotent.
     #[test]
     fn integrations_block_appends_then_is_idempotent() {
-        let (appended, outcome) = install_managed_block("#", "# my config\n", "SNIPPET").unwrap();
+        let (appended, outcome) = install_managed_block("#", false, "# my config\n", "SNIPPET").unwrap();
         assert_eq!(outcome, BlockOutcome::Appended);
         assert!(appended.starts_with("# my config\n"));
         assert!(appended.contains("# >>> grund integrations (v1) >>>\nSNIPPET\n# <<< grund integrations (v1) <<<\n"));
 
-        let (again, outcome) = install_managed_block("#", &appended, "SNIPPET").unwrap();
+        let (again, outcome) = install_managed_block("#", false, &appended, "SNIPPET").unwrap();
         assert_eq!(outcome, BlockOutcome::Unchanged, "re-applying the same snippet is a no-op");
         assert_eq!(again, appended);
     }
@@ -3473,9 +3473,9 @@ default = "must-not"
     // §FS-integrations.4.1: a changed snippet updates only the marked region.
     #[test]
     fn integrations_block_updates_in_place() {
-        let (first, _) = install_managed_block("#", "keep-before\n", "OLD").unwrap();
+        let (first, _) = install_managed_block("#", false, "keep-before\n", "OLD").unwrap();
         let with_tail = format!("{first}keep-after\n");
-        let (updated, outcome) = install_managed_block("#", &with_tail, "NEW").unwrap();
+        let (updated, outcome) = install_managed_block("#", false, &with_tail, "NEW").unwrap();
         assert_eq!(outcome, BlockOutcome::Updated);
         assert!(updated.starts_with("keep-before\n"));
         assert!(updated.ends_with("keep-after\n"), "content after the block is preserved");
@@ -3487,7 +3487,7 @@ default = "must-not"
     #[test]
     fn integrations_block_rejects_newer_version() {
         let newer = "# >>> grund integrations (v99) >>>\nx\n# <<< grund integrations (v99) <<<\n";
-        assert!(install_managed_block("#", newer, "SNIPPET").is_err());
+        assert!(install_managed_block("#", false, newer, "SNIPPET").is_err());
     }
 
     // §FS-integrations.4.1: a begin marker with no matching end marker is a hard
@@ -3496,7 +3496,7 @@ default = "must-not"
     #[test]
     fn integrations_block_rejects_orphan_begin_marker() {
         let orphan = "# >>> grund integrations (v1) >>>\nkeep-me\nmore-user-config\n";
-        let result = install_managed_block("#", orphan, "SNIPPET");
+        let result = install_managed_block("#", false, orphan, "SNIPPET");
         assert!(result.is_err(), "orphan begin marker must not append");
         // The user's content is never touched: the error path returns before any
         // rewrite, so a caller that surfaces the error leaves the file intact.
@@ -3508,7 +3508,7 @@ default = "must-not"
     #[test]
     fn integrations_block_upgrades_older_version_in_place() {
         let old = "before\n# >>> grund integrations (v0) >>>\nOLD\n# <<< grund integrations (v0) <<<\nafter\n";
-        let (updated, outcome) = install_managed_block("#", old, "NEW").expect("upgrade old block");
+        let (updated, outcome) = install_managed_block("#", false, old, "NEW").expect("upgrade old block");
 
         assert_eq!(outcome, BlockOutcome::Updated);
         assert_eq!(updated.matches("# >>> grund integrations").count(), 1);
@@ -3522,7 +3522,7 @@ default = "must-not"
     #[test]
     fn integrations_block_consumes_complete_indented_marker_lines() {
         let indented = "before\n  # >>> grund integrations (v1) >>>  \nOLD\n  # <<< grund integrations (v1) <<<  \nafter\n";
-        let (updated, _) = install_managed_block("#", indented, "NEW").expect("replace block");
+        let (updated, _) = install_managed_block("#", false, indented, "NEW").expect("replace block");
 
         assert!(!updated.contains("  >>>"));
         assert!(!updated.contains("  <<<"));
@@ -3532,7 +3532,71 @@ default = "must-not"
     #[test]
     fn integrations_block_rejects_multiple_blocks() {
         let block = "# >>> grund integrations (v1) >>>\nx\n# <<< grund integrations (v1) <<<\n";
-        assert!(install_managed_block("#", &format!("{block}{block}"), "NEW").is_err());
+        assert!(install_managed_block("#", false, &format!("{block}{block}"), "NEW").is_err());
+    }
+
+    // §FS-integrations.3.3: `--peek` renders the declaration instead of opening
+    // an editor, through the *same* resolution path — a peek and a click must
+    // never disagree about where a citation points. The output leads with the
+    // resolved `path:line` so the peek is actionable, and never launches an
+    // editor even when one is configured.
+    #[cfg(unix)]
+    #[test]
+    fn resolver_peek_prints_the_declaration_without_opening_an_editor() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = test_root("resolver_peek_prints_the_declaration_without_opening_an_editor");
+        let bin = root.join("bin");
+        std::fs::create_dir_all(&bin).expect("create mock bin");
+        write(&root.join(".agents/grund.toml"), "[project]\n");
+        let opened = root.join("must-not-exist");
+        // `--format json` resolves; the bare call renders the body to show.
+        write(
+            &bin.join("grund"),
+            "#!/bin/sh\nif [ \"${2:-}\" = \"--format\" ]; then\n\
+             printf '%s\\n' '{\"id\":\"FS-t\",\"section\":\"2\",\"body\":\"\",\"path\":\"docs/t.md\",\"line\":12}'\n\
+             else\n printf '%s\\n' 'RENDERED BODY'\nfi\n",
+        );
+        write(
+            &bin.join("opener"),
+            &format!("#!/bin/sh\ntouch {}\n", opened.display()),
+        );
+        let resolver = root.join("grund-open");
+        write(&resolver, GRUND_OPEN_RESOLVER);
+        for path in [&bin.join("grund"), &bin.join("opener"), &resolver] {
+            let mut permissions = std::fs::metadata(path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(path, permissions).unwrap();
+        }
+        let output = std::process::Command::new(&resolver)
+            .arg("--peek")
+            .arg(format!("{}FS-t.2", '\u{a7}'))
+            .current_dir(&root)
+            .env(
+                "PATH",
+                format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default()),
+            )
+            .env("PAGER", "cat")
+            .env("GRUND_OPEN_CMD", bin.join("opener"))
+            .env_remove("EDITOR")
+            .output()
+            .expect("run resolver --peek");
+
+        assert!(
+            output.status.success(),
+            "peek failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("docs/t.md:12"),
+            "peek must lead with the resolved location, got: {stdout}"
+        );
+        assert!(stdout.contains("RENDERED BODY"), "peek must show the declaration");
+        assert!(
+            !opened.exists(),
+            "peek must not launch the editor even with GRUND_OPEN_CMD set"
+        );
     }
 
     // §FS-integrations.4.1: the markers are comments *in the host file's
@@ -3546,7 +3610,7 @@ default = "must-not"
         assert_eq!(IntegrationClient::Tmux.comment_prefix(), "#");
         assert_eq!(IntegrationClient::Wezterm.comment_prefix(), "--");
 
-        let (lua, _) = install_managed_block("--", "", "SNIPPET").expect("install into lua");
+        let (lua, _) = install_managed_block("--", true, "", "SNIPPET").expect("install into lua");
         for line in lua.lines() {
             assert!(
                 !line.trim_start().starts_with('#'),
@@ -3560,7 +3624,7 @@ default = "must-not"
     // or an update would splice a Lua block using `#` markers and corrupt it.
     #[test]
     fn integrations_block_lookup_is_dialect_scoped() {
-        let (lua, _) = install_managed_block("--", "", "SNIPPET").unwrap();
+        let (lua, _) = install_managed_block("--", true, "", "SNIPPET").unwrap();
         assert!(find_managed_block("--", &lua).unwrap().is_some());
         assert!(find_managed_block("#", &lua).unwrap().is_none());
     }
