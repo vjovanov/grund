@@ -1147,11 +1147,21 @@ fn check_agent_block_path(
             // CRLF) compares equal to the LF-rendered section rather than
             // reading as drift.
             let block_text = text[block.start..block.end].replace('\r', "");
-            let generated_sections = [(
-                "### Citation directions",
-                citation_directions_section(config),
-                "citation directions",
-            )];
+            let generated_sections = [
+                (
+                    "### Citation directions",
+                    citation_directions_section(config),
+                    "citation directions",
+                ),
+                // §FS-init.2.3.6: the local-conversation sentence derives from
+                // `[reference] conversation`, so flipping the key without
+                // re-running `grund init` must surface as drift.
+                (
+                    "### Clickable citations",
+                    clickable_citations_section(config),
+                    "clickable citations",
+                ),
+            ];
             for (heading, expected, noun) in generated_sections {
                 if section_in_block(&block_text, heading) != Some(expected.trim_end()) {
                     report.errors.push(Diagnostic {

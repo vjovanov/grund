@@ -198,6 +198,19 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             ("reference", "require_grounding") => {
                 config.require_grounding = parse_bool(path, line_no, value)?
             }
+            ("reference", "conversation") => {
+                // §FS-config.3.1, §DF-repo-conversation-opinion.2.2: closed enum with the
+                // single member "link" — `plain` encodes machine state and stays user-scoped.
+                let opinion = parse_string(path, line_no, value)?;
+                if opinion != "link" {
+                    bail_config(
+                        path,
+                        line_no,
+                        format!("unknown [reference] conversation `{opinion}` (expected link)"),
+                    )?;
+                }
+                config.conversation = Some(opinion);
+            }
             ("reference", "inline_style") => {
                 let style = parse_string(path, line_no, value)?;
                 if !matches!(style.as_str(), "citation-with-note" | "citation-only") {
@@ -893,6 +906,11 @@ fn command_config(args: &[String]) -> ExitCode {
                 println!("trigger = \"{}\"", config.trigger);
                 println!("strict = {}", config.strict);
                 println!("require_grounding = {}", config.require_grounding);
+                // Optional opinion (§FS-config.3.1): absent means none, so only a
+                // set value round-trips — there is no "none" spelling to print.
+                if let Some(conversation) = &config.conversation {
+                    println!("conversation = \"{conversation}\"");
+                }
                 println!("inline_style = \"{}\"", config.inline_style);
                 println!(
                     "inline_note_suggested_lines = {}",

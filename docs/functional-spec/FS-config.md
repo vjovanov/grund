@@ -42,6 +42,7 @@ marker            = "§"      # default; rare character that prefixes a citation
 trigger           = "$$"     # default; typed sequence rewritten to marker by IDE plugin and `grund fmt`
 strict            = true     # default; if false, bare citations are also recognized
 require_grounding = false    # default; if true, `check` flags source files that cite no declared ID
+# conversation    = "link"   # optional; committed conversation-rendering opinion — see below
 
 # Inline citation style — see [§FS-inline-citation-style](FS-inline-citation-style.md#fs-inline-citation-style-configurable-shape-of-inline-code-comment-citations)
 inline_style                 = "citation-with-note"   # default; alt: "citation-only"
@@ -52,6 +53,8 @@ warn_on_suggested            = false                   # if true, soft-cap overr
 ```
 
 Per [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger). `strict = true` requires a non-empty `marker`; `strict = false` is the compatibility mode for repositories that still rely on bare citations.
+
+`conversation` is the repository's committed conversation-rendering opinion ([§DF-repo-conversation-opinion](../decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion)). It is absent by default (no opinion). The only accepted value is `link` — a closed enum, widenable later without a `grund_config_version` bump (§5); any other value is a load-time error (§4.3). When set, the generated agent entrypoint teaches linked local-conversation citations ([§FS-init.2.3.4.17](FS-init.md#23417-clickable-citations)): the declaration location as plain `path:line` text beside the citation, never a Markdown link. `plain` is deliberately not a value: it presumes an installed rendering layer, which is machine state, and stays user-scoped in `grund integrations` ([§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions)). The key does not affect scanning, checking, or formatting — it only selects entrypoint guidance.
 
 `require_grounding = true` adds the ungrounded-source-file error ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)): every scanned non-Markdown file must carry at least one resolving citation, or declare an ID inline. `grund check --require-grounding` forces it on for one run. Per [§DF-require-grounding](../decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec); off by default so adopting the discipline is a deliberate step, like `strict`.
 
@@ -295,4 +298,4 @@ Per [§GOAL-friendliness-first](../goals.md#goal-friendliness-first-as-user--and
 - The exit code mapping (`0`/`1`/`2` per [§FS-check.2](FS-check.md#2-outputs)).
 - The ordering of the report (always deterministic).
 - Anything that would let two correctly-configured grund installs disagree on whether a given repo is well-formed.
-- Local conversation citation rendering: it follows the user's TUI setup and is installed through `grund integrations --write` ([§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions)), never shared in `.agents/grund.toml`. Repository-web guidance is fixed in the generated agent entrypoint ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)).
+- The local conversation citation *preference*: it follows the user's TUI setup and is installed through `grund integrations --write` ([§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions)). A repository may commit the `link`-only *opinion* via `[reference] conversation` (§3.1, [§DF-repo-conversation-opinion](../decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion)), which takes precedence in that repository; the user-scoped preference covers everything else. Repository-web guidance stays fixed in the generated agent entrypoint ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)).

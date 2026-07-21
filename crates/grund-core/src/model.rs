@@ -268,6 +268,11 @@ pub struct Config {
     /// source file that carries no resolving citation (and declares no ID inline).
     /// `--require-grounding` on `grund check` forces it on for one run.
     pub require_grounding: bool,
+    /// `[reference] conversation` (§FS-config.3.1, §DF-repo-conversation-opinion) —
+    /// the repository's committed conversation-rendering opinion. `None` means no
+    /// opinion; the only accepted value is `"link"` (closed enum, widenable later).
+    /// Read solely by the agent-entrypoint renderer (§FS-init.2.3.4.17).
+    pub conversation: Option<String>,
     pub inline_style: String,
     pub inline_note_suggested_lines: usize,
     pub inline_note_max_lines: usize,
@@ -354,6 +359,7 @@ impl Config {
             trigger: "$$".to_string(),
             strict: true,
             require_grounding: false,
+            conversation: None,
             inline_style: "citation-with-note".into(),
             inline_note_suggested_lines: 1,
             inline_note_max_lines: 3,
