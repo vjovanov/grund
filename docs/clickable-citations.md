@@ -80,19 +80,24 @@ Each client then needs one more step:
 | **tmux** | select the citation in copy mode, then `prefix` + `g` | `tmux source-file ~/.tmux.conf` |
 | **vscode** | click the link in the integrated terminal | *Developer: Reload Window* |
 
-**WezTerm needs one manual edit.** It applies hyperlink rules only from the
-config object your Lua returns, and no installer can safely rewrite that
-function for you. Add the call where you build your config:
+**WezTerm needs one manual edit — but only if you already have a config.** It
+applies hyperlink rules only from the config object your Lua returns, and no
+installer can safely rewrite the function that builds yours. Add the call where
+you build it:
 
 ```lua
 local config = wezterm.config_builder()
 -- ... your settings ...
-grund_apply_hyperlink_rule(config)   -- installed above
+grund_apply_hyperlink_rule(config)   -- defined by the block above
 return config
 ```
 
 Until that line exists, WezTerm reads the installed block and does nothing with
 it — the most confusing possible failure, because everything looks installed.
+
+If you had no `wezterm.lua`, `--write` creates one that already calls it, and
+you can skip this. That starter config sits below the managed block and is
+yours: later writes rewrite only the block.
 
 ## 4. Check it works
 

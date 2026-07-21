@@ -134,6 +134,44 @@ impl IntegrationClient {
     fn install_command(self) -> String {
         format!("grund integrations {} --write", self.name())
     }
+
+    /// The line-comment token of the file `--write` installs into. The managed
+    /// block markers are comments in the *host* file's language, so this cannot
+    /// be one fixed string: `kitty.conf` and `.tmux.conf` comment with `#`,
+    /// while `wezterm.lua` is Lua, where `#` is the length operator and a `#`
+    /// marker is a syntax error that costs the user their whole config
+    /// (§FS-integrations.4.1).
+    fn comment_prefix(self) -> &'static str {
+        match self {
+            IntegrationClient::Kitty | IntegrationClient::Tmux => "#",
+            IntegrationClient::Wezterm => "--",
+            // vscode installs unpacked files, not a block inside a host config.
+            IntegrationClient::Vscode => "//",
+        }
+    }
+
+    /// Emitted below the managed block when `--write` creates the config file
+    /// from scratch, so a fresh install is a *working* config rather than one
+    /// the user must finish by hand. Unmanaged: later writes rewrite only the
+    /// block and leave this alone (§FS-integrations.4.1).
+    fn fresh_config_scaffold(self) -> Option<&'static str> {
+        match self {
+            // WezTerm applies hyperlink rules only from the config object the
+            // file returns, so the block above defines the helper and this calls
+            // it. Without this, a fresh file parses but registers nothing.
+            IntegrationClient::Wezterm => Some(
+                "\n\
+                 -- Your WezTerm configuration. grund manages only the block above;\n\
+                 -- everything from here down is yours to edit.\n\
+                 local config = wezterm.config_builder()\n\
+                 \n\
+                 grund_apply_hyperlink_rule(config)\n\
+                 \n\
+                 return config\n",
+            ),
+            _ => None,
+        }
+    }
 }
 
 fn known_clients_line() -> String {
@@ -423,10 +461,10 @@ enum BlockOutcome {
     Unchanged,
 }
 
-fn integrations_block_markers(version: u32) -> (String, String) {
+fn integrations_block_markers(comment: &str, version: u32) -> (String, String) {
     (
-        format!("# >>> grund integrations (v{version}) >>>"),
-        format!("# <<< grund integrations (v{version}) <<<"),
+        format!("{comment} >>> grund integrations (v{version}) >>>"),
+        format!("{comment} <<< grund integrations (v{version}) <<<"),
     )
 }
 
@@ -442,10 +480,14 @@ struct ManagedBlockSpan {
 /// when a block is present, else append after a blank-line separator. Everything
 /// outside the block is preserved. Returns the new text and what changed. A block
 /// whose version is newer than this binary understands is an error.
-fn install_managed_block(existing: &str, snippet: &str) -> Result<(String, BlockOutcome), String> {
-    let (begin, end) = integrations_block_markers(INTEGRATIONS_BLOCK_VERSION);
+fn install_managed_block(
+    comment: &str,
+    existing: &str,
+    snippet: &str,
+) -> Result<(String, BlockOutcome), String> {
+    let (begin, end) = integrations_block_markers(comment, INTEGRATIONS_BLOCK_VERSION);
     let block = format!("{begin}\n{}\n{end}\n", snippet.trim_end_matches('\n'));
-    if let Some(span) = find_managed_block(existing)? {
+    if let Some(span) = find_managed_block(comment, existing)? {
         let mut updated = String::with_capacity(existing.len());
         updated.push_str(&existing[..span.start]);
         updated.push_str(&block);
@@ -473,17 +515,17 @@ fn install_managed_block(existing: &str, snippet: &str) -> Result<(String, Block
 /// Find exactly one complete managed block at any supported version. Marker
 /// spans are whole physical lines, so accepted indentation cannot leak suffix
 /// bytes into the rewritten config (§FS-integrations.4.1).
-fn find_managed_block(text: &str) -> Result<Option<ManagedBlockSpan>, String> {
+fn find_managed_block(comment: &str, text: &str) -> Result<Option<ManagedBlockSpan>, String> {
     let mut offset = 0;
     let mut begins = Vec::new();
     let mut ends = Vec::new();
     for line in text.split_inclusive('\n') {
         let trimmed = line.trim_end_matches(['\n', '\r']).trim();
         let stop = offset + line.len();
-        if let Some(version) = integration_marker_version(trimmed, true) {
+        if let Some(version) = integration_marker_version(comment, trimmed, true) {
             begins.push((version, offset, stop));
         }
-        if let Some(version) = integration_marker_version(trimmed, false) {
+        if let Some(version) = integration_marker_version(comment, trimmed, false) {
             ends.push((version, offset, stop));
         }
         offset = stop;
@@ -511,13 +553,13 @@ fn find_managed_block(text: &str) -> Result<Option<ManagedBlockSpan>, String> {
     }))
 }
 
-fn integration_marker_version(line: &str, begin: bool) -> Option<u32> {
+fn integration_marker_version(comment: &str, line: &str, begin: bool) -> Option<u32> {
     let (prefix, suffix) = if begin {
-        ("# >>> grund integrations (v", ") >>>")
+        (format!("{comment} >>> grund integrations (v"), ") >>>")
     } else {
-        ("# <<< grund integrations (v", ") <<<")
+        (format!("{comment} <<< grund integrations (v"), ") <<<")
     };
-    line.strip_prefix(prefix)?
+    line.strip_prefix(&prefix)?
         .strip_suffix(suffix)?
         .parse::<u32>()
         .ok()
@@ -540,10 +582,11 @@ fn terminal_integration_is_current(client: IntegrationClient, snippet: &str) -> 
     let Ok(existing) = fs::read_to_string(config_path) else {
         return false;
     };
-    let Ok(Some(span)) = find_managed_block(&existing) else {
+    let Ok(Some(span)) = find_managed_block(client.comment_prefix(), &existing) else {
         return false;
     };
-    let (begin, end) = integrations_block_markers(INTEGRATIONS_BLOCK_VERSION);
+    let (begin, end) =
+        integrations_block_markers(client.comment_prefix(), INTEGRATIONS_BLOCK_VERSION);
     let expected = format!("{begin}\n{}\n{end}\n", snippet.trim_end_matches('\n'));
     if span.version != INTEGRATIONS_BLOCK_VERSION || existing[span.start..span.stop] != expected {
         return false;
@@ -605,13 +648,23 @@ fn write_terminal_integration(client: IntegrationClient, snippet: &str) -> ExitC
             return ExitCode::from(2);
         }
     };
-    let (updated, outcome) = match install_managed_block(&existing, snippet) {
+    let fresh = existing.is_empty();
+    let (mut updated, outcome) = match install_managed_block(
+        client.comment_prefix(),
+        &existing,
+        snippet,
+    ) {
         Ok(result) => result,
         Err(message) => {
             eprintln!("error: {}: {message}", config_path.display());
             return ExitCode::from(2);
         }
     };
+    // A file created from scratch gets the client's starter config appended
+    // below the block, so the install is usable without hand-editing.
+    if fresh && let Some(scaffold) = client.fresh_config_scaffold() {
+        updated.push_str(scaffold);
+    }
     if outcome != BlockOutcome::Unchanged {
         if let Some(parent) = config_path.parent()
             && let Err(err) = fs::create_dir_all(parent)
