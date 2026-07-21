@@ -123,12 +123,20 @@ directory with it:
 cd crates/grund-core/src && grund-open '§FS-integrations.3.1'
 ```
 
-Same file, same line. Finally, do it for real: `cat` a file with citations in it
-and click one.
+Same file, same line. Finally, do it for real — click one.
+
+The matchers only see **what is currently on screen**, so put citations there and
+leave them there. Do not `cat` a long file: the citations scroll past and you are
+left looking at a tail that may contain none, which reports no matches and reads
+exactly like a broken install.
 
 ```bash
-cat crates/grund-core/src/integrations.rs
+grep -n '§FS-\|§DF-' crates/grund-core/src/integrations.rs | head -20
 ```
+
+Now trigger your client — `ctrl+shift+g` in kitty, ctrl/cmd-click in WezTerm —
+and pick `§FS-integrations.4.3`. It should open `FS-integrations.md` at line 81,
+the `### 4.3` heading.
 
 ## 5. Tell your agent how to write citations
 
