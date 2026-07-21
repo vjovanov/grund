@@ -211,6 +211,13 @@ changes which tree is scanned, not what is printed.
   local `FS-login`. Unchanged from today; no workspace context is needed
   because the citation is local.
 
+Under `--format json` the reported `path` is relative to the config root the
+command resolved against, matching `grund list` ([§FS-config.3.6](FS-config.md#36-output)) — so
+`grund api/FS-login --format json` from the workspace root reports
+`apps/api/…`, not the member-relative `…`. Consumers that join this path
+against the directory they invoked `grund` in, such as the `grund-open`
+resolver ([§FS-integrations.3.1](FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux)), depend on that base.
+
 Outside a workspace context — including a `<path>` argument that resolves
 member-local — `grund api/FS-login` exits `2` with two stderr lines:
 

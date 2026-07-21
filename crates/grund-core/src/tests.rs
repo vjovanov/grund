@@ -3652,6 +3652,9 @@ default = "must-not"
         let root = test_root("resolver_does_not_evaluate_repository_paths_as_shell_source");
         let bin = root.join("bin");
         std::fs::create_dir_all(&bin).expect("create mock bin");
+        // The resolver walks up for the config root before doing anything else
+        // (§FS-integrations.3.1), so the fixture has to look like a grund repo.
+        write(&root.join(".agents/grund.toml"), "[project]\n");
         let pwned = root.join("pwned");
         let capture = root.join("opened-argument");
         let mock_grund = bin.join("grund");
@@ -3660,7 +3663,7 @@ default = "must-not"
         write(
             &mock_grund,
             &format!(
-                "#!/bin/sh\nprintf '%s\\n' '{{\"id\":\"FS-safe\",\"path\":\"docs/$(touch {})evil.md\",\"line\":7}}'\n",
+                "#!/bin/sh\nprintf '%s\\n' '{{\"id\":\"FS-safe\",\"section\":null,\"body\":\"\",\"path\":\"docs/$(touch {})evil.md\",\"line\":7}}'\n",
                 pwned.display()
             ),
         );
@@ -3690,6 +3693,7 @@ default = "must-not"
         assert!(!pwned.exists(), "repository path was evaluated as shell source");
         assert!(std::fs::read_to_string(capture).unwrap().contains("$(touch"));
 
+
         let empty_command = std::process::Command::new(&resolver)
             .arg(format!("{}FS-safe", '\u{a7}'))
             .current_dir(&root)
@@ -3704,30 +3708,32 @@ default = "must-not"
         );
     }
 
-    // §FS-integrations.3.1: in workspace mode `grund list --format json` qualifies
-    // the id as `<alias>/<ID>`; the resolver must still open a clicked bare local
-    // `§<ID>`. Runs the real embedded grund-open against a mock grund emitting the
-    // qualified shape, so a future `list --format json` change that broke this in a
-    // workspace would fail here rather than silently disable clicks.
+    /// Drive the real embedded `grund-open` against a mock `grund` that echoes a
+    /// fixed `show --format json` object. Returns what the resolver handed the
+    /// editor. `cwd` is where the click lands; `marker_token` is the clicked text.
     #[cfg(unix)]
-    #[test]
-    fn resolver_matches_workspace_qualified_id() {
+    fn run_resolver(name: &str, cwd_suffix: &str, token: &str, json: &str) -> (String, String) {
         use std::os::unix::fs::PermissionsExt;
 
-        let root = test_root("resolver_matches_workspace_qualified_id");
+        let root = test_root(name);
         let bin = root.join("bin");
         std::fs::create_dir_all(&bin).expect("create mock bin");
+        write(&root.join(".agents/grund.toml"), "[project]\n");
+        let cwd = root.join(cwd_suffix);
+        std::fs::create_dir_all(&cwd).expect("create cwd");
         let capture = root.join("opened-argument");
         let mock_grund = bin.join("grund");
         let opener = bin.join("opener");
         let resolver = root.join("grund-open");
-        // The mock lists two projects that share the FS-target slug under different
-        // aliases; the resolver takes the first `/`-suffixed match.
+        // Echo the resolution, and record the argv the resolver passed through so
+        // the section suffix is provably preserved rather than stripped.
         write(
             &mock_grund,
-            "#!/bin/sh\nprintf '%s\\n' \
-             '{\"project\":\"app\",\"id\":\"app/FS-target\",\"path\":\"docs/target.md\",\"line\":12}' \
-             '{\"project\":\"lib\",\"id\":\"lib/FS-target\",\"path\":\"lib/other.md\",\"line\":3}'\n",
+            &format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$1\" > \"{}\"\nprintf '%s\\n' '{}'\n",
+                root.join("grund-argv").display(),
+                json
+            ),
         );
         write(&opener, "#!/bin/sh\nprintf '%s\\n' \"$1\" > \"$CAPTURE\"\n");
         write(&resolver, GRUND_OPEN_RESOLVER);
@@ -3742,25 +3748,93 @@ default = "must-not"
             std::env::var("PATH").unwrap_or_default()
         );
         let output = std::process::Command::new(&resolver)
-            .arg(format!("{}FS-target.2", '\u{a7}'))
-            .current_dir(&root)
+            .arg(token)
+            .current_dir(&cwd)
             .env("PATH", &path)
             .env("GRUND_OPEN_CMD", &opener)
             .env("CAPTURE", &capture)
             .env_remove("EDITOR")
             .output()
             .expect("run resolver");
-
         assert!(
             output.status.success(),
             "resolver failed: {}",
             String::from_utf8_lossy(&output.stderr)
         );
-        assert_eq!(
-            std::fs::read_to_string(&capture).unwrap().trim_end(),
-            "docs/target.md:12",
-            "bare local citation must resolve against the workspace-qualified id"
+        let opened = std::fs::read_to_string(&capture).unwrap().trim_end().to_string();
+        let argv = std::fs::read_to_string(root.join("grund-argv"))
+            .unwrap()
+            .trim_end()
+            .to_string();
+        (opened.replace(&format!("{}/", root.display()), ""), argv)
+    }
+
+    // §FS-integrations.3.1: a clicked `§<ID>.<section>` must open the *section's*
+    // line, not the declaration heading. The resolver therefore forwards the whole
+    // citation to `grund` instead of truncating at the first `.`; truncating would
+    // send every click on a subsection to line 1.
+    #[cfg(unix)]
+    #[test]
+    fn resolver_opens_the_cited_section_line() {
+        let (opened, argv) = run_resolver(
+            "resolver_opens_the_cited_section_line",
+            ".",
+            &format!("{}FS-target.2.1", '\u{a7}'),
+            "{\"id\":\"FS-target\",\"section\":\"2.1\",\"body\":\"\",\"path\":\"docs/target.md\",\"line\":12}",
         );
+        assert_eq!(argv, "FS-target.2.1", "section suffix must reach `grund`");
+        assert_eq!(opened, "docs/target.md:12");
+    }
+
+    // §FS-integrations.3.1: the click may arrive with the shell in a subdirectory.
+    // `grund` reports paths relative to the config root (§FS-config.3.6), so the
+    // resolver joins against the root it discovered — handing the editor a
+    // repo-relative path would open nothing from anywhere but the root.
+    #[cfg(unix)]
+    #[test]
+    fn resolver_opens_absolute_path_from_a_subdirectory() {
+        let (opened, _) = run_resolver(
+            "resolver_opens_absolute_path_from_a_subdirectory",
+            "src/deep",
+            &format!("{}FS-target", '\u{a7}'),
+            "{\"id\":\"FS-target\",\"section\":null,\"body\":\"\",\"path\":\"docs/target.md\",\"line\":4}",
+        );
+        assert_eq!(
+            opened, "docs/target.md:4",
+            "path must be joined against the config root, not the cwd"
+        );
+    }
+
+    // §FS-integrations.3.1: `[reference] marker` is per-repo while the resolver is
+    // user-global, so it strips any leading punctuation rather than a literal `§`.
+    // A workspace-qualified `<alias>/<ID>` survives that strip and is forwarded
+    // whole, because the alias begins with an alphanumeric.
+    #[cfg(unix)]
+    #[test]
+    fn resolver_strips_any_marker_and_keeps_the_workspace_alias() {
+        let (opened, argv) = run_resolver(
+            "resolver_strips_any_marker_and_keeps_the_workspace_alias",
+            ".",
+            "@@app/FS-target.2",
+            "{\"id\":\"FS-target\",\"section\":\"2\",\"body\":\"\",\"path\":\"apps/app/docs/target.md\",\"line\":12}",
+        );
+        assert_eq!(argv, "app/FS-target.2", "alias must survive marker stripping");
+        assert_eq!(opened, "apps/app/docs/target.md:12");
+    }
+
+    // The `body` field carries arbitrary declaration prose. Field extraction is
+    // anchored to the end of the object so prose containing `"path":` or `"line":`
+    // cannot be read as the real field (§FS-integrations.3.1).
+    #[cfg(unix)]
+    #[test]
+    fn resolver_ignores_field_shapes_inside_the_body() {
+        let (opened, _) = run_resolver(
+            "resolver_ignores_field_shapes_inside_the_body",
+            ".",
+            &format!("{}FS-target", '\u{a7}'),
+            "{\"id\":\"FS-target\",\"section\":null,\"body\":\"see \\\"path\\\":\\\"decoy.md\\\",\\\"line\\\":999\",\"path\":\"docs/real.md\",\"line\":8}",
+        );
+        assert_eq!(opened, "docs/real.md:8", "body prose must not shadow the real fields");
     }
 
     #[cfg(unix)]

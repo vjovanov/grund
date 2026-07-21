@@ -10,15 +10,20 @@
 # Paste into kitty.conf, or let `grund integrations kitty --write` manage it.
 #
 # Press ctrl+shift+g, then the hint label over the citation you want to open.
-# The section suffix uses a non-capturing group: kitty's hints kitten passes the
-# first capture group when one is present, so a capturing group here would hand
-# grund-open only the `.<section>` (or nothing) instead of the whole citation.
-map ctrl+shift+g kitten hints --type regex --regex '§[A-Z]+-[a-z0-9][a-z0-9-]*(?:\.[0-9]+)*' --program 'grund-open'
+# Every group is non-capturing: kitty's hints kitten passes the first capture
+# group when one is present, so a capturing group here would hand grund-open a
+# fragment — the `.<section>`, or the alias — instead of the whole citation.
+#
+# The leading `[^\w\s]{1,3}` matches the citation marker without naming it.
+# `[reference] marker` is per-repo while this file is user-global and installed
+# once, so hardcoding § would leave every repo with a custom marker silently
+# unclickable. grund-open strips whatever punctuation this sweeps in.
+map ctrl+shift+g kitten hints --type regex --regex '[^\w\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z]+-[a-z0-9][a-z0-9-]*(?:\.[0-9]+)*' --program 'grund-open'
 
 # 2. Resolver — install grund-open to a directory on PATH (e.g. ~/.local/bin):
 
 #!/bin/sh
-# grund-open — resolve a §<ID> citation to its declaration site and open it.
+# grund-open — resolve a §<ID> citation to its cited line and open it.
 #
 # Installed by `grund integrations <client> --write` (§FS-integrations). A
 # terminal integration hands this script the clicked token; the script resolves
@@ -33,24 +38,47 @@ set -eu
 token=${1:-}
 [ -n "$token" ] || { echo "grund-open: no citation given" >&2; exit 2; }
 
-# Strip a leading citation marker (default §) and any trailing .<section>; the
-# declaration line is what we open.
-id=${token#§}
-id=${id%%.*}
+# Find the grund root: the nearest ancestor holding `.agents/grund.toml`. The
+# terminal hands us a token, never a directory, so the click may arrive with the
+# shell anywhere — including a subdirectory, where a repo-root-relative path
+# would not resolve. Everything below runs against this root
+# (§FS-integrations.3.1).
+root=$PWD
+while [ "$root" != "/" ] && [ ! -f "$root/.agents/grund.toml" ]; do
+    root=$(dirname "$root")
+done
+[ -f "$root/.agents/grund.toml" ] || {
+    echo "grund-open: no .agents/grund.toml at or above $PWD" >&2
+    exit 1
+}
+
+# Strip the citation marker without hardcoding one: `[reference] marker` is
+# per-repo, so drop any leading run of non-alphanumeric characters instead of a
+# literal §. This keeps a workspace-qualified `<alias>/<ID>` intact (the alias
+# starts alphanumeric) and tolerates stray punctuation the terminal's match
+# swept in, e.g. `(§FS-x`. The section suffix is deliberately kept: `grund`
+# resolves `<ID>.<section>` to that section's own line.
+id=$(printf '%s' "$token" | sed 's/^[^A-Za-z0-9]*//')
 [ -n "$id" ] || { echo "grund-open: empty id in '$token'" >&2; exit 2; }
 
-# Resolve ID -> path:line from the ID catalog. `grund list --format json` emits
-# one NDJSON object per declaration; pull the matching id's path and line. In a
-# workspace the id field is namespace-qualified (`"id":"<alias>/<ID>"`), so accept
-# either the bare id or any `/`-suffixed qualification of it (§FS-integrations.3.1).
-# A validly matched citation slug carries no regex metacharacters.
-line=$(grund list --format json 2>/dev/null | grep -E "\"id\":\"([^\"]*/)?$id\"" | head -n 1)
-[ -n "$line" ] || { echo "grund-open: unknown id '$id'" >&2; exit 1; }
+# Resolve the citation to path:line. `grund <ID>[.<section>] --format json` emits
+# one object whose `path` is relative to the config root above and whose `line`
+# is the cited section's line, not merely the declaration's (§FS-integrations.3.1).
+json=$(cd "$root" && grund "$id" --format json 2>/dev/null) || json=''
+[ -n "$json" ] || { echo "grund-open: unknown id '$id'" >&2; exit 1; }
 
-path=$(printf '%s\n' "$line" | sed -n 's/.*"path":"\([^"]*\)".*/\1/p')
-lineno=$(printf '%s\n' "$line" | sed -n 's/.*"line":\([0-9]*\).*/\1/p')
+# Anchor both extractions to the end of the object: `body` carries arbitrary
+# declaration prose that may itself contain `"path":` or `"line":`, and an
+# unanchored match would happily read that instead of the real field.
+path=$(printf '%s\n' "$json" | sed -n 's/.*"path":"\([^"]*\)","line":[0-9]*}$/\1/p')
+lineno=$(printf '%s\n' "$json" | sed -n 's/.*,"line":\([0-9]*\)}$/\1/p')
 [ -n "$path" ] || { echo "grund-open: could not resolve path for '$id'" >&2; exit 1; }
 lineno=${lineno:-1}
+
+# Hand the editor an absolute path. `grund` never emits one (§FS-errors.4 keeps
+# reports deterministic); composing it here is what makes the click work from a
+# subdirectory.
+path="$root/$path"
 
 if [ -n "${GRUND_OPEN_CMD:-}" ]; then
     # Never interpolate the repository-controlled path into shell source. The

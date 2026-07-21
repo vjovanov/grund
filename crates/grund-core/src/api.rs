@@ -264,6 +264,7 @@ fn show_with_scope_and_overlays(
     if opts.format == ShowFormat::Json {
         let json = render_show_output_json(
             config,
+            context.render_config(),
             &id,
             section.as_deref(),
             opts.mode.render_mode(),
