@@ -150,7 +150,33 @@ Now trigger your client — `ctrl+shift+g` in kitty, ctrl/cmd-click in WezTerm �
 and pick `§FS-integrations.4.3`. It should open `FS-integrations.md` at line 85,
 the `### 4.3` heading.
 
-## 5. Tell your agent how to write citations
+## 5. Peek without leaving the terminal
+
+Opening a citation answers *where it is*. Often you only want to know *what it
+says* — and a trip to the editor costs more than the answer is worth.
+
+Every client has a second binding for that. It renders the declaration into
+something disposable right next to your work, and closes when you quit the
+pager:
+
+| Client | Peek | Where it appears |
+| --- | --- | --- |
+| **kitty** | `ctrl+shift+p`, then the hint label | overlay window |
+| **tmux** | `prefix` + `G` | popup (needs tmux 3.2+) |
+| **wezterm** | `ctrl+shift+`-click | split pane to the right |
+
+You get the resolved `path:line` on the first line, then the declaration's lead.
+It is the same resolver in a different mode, so a peek and a click can never
+point at different places.
+
+**VS Code gets real hover instead.** Its extension attaches the declaration's
+heading and first paragraph to the link as a tooltip, so you just point at a
+citation — no click, no binding. No terminal can do this: none of them expose a
+hover event or a link tooltip to configuration, and
+[WezTerm has had an open request for one since 2018](https://github.com/wez/wezterm/issues/4).
+Peek is the terminal's answer to the same question.
+
+## 6. Tell your agent how to write citations
 
 A clickable citation is only useful if your agent writes citations you can
 click. The same `--write` records that preference and syncs it into the global
@@ -179,7 +205,7 @@ personal preference — useful when a project's readers are mostly on surfaces
 without an integration. Precedence is: repository opinion, then your
 preference, then `plain`.
 
-## 6. When a click does nothing
+## 7. When a click does nothing
 
 Work from the inside out — this separates a matcher problem from a resolver
 problem in one step:
@@ -208,7 +234,7 @@ a custom `marker`. The matchers accept any short punctuation marker, not just
 clickable, because that would make every `FS-`-prefixed word in your terminal a
 link.
 
-## 7. Remove it
+## 8. Remove it
 
 Delete the marked block from the client's config — it is bracketed by
 `>>> grund integrations` and `<<< grund integrations` comments — and delete

@@ -56,6 +56,24 @@ Both the click matchers and the resolver therefore accept a bare local `§<ID>` 
 
 It matches and strips the marker exactly as the terminal clients do (§3.1) and likewise keeps the `.<section>` suffix, resolving through `grund <ID>[.<section>] --format json`. It needs no root walk: the workspace folder is already the directory it runs `grund` in and the base it joins the reported path against.
 
+### 3.3 Reading a declaration without leaving
+
+Opening a citation answers *where*; often the question is only *what does it say*, and switching to an editor to find out costs more than the answer is worth. Every client therefore also offers a read-in-place path, in whichever form that client can express.
+
+Only VS Code can offer true hover. Its `TerminalLinkProvider` attaches a tooltip to each link, so the declaration's `--brief` slice — heading plus first paragraph — plus the resolved `path:line` is shown on hover, with no click. Because tooltips must carry their text when the link is *provided*, and a provider runs per rendered line, resolutions are cached per citation; the same citation scrolling past repeatedly costs one resolution, not one per line.
+
+The terminal clients cannot hover: no terminal exposes a hover event or a link tooltip to configuration ([wezterm#4](https://github.com/wez/wezterm/issues/4) has requested one since 2018). They offer **peek** instead — a second binding that renders the declaration into a disposable surface next to the work, rather than opening an editor:
+
+| Client | Peek | Surface |
+| --- | --- | --- |
+| kitty | `ctrl+shift+p`, then the hint label | overlay window |
+| tmux | `prefix` + `G` | popup (requires tmux 3.2+; inert on older tmux, where `prefix` + `g` still opens) |
+| wezterm | `ctrl+shift+`-click | split pane |
+
+Peek is the same resolver in a different mode — `grund-open --peek <citation>` (§3.1) — so a peek and a click can never disagree about where a citation points. It prints the resolved `path:line` followed by the declaration lead, through a pager, because each of those surfaces closes when the process exits.
+
+WezTerm needs one indirection worth recording, because it looks like an accident otherwise: Lua cannot ask which link is under the mouse — only the built-in `OpenLinkAtMouseCursor` knows, and it exposes only the resulting URI through `open-uri`, while `window:current_event()` does not carry modifiers. The peek binding therefore records the intent, delegates to that built-in action, and the `open-uri` handler reads the intent back. Both run inside one synchronous event, so the flag cannot leak across clicks.
+
 ## 4. Managed writes (`--write`)
 
 `--write` never prints an artifact; with a client it installs that integration, while the clientless `--conversation` form updates only user guidance (§4.3). It reports what it did on stderr, exit `0`. Writes are idempotent and reversible by construction, mirroring the `init` managed-block contract ([§FS-init.2.3](FS-init.md#23-generated-agent-entrypoints)): a re-run of an up-to-date integration changes nothing and reports `exists`; an upgrade is a diff of the marked region; removal is deleting the marked region.

@@ -8,8 +8,18 @@
 # editor choice lives here, never in shared repository text. GRUND_OPEN_CMD is
 # an argv-style command prefix; use a wrapper executable for custom placement.
 #
-# Usage: grund-open <§ID | ID>[.<section>]
+# With --peek it prints the declaration through a pager instead, for clients that
+# can put it in an overlay, popup, or split pane. Both modes share one resolution
+# path so a peek and a click can never disagree about where a citation points.
+#
+# Usage: grund-open [--peek] <§ID | ID>[.<section>]
 set -eu
+
+peek=
+if [ "${1:-}" = "--peek" ]; then
+    peek=1
+    shift
+fi
 
 token=${1:-}
 [ -n "$token" ] || { echo "grund-open: no citation given" >&2; exit 2; }
@@ -55,6 +65,30 @@ lineno=${lineno:-1}
 # reports deterministic); composing it here is what makes the click work from a
 # subdirectory.
 path="$root/$path"
+
+if [ -n "$peek" ]; then
+    # Print, don't open. The caller has already put us somewhere disposable — a
+    # kitty overlay, a tmux popup, a wezterm split — and every one of those
+    # closes when this process exits, so the output goes through a pager to stay
+    # readable until dismissed. The location header is what makes the peek
+    # actionable: it is the same `path:line` a click would open.
+    {
+        printf '%s:%s\n\n' "$path" "$lineno"
+        (cd "$root" && grund "$id") 2>/dev/null || printf 'could not render %s\n' "$id"
+    } | {
+        if [ -n "${PAGER:-}" ]; then
+            # shellcheck disable=SC2086
+            exec $PAGER
+        elif command -v less >/dev/null 2>&1; then
+            exec less -R
+        else
+            cat
+            printf '\n[enter to close] '
+            read -r _dismiss || true
+        fi
+    }
+    exit 0
+fi
 
 if [ -n "${GRUND_OPEN_CMD:-}" ]; then
     # Never interpolate the repository-controlled path into shell source. The
