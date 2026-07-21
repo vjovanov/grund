@@ -16,3 +16,4 @@ Current proposals:
 - [§DISC-declaration-local-shorthand](proposals/2026-05-24-declaration-local-shorthand.md#disc-declaration-local-shorthand-declaration-local-shorthand-for-citing-sections-of-the-same-declaration)
 - [§DISC-markup-format-declarations](proposals/2026-05-25-markup-format-declarations.md#disc-markup-format-declarations-declarations-in-asciidoc-restructuredtext-latex-and-similar-markup-document-formats)
 - [§DISC-workspace-member-descriptions](proposals/2026-06-12-workspace-member-descriptions.md#disc-workspace-member-descriptions-describe-workspace-members-in-generated-lists)
+- [§DISC-conversation-rendering-layers](proposals/2026-07-21-conversation-rendering-layers.md#disc-conversation-rendering-layers-layered-ownership-of-local-conversation-citation-rendering)

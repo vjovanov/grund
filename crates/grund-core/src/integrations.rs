@@ -17,7 +17,9 @@ const VSCODE_EXTENSION_JS: &str = include_str!("../assets/integrations/vscode/ex
 const INTEGRATIONS_BLOCK_VERSION: u32 = 1;
 
 /// Version for the user-level agent-instruction block (§FS-integrations.4.3).
-const AGENT_GUIDANCE_BLOCK_VERSION: u32 = 1;
+/// v2 (§DF-repo-conversation-opinion): self-scoping texts — gated on the presence
+/// of a `.agents/grund.toml`, with the repo-opinion precedence sentence in `plain`.
+const AGENT_GUIDANCE_BLOCK_VERSION: u32 = 2;
 
 /// The file-backed global instruction surfaces for every agent grund supports
 /// end-to-end (§FS-integrations.4.3). Keep this superset aligned with the
@@ -68,10 +70,14 @@ impl ConversationRendering {
         }
     }
 
+    // §FS-integrations.4.3: self-scoping — the texts apply only inside grund
+    // repositories, so in any other repo their footprint is one inert sentence.
+    // The precedence sentence appears only in `plain`: repository `link` against
+    // user `plain` is the only possible conflict (§DF-repo-conversation-opinion.2.3).
     fn instruction(self) -> &'static str {
         match self {
-            Self::Plain => "In local conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable.",
-            Self::Link => "In local conversations, link `§<ID>` to its declaration; fall back to plain when unsure.",
+            Self::Plain => "In repositories with a `.agents/grund.toml`: write plain `§<ID>` citations in local conversations; `grund integrations` makes them clickable. A repository whose agent instructions ask for linked citations takes precedence. Elsewhere, ignore this.",
+            Self::Link => "In repositories with a `.agents/grund.toml`: follow `§<ID>` with its declaration location as plain `path:line` text in local conversations — never a Markdown link; fall back to the bare citation when unsure. Elsewhere, ignore this.",
         }
     }
 }

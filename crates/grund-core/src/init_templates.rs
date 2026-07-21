@@ -10,11 +10,13 @@ const E2E_README_TEMPLATE: &str = include_str!("../assets/templates/e2e-README.m
 const AS_README_TEMPLATE: &str = include_str!("../assets/templates/architecture-README.md");
 const GITKEEP_TEMPLATE: &str = include_str!("../assets/templates/gitkeep.md");
 pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-init/SKILL.md");
-// v4 (§FS-init.2.3.6, §DF-integrations-command): adds the fixed repository-web
-// `### Clickable citations` convention. v3 (§FS-init.2.3.5,
+// v5 (§FS-init.2.3.6, §DF-repo-conversation-opinion): the `### Clickable
+// citations` section gains a config-derived local-conversation sentence when
+// `[reference] conversation = "link"` is set. v4 (§DF-integrations-command)
+// added the fixed repository-web convention. v3 (§FS-init.2.3.5,
 // §DF-citation-directions) replaced the hand-written climbing-rule bullet with a
 // generated `### Citation directions` section derived from `[citations]`.
-const AGENTS_BLOCK_VERSION: u32 = 4;
+const AGENTS_BLOCK_VERSION: u32 = 5;
 const CANONICAL_AGENT_ENTRYPOINT: &str = "AGENTS.md";
 const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
     CompanionAgentEntrypoint {
@@ -231,7 +233,7 @@ fn agents_template_substitutions(
         ("{TRIGGER}", config.trigger.clone()),
         ("{DECLARATION_MAP}", declaration_map(config)),
         ("{CITATION_DIRECTIONS}", citation_directions_section(config)),
-        ("{CLICKABLE_CITATIONS}", clickable_citations_section()),
+        ("{CLICKABLE_CITATIONS}", clickable_citations_section(config)),
         (
             "{WORKSPACE_MEMBERS}",
             render_workspace_members_section(
@@ -361,12 +363,23 @@ fn citation_directions_section(config: &Config) -> String {
     lines.join("\n")
 }
 
-/// Render the fixed repository-web convention (§FS-init.2.3.6). Local
-/// conversation rendering belongs to user-level instructions installed by
+/// Render the `### Clickable citations` section (§FS-init.2.3.6): the fixed
+/// repository-web convention always, plus the config-derived local-conversation
+/// sentence when the repo commits the `link` opinion (§FS-init.2.3.4.17,
+/// §DF-repo-conversation-opinion). Without the opinion, local conversation
+/// rendering belongs to user-level instructions installed by
 /// `grund integrations --write` (§FS-integrations.4.3).
-fn clickable_citations_section() -> String {
-    "### Clickable citations\n\nOn repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure."
-        .to_string()
+pub(crate) fn clickable_citations_section(config: &Config) -> String {
+    let mut section = "### Clickable citations\n\nOn repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure."
+        .to_string();
+    if config.conversation.as_deref() == Some("link") {
+        // §DF-repo-conversation-opinion.2.1: plain `path:line` text, never a
+        // Markdown link — the only form agent TUIs turn into an editor-open action.
+        section.push_str(
+            " In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text; fall back to the bare citation when unsure. Never use a Markdown link for this.",
+        );
+    }
+    section
 }
 
 /// The verb-phrase clauses for one citing kind's rules, joined by "; " in the

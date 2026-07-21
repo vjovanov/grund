@@ -132,7 +132,7 @@ mod tests {
     }
 
     fn current_marker() -> &'static str {
-        "## Grounding with grund (v4)"
+        "## Grounding with grund (v5)"
     }
 
     #[test]
@@ -2518,7 +2518,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         assert!(
             report.errors.iter().any(|error| error.code == "agents-init"
                 && error.path.as_deref() == Some(expected_path.as_path())
-                && error.message.contains("missing grund init block v4")),
+                && error.message.contains("missing grund init block v5")),
             "Zed workspace .rules should be required to carry the managed block: {:?}",
             report.errors
                 .iter()
@@ -3215,6 +3215,68 @@ default = "must-not"
         );
     }
 
+    // §FS-check.3.5 / §FS-init.2.3.6: flipping `[reference] conversation` without
+    // re-running `grund init` leaves a v-current block whose clickable-citations
+    // section disagrees with the live config — an agents-init drift finding.
+    #[test]
+    fn clickable_citations_drift_is_reported() {
+        let root = test_root("clickable_citations_drift_is_reported");
+        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        let config = load_config(&root).expect("load config");
+
+        // Block rendered without the opinion → no drift while the key is absent.
+        let fresh = render_agents_append_block("demo", &config, &root, true);
+        write(&root.join("AGENTS.md"), &format!("# demo\n\n{fresh}"));
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let report = check_findings(&findings, &config);
+        assert!(
+            !report.errors.iter().any(|d| d.code == "agents-init"),
+            "fresh block must not drift: {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+
+        // Commit the `link` opinion without refreshing the block → drift finding.
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n[reference]\nconversation = \"link\"\n",
+        );
+        let config = load_config(&root).expect("reload config");
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("rescan");
+        let report = check_findings(&findings, &config);
+        assert!(
+            report.errors.iter().any(|d| d.code == "agents-init"
+                && d.message.contains("clickable citations differ")),
+            "stale clickable citations must be reported: {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+
+        // `grund init`'s re-render clears the drift.
+        let refreshed = render_agents_append_block("demo", &config, &root, true);
+        assert!(refreshed.contains("plain `path:line` text"));
+        write(&root.join("AGENTS.md"), &format!("# demo\n\n{refreshed}"));
+        let report = check_findings(&findings, &config);
+        assert!(
+            !report.errors.iter().any(|d| d.code == "agents-init"),
+            "refreshed block must not drift: {:?}",
+            report.errors.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+    }
+
+    // §FS-integrations.4.3: a v1 guidance block upgrades in place to the current
+    // self-scoping v2 text, preserving everything around it.
+    #[test]
+    fn agent_guidance_block_upgrades_older_version_in_place() {
+        let existing = "# Mine\n\n<!-- >>> grund integrations citation rendering (v1) >>> -->\n## Grund citation rendering\n\nIn local conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable.\n<!-- <<< grund integrations citation rendering (v1) <<< -->\nkeep-after\n";
+        let (updated, outcome) =
+            install_agent_guidance_block(existing, ConversationRendering::Plain).unwrap();
+        assert_eq!(outcome, BlockOutcome::Updated);
+        assert!(updated.starts_with("# Mine\n\n<!-- >>> grund integrations citation rendering (v2) >>> -->\n"));
+        assert!(updated.contains("In repositories with a `.agents/grund.toml`:"));
+        assert!(updated.contains("takes precedence"));
+        assert!(!updated.contains("(v1)"));
+        assert!(updated.ends_with("keep-after\n"));
+    }
+
     // §FS-check.3.5 / §FS-init.2.3.5: only the managed block content can satisfy
     // citation-direction drift validation; matching prose elsewhere is ignored.
     #[test]
@@ -3544,7 +3606,7 @@ default = "must-not"
         assert_eq!(outcome, BlockOutcome::Updated);
         assert!(linked.starts_with("# My instructions\n"));
         assert!(linked.ends_with("keep-after\n"));
-        assert!(linked.contains("link `§<ID>` to its declaration"));
+        assert!(linked.contains("follow `§<ID>` with its declaration location as plain `path:line` text"));
         assert!(!linked.contains("write plain `§<ID>` citations"));
 
         let (again, outcome) =
@@ -3708,14 +3770,55 @@ default = "must-not"
         assert!(set_executable(&missing).is_err());
     }
 
-    // §FS-init.2.3.6: repositories get one fixed web-surface convention.
+    // §FS-init.2.3.6: without the `conversation` opinion, repositories get only
+    // the fixed web-surface convention.
     #[test]
-    fn clickable_citations_section_is_fixed() {
-        let rendered = clickable_citations_section();
+    fn clickable_citations_section_is_fixed_without_opinion() {
+        let root = test_root("clickable_citations_section_is_fixed_without_opinion");
+        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        let config = load_config(&root).expect("load config");
+        let rendered = clickable_citations_section(&config);
         assert_eq!(
             rendered,
             "### Clickable citations\n\nOn repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure."
         );
+    }
+
+    // §FS-init.2.3.4.17, §DF-repo-conversation-opinion: the committed `link`
+    // opinion adds the config-derived local-conversation sentence.
+    #[test]
+    fn clickable_citations_section_renders_conversation_opinion() {
+        let root = test_root("clickable_citations_section_renders_conversation_opinion");
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n[reference]\nconversation = \"link\"\n",
+        );
+        let config = load_config(&root).expect("load config");
+        let rendered = clickable_citations_section(&config);
+        assert!(rendered.starts_with("### Clickable citations\n\nOn repository web surfaces,"));
+        assert!(rendered.contains(
+            "In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text; fall back to the bare citation when unsure. Never use a Markdown link for this."
+        ));
+        // No trailing newline, so the template's placeholder keeps init idempotent.
+        assert!(!rendered.ends_with('\n'));
+    }
+
+    // §FS-config.3.1: the closed enum admits only `link` — `plain` is machine
+    // state and stays user-scoped (§DF-repo-conversation-opinion.2.2).
+    #[test]
+    fn repository_config_rejects_non_link_conversation() {
+        let root = test_root("repository_config_rejects_non_link_conversation");
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n[reference]\nconversation = \"plain\"\n",
+        );
+        let error = match load_config(&root) {
+            Ok(_) => panic!("conversation = \"plain\" must be rejected"),
+            Err(error) => error,
+        };
+        assert!(error
+            .to_string()
+            .contains("unknown [reference] conversation `plain` (expected link)"));
     }
 
     // §FS-integrations.4.3: the TUI preference is user-scoped and therefore not
