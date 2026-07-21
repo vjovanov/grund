@@ -1,0 +1,1 @@
+show api/FS-api.1 {repo} --format json

@@ -15,12 +15,17 @@
 local wezterm = require 'wezterm'
 
 -- Append grund's citation rule to config.hyperlink_rules, seeding WezTerm's
--- defaults first when the config carries none of its own. A non-capturing group
--- keeps the whole citation as the $0 match.
+-- defaults first when the config carries none of its own. Every group is
+-- non-capturing so the whole citation stays the $0 match.
+--
+-- The leading [^\w\s]{1,3} matches the citation marker without naming it:
+-- `[reference] marker` is per-repo while this file is user-global and installed
+-- once, so hardcoding § would leave every repo with a custom marker silently
+-- unclickable. grund-open strips whatever punctuation this sweeps in.
 function grund_apply_hyperlink_rule(config)
   config.hyperlink_rules = config.hyperlink_rules or wezterm.default_hyperlink_rules()
   table.insert(config.hyperlink_rules, {
-    regex = '§[A-Z]+-[a-z0-9][a-z0-9-]*(?:\\.[0-9]+)*',
+    regex = '[^\\w\\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z]+-[a-z0-9][a-z0-9-]*(?:\\.[0-9]+)*',
     format = 'grund:$0',
   })
 end

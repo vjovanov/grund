@@ -259,7 +259,14 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
             if format == "json" {
                 println!(
                     "{}",
-                    render_show_output_json(config, &id, section.as_deref(), mode, &output)
+                    render_show_output_json(
+                        config,
+                        context.render_config(),
+                        &id,
+                        section.as_deref(),
+                        mode,
+                        &output
+                    )
                 );
             } else {
                 print!("{}", output.body);
@@ -288,8 +295,15 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
     }
 }
 
+/// `config` is the *target project's* config — it owns the ID grammar and marker
+/// that `render_id` needs. `path_config` is the workspace render config, i.e. the
+/// same base `grund list` renders against, so an `<alias>/<ID>` resolved from a
+/// workspace root reports a path relative to that root rather than to the member
+/// (§FS-config.3.6: paths are relative to *the config root*, and §FS-integrations.3.1
+/// joins this path against the root `grund-open` discovered).
 fn render_show_output_json(
     config: &Config,
+    path_config: &Config,
     id: &Id,
     section: Option<&str>,
     mode: ShowRenderMode,
@@ -326,7 +340,7 @@ fn render_show_output_json(
             None => "null".to_string(),
         },
         json_escape(&output.body),
-        json_escape(&display_path(config, &output.path)),
+        json_escape(&display_path(path_config, &output.path)),
         output.line,
         extra
     )
