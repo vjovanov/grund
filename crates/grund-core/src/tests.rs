@@ -3599,6 +3599,26 @@ default = "must-not"
         );
     }
 
+    // §FS-integrations.3.2: VSCodium is a separate application with a separate
+    // extensions root. Installing the extension into `~/.vscode` for a VSCodium
+    // user fails *silently* — the write reports success and no link ever appears
+    // — so the two clients must never share a target.
+    #[test]
+    fn codium_installs_into_its_own_extensions_root() {
+        let vscode = IntegrationClient::Vscode.config_target();
+        let codium = IntegrationClient::Codium.config_target();
+        assert_ne!(vscode, codium);
+        assert!(codium.starts_with("~/.vscode-oss/"), "got {codium}");
+        assert!(vscode.starts_with("~/.vscode/"), "got {vscode}");
+        // Same install machinery, same artifact — only the destination differs.
+        assert!(matches!(
+            IntegrationClient::Codium.install_kind(),
+            InstallKind::Vscode
+        ));
+        assert!(!IntegrationClient::Codium.is_terminal());
+        assert!(IntegrationClient::Codium.snippet().is_none());
+    }
+
     // §FS-integrations.3.4: iTerm2 keeps its rules in a binary plist, so there is
     // nothing to splice and nothing to read back. It must never claim installed —
     // a guess there is worse than reporting nothing — and the detection plan has

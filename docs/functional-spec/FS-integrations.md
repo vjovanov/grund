@@ -9,11 +9,11 @@ grund integrations [<client>] [--write] [--conversation plain|link] [--format te
 ```
 
 - With no `<client>` and no write flags, grund detects the caller's environment (§2) and prints the integrations that apply, each with its one-line install command. `--format json` prints the same detection as a machine-shaped plan (§5).
-- With a `<client>` — one of `iterm2`, `kitty`, `tmux`, `vscode`, `wezterm` — grund prints that client's integration: the config snippet plus, for the terminal clients, the embedded `grund-open` resolver script (§3). Deterministic and environment-independent (§6).
+- With a `<client>` — one of `codium`, `iterm2`, `kitty`, `tmux`, `vscode`, `wezterm` — grund prints that client's integration: the config snippet plus, for the terminal clients, the embedded `grund-open` resolver script (§3). Deterministic and environment-independent (§6).
 - With an explicit client, `--write` applies the integration to the client's real configuration instead of printing it, as a managed, marked block (§4), and synchronizes the user's local-conversation preference into global agent instructions (§4.3). A client with no writable configuration installs what it can and prints the rest for the user to apply (§3.4).
 - `--conversation plain|link` overrides the user preference while writing. It is accepted only with `--write`. When present without a client, the command updates only the user preference and global agent instructions; this preference-only form is unambiguous and does not install an arbitrary client. With no override, a client installation records `plain` on first use and preserves the stored preference thereafter. `plain` tells agents to write bare citations for the installed rendering layer, while `link` tells them to follow a citation with its declaration location as plain `path:line` text — never a Markdown link ([§DF-repo-conversation-opinion.2.1](../decisions/functional/DF-repo-conversation-opinion.md#21-the-link-form-is-plain-pathline-text)) — and fall back to the bare citation when uncertain. Bare `grund integrations --write`, with neither a client nor a conversation value, remains an error.
 
-An unknown client is a CLI-level error: `error: unknown integration client \`<client>\`` plus `known clients: iterm2, kitty, tmux, vscode, wezterm` on stderr, empty stdout, exit `2`. The client set is closed and frozen the same way the subcommand surface is ([§FS-cli.4](FS-cli.md#4-errors-with-no-source-location)), so adding a client is a deliberate, changelog-gated change.
+An unknown client is a CLI-level error: `error: unknown integration client \`<client>\`` plus `known clients: codium, iterm2, kitty, tmux, vscode, wezterm` on stderr, empty stdout, exit `2`. The client set is closed and frozen the same way the subcommand surface is ([§FS-cli.4](FS-cli.md#4-errors-with-no-source-location)), so adding a client is a deliberate, changelog-gated change.
 
 ## 2. Detection
 
@@ -22,10 +22,10 @@ With no `<client>`, grund inspects the environment to decide which integrations 
 - `WEZTERM_EXECUTABLE` → `wezterm`
 - `KITTY_WINDOW_ID` → `kitty`
 - `TERM_PROGRAM` — value `WezTerm` → `wezterm`, `iTerm.app` → `iterm2`, `tmux` → `tmux`, `vscode` → `vscode`
-- `VSCODE_PID` or any `VSCODE_*` marker → `vscode`
+- `VSCODE_PID` or any `VSCODE_*` marker → `vscode`; additionally → `codium` when any of those values names VSCodium's application directory
 - `TMUX` (non-empty) → `tmux`
 
-Zero, one, or several clients may match at once (a VS Code integrated terminal running under tmux inside WezTerm matches three). Matches are reported in the frozen client order `iterm2, kitty, tmux, vscode, wezterm`, deduplicated, never in environment-probe order, so a given environment always prints the same text. When nothing matches, grund prints the full catalog of clients with their one-line installs and a note that none was detected — a discoverable menu rather than an error. Detection succeeds with exit `0` in every case; an unrecognized terminal is not a failure.
+Zero, one, or several clients may match at once (a VS Code integrated terminal running under tmux inside WezTerm matches three). Matches are reported in the frozen client order `codium, iterm2, kitty, tmux, vscode, wezterm`, deduplicated, never in environment-probe order, so a given environment always prints the same text. When nothing matches, grund prints the full catalog of clients with their one-line installs and a note that none was detected — a discoverable menu rather than an error. Detection succeeds with exit `0` in every case; an unrecognized terminal is not a failure.
 
 Because detection depends on ambient environment variables, only the explicit-`<client>` form (§1) and `--help` are byte-stable across machines; the no-client form is stable only for a fixed environment. Golden coverage therefore pins explicit clients (§6).
 
@@ -50,11 +50,13 @@ Resolution proceeds in three steps, and each exists because the click carries le
 
 Both the click matchers and the resolver therefore accept a bare local `§<ID>` and a namespace-qualified `§<alias>/<ID>`; in a workspace the qualified form resolves through `grund`'s own alias routing ([§FS-workspace.8.1](FS-workspace.md#81-grund-show)) rather than through string matching over the ID catalog.
 
-### 3.2 Editor client: `vscode`
+### 3.2 Editor clients: `vscode`, `codium`
 
 `grund integrations vscode` prints the terminal-citations extension source and the one-line `--write` install. `grund integrations vscode --write` materializes the unpacked extension into the editor's extensions directory (§4.2); the binary carries the artifact, so nothing is published to a marketplace and the [§FS-lsp.2.3](FS-lsp.md#23-editor-configuration-one-time-per-editor) stance is preserved. The extension is a `TerminalLinkProvider` that turns `§<ID>` occurrences in the integrated terminal into links resolved through `grund`.
 
 It matches and strips the marker exactly as the terminal clients do (§3.1) and likewise keeps the `.<section>` suffix, resolving through `grund <ID>[.<section>] --format json`. It needs no root walk: the workspace folder is already the directory it runs `grund` in and the base it joins the reported path against.
+
+`codium` installs the identical extension into VSCodium's own extensions root, `~/.vscode-oss/extensions`. It is a separate client rather than a flag because it is a separate application: writing to `~/.vscode` for a VSCodium user drops the extension where nothing ever loads it, and the failure is silent — the install reports success and no link is ever produced. Detection cannot separate the two by presence, since both export an identical `VSCODE_*` environment; what differs is where those variables *point*, so `codium` is marked in addition to `vscode` when one of those values names VSCodium's application directory. Marking both is the honest outcome of an ambiguous environment: the catalog then offers both one-line installs and the user picks the application they are actually running.
 
 ### 3.3 Reading a declaration without leaving
 
@@ -83,6 +85,16 @@ iTerm2 stores its configuration in a binary property list, not a text file. Ther
 `grund integrations iterm2 --write` installs everything grund *can* install — the `grund-open` resolver and the user preference and global agent instructions (§4.3) — then prints the steps it cannot apply, reporting `manual <client> (<where>)` on stderr. The exit code is `0`: nothing failed, and the remaining work is the user's. `integration_is_current` (§5) always reports `installed: false` for a manual client, because grund never reads that plist and reporting a guess would be worse than reporting nothing; the detection plan carries `"install_kind":"manual"` so a caller can tell the difference between *not installed* and *not knowable*.
 
 A Mac user may not need the rule at all. iTerm2's Semantic History already makes a plain `path:line` cmd-clickable, so `--conversation link` (§4.3) — which has agents write the declaration location beside each citation — produces clickable citations there with no integration installed. That is the same reason `link` exists for TUIs: it degrades to something the host already understands.
+
+### 3.5 Clients grund cannot support, and why
+
+The client set is closed (§1), but absence from it is not always a judgement about the client — sometimes there is simply no hook. Recording why keeps the question from being re-litigated each time someone asks:
+
+- **Ghostty** — documents exactly the option needed, `link`, which matches a regex against terminal text and runs an arbitrary binding action. The reference marks it `TODO: This can't currently be set!`; only the built-in `link-url` matcher works, and it takes no regex of its own. Nor does the `--conversation link` fallback help, since Ghostty has no `path:line` opener either. When `link` ships, the artifact is the §3.1 regex plus `grund-open` and nothing else.
+- **Apple Terminal.app** — no regex-to-action mechanism of any kind. Nothing to build against.
+- **Windows Terminal** — same: URL detection only, with no configurable matcher.
+
+The common shape is that a terminal must let configuration bind *arbitrary matched text* to *an arbitrary command*. Every supported terminal client offers that; these do not.
 
 ## 4. Managed writes (`--write`)
 

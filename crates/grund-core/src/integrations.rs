@@ -43,6 +43,7 @@ const RESOLVER_TARGET: &str = "~/.local/bin/grund-open";
 /// used by detection and every listing.
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum IntegrationClient {
+    Codium,
     Iterm2,
     Kitty,
     Tmux,
@@ -110,8 +111,9 @@ impl ConversationRendering {
 }
 
 impl IntegrationClient {
-    /// Frozen order: `iterm2, kitty, tmux, vscode, wezterm`.
-    const ALL: [IntegrationClient; 5] = [
+    /// Frozen order: `codium, iterm2, kitty, tmux, vscode, wezterm`.
+    const ALL: [IntegrationClient; 6] = [
+        IntegrationClient::Codium,
         IntegrationClient::Iterm2,
         IntegrationClient::Kitty,
         IntegrationClient::Tmux,
@@ -121,6 +123,7 @@ impl IntegrationClient {
 
     fn name(self) -> &'static str {
         match self {
+            IntegrationClient::Codium => "codium",
             IntegrationClient::Iterm2 => "iterm2",
             IntegrationClient::Kitty => "kitty",
             IntegrationClient::Tmux => "tmux",
@@ -136,13 +139,13 @@ impl IntegrationClient {
     }
 
     fn is_terminal(self) -> bool {
-        !matches!(self, IntegrationClient::Vscode)
+        !matches!(self, IntegrationClient::Vscode | IntegrationClient::Codium)
     }
 
     fn install_kind(self) -> InstallKind {
         match self {
             IntegrationClient::Iterm2 => InstallKind::Manual,
-            IntegrationClient::Vscode => InstallKind::Vscode,
+            IntegrationClient::Vscode | IntegrationClient::Codium => InstallKind::Vscode,
             IntegrationClient::Kitty | IntegrationClient::Tmux | IntegrationClient::Wezterm => {
                 InstallKind::Block
             }
@@ -152,6 +155,7 @@ impl IntegrationClient {
     /// The terminal config snippet for a terminal client; `None` for vscode.
     fn snippet(self) -> Option<&'static str> {
         match self {
+            IntegrationClient::Codium => None,
             IntegrationClient::Iterm2 => Some(ITERM2_SNIPPET),
             IntegrationClient::Kitty => Some(KITTY_SNIPPET),
             IntegrationClient::Tmux => Some(TMUX_SNIPPET),
@@ -171,6 +175,10 @@ impl IntegrationClient {
             IntegrationClient::Tmux => "~/.tmux.conf",
             IntegrationClient::Wezterm => "~/.config/wezterm/wezterm.lua",
             IntegrationClient::Vscode => "~/.vscode/extensions/grund.grund-terminal-citations",
+            // VSCodium is a separate application with its own extensions root;
+            // installing the same extension into ~/.vscode would land where it
+            // is never loaded (§FS-integrations.3.2).
+            IntegrationClient::Codium => "~/.vscode-oss/extensions/grund.grund-terminal-citations",
         }
     }
 
@@ -187,6 +195,7 @@ impl IntegrationClient {
     fn comment_prefix(self) -> &'static str {
         match self {
             IntegrationClient::Iterm2 | IntegrationClient::Kitty | IntegrationClient::Tmux => "#",
+            IntegrationClient::Codium => "//",
             IntegrationClient::Wezterm => "--",
             // vscode installs unpacked files, not a block inside a host config.
             IntegrationClient::Vscode => "//",
@@ -245,7 +254,7 @@ fn detect_clients() -> Vec<IntegrationClient> {
     let has = |name: &str| std::env::var_os(name).is_some_and(|value| !value.is_empty());
     // `IntegrationClient` variants are declared in the same order as `ALL`, so the
     // discriminant is the index into this presence table.
-    let mut matched = [false; 5];
+    let mut matched = [false; 6];
     let mut mark = |client: IntegrationClient| matched[client as usize] = true;
     if has("WEZTERM_EXECUTABLE") {
         mark(IntegrationClient::Wezterm);
@@ -260,11 +269,23 @@ fn detect_clients() -> Vec<IntegrationClient> {
         Some("vscode") => mark(IntegrationClient::Vscode),
         _ => {}
     }
-    if std::env::vars_os().any(|(key, _)| {
-        key.to_str()
-            .is_some_and(|key| key == "VSCODE_PID" || key.starts_with("VSCODE_"))
-    }) {
+    // VS Code and VSCodium set an identical VSCODE_* environment, so presence
+    // alone cannot tell them apart. What differs is where those variables point:
+    // VSCodium's helper paths live under its own application directory. When
+    // that shows, mark VSCodium *as well* — the extensions roots differ, and
+    // installing into the wrong one is silent (§FS-integrations.3.2).
+    let vscode_vars: Vec<String> = std::env::vars_os()
+        .filter(|(key, _)| {
+            key.to_str()
+                .is_some_and(|key| key == "VSCODE_PID" || key.starts_with("VSCODE_"))
+        })
+        .filter_map(|(_, value)| value.to_str().map(str::to_ascii_lowercase))
+        .collect();
+    if !vscode_vars.is_empty() {
         mark(IntegrationClient::Vscode);
+    }
+    if vscode_vars.iter().any(|value| value.contains("codium")) {
+        mark(IntegrationClient::Codium);
     }
     if has("TMUX") {
         mark(IntegrationClient::Tmux);
@@ -684,7 +705,7 @@ fn write_integration(
 ) -> ExitCode {
     let integration_status = match client.install_kind() {
         InstallKind::Block => write_terminal_integration(client, client.snippet().unwrap_or("")),
-        InstallKind::Vscode => write_vscode_integration(),
+        InstallKind::Vscode => write_vscode_integration(client),
         InstallKind::Manual => write_manual_integration(client),
     };
     if integration_status != ExitCode::SUCCESS {
@@ -849,9 +870,9 @@ fn is_executable(path: &Path) -> bool {
 
 /// Materialize the unpacked VS Code extension into the extensions directory
 /// (§FS-integrations.4.2). Overwrites only the grund-owned files.
-fn write_vscode_integration() -> ExitCode {
-    let Some(dir) = expand_target(IntegrationClient::Vscode.config_target()) else {
-        eprintln!("error: cannot resolve home directory for vscode");
+fn write_vscode_integration(client: IntegrationClient) -> ExitCode {
+    let Some(dir) = expand_target(client.config_target()) else {
+        eprintln!("error: cannot resolve home directory for {}", client.name());
         return ExitCode::from(2);
     };
     let marker = dir.join(".grund-version");
