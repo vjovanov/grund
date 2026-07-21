@@ -1,1 +1,1 @@
-{"client":"wezterm","kind":"terminal","install":"grund integrations wezterm --write","config_target":"~/.config/wezterm/wezterm.lua","resolver_target":"~/.local/bin/grund-open"}
+{"client":"wezterm","kind":"terminal","install":"grund integrations wezterm --write","install_kind":"block","config_target":"~/.config/wezterm/wezterm.lua","resolver_target":"~/.local/bin/grund-open"}

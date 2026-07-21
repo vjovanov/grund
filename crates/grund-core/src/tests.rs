@@ -3599,6 +3599,29 @@ default = "must-not"
         );
     }
 
+    // §FS-integrations.3.4: iTerm2 keeps its rules in a binary plist, so there is
+    // nothing to splice and nothing to read back. It must never claim installed —
+    // a guess there is worse than reporting nothing — and the detection plan has
+    // to say *why*, so a caller can tell "not installed" from "not knowable".
+    #[test]
+    fn iterm2_is_a_manual_client_that_never_claims_installed() {
+        assert!(matches!(
+            IntegrationClient::Iterm2.install_kind(),
+            InstallKind::Manual
+        ));
+        assert!(!integration_is_current(IntegrationClient::Iterm2));
+        let descriptor = client_descriptor_json(IntegrationClient::Iterm2);
+        assert!(descriptor.contains("\"install_kind\":\"manual\""));
+        // It still uses the shared resolver, so it counts as a terminal client
+        // and its printed artifact carries grund-open.
+        assert!(IntegrationClient::Iterm2.is_terminal());
+        // The rule it prints must carry the same matcher the other clients use,
+        // or a citation clickable in kitty would be inert in iTerm2.
+        let snippet = IntegrationClient::Iterm2.snippet().expect("iterm2 artifact");
+        assert!(snippet.contains("[A-Z]+-[a-z0-9][a-z0-9-]*"));
+        assert!(snippet.contains("grund-open \\0"));
+    }
+
     // §FS-integrations.4.1: the markers are comments *in the host file's
     // language*. `#` is a comment in kitty.conf and .tmux.conf but the length
     // operator in Lua, so a `#` marker in wezterm.lua is a syntax error that

@@ -27,6 +27,10 @@ grund --version
 case ":$PATH:" in *":$HOME/.local/bin:"*) echo ok ;; *) echo "add it to your shell profile" ;; esac
 ```
 
+On **macOS this is usually the one that bites**: `~/.local/bin` is not on the
+default `PATH` there, so the resolver is never found and every click silently
+does nothing. Add it to your shell profile before going further.
+
 **Your editor is set.** The resolver opens files with `GRUND_OPEN_CMD` if set,
 otherwise `EDITOR`, otherwise `code`. If none of those resolve, clicks appear to
 do nothing.
@@ -79,6 +83,18 @@ Each client then needs one more step:
 | **wezterm** | ctrl/cmd-click the citation | **wire it up — see below** |
 | **tmux** | select the citation in copy mode, then `prefix` + `g` | `tmux source-file ~/.tmux.conf` |
 | **vscode** | click the link in the integrated terminal | *Developer: Reload Window* |
+| **iterm2** | cmd-click the citation | **apply the rule by hand — see below** |
+
+**iTerm2 is applied by hand.** It keeps its settings in a binary property list,
+not a text file, so there is no config to manage a block in and grund will not
+rewrite a live profile under you. `grund integrations iterm2 --write` installs
+the resolver and then prints the rule to add under
+*Settings → Profiles → Advanced → Smart Selection*: the citation regex, and a
+`Run Command…` action of `grund-open \0`. Add a second action of
+`grund-open --peek \0` to get peek on the right-click menu.
+
+Before you do any of that, though, see the note at the end of §5 — on iTerm2 you
+may not need a rule at all.
 
 **WezTerm needs one manual edit — but only if you already have a config.** It
 applies hyperlink rules only from the config object your Lua returns, and no
@@ -169,12 +185,27 @@ You get the resolved `path:line` on the first line, then the declaration's lead.
 It is the same resolver in a different mode, so a peek and a click can never
 point at different places.
 
+On **iTerm2**, peek is the second action on the Smart Selection rule, which puts
+it on the citation's right-click menu — iTerm2 fires only the first action on
+cmd-click.
+
 **VS Code gets real hover instead.** Its extension attaches the declaration's
 heading and first paragraph to the link as a tooltip, so you just point at a
 citation — no click, no binding. No terminal can do this: none of them expose a
 hover event or a link tooltip to configuration, and
 [WezTerm has had an open request for one since 2018](https://github.com/wez/wezterm/issues/4).
 Peek is the terminal's answer to the same question.
+
+**On iTerm2 you may not need any of this.** Its Semantic History already makes a
+plain `path:line` cmd-clickable, line number included. So:
+
+```bash
+grund integrations --write --conversation link
+```
+
+is enough on its own — agents then write the location beside each citation, and
+iTerm2 makes it clickable with no rule installed. Set up the Smart Selection rule
+only if you want the bare `§<ID>` itself to be the clickable thing.
 
 ## 6. Tell your agent how to write citations
 
