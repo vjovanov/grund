@@ -119,7 +119,14 @@ checking all three shapes:
 | --- | --- |
 | `grund-open '§FS-integrations'` | `FS-integrations.md:1` — the declaration |
 | `grund-open '§FS-integrations.3.1'` | `FS-integrations.md:36` — that section |
-| `grund-open '§FS-integrations.4.3'` | `FS-integrations.md:81` — that section |
+| `grund-open '§FS-integrations.4.3'` | `FS-integrations.md:85` — that section |
+
+Those line numbers move whenever the spec is edited, so treat `grund` as the
+authority rather than this table — it prints the line the click should land on:
+
+```bash
+grund FS-integrations.4.3 --format json
+```
 
 Then confirm it works from anywhere in the tree, because a click carries no
 directory with it:
@@ -140,7 +147,7 @@ grep -n '§FS-\|§DF-' crates/grund-core/src/integrations.rs | head -20
 ```
 
 Now trigger your client — `ctrl+shift+g` in kitty, ctrl/cmd-click in WezTerm —
-and pick `§FS-integrations.4.3`. It should open `FS-integrations.md` at line 81,
+and pick `§FS-integrations.4.3`. It should open `FS-integrations.md` at line 85,
 the `### 4.3` heading.
 
 ## 5. Tell your agent how to write citations
