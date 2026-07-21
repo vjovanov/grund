@@ -3460,12 +3460,12 @@ default = "must-not"
     // §FS-integrations.4.1: managed dotfile block splice is idempotent.
     #[test]
     fn integrations_block_appends_then_is_idempotent() {
-        let (appended, outcome) = install_managed_block("# my config\n", "SNIPPET").unwrap();
+        let (appended, outcome) = install_managed_block("#", "# my config\n", "SNIPPET").unwrap();
         assert_eq!(outcome, BlockOutcome::Appended);
         assert!(appended.starts_with("# my config\n"));
         assert!(appended.contains("# >>> grund integrations (v1) >>>\nSNIPPET\n# <<< grund integrations (v1) <<<\n"));
 
-        let (again, outcome) = install_managed_block(&appended, "SNIPPET").unwrap();
+        let (again, outcome) = install_managed_block("#", &appended, "SNIPPET").unwrap();
         assert_eq!(outcome, BlockOutcome::Unchanged, "re-applying the same snippet is a no-op");
         assert_eq!(again, appended);
     }
@@ -3473,9 +3473,9 @@ default = "must-not"
     // §FS-integrations.4.1: a changed snippet updates only the marked region.
     #[test]
     fn integrations_block_updates_in_place() {
-        let (first, _) = install_managed_block("keep-before\n", "OLD").unwrap();
+        let (first, _) = install_managed_block("#", "keep-before\n", "OLD").unwrap();
         let with_tail = format!("{first}keep-after\n");
-        let (updated, outcome) = install_managed_block(&with_tail, "NEW").unwrap();
+        let (updated, outcome) = install_managed_block("#", &with_tail, "NEW").unwrap();
         assert_eq!(outcome, BlockOutcome::Updated);
         assert!(updated.starts_with("keep-before\n"));
         assert!(updated.ends_with("keep-after\n"), "content after the block is preserved");
@@ -3487,7 +3487,7 @@ default = "must-not"
     #[test]
     fn integrations_block_rejects_newer_version() {
         let newer = "# >>> grund integrations (v99) >>>\nx\n# <<< grund integrations (v99) <<<\n";
-        assert!(install_managed_block(newer, "SNIPPET").is_err());
+        assert!(install_managed_block("#", newer, "SNIPPET").is_err());
     }
 
     // §FS-integrations.4.1: a begin marker with no matching end marker is a hard
@@ -3496,7 +3496,7 @@ default = "must-not"
     #[test]
     fn integrations_block_rejects_orphan_begin_marker() {
         let orphan = "# >>> grund integrations (v1) >>>\nkeep-me\nmore-user-config\n";
-        let result = install_managed_block(orphan, "SNIPPET");
+        let result = install_managed_block("#", orphan, "SNIPPET");
         assert!(result.is_err(), "orphan begin marker must not append");
         // The user's content is never touched: the error path returns before any
         // rewrite, so a caller that surfaces the error leaves the file intact.
@@ -3508,7 +3508,7 @@ default = "must-not"
     #[test]
     fn integrations_block_upgrades_older_version_in_place() {
         let old = "before\n# >>> grund integrations (v0) >>>\nOLD\n# <<< grund integrations (v0) <<<\nafter\n";
-        let (updated, outcome) = install_managed_block(old, "NEW").expect("upgrade old block");
+        let (updated, outcome) = install_managed_block("#", old, "NEW").expect("upgrade old block");
 
         assert_eq!(outcome, BlockOutcome::Updated);
         assert_eq!(updated.matches("# >>> grund integrations").count(), 1);
@@ -3522,7 +3522,7 @@ default = "must-not"
     #[test]
     fn integrations_block_consumes_complete_indented_marker_lines() {
         let indented = "before\n  # >>> grund integrations (v1) >>>  \nOLD\n  # <<< grund integrations (v1) <<<  \nafter\n";
-        let (updated, _) = install_managed_block(indented, "NEW").expect("replace block");
+        let (updated, _) = install_managed_block("#", indented, "NEW").expect("replace block");
 
         assert!(!updated.contains("  >>>"));
         assert!(!updated.contains("  <<<"));
@@ -3532,7 +3532,55 @@ default = "must-not"
     #[test]
     fn integrations_block_rejects_multiple_blocks() {
         let block = "# >>> grund integrations (v1) >>>\nx\n# <<< grund integrations (v1) <<<\n";
-        assert!(install_managed_block(&format!("{block}{block}"), "NEW").is_err());
+        assert!(install_managed_block("#", &format!("{block}{block}"), "NEW").is_err());
+    }
+
+    // §FS-integrations.4.1: the markers are comments *in the host file's
+    // language*. `#` is a comment in kitty.conf and .tmux.conf but the length
+    // operator in Lua, so a `#` marker in wezterm.lua is a syntax error that
+    // costs the user their entire WezTerm config — the block loads, and nothing
+    // else in the file does.
+    #[test]
+    fn integrations_block_markers_match_the_host_language() {
+        assert_eq!(IntegrationClient::Kitty.comment_prefix(), "#");
+        assert_eq!(IntegrationClient::Tmux.comment_prefix(), "#");
+        assert_eq!(IntegrationClient::Wezterm.comment_prefix(), "--");
+
+        let (lua, _) = install_managed_block("--", "", "SNIPPET").expect("install into lua");
+        for line in lua.lines() {
+            assert!(
+                !line.trim_start().starts_with('#'),
+                "wezterm.lua must contain no `#` line, found: {line}"
+            );
+        }
+        assert!(lua.starts_with("-- >>> grund integrations (v"));
+    }
+
+    // A block written with one dialect's markers must not be found by another's,
+    // or an update would splice a Lua block using `#` markers and corrupt it.
+    #[test]
+    fn integrations_block_lookup_is_dialect_scoped() {
+        let (lua, _) = install_managed_block("--", "", "SNIPPET").unwrap();
+        assert!(find_managed_block("--", &lua).unwrap().is_some());
+        assert!(find_managed_block("#", &lua).unwrap().is_none());
+    }
+
+    // §FS-integrations.4.1: WezTerm applies hyperlink rules only from the config
+    // object the file returns, so a from-scratch install that stopped at the
+    // block would parse and register nothing. The scaffold is what makes a fresh
+    // install work without hand-editing.
+    #[test]
+    fn wezterm_fresh_install_is_a_working_config() {
+        let scaffold = IntegrationClient::Wezterm
+            .fresh_config_scaffold()
+            .expect("wezterm ships a starter config");
+        assert!(scaffold.contains("grund_apply_hyperlink_rule(config)"));
+        assert!(scaffold.trim_end().ends_with("return config"));
+        // The helper the scaffold calls is defined by the block above it.
+        assert!(WEZTERM_SNIPPET.contains("function grund_apply_hyperlink_rule(config)"));
+        // Clients whose config is not a program get no scaffold.
+        assert!(IntegrationClient::Kitty.fresh_config_scaffold().is_none());
+        assert!(IntegrationClient::Tmux.fresh_config_scaffold().is_none());
     }
 
     // §FS-integrations.1 / §FS-integrations.4.3: an explicit conversation
