@@ -34,7 +34,7 @@ AGENTS.md
 .agents/grund.toml
 ```
 
-`AGENTS.md` contains exactly one H2-managed block headed `## Grounding with grund (v2)`. `.agents/grund.toml` is the default generated config from [§FS-init.2.4](FS-init.md#24-generated-agentsgrundtoml), including `grund_config_version = 1`, `project_name`, `[reference]` (including the inline citation style keys from [§FS-inline-citation-style.2](FS-inline-citation-style.md#2-configuration)), `[id]`, every default `[[kinds]]`, `[scan]`, `[output]`, and `[fmt.cross_refs]`. Constrained keys include the inline value-set comments required by [§FS-init.2.4](FS-init.md#24-generated-agentsgrundtoml).
+`AGENTS.md` contains exactly one delimiter-bounded managed block — `<!-- BEGIN GRUND MANAGED BLOCK -->` through `<!-- END GRUND MANAGED BLOCK -->` ([§FS-init.2.3](FS-init.md#23-generated-agent-entrypoints)) — headed `## Grounding with grund (vN)` at the current schema version. `.agents/grund.toml` is the default generated config from [§FS-init.2.4](FS-init.md#24-generated-agentsgrundtoml), including `grund_config_version = 1`, `project_name`, `[reference]` (including the inline citation style keys from [§FS-inline-citation-style.2](FS-inline-citation-style.md#2-configuration)), `[id]`, every default `[[kinds]]`, `[scan]`, `[output]`, and `[fmt.cross_refs]`. Constrained keys include the inline value-set comments required by [§FS-init.2.4](FS-init.md#24-generated-agentsgrundtoml).
 
 ## 2. Docs form
 
