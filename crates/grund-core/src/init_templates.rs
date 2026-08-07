@@ -13,7 +13,13 @@ pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-
 // v3 (§FS-init.2.3.5, §DF-citation-directions): the hand-written climbing-rule
 // bullet is replaced by a generated `### Citation directions` section derived
 // from `[citations]`, byte-compared by `grund check` for drift (§FS-check.3.5).
-const AGENTS_BLOCK_VERSION: u32 = 3;
+// v4 (§FS-init.2.3, §DF-managed-block-delimiters): the block is bounded by
+// explicit `<!-- BEGIN/END GRUND MANAGED BLOCK -->` delimiters instead of the
+// implicit H2-to-next-heading region, and the worked citation example is
+// written in the `<§>`-escaped illustration form so freshly generated output
+// passes `grund check` unmodified. The bump makes pre-delimiter binaries
+// refuse a delimited file instead of splicing over its END marker.
+const AGENTS_BLOCK_VERSION: u32 = 4;
 const CANONICAL_AGENT_ENTRYPOINT: &str = "AGENTS.md";
 const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
     CompanionAgentEntrypoint {
@@ -188,7 +194,11 @@ fn agents_template_substitutions(
         .replace("{kind}", "FS")
         .replace("{number}", "042")
         .replace("{slug}", "user-login");
-    let cite_example = format!("{marker}{id_example}{sep}3{sep}1");
+    // §FS-init.2.3: the worked example is an illustration of a non-existent ID,
+    // so it is rendered in the `<marker>`-escaped form (§FS-workspace.1) — a
+    // live marker would make the generated block fail the host repo's own
+    // `grund check` as a dangling reference.
+    let cite_example = format!("<{marker}>{id_example}{sep}3{sep}1");
     let kinds_set = format!("{{{}}}", kind_prefixes(&config.kinds).join(", "));
     let bare_note = if config.strict {
         format!(
@@ -625,8 +635,11 @@ fn companion_selected_by_evidence(
 }
 
 fn companion_has_managed_block(path: &Path) -> bool {
-    fs::read_to_string(path)
-        .is_ok_and(|text| find_agents_block(&text).is_some())
+    // Malformed delimiters still prove grund ownership — selecting the file
+    // lets `check` surface the defect instead of silently skipping it.
+    fs::read_to_string(path).is_ok_and(|text| {
+        !matches!(find_agents_block(&text), AgentsBlockLookup::Absent)
+    })
 }
 
 fn is_file_or_symlink(path: &Path) -> bool {

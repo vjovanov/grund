@@ -132,7 +132,7 @@ mod tests {
     }
 
     fn current_marker() -> &'static str {
-        "## Grounding with grund (v3)"
+        "## Grounding with grund (v4)"
     }
 
     #[test]
@@ -2166,9 +2166,12 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
     #[test]
     fn agents_update_rewrites_current_block_from_rendered_template() {
         // A block that differs from the current render (here: an extra hand-added
-        // line) is replaced and reported `Updated`.
+        // line inside the delimiters) is replaced and reported `Updated`.
         let mut stale = current_block();
-        stale.insert_str(stale.len() - 1, "\nhand-edited line\n");
+        let insert_at = stale
+            .find("<!-- END GRUND MANAGED BLOCK -->")
+            .expect("rendered block carries the END delimiter");
+        stale.insert_str(insert_at, "hand-edited line\n");
         let existing = format!("# Local notes\n\n{stale}");
 
         let (updated, result) = update_agents_text(&existing, &current_block(), "AGENTS.md")
@@ -2225,6 +2228,119 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         );
         assert_eq!(updated.matches(current_marker()).count(), 1);
         assert!(!updated.contains("stale body line"));
+    }
+
+    #[test]
+    fn agents_update_migrates_legacy_block_to_delimited_form() {
+        // §FS-init.2.3 / §DF-managed-block-delimiters: a legacy H2-bounded block
+        // sandwiched between user sections is replaced in place by the delimited
+        // render, with both neighbors byte-identical.
+        let existing = "# Existing agents\n\n## Grounding with grund (v3)\n\nlegacy body\n\n## Local notes\n";
+        let (updated, result) = update_agents_text(existing, &current_block(), "AGENTS.md")
+            .expect("migrate legacy block");
+
+        assert_eq!(result, AgentsUpdateResult::Updated);
+        assert!(updated.starts_with("# Existing agents\n\n<!-- BEGIN GRUND MANAGED BLOCK -->\n"));
+        assert!(updated.ends_with("<!-- END GRUND MANAGED BLOCK -->\n\n## Local notes\n"));
+        assert!(!updated.contains("legacy body"));
+        assert_eq!(updated.matches(current_marker()).count(), 1);
+    }
+
+    #[test]
+    fn agents_update_preserves_non_heading_content_after_delimited_block() {
+        // §FS-init.2.3 / §DF-managed-block-delimiters: the managed region ends at
+        // the END delimiter, so a third-party managed marker right after the
+        // block — not an H1/H2, invisible to the legacy boundary — survives.
+        let existing = format!(
+            "{}\n<!-- rhei:begin -->\nother tool's region\n<!-- rhei:end -->\n",
+            current_block()
+        );
+        let (updated, result) = update_agents_text(&existing, &current_block(), "AGENTS.md")
+            .expect("update delimited block");
+
+        assert_eq!(result, AgentsUpdateResult::Unchanged);
+        assert!(updated.contains("<!-- rhei:begin -->\nother tool's region\n<!-- rhei:end -->\n"));
+    }
+
+    #[test]
+    fn agents_update_refuses_malformed_delimiters() {
+        // §FS-init.2.3: splicing against broken delimiters risks eating user
+        // content, so init errors out and leaves the text alone.
+        for (existing, defect) in [
+            (
+                "<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v4)\n\nbody\n",
+                "missing `<!-- END GRUND MANAGED BLOCK -->`",
+            ),
+            (
+                "notes\n\n<!-- END GRUND MANAGED BLOCK -->\n",
+                "`<!-- END GRUND MANAGED BLOCK -->` without a begin delimiter",
+            ),
+            (
+                "<!-- BEGIN GRUND MANAGED BLOCK -->\n<!-- BEGIN GRUND MANAGED BLOCK -->\n<!-- END GRUND MANAGED BLOCK -->\n",
+                "duplicate `<!-- BEGIN GRUND MANAGED BLOCK -->`",
+            ),
+            (
+                "<!-- BEGIN GRUND MANAGED BLOCK -->\nbody without a version heading\n<!-- END GRUND MANAGED BLOCK -->\n",
+                "no `## Grounding with grund (vN)` heading between the delimiters",
+            ),
+        ] {
+            let err = update_agents_text(existing, &current_block(), "AGENTS.md")
+                .expect_err("malformed delimiters must refuse the update");
+            let message = format!("{err:#}");
+            assert!(
+                message.contains("malformed grund managed block") && message.contains(defect),
+                "unexpected error for {existing:?}: {message}"
+            );
+        }
+    }
+
+    #[test]
+    fn check_reports_malformed_agents_block() {
+        // §FS-check.3.5: broken delimiters are an agents-init error anchored at
+        // the offending delimiter line, and the file is never rewritten.
+        let root = test_root("check_reports_malformed_agents_block");
+        write(
+            &root.join("AGENTS.md"),
+            "# Title\n\n<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v4)\n\nbody\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+
+        let config = Config::default_for(root.clone());
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+        let report = check_findings(&findings, &config);
+
+        assert!(
+            report.errors.iter().any(|error| error.code == "agents-init"
+                && error.line == Some(3)
+                && error
+                    .message
+                    .contains("malformed grund managed block: missing `<!-- END GRUND MANAGED BLOCK -->`")),
+            "malformed delimiters should be a line-anchored agents-init error: {:?}",
+            report
+                .errors
+                .iter()
+                .map(|error| (&error.line, &error.message))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn rendered_block_citation_example_is_escaped() {
+        // §FS-init.2.3: the worked example must be the `<§>`-escaped illustration
+        // form — a live `§` would make freshly generated output fail the host
+        // repo's own `grund check` as a dangling reference.
+        let block = current_block();
+        assert!(
+            block.contains("`<§>FS-042-user-login.3.1`"),
+            "worked example should be escaped: {block}"
+        );
+        assert!(
+            !block.contains("`§FS-042-user-login"),
+            "worked example must not be a live citation: {block}"
+        );
     }
 
     #[test]
@@ -2398,7 +2514,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         assert!(
             report.errors.iter().any(|error| error.code == "agents-init"
                 && error.path.as_deref() == Some(expected_path.as_path())
-                && error.message.contains("missing grund init block v3")),
+                && error.message.contains("missing grund init block v4")),
             "Zed workspace .rules should be required to carry the managed block: {:?}",
             report.errors
                 .iter()

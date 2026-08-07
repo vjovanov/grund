@@ -22,15 +22,27 @@ fn reduce_heading_text(text: &str) -> String {
         .replace_all(&MD_INLINE_LINK.replace_all(text, "$1"), "")
         .into_owned()
 }
-/// The current managed-block marker: an H2 heading carrying the block version.
-/// `init` and `check` find the block by this line, and the block runs until the
-/// next H1/H2 or EOF (§FS-init.2.3.1).
+/// The explicit managed-block delimiters (§FS-init.2.3,
+/// §DF-managed-block-delimiters): standard `BEGIN`/`END` HTML-comment lines
+/// bound the managed region from block v4 on. Legacy v3-and-earlier blocks have
+/// no delimiters and are found by `AGENTS_BLOCK_H2` alone.
+static AGENTS_BLOCK_BEGIN: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?m)^<!-- BEGIN GRUND MANAGED BLOCK -->[ \t]*\r?$").unwrap()
+});
+static AGENTS_BLOCK_END: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?m)^<!-- END GRUND MANAGED BLOCK -->[ \t]*\r?$").unwrap()
+});
+/// The managed block's version marker: an H2 heading carrying the block
+/// version. Inside a delimited block it names the schema version; for a legacy
+/// block it is also the begin marker, and the block runs until the next H1/H2
+/// or EOF (§FS-init.2.3.1).
 static AGENTS_BLOCK_H2: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?m)^##[ \t]+Grounding with grund[ \t]+\(v(?P<version>\d+)\)[ \t]*\r?$")
         .unwrap()
 });
-/// The next H1 or H2 heading after a position — the implicit end of the managed
-/// section. The block ends at this line's start, or at EOF if no such line follows.
+/// The next H1 or H2 heading after a position — the implicit end of a legacy
+/// managed section. A legacy block ends at this line's start, or at EOF if no
+/// such line follows.
 static AGENTS_SECTION_BOUNDARY: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?m)^#{1,2}[ \t]+\S").unwrap());
 /// ID grammar compiled from [id].format + [[kinds]] — the single place that knows the
