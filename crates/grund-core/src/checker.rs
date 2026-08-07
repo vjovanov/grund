@@ -1092,7 +1092,25 @@ fn check_agent_block_path(
         });
         return;
     };
-    if let Some(block) = find_agents_block(&text) {
+    let block = match find_agents_block(&text) {
+        AgentsBlockLookup::Malformed { message, at } => {
+            // §FS-check.3.5 / §FS-init.2.3: broken delimiters are diagnosed at
+            // the offending line and never rewritten — `grund init` refuses
+            // them too.
+            report.errors.push(Diagnostic {
+                code: "agents-init",
+                path: Some(path.to_path_buf()),
+                line: Some(line_for_byte_index(&text, at)),
+                column: None,
+                message: format!("malformed grund managed block: {message}"),
+                sites: Vec::new(),
+            });
+            return;
+        }
+        AgentsBlockLookup::Found(block) => Some(block),
+        AgentsBlockLookup::Absent => None,
+    };
+    if let Some(block) = block {
         let line = line_for_byte_index(&text, block.start);
         if block.version < AGENTS_BLOCK_VERSION {
             report.errors.push(Diagnostic {
@@ -1168,10 +1186,18 @@ fn citation_directions_section_in_block(block_text: &str) -> Option<&str> {
         (at_line_start && line_ends).then_some(index)
     })?;
     let section_body_start = start + heading.len();
-    let end = AGENTS_SECTION_BOUNDARY
-        .find_at(block_text, section_body_start)
-        .map(|m| m.start())
-        .unwrap_or(block_text.len());
+    // The section runs to the next H1/H2 or — in a delimited block — to the
+    // `<!-- END GRUND MANAGED BLOCK -->` line, whichever comes first: the END
+    // delimiter belongs to the block's frame, not to this section's body.
+    let end = [
+        AGENTS_SECTION_BOUNDARY.find_at(block_text, section_body_start),
+        AGENTS_BLOCK_END.find_at(block_text, section_body_start),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|m| m.start())
+    .min()
+    .unwrap_or(block_text.len());
     // The section runs to the next H1/H2 (or block end). Trailing blank lines
     // before that boundary are not meaningful drift — the rendered section
     // carries no trailing newline — so trim them rather than special-casing

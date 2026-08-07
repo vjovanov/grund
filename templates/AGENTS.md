@@ -1,6 +1,7 @@
-## Grounding with grund (v2)
+<!-- BEGIN GRUND MANAGED BLOCK -->
+## Grounding with grund (v4)
 
-This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `{ID_SHAPE_SEC}` (`KIND ∈ {KINDS_SET}`), cited with the marker `{MARKER}` — e.g. `{CITE_EXAMPLE}` (the `{ID_EXAMPLE}` here is a shape illustration, not a real ID in this repo). Type `{TRIGGER}` in a grund-aware editor and it becomes `{MARKER}`. {BARE_TOKEN_NOTE}
+This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `{ID_SHAPE_SEC}` (`KIND ∈ {KINDS_SET}`), cited with the marker `{MARKER}` — e.g. `{CITE_EXAMPLE}` (the `{ID_EXAMPLE}` here is a shape illustration, not a real ID in this repo, hence the `<{MARKER}>` escape). Type `{TRIGGER}` in a grund-aware editor and it becomes `{MARKER}`. {BARE_TOKEN_NOTE}
 
 ### Grounding from a citation
 
@@ -14,8 +15,6 @@ A `{MARKER}<ID>` is a pointer to a fact, not a file path. Resolve it with `grund
 - `grund list` / `grund list --kind FS,AR` — discover IDs if you get lost
 
 ### Project map
-
-`grund` scans: {SCAN_SCOPE}.
 
 {DECLARATION_MAP}
 
@@ -35,6 +34,9 @@ Declarations are heading lines `# {ID_EXAMPLE}: …` in markdown. In a code doc-
 
 - **Spec first.** For behavior or design changes, write or update the most-specific spec point before code.
 - **Cite as you write.** Place `{MARKER}<ID>` at the point a claim or behavior is made — on the doc-comment for a whole behavior, inline beside the clause it enforces.
+- **Marker = live citation.** A `{MARKER}`-prefixed token resolves and is checked wherever it appears — including inside Markdown backticks. To mention an ID without citing it, write `<{MARKER}><ID>`, omit the marker, or use a fenced code block.
 - **Inline citation style.** {INLINE_CITATION_STYLE}
 - **Always cite the most-specific point.**
-- **Citations climb to reasons (grund.md).** Goals cite reasons, specs cite goals; architecture cites specs; code and executable tests cite specs.
+
+{CITATION_DIRECTIONS}
+<!-- END GRUND MANAGED BLOCK -->

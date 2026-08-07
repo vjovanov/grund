@@ -613,38 +613,51 @@ fn update_agents_text(
     block: &str,
     label: &str,
 ) -> Result<(String, AgentsUpdateResult)> {
-    if let Some(existing_block) = find_agents_block(existing) {
-        if existing_block.version > AGENTS_BLOCK_VERSION {
-            return Err(anyhow!(
-                "{label} contains newer grund init block v{}; this binary supports v{}",
-                existing_block.version,
-                AGENTS_BLOCK_VERSION
-            ));
+    match find_agents_block(existing) {
+        // §FS-init.2.3: splicing against broken delimiters risks eating user
+        // content, so a malformed block is a hard error and the file is left
+        // untouched.
+        AgentsBlockLookup::Malformed { message, .. } => {
+            Err(anyhow!("malformed grund managed block: {message}"))
         }
-        let mut updated = String::with_capacity(existing.len() + block.len());
-        updated.push_str(&existing[..existing_block.start]);
-        updated.push_str(block);
-        updated.push_str(&existing[existing_block.end..]);
-        let result = if updated == existing {
-            AgentsUpdateResult::Unchanged
-        } else {
-            AgentsUpdateResult::Updated
-        };
-        return Ok((updated, result));
+        AgentsBlockLookup::Found(existing_block) => {
+            if existing_block.version > AGENTS_BLOCK_VERSION {
+                return Err(anyhow!(
+                    "{label} contains newer grund init block v{}; this binary supports v{}",
+                    existing_block.version,
+                    AGENTS_BLOCK_VERSION
+                ));
+            }
+            // A legacy H2-bounded block is migrated to the delimited form by
+            // this same splice (§FS-init.2.3): the replacement `block` carries
+            // the delimiters, and the legacy span is what gets replaced.
+            let mut updated = String::with_capacity(existing.len() + block.len());
+            updated.push_str(&existing[..existing_block.start]);
+            updated.push_str(block);
+            updated.push_str(&existing[existing_block.end..]);
+            let result = if updated == existing {
+                AgentsUpdateResult::Unchanged
+            } else {
+                AgentsUpdateResult::Updated
+            };
+            Ok((updated, result))
+        }
+        AgentsBlockLookup::Absent => {
+            let separator = if existing.is_empty() || existing.ends_with("\n\n") {
+                ""
+            } else if existing.ends_with('\n') {
+                "\n"
+            } else {
+                "\n\n"
+            };
+            let mut updated =
+                String::with_capacity(existing.len() + separator.len() + block.len());
+            updated.push_str(existing);
+            updated.push_str(separator);
+            updated.push_str(block);
+            Ok((updated, AgentsUpdateResult::Appended))
+        }
     }
-
-    let separator = if existing.is_empty() || existing.ends_with("\n\n") {
-        ""
-    } else if existing.ends_with('\n') {
-        "\n"
-    } else {
-        "\n\n"
-    };
-    let mut updated = String::with_capacity(existing.len() + separator.len() + block.len());
-    updated.push_str(existing);
-    updated.push_str(separator);
-    updated.push_str(block);
-    Ok((updated, AgentsUpdateResult::Appended))
 }
 
 /// The byte span and `vN` version of the managed block inside an `AGENTS.md`
@@ -656,32 +669,114 @@ struct AgentsBlock {
     version: u32,
 }
 
-/// Locate the managed block in `AGENTS.md`. The current marker is an H2 line
-/// (`## Grounding with grund (vN)`); the block runs until the next H1 or H2 (or
-/// EOF) (§FS-init.2.3).
-fn find_agents_block(text: &str) -> Option<AgentsBlock> {
-    if let Some(caps) = AGENTS_BLOCK_H2.captures(text) {
-        let begin_match = caps.get(0)?;
-        let version = caps.name("version")?.as_str().parse::<u32>().ok()?;
-        let after = begin_match.end();
-        let section_end = AGENTS_SECTION_BOUNDARY
-            .find_at(text, after)
-            .map(|m| m.start())
-            .unwrap_or(text.len());
-        // Trailing blank lines before the next section are inter-section spacing,
-        // not part of the managed body. Trim them back so a re-render of the same
-        // content is a no-op (`exists `, §FS-init.2.3.1).
-        let mut end = section_end;
-        while end > after && text[..end].ends_with("\n\n") {
-            end -= 1;
-        }
-        return Some(AgentsBlock {
-            start: begin_match.start(),
-            end,
-            version,
-        });
+/// What locating the managed block found (§FS-init.2.3): a well-formed block
+/// (delimited or legacy), no block at all, or delimiters that are present but
+/// broken — which neither `init` nor `check` may splice over.
+enum AgentsBlockLookup {
+    Found(AgentsBlock),
+    Absent,
+    /// `message` names the specific defect; `at` is the byte offset of the
+    /// offending delimiter line, for line-anchored diagnostics.
+    Malformed { message: String, at: usize },
+}
+
+/// Locate the managed block in an agent entrypoint (§FS-init.2.3). From v4 the
+/// block is bounded by explicit `<!-- BEGIN/END GRUND MANAGED BLOCK -->`
+/// delimiter lines; a legacy v3-and-earlier block has no delimiters — its H2
+/// marker line (`## Grounding with grund (vN)`) opens it and it runs until the
+/// next H1 or H2 (or EOF). Broken delimiters are reported as `Malformed`
+/// rather than guessed around (§FS-check.3.5).
+fn find_agents_block(text: &str) -> AgentsBlockLookup {
+    let begins: Vec<regex::Match<'_>> = AGENTS_BLOCK_BEGIN.find_iter(text).collect();
+    let ends: Vec<regex::Match<'_>> = AGENTS_BLOCK_END.find_iter(text).collect();
+    if begins.is_empty() && ends.is_empty() {
+        return find_legacy_agents_block(text);
     }
-    None
+    let Some(begin) = begins.first() else {
+        return AgentsBlockLookup::Malformed {
+            message: "`<!-- END GRUND MANAGED BLOCK -->` without a begin delimiter".to_string(),
+            at: ends[0].start(),
+        };
+    };
+    if begins.len() > 1 {
+        return AgentsBlockLookup::Malformed {
+            message: "duplicate `<!-- BEGIN GRUND MANAGED BLOCK -->`".to_string(),
+            at: begins[1].start(),
+        };
+    }
+    if let Some(stray) = ends.iter().find(|end| end.start() < begin.start()) {
+        return AgentsBlockLookup::Malformed {
+            message: "`<!-- END GRUND MANAGED BLOCK -->` before the begin delimiter".to_string(),
+            at: stray.start(),
+        };
+    }
+    let Some(end) = ends.first() else {
+        return AgentsBlockLookup::Malformed {
+            message: "missing `<!-- END GRUND MANAGED BLOCK -->`".to_string(),
+            at: begin.start(),
+        };
+    };
+    if ends.len() > 1 {
+        return AgentsBlockLookup::Malformed {
+            message: "duplicate `<!-- END GRUND MANAGED BLOCK -->`".to_string(),
+            at: ends[1].start(),
+        };
+    }
+    let region = &text[begin.start()..end.end()];
+    let Some(version) = AGENTS_BLOCK_H2
+        .captures(region)
+        .and_then(|caps| caps.name("version")?.as_str().parse::<u32>().ok())
+    else {
+        return AgentsBlockLookup::Malformed {
+            message: "no `## Grounding with grund (vN)` heading between the delimiters"
+                .to_string(),
+            at: begin.start(),
+        };
+    };
+    // The span owns the END delimiter's line ending, so splicing a freshly
+    // rendered block (which ends `… -->\n`) over an on-disk block reproduces
+    // the file byte-for-byte and re-runs stay `exists ` (§FS-init.2.3.1).
+    let mut span_end = end.end();
+    if text.as_bytes().get(span_end) == Some(&b'\n') {
+        span_end += 1;
+    }
+    AgentsBlockLookup::Found(AgentsBlock {
+        start: begin.start(),
+        end: span_end,
+        version,
+    })
+}
+
+/// The pre-v4 lookup: the H2 marker line opens the block and the next H1/H2 (or
+/// EOF) closes it (§FS-init.2.3).
+fn find_legacy_agents_block(text: &str) -> AgentsBlockLookup {
+    let Some(caps) = AGENTS_BLOCK_H2.captures(text) else {
+        return AgentsBlockLookup::Absent;
+    };
+    let (Some(begin_match), Some(version)) = (
+        caps.get(0),
+        caps.name("version")
+            .and_then(|version| version.as_str().parse::<u32>().ok()),
+    ) else {
+        return AgentsBlockLookup::Absent;
+    };
+    let after = begin_match.end();
+    let section_end = AGENTS_SECTION_BOUNDARY
+        .find_at(text, after)
+        .map(|m| m.start())
+        .unwrap_or(text.len());
+    // Trailing blank lines before the next section are inter-section spacing,
+    // not part of the managed body. Trim them back so a re-render of the same
+    // content is a no-op (`exists `, §FS-init.2.3.1).
+    let mut end = section_end;
+    while end > after && text[..end].ends_with("\n\n") {
+        end -= 1;
+    }
+    AgentsBlockLookup::Found(AgentsBlock {
+        start: begin_match.start(),
+        end,
+        version,
+    })
 }
 
 /// The default project name when `--name` is omitted: the basename of `<path>`

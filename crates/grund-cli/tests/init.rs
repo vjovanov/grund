@@ -423,7 +423,7 @@ fn init_updates_existing_agent_entrypoint_without_creating_agents_md() {
 
     let claude = fs::read_to_string(target.join("CLAUDE.md")).expect("read CLAUDE.md");
     assert!(
-        claude.starts_with("# Claude notes\n\n## Grounding with grund (v3)\n"),
+        claude.starts_with("# Claude notes\n\n<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v4)\n"),
         "CLAUDE.md should keep existing notes and append the managed block:\n{claude}"
     );
 }
@@ -549,7 +549,7 @@ fn init_cursor_flag_updates_existing_legacy_cursorrules() {
 
     let legacy = fs::read_to_string(target.join(".cursorrules")).expect("read .cursorrules");
     assert!(
-        legacy.starts_with("# Legacy Cursor notes\n\n## Grounding with grund (v3)\n"),
+        legacy.starts_with("# Legacy Cursor notes\n\n<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v4)\n"),
         ".cursorrules should keep existing notes and append the managed block:\n{legacy}"
     );
 
@@ -603,7 +603,7 @@ fn init_agent_flag_updates_canonical_target_for_symlinked_entrypoint() {
     );
     let agents = fs::read_to_string(target.join("AGENTS.md")).expect("read AGENTS.md");
     assert!(
-        agents.contains("## Grounding with grund (v3)"),
+        agents.contains("## Grounding with grund (v4)"),
         "AGENTS.md should receive the managed block:\n{agents}"
     );
 }
@@ -653,7 +653,7 @@ fn init_workspace_symlinked_alias_writes_canonical_target() {
     let claude_scoped =
         fs::read_to_string(target.join(".claude/CLAUDE.md")).expect("read .claude/CLAUDE.md");
     assert!(
-        claude_scoped.starts_with("## Grounding with grund (v3)\n"),
+        claude_scoped.starts_with("<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v4)\n"),
         ".claude/CLAUDE.md should be a thin managed-block alias, got:\n{claude_scoped}"
     );
 }
@@ -682,7 +682,7 @@ fn init_creates_agent_aliases_when_agent_workspaces_exist() {
         );
         let contents = fs::read_to_string(target.join(rel)).expect("read companion alias");
         assert!(
-            contents.starts_with("## Grounding with grund (v3)\n"),
+            contents.starts_with("<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v4)\n"),
             "{rel} should be a thin managed-block alias, got:\n{contents}"
         );
     }
@@ -1130,7 +1130,61 @@ fn init_preserves_lone_override_entrypoint_without_creating_agents_md() {
     let override_contents =
         fs::read_to_string(target.join("AGENTS.override.md")).expect("read override file");
     assert!(
-        override_contents.starts_with("# Local override\n\n## Grounding with grund (v3)\n"),
+        override_contents.starts_with("# Local override\n\n<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v4)\n"),
         "AGENTS.override.md should keep existing notes and append the managed block:\n{override_contents}"
+    );
+}
+
+#[test]
+fn init_output_passes_check_when_agents_md_is_scanned() {
+    // §FS-init.2.3: generated output must pass `grund check` unmodified, even
+    // when the entrypoint itself is inside the scan scope of a strict repo —
+    // the worked citation example is `<§>`-escaped, not a live dangling
+    // reference (the grund init → grund check → grund init wedge of the
+    // pre-v4 template).
+    let target = workdir("init_output_passes_check_when_agents_md_is_scanned");
+    fs::create_dir_all(target.join(".agents")).expect("create .agents");
+    fs::write(
+        target.join(".agents/grund.toml"),
+        r#"grund_config_version = 1
+
+[reference]
+strict = true
+
+[scan]
+include = ["AGENTS.md", "docs"]
+
+[[kinds]]
+prefix = "FS"
+folder = "docs/functional-spec"
+title = "Spec"
+"#,
+    )
+    .expect("write config");
+    fs::create_dir_all(target.join("docs")).expect("create docs");
+    fs::write(target.join("docs/.keep"), "").expect("write docs/.keep");
+
+    let output = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
+    assert!(
+        output.status.success(),
+        "init failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let check = run_grund(&["check", target.to_str().unwrap()], manifest_dir());
+    assert!(
+        check.status.success(),
+        "freshly generated AGENTS.md must pass check unmodified:\nstdout={}\nstderr={}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    // Re-running init must also be a no-op, not a refresh loop.
+    let second = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
+    assert!(second.status.success());
+    let stderr = String::from_utf8_lossy(&second.stderr);
+    assert!(
+        stderr.contains("exists AGENTS.md"),
+        "second init should be a no-op, got:\n{stderr}"
     );
 }
