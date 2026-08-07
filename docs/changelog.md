@@ -24,6 +24,14 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Changed
+
+- **Schema:** [§FS-init.2.3](functional-spec/FS-init.md#23-generated-agent-entrypoints) / [§DF-managed-block-delimiters](decisions/functional/DF-managed-block-delimiters.md#df-managed-block-delimiters-standard-beginend-delimiters-for-the-managed-agent-instructions-block): the managed agent-instructions block bumps v3 → v4 — it is now bounded by explicit `<!-- BEGIN/END GRUND MANAGED BLOCK -->` delimiters, so its end no longer depends on the next heading, and broken delimiter pairs are diagnosed by `grund check` ([§FS-check.3.5](functional-spec/FS-check.md#35-invalid-agent-entrypoint-init-block)) and refused by `grund init` without rewriting the file. Migration: run `grund init` once per repo; the legacy H2-bounded block is migrated in place. PR #57.
+
+### Fixed
+
+- [§FS-init.2.3](functional-spec/FS-init.md#23-generated-agent-entrypoints): the generated block's worked citation example is now `<§>`-escaped, so fresh `grund init` output passes the host repo's own `grund check` unmodified instead of wedging strict repos in a check → init → check loop. PR #57.
+
 ## 2. [0.6.0] — 2026-07-02
 
 ### Added
