@@ -284,7 +284,10 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
                     Err(err) => {
                         return Err(InitError::with_events(
                             events,
-                            format!("update {}: {err}", path.display()),
+                            // Forward slashes on every platform, like report
+                            // paths (§FS-errors.2.2) — Windows must not leak
+                            // backslashes into the message.
+                            format!("update {}: {err}", format_path(&path)),
                         ));
                     }
                 }
@@ -561,7 +564,9 @@ fn write_or_update_canonical_agent_entrypoint(
                 verb: "exists",
                 path: rel.to_string(),
             }),
-            Err(err) => Err(format!("update {}: {err}", dest.display())),
+            // Forward slashes on every platform, like report paths
+            // (§FS-errors.2.2) — Windows must not leak backslashes.
+            Err(err) => Err(format!("update {}: {err}", format_path(&dest))),
         }
     } else {
         if !dry_run
