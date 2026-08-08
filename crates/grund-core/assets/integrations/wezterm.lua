@@ -28,11 +28,20 @@ function grund_apply_hyperlink_rule(config)
     regex = '[^\\w\\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z][A-Z0-9]*-[a-z0-9][a-z0-9-]*(?:\\.[0-9]+)*',
     format = 'grund:$0',
   })
-  -- Adding the peek binding here rather than in the scaffold means an existing
-  -- config that already calls this function gets peek without re-wiring.
+  -- Adding the bindings here rather than in the scaffold means an existing
+  -- config that already calls this function gets them without re-wiring.
   -- WezTerm's own defaults still apply to anything not listed here.
+  --
+  -- Each gesture is registered twice: once for a plain shell, and once with
+  -- mouse_reporting = true — WezTerm ignores user mouse bindings while the
+  -- foreground program has captured the mouse, and the very programs that
+  -- print citations (Claude Code, other agent TUIs, editors) are mouse-
+  -- capturing full-screen apps (§FS-integrations.3.1).
   config.mouse_bindings = config.mouse_bindings or {}
-  table.insert(config.mouse_bindings, grund_peek_mouse_binding())
+  table.insert(config.mouse_bindings, grund_open_mouse_binding(false))
+  table.insert(config.mouse_bindings, grund_open_mouse_binding(true))
+  table.insert(config.mouse_bindings, grund_peek_mouse_binding(false))
+  table.insert(config.mouse_bindings, grund_peek_mouse_binding(true))
 end
 
 -- Ctrl-click opens the declaration in your editor; Ctrl-Shift-click peeks at it
@@ -40,6 +49,18 @@ end
 -- no link tooltip (wez/wezterm#4, open since 2018), so peek is the read-without-
 -- leaving path here.
 --
+-- Ctrl-click duplicates a WezTerm default on purpose: the default variant is
+-- inert inside a mouse-capturing TUI, and registering our own pair keeps the
+-- open gesture and the peek gesture governed by the same table.
+function grund_open_mouse_binding(mouse_reporting)
+  return {
+    event = { Up = { streak = 1, button = 'Left' } },
+    mods = 'CTRL',
+    mouse_reporting = mouse_reporting,
+    action = wezterm.action.OpenLinkAtMouseCursor,
+  }
+end
+
 -- Lua cannot ask which link is under the mouse — only the built-in
 -- OpenLinkAtMouseCursor knows that, and all it exposes is the resulting URI via
 -- open-uri. window:current_event() does not carry modifiers either. So the
@@ -47,10 +68,11 @@ end
 -- This is safe because both run in one synchronous event, not across ticks.
 grund_peek_requested = false
 
-function grund_peek_mouse_binding()
+function grund_peek_mouse_binding(mouse_reporting)
   return {
     event = { Up = { streak = 1, button = 'Left' } },
     mods = 'CTRL|SHIFT',
+    mouse_reporting = mouse_reporting,
     action = wezterm.action_callback(function(window, pane)
       grund_peek_requested = true
       window:perform_action(wezterm.action.OpenLinkAtMouseCursor, pane)
@@ -81,6 +103,37 @@ function grund_pane_cwd(pane)
   return cwd.file_path
 end
 
+-- Build the argv that runs the resolver. It goes through `sh` so the pane's
+-- directory and the citation travel as arguments — never spliced into shell
+-- source — and so ~/.local/bin (where --write installs grund-open) and
+-- ~/.cargo/bin (where `cargo install grund` lands) are on PATH even when
+-- WezTerm was launched from a desktop entry whose environment has neither.
+--
+-- A Flatpak-packaged WezTerm adds one more indirection: the sandbox's PATH is
+-- /app/bin:/usr/bin, so neither grund-open nor grund exists inside it. Its
+-- session-bus talk permission includes org.freedesktop.Flatpak, so the spawn
+-- is handed back to the host through flatpak-spawn --host instead
+-- (§FS-integrations.3.1).
+function grund_resolver_argv(cwd, peek, citation)
+  local resolver = peek and 'grund-open --peek' or 'grund-open'
+  local argv = {
+    'sh',
+    '-c',
+    'PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"; cd "$1" && exec ' .. resolver .. ' "$2"',
+    'grund-open',
+    cwd or '.',
+    citation,
+  }
+  if os.getenv 'FLATPAK_ID' then
+    local wrapped = { 'flatpak-spawn', '--host' }
+    for _, arg in ipairs(argv) do
+      wrapped[#wrapped + 1] = arg
+    end
+    return wrapped
+  end
+  return argv
+end
+
 -- Resolve a grund: URI by handing the citation to grund-open.
 wezterm.on('open-uri', function(window, pane, uri)
   local citation = uri:match '^grund:(.+)$'
@@ -92,24 +145,12 @@ wezterm.on('open-uri', function(window, pane, uri)
         wezterm.action.SplitPane {
           direction = 'Right',
           size = { Percent = 45 },
-          -- argv, never shell source: the citation is arbitrary screen text.
-          command = { args = { 'grund-open', '--peek', citation }, cwd = cwd },
+          command = { args = grund_resolver_argv(cwd, true, citation) },
         },
         pane
       )
-    elseif cwd then
-      -- background_child_process takes argv only, no cwd — hop through sh, with
-      -- the directory and citation as arguments, never spliced into the source.
-      wezterm.background_child_process {
-        'sh',
-        '-c',
-        'cd "$1" && exec grund-open "$2"',
-        'grund-open',
-        cwd,
-        citation,
-      }
     else
-      wezterm.background_child_process { 'grund-open', citation }
+      wezterm.background_child_process(grund_resolver_argv(cwd, false, citation))
     end
     return false -- handled; don't let WezTerm open it as a normal URL
   end
