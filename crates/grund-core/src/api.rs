@@ -251,6 +251,7 @@ fn show_with_scope_and_overlays(
     let section = opts.section.or(inline_section);
     let mut output = show_declaration_with_overlays(
         config,
+        context.render_config(),
         &project.findings,
         &id,
         section.as_deref(),

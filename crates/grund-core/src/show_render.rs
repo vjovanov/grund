@@ -1,5 +1,6 @@
 fn show_declaration(
     config: &Config,
+    path_config: &Config,
     findings: &Findings,
     id: &Id,
     section: Option<&str>,
@@ -8,6 +9,7 @@ fn show_declaration(
 ) -> Result<ShowOutput> {
     show_declaration_with_overlays(
         config,
+        path_config,
         findings,
         id,
         section,
@@ -17,8 +19,13 @@ fn show_declaration(
     )
 }
 
+/// `path_config` renders report paths (§FS-config.3.6) and must be the same
+/// config the caller hands `render_show_output_json`, so the E2E manifest —
+/// whose JSON is baked here rather than rendered there — reports its path
+/// against the same root as every other kind (§FS-workspace.8.1).
 fn show_declaration_with_overlays(
     config: &Config,
+    path_config: &Config,
     findings: &Findings,
     id: &Id,
     section: Option<&str>,
@@ -49,7 +56,7 @@ fn show_declaration_with_overlays(
     }
     let decl = decls.iter().find(|decl| decl.is_stub).unwrap_or(&decls[0]);
     if let Some(case) = &decl.e2e_case {
-        return show_e2e_case(config, id, case, section, mode);
+        return show_e2e_case(config, path_config, id, case, section, mode);
     }
     let file = if let Some(target) = &decl.defined_in {
         resolve_stub_target(root, &decl.file, target)
@@ -86,6 +93,7 @@ fn show_declaration_with_overlays(
 /// `.<section>` is "section not found".
 fn show_e2e_case(
     config: &Config,
+    path_config: &Config,
     id: &Id,
     case: &E2eCase,
     section: Option<&str>,
@@ -134,7 +142,10 @@ fn show_e2e_case(
     let json = format!(
         "{{\"id\":\"{}\",\"kind\":\"E2E\",\"path\":\"{}\",\"args\":[{}],\"expected_exit\":{},\"fixtures\":[{}]}}",
         json_escape(&render_id(config, id)),
-        json_escape(&display_path(config, &case.dir)),
+        // path_config, not config: an `<alias>/E2E-x` shown from a workspace
+        // root must report the same root-relative path as every other kind
+        // (§FS-workspace.8.1) — this baked JSON bypasses render_show_output_json.
+        json_escape(&display_path(path_config, &case.dir)),
         args_json,
         case.expected_exit,
         fixtures_json

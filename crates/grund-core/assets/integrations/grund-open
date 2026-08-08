@@ -24,20 +24,6 @@ fi
 token=${1:-}
 [ -n "$token" ] || { echo "grund-open: no citation given" >&2; exit 2; }
 
-# Find the grund root: the nearest ancestor holding `.agents/grund.toml`. The
-# terminal hands us a token, never a directory, so the click may arrive with the
-# shell anywhere — including a subdirectory, where a repo-root-relative path
-# would not resolve. Everything below runs against this root
-# (§FS-integrations.3.1).
-root=$PWD
-while [ "$root" != "/" ] && [ ! -f "$root/.agents/grund.toml" ]; do
-    root=$(dirname "$root")
-done
-[ -f "$root/.agents/grund.toml" ] || {
-    echo "grund-open: no .agents/grund.toml at or above $PWD" >&2
-    exit 1
-}
-
 # Strip the citation marker without hardcoding one: `[reference] marker` is
 # per-repo, so drop any leading run of non-alphanumeric characters instead of a
 # literal §. This keeps a workspace-qualified `<alias>/<ID>` intact (the alias
@@ -47,24 +33,64 @@ done
 id=$(printf '%s' "$token" | sed 's/^[^A-Za-z0-9]*//')
 [ -n "$id" ] || { echo "grund-open: empty id in '$token'" >&2; exit 2; }
 
-# Resolve the citation to path:line. `grund <ID>[.<section>] --format json` emits
-# one object whose `path` is relative to the config root above and whose `line`
-# is the cited section's line, not merely the declaration's (§FS-integrations.3.1).
-json=$(cd "$root" && grund "$id" --format json 2>/dev/null) || json=''
-[ -n "$json" ] || { echo "grund-open: unknown id '$id'" >&2; exit 1; }
+# Find the root and resolve in one climb (§FS-integrations.3.1). The terminal
+# hands us a token, never a directory, so the click may arrive with the shell
+# anywhere in the tree. Try every ancestor holding `.agents/grund.toml`,
+# nearest first — nearest alone is not enough: from inside a workspace member
+# the member's config resolves its own bare IDs, but a workspace-qualified
+# `<alias>/<ID>` only resolves from the workspace root above it, so on failure
+# the climb continues upward instead of giving up.
+#
+# `grund <ID>[.<section>] --format json` emits one object whose `path` is
+# relative to the root it ran in and whose `line` is the cited section's line,
+# not merely the declaration's.
+json=''
+root=''
+seen_config=''
+dir=$PWD
+while :; do
+    if [ -f "$dir/.agents/grund.toml" ]; then
+        seen_config=1
+        if json=$(cd "$dir" && grund "$id" --format json 2>/dev/null) && [ -n "$json" ]; then
+            root=$dir
+            break
+        fi
+        json=''
+    fi
+    [ "$dir" = "/" ] && break
+    dir=$(dirname "$dir")
+done
+[ -n "$seen_config" ] || {
+    echo "grund-open: no .agents/grund.toml at or above $PWD" >&2
+    exit 1
+}
+[ -n "$root" ] || { echo "grund-open: unknown id '$id'" >&2; exit 1; }
 
 # Anchor both extractions to the end of the object: `body` carries arbitrary
 # declaration prose that may itself contain `"path":` or `"line":`, and an
-# unanchored match would happily read that instead of the real field.
+# unanchored match would happily read that instead of the real field. A
+# directory-backed E2E declaration answers with the manifest shape instead
+# (§FS-show.2.4) — no `body` and no `"line"` — so its fallback anchors on the
+# grund-controlled prefix, and the case *directory* is what opens.
 path=$(printf '%s\n' "$json" | sed -n 's/.*"path":"\([^"]*\)","line":[0-9]*}$/\1/p')
 lineno=$(printf '%s\n' "$json" | sed -n 's/.*,"line":\([0-9]*\)}$/\1/p')
+if [ -z "$path" ]; then
+    path=$(printf '%s\n' "$json" | sed -n 's/^{"id":"[^"]*","kind":"E2E","path":"\([^"]*\)".*/\1/p')
+    lineno=''
+fi
 [ -n "$path" ] || { echo "grund-open: could not resolve path for '$id'" >&2; exit 1; }
 lineno=${lineno:-1}
 
 # Hand the editor an absolute path. `grund` never emits one (§FS-errors.4 keeps
 # reports deterministic); composing it here is what makes the click work from a
-# subdirectory.
+# subdirectory. An E2E case resolves to its directory, where a `:line` suffix
+# would garble the argument, so the target drops it.
 path="$root/$path"
+if [ -d "$path" ]; then
+    target=$path
+else
+    target="$path:$lineno"
+fi
 
 if [ -n "$peek" ]; then
     # Print, don't open. The caller has already put us somewhere disposable — a
@@ -73,7 +99,7 @@ if [ -n "$peek" ]; then
     # readable until dismissed. The location header is what makes the peek
     # actionable: it is the same `path:line` a click would open.
     {
-        printf '%s:%s\n\n' "$path" "$lineno"
+        printf '%s\n\n' "$target"
         (cd "$root" && grund "$id") 2>/dev/null || printf 'could not render %s\n' "$id"
     } | {
         if [ -n "${PAGER:-}" ]; then
@@ -99,14 +125,18 @@ if [ -n "${GRUND_OPEN_CMD:-}" ]; then
     set -- $GRUND_OPEN_CMD
     set +f
     [ "$#" -gt 0 ] || { echo "grund-open: GRUND_OPEN_CMD contains no command" >&2; exit 2; }
-    exec "$@" "$path:$lineno"
+    exec "$@" "$target"
 elif [ -n "${EDITOR:-}" ]; then
     # EDITOR may carry flags (e.g. "code -w" or "emacsclient -t"), so word-split
     # it, then pass the line in the syntax the editor understands: only the
     # vi/emacs family take "+LINE FILE"; VS Code / Sublime want "--goto
-    # FILE:LINE"; helix/micro take "FILE:LINE". Unknown editors just open FILE.
+    # FILE:LINE"; helix/micro take "FILE:LINE". Unknown editors just open FILE,
+    # and a directory target always opens bare.
     # shellcheck disable=SC2086
     set -- $EDITOR
+    if [ -d "$path" ]; then
+        exec "$@" "$path"
+    fi
     case $(basename "$1") in
         code|code-insiders|codium|vscodium|cursor|subl|sublime_text)
             exec "$@" --goto "$path:$lineno" ;;
@@ -118,8 +148,11 @@ elif [ -n "${EDITOR:-}" ]; then
             exec "$@" "$path" ;;
     esac
 elif command -v code >/dev/null 2>&1; then
+    if [ -d "$path" ]; then
+        exec code "$path"
+    fi
     exec code --goto "$path:$lineno"
 else
-    echo "grund-open: set GRUND_OPEN_CMD or EDITOR to open $path:$lineno" >&2
+    echo "grund-open: set GRUND_OPEN_CMD or EDITOR to open $target" >&2
     exit 1
 fi

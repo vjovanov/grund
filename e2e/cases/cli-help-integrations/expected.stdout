@@ -3,11 +3,12 @@ grund integrations — print or install the clickable-citation terminal/editor i
 Usage:  grund integrations [<client>] [--write] [--conversation plain|link] [--format text|json]
 
 With no client, detects the terminal/editor from the environment and prints
-what applies. With a client — kitty, tmux, vscode, or wezterm — prints that
-integration's snippet and the grund-open resolver; --write installs it as a
-managed, idempotent block instead of printing. A write also records the local
-conversation preference and updates global agent instructions. With no client,
---write --conversation changes only that preference. --format json emits a plan.
+what applies. With a client — codium, iterm2, kitty, tmux, vscode, or
+wezterm — prints that integration's snippet and the grund-open resolver;
+--write installs it as a managed, idempotent block instead of printing. A
+write also records the local conversation preference and updates global agent
+instructions. With no client, --write --conversation changes only that
+preference. --format json emits a plan.
 
 Preview and install examples:
   grund integrations                    # detect and list what applies

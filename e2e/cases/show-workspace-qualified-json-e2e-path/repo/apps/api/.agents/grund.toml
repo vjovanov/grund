@@ -1,0 +1,18 @@
+grund_config_version = 1
+project_name = "api"
+
+[reference]
+marker = "§"
+strict = true
+
+[id]
+format = "{kind}-{slug}"
+slug_pattern = "[a-z][a-z0-9-]*"
+
+[[kinds]]
+prefix = "E2E"
+folder = "e2e/cases"
+title = "Executable user scenarios"
+
+[scan]
+include = ["docs", "e2e"]
