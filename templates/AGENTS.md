@@ -1,3 +1,4 @@
+<!-- BEGIN GRUND MANAGED BLOCK -->
 ## Grounding with grund (v5)
 
 This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `{ID_SHAPE_SEC}` (`KIND ∈ {KINDS_SET}`), cited with the marker `{MARKER}` — e.g. `{CITE_EXAMPLE}` (the `{ID_EXAMPLE}` here is a shape illustration, not a real ID in this repo, hence the `<{MARKER}>` escape). Type `{TRIGGER}` in a grund-aware editor and it becomes `{MARKER}`. {BARE_TOKEN_NOTE}
@@ -33,10 +34,11 @@ Declarations are heading lines `# {ID_EXAMPLE}: …` in markdown. In a code doc-
 
 - **Spec first.** For behavior or design changes, write or update the most-specific spec point before code.
 - **Cite as you write.** Place `{MARKER}<ID>` at the point a claim or behavior is made — on the doc-comment for a whole behavior, inline beside the clause it enforces.
-- **Marker = live citation.** A `{MARKER}`-prefixed token resolves and is checked wherever it appears — including inside Markdown backticks. To mention an ID as an example rather than cite it, omit the marker or put it in a fenced code block.
+- **Marker = live citation.** A `{MARKER}`-prefixed token resolves and is checked wherever it appears — including inside Markdown backticks. To mention an ID without citing it, write `<{MARKER}><ID>`, omit the marker, or use a fenced code block.
 - **Inline citation style.** {INLINE_CITATION_STYLE}
 - **Always cite the most-specific point.**
 
 {CITATION_DIRECTIONS}
 
 {CLICKABLE_CITATIONS}
+<!-- END GRUND MANAGED BLOCK -->

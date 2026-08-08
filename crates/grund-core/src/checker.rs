@@ -1208,7 +1208,19 @@ fn section_in_block<'a>(block_text: &'a str, heading: &str) -> Option<&'a str> {
         (at_line_start && line_ends).then_some(index)
     })?;
     let section_body_start = start + heading.len();
-    let end = next_heading_offset(block_text, section_body_start).unwrap_or(block_text.len());
+    // A block-final section is bounded by the `<!-- END GRUND MANAGED BLOCK -->`
+    // line, not the block end: the delimiter is the block's frame, never part
+    // of a rendered section's body.
+    let end = [
+        next_heading_offset(block_text, section_body_start),
+        AGENTS_BLOCK_END
+            .find_at(block_text, section_body_start)
+            .map(|m| m.start()),
+    ]
+    .into_iter()
+    .flatten()
+    .min()
+    .unwrap_or(block_text.len());
     Some(block_text[start..end].trim_end())
 }
 

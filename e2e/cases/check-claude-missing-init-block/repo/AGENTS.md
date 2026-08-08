@@ -1,6 +1,7 @@
+<!-- BEGIN GRUND MANAGED BLOCK -->
 ## Grounding with grund (v5)
 
-This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<NNN>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, AR, DF, DA, E2E, RM}`), cited with the marker `§` — e.g. `§FS-042-user-login.3.1` (the `FS-042-user-login` here is a shape illustration, not a real ID in this repo). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are also recognized as citations because `[reference] strict = false` is set in `.agents/grund.toml`; remove that compatibility override or set strict back to `true` to require the `§` marker (run `grund fmt --marker` first to upgrade existing bare citations).
+This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<NNN>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, AR, DF, DA, E2E, RM}`), cited with the marker `§` — e.g. `<§>FS-042-user-login.3.1` (the `FS-042-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are also recognized as citations because `[reference] strict = false` is set in `.agents/grund.toml`; remove that compatibility override or set strict back to `true` to require the `§` marker (run `grund fmt --marker` first to upgrade existing bare citations).
 
 ### Grounding from a citation
 
@@ -40,7 +41,7 @@ Declarations are heading lines `# FS-042-user-login: …` in markdown. In a code
 
 - **Spec first.** For behavior or design changes, write or update the most-specific spec point before code.
 - **Cite as you write.** Place `§<ID>` at the point a claim or behavior is made — on the doc-comment for a whole behavior, inline beside the clause it enforces.
-- **Marker = live citation.** A `§`-prefixed token resolves and is checked wherever it appears — including inside Markdown backticks. To mention an ID as an example rather than cite it, omit the marker or put it in a fenced code block.
+- **Marker = live citation.** A `§`-prefixed token resolves and is checked wherever it appears — including inside Markdown backticks. To mention an ID without citing it, write `<§><ID>`, omit the marker, or use a fenced code block.
 - **Inline citation style.** Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns.
 - **Always cite the most-specific point.**
 
@@ -51,3 +52,4 @@ Specs cite goals, architecture cites specs, code and executable tests cite the s
 ### Clickable citations
 
 On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure.
+<!-- END GRUND MANAGED BLOCK -->
