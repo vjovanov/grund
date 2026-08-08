@@ -1765,6 +1765,7 @@ members = ["apps/api"]
         assert_eq!(id.num, Some(1));
         let shown = show_declaration(
             &project.config,
+            &project.config,
             &project.findings,
             &id,
             None,
@@ -2007,7 +2008,7 @@ members = ["apps/api"]
             num: Some(1),
             slug: Some("router".to_string()),
         };
-        let shown = show_declaration(&config, &findings, &id, None, ShowRenderMode::Default, false)
+        let shown = show_declaration(&config, &config, &findings, &id, None, ShowRenderMode::Default, false)
             .expect("show inline declaration");
 
         assert_eq!(
@@ -2051,7 +2052,7 @@ members = ["apps/api"]
             num: Some(1),
             slug: Some("router".to_string()),
         };
-        let shown = show_declaration(&config, &findings, &id, None, ShowRenderMode::Default, false)
+        let shown = show_declaration(&config, &config, &findings, &id, None, ShowRenderMode::Default, false)
             .expect("show inline declaration through fallback");
 
         assert_eq!(
@@ -3638,7 +3639,7 @@ default = "must-not"
         // The rule it prints must carry the same matcher the other clients use,
         // or a citation clickable in kitty would be inert in iTerm2.
         let snippet = IntegrationClient::Iterm2.snippet().expect("iterm2 artifact");
-        assert!(snippet.contains("[A-Z]+-[a-z0-9][a-z0-9-]*"));
+        assert!(snippet.contains("[A-Z][A-Z0-9]*-[a-z0-9][a-z0-9-]*"));
         assert!(snippet.contains("grund-open \\0"));
     }
 

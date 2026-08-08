@@ -244,6 +244,7 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
     let findings = &project.findings;
     match show_declaration(
         config,
+        context.render_config(),
         findings,
         &id,
         section.as_deref(),
@@ -309,6 +310,9 @@ fn render_show_output_json(
     mode: ShowRenderMode,
     output: &ShowOutput,
 ) -> String {
+    // Pre-baked JSON (the §FS-show.2.4 E2E manifest) was rendered by
+    // show_e2e_case against this same `path_config`, so returning it verbatim
+    // keeps the §FS-config.3.6 path promise.
     if let Some(json) = &output.json {
         return json.clone();
     }

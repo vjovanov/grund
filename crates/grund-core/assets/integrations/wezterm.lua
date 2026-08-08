@@ -25,7 +25,7 @@ local wezterm = require 'wezterm'
 function grund_apply_hyperlink_rule(config)
   config.hyperlink_rules = config.hyperlink_rules or wezterm.default_hyperlink_rules()
   table.insert(config.hyperlink_rules, {
-    regex = '[^\\w\\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z]+-[a-z0-9][a-z0-9-]*(?:\\.[0-9]+)*',
+    regex = '[^\\w\\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z][A-Z0-9]*-[a-z0-9][a-z0-9-]*(?:\\.[0-9]+)*',
     format = 'grund:$0',
   })
   -- Adding the peek binding here rather than in the scaffold means an existing
@@ -61,10 +61,31 @@ function grund_peek_mouse_binding()
   }
 end
 
+-- grund-open finds the repository by walking up from its working directory
+-- (§FS-integrations.3.1), and the WezTerm GUI process's own cwd is wherever the
+-- desktop launched it — so every spawn below must run in the *clicked pane's*
+-- directory instead. Newer WezTerm returns a Url object with a file_path;
+-- older versions return a plain "file://host/path" string.
+function grund_pane_cwd(pane)
+  local cwd = pane:get_current_working_directory()
+  if not cwd then
+    return nil
+  end
+  if type(cwd) == 'string' then
+    local path = cwd:gsub('^file://[^/]*', '')
+    if path ~= '' then
+      return path
+    end
+    return nil
+  end
+  return cwd.file_path
+end
+
 -- Resolve a grund: URI by handing the citation to grund-open.
 wezterm.on('open-uri', function(window, pane, uri)
   local citation = uri:match '^grund:(.+)$'
   if citation then
+    local cwd = grund_pane_cwd(pane)
     if grund_peek_requested then
       grund_peek_requested = false
       window:perform_action(
@@ -72,10 +93,21 @@ wezterm.on('open-uri', function(window, pane, uri)
           direction = 'Right',
           size = { Percent = 45 },
           -- argv, never shell source: the citation is arbitrary screen text.
-          command = { args = { 'grund-open', '--peek', citation } },
+          command = { args = { 'grund-open', '--peek', citation }, cwd = cwd },
         },
         pane
       )
+    elseif cwd then
+      -- background_child_process takes argv only, no cwd — hop through sh, with
+      -- the directory and citation as arguments, never spliced into the source.
+      wezterm.background_child_process {
+        'sh',
+        '-c',
+        'cd "$1" && exec grund-open "$2"',
+        'grund-open',
+        cwd,
+        citation,
+      }
     else
       wezterm.background_child_process { 'grund-open', citation }
     end

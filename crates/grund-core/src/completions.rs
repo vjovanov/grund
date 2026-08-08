@@ -204,7 +204,7 @@ _grund() {{
     COMPREPLY=()
 
     if [[ $COMP_CWORD -eq 1 ]]; then
-        local commands=($(compgen -W "check show list refs cover fmt id init config agent-setup-instructions completions" -- "$cur"))
+        local commands=($(compgen -W "check show list refs cover fmt id init config agent-setup-instructions completions integrations" -- "$cur"))
         # IDs start with an uppercase kind (FS-…, GOAL-…), but workspace aliases
         # are lowercase (`api/FS-login`). Once the user has typed a non-flag
         # prefix, ask the helper for matching IDs and aliases.
@@ -274,6 +274,7 @@ _grund() {{
     'config:inspect the effective config'
     'agent-setup-instructions:print the guided setup instructions for AI agents'
     'completions:print shell completion script'
+    'integrations:print or install clickable-citation integrations'
   )
 
   if (( CURRENT == 2 )); then
@@ -311,7 +312,7 @@ function __grund_complete_ids
     grund complete ids --prefix "$token" 2>/dev/null
 end
 
-complete -c grund -f -n "__fish_use_subcommand" -a "check show list refs cover fmt id init config agent-setup-instructions completions"
+complete -c grund -f -n "__fish_use_subcommand" -a "check show list refs cover fmt id init config agent-setup-instructions completions integrations"
 # IDs start with an uppercase kind, but workspace aliases are lowercase. Once a
 # non-flag prefix exists, ask the helper for matching IDs/aliases.
 complete -c grund -f -k -n "__fish_use_subcommand; and test -n (commandline -ct); and not string match -qr '^-' -- (commandline -ct)" -a "(__grund_complete_ids)"

@@ -1,0 +1,1 @@
+{"id":"E2E-login","kind":"E2E","path":"apps/api/e2e/cases/login","args":["check"],"expected_exit":0,"fixtures":["expected.exit"]}

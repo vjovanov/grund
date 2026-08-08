@@ -26,12 +26,14 @@
 // materialized on disk by `grund integrations vscode --write`.
 const vscode = require('vscode');
 const { execFile } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 // The leading [^\w\s]{1,3} matches the citation marker without naming it:
 // `[reference] marker` is per-repo while this extension is user-global and
 // installed once, so hardcoding § would leave every repo with a custom marker
 // silently unclickable. The leading punctuation is stripped before resolving.
-const CITATION = /[^\w\s]{1,3}(?:[a-z][a-z0-9-]*\/)?[A-Z]+-[a-z0-9][a-z0-9-]*(?:\.[0-9]+)*/g;
+const CITATION = /[^\w\s]{1,3}(?:[a-z][a-z0-9-]*\/)?[A-Z][A-Z0-9]*-[a-z0-9][a-z0-9-]*(?:\.[0-9]+)*/g;
 
 // Resolve a citation to `{path, line, body}` via `grund`. VS Code is the one
 // client that can show declaration content on *hover* rather than on click
@@ -51,20 +53,36 @@ function resolve(id, cwd, brief) {
       if (!err) {
         try { value = JSON.parse(stdout); } catch { value = null; }
       }
-      resolved.set(key, value);
+      // Cache only successes. A failure is not a fact about the citation: the
+      // declaration may not exist *yet*, or grund may be transiently missing
+      // from PATH — caching null would pin that state until the extension host
+      // restarts, long after the user fixed the cause.
+      if (value !== null) resolved.set(key, value);
       done(value);
     });
   });
 }
 
-function workspaceCwd() {
-  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+// grund reports paths relative to the config root it discovers by walking up
+// from its cwd (§FS-config.3.6). Mirror that walk from the workspace folder
+// (§FS-integrations.3.2): running grund at this root and joining the reported
+// path against the same root keeps the two from ever disagreeing — e.g. when
+// the opened folder is a subdirectory of the repository.
+function grundRoot() {
+  let dir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!dir) return undefined;
+  for (;;) {
+    if (fs.existsSync(path.join(dir, '.agents', 'grund.toml'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return undefined;
+    dir = parent;
+  }
 }
 
 function activate(context) {
   const provider = vscode.window.registerTerminalLinkProvider({
     async provideTerminalLinks(ctx) {
-      const cwd = workspaceCwd();
+      const cwd = grundRoot();
       const found = [];
       let m;
       CITATION.lastIndex = 0;
@@ -95,14 +113,15 @@ function activate(context) {
       // (§FS-integrations.3.1). Shares the cache with the hover above, so a
       // click on something already hovered costs nothing.
       const id = link.data.replace(/^[^A-Za-z0-9]+/, '');
-      const cwd = workspaceCwd();
+      const cwd = grundRoot();
       const decl = await resolve(id, cwd, false);
       if (!decl || !decl.path) {
         vscode.window.showWarningMessage(`grund: unknown id ${id}`);
         return;
       }
-      // `path` is relative to the config root, which is the workspace folder
-      // `grund` was run in (§FS-config.3.6).
+      // `path` is relative to the config root grund ran in, which is the same
+      // root grundRoot() discovered (§FS-config.3.6) — so joining against it
+      // can never point outside the repository grund answered for.
       const abs = cwd
         ? vscode.Uri.joinPath(vscode.Uri.file(cwd), decl.path)
         : vscode.Uri.file(decl.path);

@@ -234,7 +234,8 @@ grund integrations wezterm
 grund integrations wezterm --write
 ```
 
-Supported clients are `kitty`, `tmux`, `vscode`, and `wezterm`. `--write` is a
+Supported clients are `codium`, `iterm2`, `kitty`, `tmux`, `vscode`, and
+`wezterm`. `--write` is a
 one-time, idempotent user setup: it installs the selected integration, records
 the local-conversation preference in the user Grund config, and updates global
 instruction blocks for Codex, Claude, Gemini, GitHub Copilot, Zed, and Pi. It does not change any

@@ -436,11 +436,12 @@ fn print_subcommand_help(cmd: &str) {
             println!("Usage:  grund integrations [<client>] [--write] [--conversation plain|link] [--format text|json]");
             println!();
             println!("With no client, detects the terminal/editor from the environment and prints");
-            println!("what applies. With a client — kitty, tmux, vscode, or wezterm — prints that");
-            println!("integration's snippet and the grund-open resolver; --write installs it as a");
-            println!("managed, idempotent block instead of printing. A write also records the local");
-            println!("conversation preference and updates global agent instructions. With no client,");
-            println!("--write --conversation changes only that preference. --format json emits a plan.");
+            println!("what applies. With a client — codium, iterm2, kitty, tmux, vscode, or");
+            println!("wezterm — prints that integration's snippet and the grund-open resolver;");
+            println!("--write installs it as a managed, idempotent block instead of printing. A");
+            println!("write also records the local conversation preference and updates global agent");
+            println!("instructions. With no client, --write --conversation changes only that");
+            println!("preference. --format json emits a plan.");
             println!();
             println!("Preview and install examples:");
             println!("  grund integrations                    # detect and list what applies");
