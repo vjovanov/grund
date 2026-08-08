@@ -10,12 +10,16 @@ const E2E_README_TEMPLATE: &str = include_str!("../assets/templates/e2e-README.m
 const AS_README_TEMPLATE: &str = include_str!("../assets/templates/architecture-README.md");
 const GITKEEP_TEMPLATE: &str = include_str!("../assets/templates/gitkeep.md");
 pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-init/SKILL.md");
-// v5 (§FS-init.2.3.6, §DF-repo-conversation-opinion): the `### Clickable
-// citations` section gains a config-derived local-conversation sentence when
-// `[reference] conversation = "link"` is set. v4 (§DF-integrations-command)
-// added the fixed repository-web convention. v3 (§FS-init.2.3.5,
-// §DF-citation-directions) replaced the hand-written climbing-rule bullet with a
-// generated `### Citation directions` section derived from `[citations]`.
+// v5 (§FS-init.2.3.6, §DF-integrations-command, §DF-repo-conversation-opinion):
+// the block gains the `### Clickable citations` section — the fixed
+// repository-web convention, plus a config-derived local-conversation sentence
+// when `[reference] conversation = "link"` is set. v4 (§FS-init.2.3,
+// §DF-managed-block-delimiters): explicit `<!-- BEGIN/END GRUND MANAGED BLOCK -->`
+// delimiters replace the implicit H2-to-next-heading region, and the worked
+// citation example is `<§>`-escaped so generated output passes `grund check`
+// unmodified. v3 (§FS-init.2.3.5, §DF-citation-directions) replaced the
+// hand-written climbing-rule bullet with a generated `### Citation directions`
+// section derived from `[citations]`.
 const AGENTS_BLOCK_VERSION: u32 = 5;
 const CANONICAL_AGENT_ENTRYPOINT: &str = "AGENTS.md";
 const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[

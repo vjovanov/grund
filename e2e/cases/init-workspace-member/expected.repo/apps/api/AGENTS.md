@@ -1,5 +1,6 @@
 # api — agent instructions
 
+<!-- BEGIN GRUND MANAGED BLOCK -->
 ## Grounding with grund (v5)
 
 This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<NNN>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, AR, DF, DA, E2E, RM}`), cited with the marker `§` — e.g. `<§>FS-042-user-login.3.1` (the `FS-042-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `.agents/grund.toml`, so only `§`-prefixed citations are checked.
@@ -62,3 +63,4 @@ Specs cite goals, architecture cites specs, code and executable tests cite the s
 ### Clickable citations
 
 On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure.
+<!-- END GRUND MANAGED BLOCK -->
