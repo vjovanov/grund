@@ -209,12 +209,18 @@ elif [ -n "${EDITOR:-}" ]; then
         *)
             exec "$@" "$path" ;;
     esac
-elif command -v code >/dev/null 2>&1; then
-    if [ -d "$path" ]; then
-        exec code "$path"
-    fi
-    exec code --goto "$path:$lineno"
 else
+    # No editor named at all — often a click relayed from a GUI process whose
+    # environment never saw the user's shell profile. Fall back to the VS Code
+    # family, which is discoverable by binary name and takes --goto.
+    for fallback in code codium code-insiders; do
+        if command -v "$fallback" >/dev/null 2>&1; then
+            if [ -d "$path" ]; then
+                exec "$fallback" "$path"
+            fi
+            exec "$fallback" --goto "$path:$lineno"
+        fi
+    done
     echo "grund-open: set GRUND_OPEN_CMD or EDITOR to open $target" >&2
     exit 1
 fi
