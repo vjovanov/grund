@@ -81,7 +81,7 @@ Each client then needs one more step:
 | Client | How you click | Afterwards |
 | --- | --- | --- |
 | **kitty** | `ctrl+shift+g`, then the hint label | reload config with `ctrl+shift+F5` |
-| **wezterm** | ctrl/cmd-click the citation | **wire it up — see below** |
+| **wezterm** | ctrl/cmd-click, or `ctrl+shift+g` then the label | **wire it up — see below** |
 | **tmux** | select the citation in copy mode, then `prefix` + `g` | `tmux source-file ~/.tmux.conf` |
 | **vscode** | click the link in the integrated terminal | *Developer: Reload Window* |
 | **iterm2** | cmd-click the citation | **apply the rule by hand — see below** |
@@ -121,6 +121,31 @@ it — the most confusing possible failure, because everything looks installed.
 If you had no `wezterm.lua`, `--write` creates one that already calls it, and
 you can skip this. That starter config sits below the managed block and is
 yours: later writes rewrite only the block.
+
+**WezTerm also needs your shell to report its directory.** A click carries a
+citation, not a location, so the resolver has to run in the clicked pane's
+directory — and WezTerm only knows that directory if the shell tells it, with
+`OSC 7`. Most shells never do: the usual emitter, `/etc/profile.d/vte.sh`,
+returns early for any terminal that is not VTE, and WezTerm is not. Add it to
+your shell profile:
+
+```bash
+# bash — in ~/.bashrc
+__osc7() { printf '\033]7;file://%s%s\033\\' "${HOSTNAME:-localhost}" "$PWD"; }
+PROMPT_COMMAND="__osc7${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+```
+
+```zsh
+# zsh — in ~/.zshrc
+__osc7() { printf '\033]7;file://%s%s\033\\' "${HOST:-localhost}" "$PWD"; }
+precmd_functions+=(__osc7)
+```
+
+Check it with `wezterm cli list`: the `cwd` column is empty until this works,
+and a click in a pane with no `cwd` now says so in a notification rather than
+doing nothing. This matters most under **Flatpak**, where WezTerm runs your
+shell on the host through `flatpak-spawn` and `OSC 7` is the only way the
+directory can reach it at all.
 
 ## 4. Check it works
 
@@ -186,7 +211,14 @@ pager:
 | --- | --- | --- |
 | **kitty** | `ctrl+shift+p`, then the hint label | overlay window |
 | **tmux** | `prefix` + `G` | popup (needs tmux 3.2+) |
-| **wezterm** | `ctrl+shift+`-click | split pane to the right |
+| **wezterm** | `ctrl+shift+`-click, or `ctrl+shift+i` then the label | split pane to the right |
+
+**On WezTerm, prefer the keyboard.** `ctrl+shift+i` labels every citation on the
+screen and peeks at the one whose label you type; `ctrl+shift+g` opens instead.
+No pointer is involved, so nothing can swallow the gesture the way a
+mouse-capturing full-screen program swallows a click — and citations tend to
+appear while you are typing anyway. (`ctrl+shift+p` would have matched kitty,
+but WezTerm uses it for the command palette.)
 
 You get the resolved `path:line` on the first line, then the declaration's lead.
 It is the same resolver in a different mode, so a peek and a click can never
