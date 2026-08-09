@@ -39,6 +39,13 @@ do nothing.
 echo "${GRUND_OPEN_CMD:-${EDITOR:-<neither set>}}"
 ```
 
+Set it somewhere the **terminal itself** sees, not only in your shell rc. A GUI
+terminal spawns the resolver from its own process, so a variable exported by
+`.zshrc` or `.bashrc` — which only the shell *inside* a window ever ran — is not
+there: kitty says as much about its own `--copy-env`. `~/.profile`, your desktop
+session's environment, or the terminal's config (kitty's `env` directive) all
+work. Where it is unset, the resolver falls back to `code`/`codium`.
+
 `EDITOR` may carry flags, and the line number is passed in the syntax your
 editor understands — `+LINE FILE` for the vi and emacs families, `--goto
 FILE:LINE` for VS Code and Sublime, `FILE:LINE` for helix and micro. Set
@@ -80,7 +87,7 @@ Each client then needs one more step:
 
 | Client | How you click | Afterwards |
 | --- | --- | --- |
-| **kitty** | `ctrl+shift+g`, then the hint label | reload config with `ctrl+shift+F5` |
+| **kitty** | `ctrl+shift+p` `g`, then the hint label | reload config with `ctrl+shift+F5` |
 | **wezterm** | ctrl/cmd-click, or `ctrl+shift+g` then the label | **wire it up — see below** |
 | **tmux** | select the citation in copy mode, then `prefix` + `g` | `tmux source-file ~/.tmux.conf` |
 | **vscode** | click the link in the integrated terminal | *Developer: Reload Window* |
@@ -194,8 +201,8 @@ exactly like a broken install.
 grep -n '§FS-\|§DF-' crates/grund-core/src/integrations.rs | head -20
 ```
 
-Now trigger your client — `ctrl+shift+g` in kitty, ctrl/cmd-click in WezTerm —
-and pick `§FS-integrations.4.3`. It should open `FS-integrations.md` at line 85,
+Now trigger your client — `ctrl+shift+p` then `g` in kitty, ctrl/cmd-click in
+WezTerm — and pick `§FS-integrations.4.3`. It should open `FS-integrations.md` at line 85,
 the `### 4.3` heading.
 
 ## 5. Peek without leaving the terminal
@@ -209,7 +216,7 @@ pager:
 
 | Client | Peek | Where it appears |
 | --- | --- | --- |
-| **kitty** | `ctrl+shift+p`, then the hint label | overlay window |
+| **kitty** | `ctrl+shift+p` `i`, then the hint label | overlay window |
 | **tmux** | `prefix` + `G` | popup (needs tmux 3.2+) |
 | **wezterm** | `ctrl+shift+`-click, or `ctrl+shift+i` then the label | split pane to the right |
 
@@ -217,8 +224,13 @@ pager:
 screen and peeks at the one whose label you type; `ctrl+shift+g` opens instead.
 No pointer is involved, so nothing can swallow the gesture the way a
 mouse-capturing full-screen program swallows a click — and citations tend to
-appear while you are typing anyway. (`ctrl+shift+p` would have matched kitty,
-but WezTerm uses it for the command palette.)
+appear while you are typing anyway.
+
+**Both terminals use the same two letters:** `g` to *go* to a citation, `i` to
+*inspect* it. WezTerm takes them plainly, as `ctrl+shift+g` and `ctrl+shift+i`.
+kitty puts them behind `ctrl+shift+p`, the prefix its own hint kittens already
+live under (`p` `f` for a path, `p` `y` for a hyperlink) — both plain keys are
+kitty defaults, and taking either would delete a binding you already have.
 
 You get the resolved `path:line` on the first line, then the declaration's lead.
 It is the same resolver in a different mode, so a peek and a click can never
