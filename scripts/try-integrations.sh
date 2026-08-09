@@ -273,8 +273,8 @@ write_sheet() {
 # `show`: no sandbox, no install, no HOME override — the citations land in the
 # terminal you are already in, resolved by whatever you have installed for real.
 show_citations() {
-    local open="ctrl-click (wezterm) · ctrl+shift+g (kitty) · copy-mode + prefix g (tmux) · click (vscode)"
-    local peek="ctrl+shift-click (wezterm) · ctrl+shift+p (kitty) · prefix G (tmux) · hover (vscode)"
+    local open="ctrl-click (wezterm) · ctrl+shift+p g (kitty) · copy-mode + prefix g (tmux) · click (vscode)"
+    local peek="ctrl+shift-click (wezterm) · ctrl+shift+p i (kitty) · prefix G (tmux) · hover (vscode)"
     if [ "$TUI" = 1 ]; then
         SHEET=$(mktemp "${TMPDIR:-/tmp}/grund-citations.XXXXXX")
         trap 'rm -f "$SHEET"' EXIT
@@ -566,7 +566,8 @@ case $command in
             wezterm) write_sheet wezterm \
                 "ctrl-click, or ctrl+shift+g then the label" \
                 "ctrl+shift-click, or ctrl+shift+i then the label (split pane)" ;;
-            kitty) write_sheet kitty "ctrl+shift+g, then the hint label" "ctrl+shift+p (overlay)" ;;
+            kitty) write_sheet kitty "ctrl+shift+p then g, then the hint label" \
+                "ctrl+shift+p then i, then the label (overlay)" ;;
             tmux) write_sheet tmux "select in copy mode, then prefix + g" "prefix + G (popup, tmux 3.2+)" ;;
             *) write_sheet "$command" "click the link in the integrated terminal" "hover the link" ;;
         esac
