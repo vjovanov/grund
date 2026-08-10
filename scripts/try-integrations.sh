@@ -252,6 +252,7 @@ sheet_body() {
             printf '  %-24s%s%s\n' 'E2E case directory' "$MARKER" "$ID_E2E"
         [ -n "$ID_QUALIFIED" ] &&
             printf '  %-24s%s%s\n' 'workspace-qualified' "$MARKER" "$ID_QUALIFIED"
+        printf '  %-24s%s\n' 'location (path:line)' ".agents/grund.toml:1"
         printf '\nMust NOT work:\n\n'
         printf '  %-24s%s\n' 'bare id, no marker' "$ID_PLAIN"
         printf '  %-24s%s%s\n' 'unknown id' "$MARKER" "$ID_UNKNOWN"
@@ -499,6 +500,15 @@ resolve_checks() {
     fi
     check "unknown id" "$WORKDIR" "$MARKER$ID_UNKNOWN" fails
     check "outside any repo" "/" "$MARKER$ID_PLAIN" fails
+
+    # The location beside a citation (§FS-integrations.3.1): `path:line` tokens
+    # open without consulting grund, climbing to the nearest ancestor that
+    # holds the file; a column suffix is dropped.
+    step "location tokens"
+    check "location, from subdir" "$WORKDIR" ".agents/grund.toml:1" resolves
+    check "location, swept punct" "$WORKDIR" "(.agents/grund.toml:1" resolves
+    check "location, col dropped" "$WORKDIR" ".agents/grund.toml:1:5" resolves
+    check "location, missing file" "$WORKDIR" "no/such/file.md:3" fails
 
     step "peek"
     local out rc=0
