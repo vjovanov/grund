@@ -258,34 +258,71 @@ is enough on its own — agents then write the location beside each citation, an
 iTerm2 makes it clickable with no rule installed. Set up the Smart Selection rule
 only if you want the bare `§<ID>` itself to be the clickable thing.
 
-## 6. Tell your agent how to write citations
+## 6. Make citations navigable in conversations
 
-A clickable citation is only useful if your agent writes citations you can
-click. The same `--write` records that preference and syncs it into the global
-instruction files for Codex, Claude, Gemini, GitHub Copilot, Zed, and Pi
-([§FS-integrations.4.3](functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)).
+Everything so far makes citations clickable in your *terminal*. This section
+is about the citations agents write in *conversation* — answers, reviews,
+session transcripts. Two independent things can make those navigable:
 
-**`plain`** is the default, and the right choice once you have an integration
-installed: the agent writes a bare `§<ID>` and your terminal makes it clickable.
+1. **A rendering layer on your machine** (§2–§3) turns a bare `§<ID>` into a
+   click.
+2. **The agent writing the location beside each citation** — plain `path:line`
+   text — which many surfaces linkify with nothing installed: Claude Code does
+   it natively, and iTerm2 and the VS Code terminal recognize the path.
 
-**`link`** is for a TUI that cannot render clicks. The agent follows each
-citation with its location as plain `path:line` text, which you can copy or
-`ctrl+click` in most terminals.
+Pick your situation:
+
+**Your terminal is supported (wezterm, kitty, tmux, iterm2, vscode).**
+Install the integration (§3). That records the `plain` preference: agents
+write bare `§<ID>` citations and your terminal makes them clickable — no
+location noise beside every citation.
+
+**Your surface cannot click bare citations** (a stock terminal, ssh, a TUI
+with no matcher). Tell agents to write the location beside each citation:
 
 ```bash
 grund integrations --write --conversation link
 ```
 
-That preference-only form updates your config and global instructions without
-installing a client you do not want.
+This preference-only form touches no terminal config; it updates your grund
+config and the global instruction files. In Claude Code the `path:line` is
+clickable on its own; elsewhere it is a correct location you can open by hand.
 
-A repository can also commit an opinion. When its `.agents/grund.toml` sets
-`conversation = "link"` under `[reference]`
-([§FS-config.3.1](functional-spec/FS-config.md#31-reference--citation-form)),
-agents working in that repository use the linked form regardless of your
-personal preference — useful when a project's readers are mostly on surfaces
-without an integration. Precedence is: repository opinion, then your
-preference, then `plain`.
+**You want everyone served, not just you** — teammates who will never run a
+setup command, cloud agent sessions, CI reviewers, and Cursor or Windsurf,
+which have no user-level file grund can write. Commit the opinion in the
+repository's `.agents/grund.toml`
+([§FS-config.3.1](functional-spec/FS-config.md#31-reference--citation-form)):
+
+```toml
+[reference]
+conversation = "link"
+```
+
+and re-run `grund init`. The generated agent entrypoint then teaches the
+linked form to every agent that clones the repository — it is the only channel
+that reaches readers whose machines grund never touched.
+
+**How the layers combine.** Your machine's recorded preference wins over the
+repository opinion; the repository opinion covers every machine that never
+stated one; the default is `plain`
+([§DF-repo-conversation-opinion.2.3](decisions/functional/DF-repo-conversation-opinion.md#23-precedence)).
+So committing `link` costs installed users nothing — their agents still write
+bare clickable citations — while everyone else gets locations. Concretely:
+
+| Reader | Where the guidance comes from | What they get |
+|---|---|---|
+| You, integration installed | your global instruction files (`plain`) | bare `§<ID>`, clickable in the terminal |
+| You, no rendering layer | your global instruction files (`link`) | `§<ID>` + `path:line`, clickable in Claude Code, iTerm2, VS Code |
+| A teammate, fresh clone | the committed entrypoint | `§<ID>` + `path:line`, zero setup |
+| Cloud / CI agent session | the committed entrypoint | `§<ID>` + `path:line` in the transcript |
+| Cursor / Windsurf | the committed entrypoint (their only grund channel) | `§<ID>` + `path:line` in the panel |
+
+The global instruction files are written for Codex, Claude, Gemini, GitHub
+Copilot, Zed, and Pi
+([§FS-integrations.4.3](functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions));
+the blocks scope themselves to grund repositories, so they are inert
+everywhere else.
 
 ## 7. When a click does nothing
 

@@ -5,6 +5,13 @@
 Concluded on 2026-07-21. Accepted as [§DF-repo-conversation-opinion](../../decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion) and drafted into the specs
 listed under "Spec changes this drafts into" below.
 
+Amended on 2026-08-11, after testing the instruction path end to end against Claude and Codex
+([§DF-neural-link-generation](../../decisions/functional/DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) rows 3 and 11): precedence inverted to
+*user preference over repository opinion* (§3), and a serving matrix added (§5) recording which
+layer reaches which agent and environment. A preference-only design — deleting the repository key
+— was considered and rejected there: it permanently orphans every reader whose only channel is
+the committed entrypoint.
+
 ## Context
 
 [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions) installs the local-conversation rendering preference (`plain` | `link`)
@@ -70,8 +77,9 @@ channel that exists for six of the eight supported agents (§4) — but the cano
 rewritten to gate themselves on grund presence:
 
 - `plain`: `In repositories with a .agents/grund.toml: write plain §<ID> citations in local
-  conversations; grund integrations makes them clickable. A repository whose agent instructions
-  ask for linked citations takes precedence. Elsewhere, ignore this.`
+  conversations; grund integrations makes them clickable. Follow this even when repository
+  instructions ask for linked citations — that repository sentence defers to this block, and the
+  installed rendering layer already resolves bare citations. Elsewhere, ignore this.`
 - `link`: `In repositories with a .agents/grund.toml: follow §<ID> with its declaration location
   as plain path:line text in local conversations — never a Markdown link; fall back to the bare
   citation when unsure. Elsewhere, ignore this.`
@@ -82,16 +90,33 @@ existing marked-block contract ([§FS-integrations.4.3](../../functional-spec/FS
 
 ## 3. Precedence
 
-Repository opinion > user preference > default (`plain`). Rationale:
+Explicit user preference > repository opinion > default (`plain`). As first concluded the order
+was repository-over-user, on the argument that agents weight project instructions over personal
+ones and any other order would fight observed behavior. The amendment inverts it, for the reason
+the original design half-stated: the repository opinion is the *no-knowledge fallback*, and a
+recorded `plain` is machine knowledge — it is only ever written by a `--write` that installed a
+rendering layer, so bare citations are known to resolve on that machine and the appended location
+is redundant on exactly the machine that does not need it (plus one false-positive path fragment
+per citation line, [§FS-integrations.3.1](../../functional-spec/FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2)).
 
-- Agents already weight project instructions over personal ones (Zed documents it; Codex's
-  root-down concatenation implies it), so any other spec'd order would fight observed behavior.
-- The only possible conflict — repo `link` vs. user `plain` — is harmless: linked citations still
-  render correctly on a machine with terminal integrations installed, merely redundantly.
+The observed-behavior objection dissolves because the deference is written into the project text
+itself: the repository sentence names the user-level `plain` block as its exception, and the
+`plain` block asserts itself. Both sides state the same order; the agent reconciles nothing. The
+*phrasing* is load-bearing, measured by headless Claude and Codex runs against the real blocks
+(2026-08-10/11): the repo-wins direction was followed in 3 of 3 trials; a first user-wins wording
+stated as abstract precedence ("this preference wins over...") was followed in only 2 of 3 — the
+miss obeyed the repository's main clause and skipped the exception — and rewording both sides as
+direct imperatives ("write bare citations instead"; "Follow this even when repository
+instructions ask for linked citations") was followed in 3 of 3, including the exact prompt that
+missed before. The shipped texts are the imperative forms. A residual miss costs one
+redundant-but-correct location beside a citation, never a wrong citation.
 
-The precedence sentence lives in the `plain` global block (the only side with a conflict) and in
-the DF; the repository block stays silent about user preference, keeping it deterministic and
-config-derived only ([§FS-non-goals.13](../../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
+The residual risk of each order is asymmetric. User-over-repo risks a stale `plain` on a machine
+whose integration was removed — a bare-but-correct citation, the pre-opinion status quo.
+Repo-over-user guarantees redundancy on every correctly-configured machine. The stale case is
+rarer and cheaper.
+
+The repository block stays deterministic and config-derived only ([§FS-non-goals.13](../../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
 
 ## 4. Researched alternative: a repo-local file excluded from version control
 
@@ -114,6 +139,28 @@ A Codex-only `--local` write (`AGENTS.override.md` + `.git/info/exclude`) remain
 later additive flag on `grund integrations`, but the two layers above remove most of its
 motivation: the repo layer covers opinionated repositories for every agent, and the self-scoping
 global block no longer leaks. **Deferred, not designed.**
+
+## 5. Who is served by which layer
+
+Added by the 2026-08-11 amendment, when a preference-only design (deleting the repository key)
+was considered. The question it answers: for each agent and environment, which layer can reach it
+at all, and what does the reader get with and without setup. This is why both layers exist and
+neither can absorb the other.
+
+| Reader | User layer ([§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)) reaches it? | Zero setup (repo opinion only) | With `grund integrations --write` |
+|---|---|---|---|
+| Claude Code | yes — `~/.claude/CLAUDE.md` | linked citations; `path:line` is clickable natively (matrix row 2) | preference wins: `plain` + integration, or `link` |
+| Codex CLI | yes — `~/.codex/AGENTS.md` | linked citations as readable text; Codex itself links nothing local (row 11), the terminal layer clicks | preference wins |
+| Gemini CLI, GitHub Copilot, Zed, Pi | yes — their global files | linked citations as readable text; clicks per surface | preference wins |
+| Cursor, Windsurf | **no** — user rules live in app settings, not a portable file | linked citations via the committed entrypoint — their **only** grund channel | unreachable; the entrypoint still serves them |
+| Cloud agent sessions, CI, containers | **no** — fresh `$HOME` every run, a `--write` never persists | linked citations via the committed entrypoint — permanently zero-setup | unreachable; the entrypoint still serves them |
+| Human without any agent | — | reads `path:line` beside the citation as plain text; still a correct location | terminal integration makes the bare `§<ID>` itself clickable |
+
+Reading the columns down: the user layer serves six agents but only after a per-machine write;
+the repository layer serves every reader but knows nothing about any machine. The precedence in
+§3 composes them so each reader gets the best form its channels allow — which is why
+preference-only was rejected: it deletes the only row-4 and row-5 channel, and those readers
+cannot be reached any other way.
 
 ## Spec changes this drafts into (if accepted)
 

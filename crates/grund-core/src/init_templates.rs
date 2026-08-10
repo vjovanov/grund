@@ -383,8 +383,12 @@ pub(crate) fn clickable_citations_section(config: &Config) -> String {
         // with an em-dash, as the global block spells it: a detached "Never use
         // a Markdown link for this." reads as revoking the repository-web
         // sentence, which *requires* one.
+        // The deference clause is the §DF-repo-conversation-opinion.2.3
+        // precedence: this committed opinion is the no-knowledge fallback, and a
+        // machine whose user-level block recorded `plain` has an installed
+        // rendering layer — its knowledge wins.
         section.push_str(
-            " In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure.",
+            " In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure. If a user-level grund block asks for plain citations, write bare citations instead: that machine renders them clickable itself.",
         );
     }
     section

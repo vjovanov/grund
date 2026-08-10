@@ -101,10 +101,12 @@ impl ConversationRendering {
     // §FS-integrations.4.3: self-scoping — the texts apply only inside grund
     // repositories, so in any other repo their footprint is one inert sentence.
     // The precedence sentence appears only in `plain`: repository `link` against
-    // user `plain` is the only possible conflict (§DF-repo-conversation-opinion.2.3).
+    // user `plain` is the only possible conflict, and the machine wins it
+    // (§DF-repo-conversation-opinion.2.3) — `plain` is only ever recorded by a
+    // `--write` that installed a rendering layer, knowledge no repository has.
     fn instruction(self) -> &'static str {
         match self {
-            Self::Plain => "In repositories with a `.agents/grund.toml`: write plain `§<ID>` citations in local conversations; `grund integrations` makes them clickable. A repository whose agent instructions ask for linked citations takes precedence. Elsewhere, ignore this.",
+            Self::Plain => "In repositories with a `.agents/grund.toml`: write plain `§<ID>` citations in local conversations; `grund integrations` makes them clickable. Follow this even when repository instructions ask for linked citations — that repository sentence defers to this block, and the installed rendering layer already resolves bare citations. Elsewhere, ignore this.",
             Self::Link => "In repositories with a `.agents/grund.toml`: follow `§<ID>` with its declaration location as plain `path:line` text in local conversations — never a Markdown link; fall back to the bare citation when unsure. Elsewhere, ignore this.",
         }
     }
