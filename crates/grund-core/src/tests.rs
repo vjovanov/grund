@@ -3792,12 +3792,42 @@ default = "must-not"
     }
 
     // §FS-integrations.5: the machine detection plan distinguishes ambient
-    // detection from actual installation state.
+    // detection from actual installation state, and carries each client's
+    // `install_kind` so a manual client's permanent `installed: false` reads as
+    // "not knowable" rather than "not installed" (§FS-integrations.3.4).
     #[test]
     fn integrations_detection_json_reports_installed_state() {
         let json = detection_plan_json(&[IntegrationClient::Wezterm]);
         assert!(json.contains("\"client\":\"wezterm\",\"detected\":true,\"installed\":"));
         assert!(json.contains("\"client\":\"kitty\",\"detected\":false,\"installed\":"));
+        assert!(json.contains("\"install_kind\":\"block\""));
+        assert!(json.contains("\"install_kind\":\"extension\""));
+        assert!(json.contains(
+            "\"client\":\"iterm2\",\"detected\":false,\"installed\":false,\"install_kind\":\"manual\""
+        ));
+    }
+
+    // §FS-integrations.2: `codium` is marked when a VSCODE_* value *names*
+    // VSCodium's application directory — a path segment, not a substring, so a
+    // workspace that merely mentions codium does not flag the client.
+    #[test]
+    fn codium_detection_requires_a_vscodium_path_segment() {
+        for named in [
+            "/usr/share/codium/resources/app/out/cli.js",
+            "/applications/vscodium.app/contents/resources",
+            "c:\\users\\u\\appdata\\local\\programs\\vscodium\\codium.exe",
+            "/var/lib/flatpak/app/com.vscodium.codium/current",
+            "/opt/vscodium-bin/codium",
+        ] {
+            assert!(value_names_codium(named), "should mark: {named}");
+        }
+        for bystander in [
+            "/home/u/codium-notes/project",
+            "/home/u/my-codium/workspace",
+            "/usr/share/code/resources/app/out/cli.js",
+        ] {
+            assert!(!value_names_codium(bystander), "must not mark: {bystander}");
+        }
     }
 
     #[cfg(unix)]
@@ -4027,7 +4057,7 @@ default = "must-not"
         let rendered = clickable_citations_section(&config);
         assert!(rendered.starts_with("### Clickable citations\n\nOn repository web surfaces,"));
         assert!(rendered.contains(
-            "In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text; fall back to the bare citation when unsure. Never use a Markdown link for this."
+            "In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure."
         ));
         // No trailing newline, so the template's placeholder keeps init idempotent.
         assert!(!rendered.ends_with('\n'));

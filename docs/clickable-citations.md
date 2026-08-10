@@ -174,7 +174,7 @@ checking all three shapes:
 | --- | --- |
 | `grund-open '§FS-integrations'` | `FS-integrations.md:1` — the declaration |
 | `grund-open '§FS-integrations.3.1'` | `FS-integrations.md:36` — that section |
-| `grund-open '§FS-integrations.4.3'` | `FS-integrations.md:85` — that section |
+| `grund-open '§FS-integrations.4.3'` | `FS-integrations.md:137` — that section |
 
 Those line numbers move whenever the spec is edited, so treat `grund` as the
 authority rather than this table — it prints the line the click should land on:
@@ -202,7 +202,7 @@ grep -n '§FS-\|§DF-' crates/grund-core/src/integrations.rs | head -20
 ```
 
 Now trigger your client — `ctrl+shift+p` then `g` in kitty, ctrl/cmd-click in
-WezTerm — and pick `§FS-integrations.4.3`. It should open `FS-integrations.md` at line 85,
+WezTerm — and pick `§FS-integrations.4.3`. It should open `FS-integrations.md` at line 137,
 the `### 4.3` heading.
 
 ## 5. Peek without leaving the terminal
@@ -307,6 +307,19 @@ project root; it needs to be inside one.
 
 **If it prints `unknown id …`**, the citation does not resolve in this
 repository. Check with `grund list`.
+
+One case of that is expected: a printed spec *path* contains ID-shaped
+segments, so `docs/functional-spec/FS-integrations.md` is also matched at
+`/functional-spec/FS-integrations` — the matcher cannot tell a path segment
+from a citation with a custom marker. Clicking that fragment reports
+`unknown id`; the real citation on the same line still works. Click the
+`§<ID>`, not the path beside it.
+
+In a repository that commits `[reference] conversation = "link"`, this is
+routine rather than rare: agents write a `path:line` beside every citation,
+and that path carries such a fragment. The citation stays the reliable click
+target — and note that a misclicked *open* reports its `unknown id` only in
+the terminal's own log, while a *peek* shows the error in its surface.
 
 **If it prints nothing and exits**, no editor was found. See §1.
 

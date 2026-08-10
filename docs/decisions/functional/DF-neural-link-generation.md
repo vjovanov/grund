@@ -68,7 +68,7 @@ Target forms: **rel** = repo-relative path, **abs** = absolute path, **file** = 
 |---|---------|-----------|--------|----------|----------|
 | 1 | Claude Code (assistant message) | Markdown link `[§FS-check](…)` | rel / abs | rendered as clickable link | **fails** for rel targets (verified 2026-07-02): the terminal's click handler receives a bare relative path, not a URI, and has no working directory to resolve it against |
 | 2 | Claude Code (assistant message) | plain `path:line` text | rel / abs | clickable file reference | documented Claude Code behavior (`file_path:line_number` references are clickable) |
-| 3 | Codex TUI (assistant message) | Markdown link | rel / abs / web | rendered as clickable link | pending manual run |
+| 3 | Codex TUI (assistant message) | Markdown link | rel / abs / web | rendered as clickable link | **fails** for rel / abs (verified 2026-08-10 against the Codex TUI renderer source): a local-path destination is rendered *in place of the link label*, erasing the visible citation, and only `http(s)` URLs receive OSC 8 hyperlinks — web targets alone render clickable |
 | 4 | Plain terminal: kitty / WezTerm / iTerm2 / ghostty / VTE ≥ 0.50 | OSC 8 escape | file | Ctrl/Cmd-click opens the file | degrades to visible text where unsupported, by protocol design; no producer ships |
 | 5 | GitHub PR description / issue / review comment | Markdown link | web | clickable, anchor jumps to the heading | standard GitHub Markdown rendering; web links posted on issue #33 and PR #45 (2026-07-02) |
 | 6 | GitHub PR description / issue | Markdown link | rel / abs / file | **not** clickable or wrong host | known GitHub behavior: local paths do not resolve in issue/PR bodies |
@@ -76,6 +76,7 @@ Target forms: **rel** = repo-relative path, **abs** = absolute path, **file** = 
 | 8 | GitHub (hover) | Markdown link with a `"title"` attribute carrying the declaration heading | web | browser tooltip shows the title on hover | GitHub's Markdown API preserved the `title` attribute (verified 2026-07-20); **rejected** because the native tooltip is limited and inaccessible on touch while repeating the heading costs output tokens |
 | 9 | LSP editor (hover) | plain `§<ID>` citation | — | declaration preview on hover | shipped behavior — `grund-lsp` hover ([§FS-lsp](../../functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server)); no markup needed |
 | 10 | Terminal TUI (hover) | any link form | — | declaration content on hover | not achievable from the text side: terminals only preview the target URL on hover; content hover needs client-side integration — a VSCodium `TerminalLinkProvider` prototype validated this; productized as `grund integrations vscode` (issue #46, PR #45) |
+| 11 | Codex TUI (assistant message) | plain `path:line` text | rel / abs | clickable file reference | not linkified by Codex itself — its renderer hyperlinks web URLs only (verified 2026-08-10) — but the text survives verbatim for the rendering layer: `grund integrations` clients, iTerm2 Semantic History, and the VS Code terminal's own path links make it clickable |
 
 ## Recipe
 

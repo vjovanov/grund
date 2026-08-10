@@ -284,7 +284,7 @@ fn detect_clients() -> Vec<IntegrationClient> {
     if !vscode_vars.is_empty() {
         mark(IntegrationClient::Vscode);
     }
-    if vscode_vars.iter().any(|value| value.contains("codium")) {
+    if vscode_vars.iter().any(|value| value_names_codium(value)) {
         mark(IntegrationClient::Codium);
     }
     if has("TMUX") {
@@ -296,6 +296,18 @@ fn detect_clients() -> Vec<IntegrationClient> {
         .filter(|(idx, _)| matched[*idx])
         .map(|(_, client)| client)
         .collect()
+}
+
+/// Whether a (lowercased) `VSCODE_*` value *names* VSCodium's application
+/// directory (§FS-integrations.2) — a path segment that is VSCodium's, not a
+/// substring anywhere, so a workspace under `~/codium-notes` does not mark the
+/// client. Segment equality plus a `vscodium` infix covers the packagings:
+/// `/usr/share/codium`, `VSCodium.app`, `vscodium-bin`, and the
+/// `com.vscodium.codium` Flatpak id.
+fn value_names_codium(value: &str) -> bool {
+    value
+        .split(['/', '\\'])
+        .any(|segment| segment == "codium" || segment.contains("vscodium"))
 }
 
 /// Parsed `grund integrations` invocation.
@@ -460,11 +472,14 @@ fn detection_plan_json(detected: &[IntegrationClient]) -> String {
     let clients = IntegrationClient::ALL
         .iter()
         .map(|client| {
+            // `install_kind` is what lets a caller tell a manual client's
+            // "not knowable" from a real "not installed" (§FS-integrations.3.4).
             format!(
-                "{{\"client\":\"{}\",\"detected\":{},\"installed\":{},\"install\":\"{}\"}}",
+                "{{\"client\":\"{}\",\"detected\":{},\"installed\":{},\"install_kind\":\"{}\",\"install\":\"{}\"}}",
                 client.name(),
                 detected.contains(client),
                 integration_is_current(*client),
+                client.install_kind().name(),
                 json_escape(&client.install_command()),
             )
         })

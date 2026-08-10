@@ -41,14 +41,15 @@ const CITATION = /[^\w\s]{1,3}(?:[a-z][a-z0-9-]*\/)?[A-Z][A-Z0-9]*-[a-z0-9][a-z0
 // so this is called while building links, not when one is clicked. Results are
 // cached by citation because provideTerminalLinks runs per rendered line and the
 // same citation scrolls past repeatedly; the cache is what keeps that cheap.
+// One `--brief` resolution serves hover and click alike (§FS-integrations.3.2):
+// the brief report already carries the `path` and `line` a click needs, and its
+// body is exactly the hover slice.
 const resolved = new Map();
 
-function resolve(id, cwd, brief) {
-  const key = `${brief ? 'b:' : 'f:'}${id}`;
-  if (resolved.has(key)) return Promise.resolve(resolved.get(key));
-  const args = brief ? [id, '--brief', '--format', 'json'] : [id, '--format', 'json'];
+function resolve(id, cwd) {
+  if (resolved.has(id)) return Promise.resolve(resolved.get(id));
   return new Promise((done) => {
-    execFile('grund', args, { cwd }, (err, stdout) => {
+    execFile('grund', [id, '--brief', '--format', 'json'], { cwd }, (err, stdout) => {
       let value = null;
       if (!err) {
         try { value = JSON.parse(stdout); } catch { value = null; }
@@ -57,7 +58,7 @@ function resolve(id, cwd, brief) {
       // declaration may not exist *yet*, or grund may be transiently missing
       // from PATH — caching null would pin that state until the extension host
       // restarts, long after the user fixed the cause.
-      if (value !== null) resolved.set(key, value);
+      if (value !== null) resolved.set(id, value);
       done(value);
     });
   });
@@ -92,7 +93,7 @@ function activate(context) {
       // `--brief` is heading + first paragraph: enough to answer "what does this
       // say?" without pasting a whole section into a tooltip.
       const decls = await Promise.all(
-        found.map((f) => resolve(f.text.replace(/^[^A-Za-z0-9]+/, ''), cwd, true))
+        found.map((f) => resolve(f.text.replace(/^[^A-Za-z0-9]+/, ''), cwd))
       );
       return found.map((f, i) => {
         const decl = decls[i];
@@ -111,10 +112,10 @@ function activate(context) {
       // suffix: `grund <ID>.<section>` resolves to that section's own line,
       // where dropping it would always land on the declaration heading
       // (§FS-integrations.3.1). Shares the cache with the hover above, so a
-      // click on something already hovered costs nothing.
+      // click on something already hovered spawns nothing.
       const id = link.data.replace(/^[^A-Za-z0-9]+/, '');
       const cwd = grundRoot();
-      const decl = await resolve(id, cwd, false);
+      const decl = await resolve(id, cwd);
       if (!decl || !decl.path) {
         vscode.window.showWarningMessage(`grund: unknown id ${id}`);
         return;
@@ -125,7 +126,21 @@ function activate(context) {
       const abs = cwd
         ? vscode.Uri.joinPath(vscode.Uri.file(cwd), decl.path)
         : vscode.Uri.file(decl.path);
-      const pos = new vscode.Position(Math.max(0, (decl.line || 1) - 1), 0);
+      // A directory-backed E2E declaration answers with the manifest shape
+      // (§FS-show.2.4): no `line`, and `path` names the case *directory*.
+      // There is no file to show — showTextDocument rejects a directory — so
+      // reveal it in the Explorer, the editor's shape of the terminal
+      // resolver's open-the-directory-bare behavior (§FS-integrations.3.2).
+      // The Explorer can only reveal what the workspace contains: with a
+      // subdirectory of the repository opened, the case directory sits above
+      // it, and the reveal falls back to the OS file manager.
+      if (decl.line === undefined) {
+        const workspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const inWorkspace = workspace && abs.fsPath.startsWith(workspace + path.sep);
+        vscode.commands.executeCommand(inWorkspace ? 'revealInExplorer' : 'revealFileInOS', abs);
+        return;
+      }
+      const pos = new vscode.Position(Math.max(0, decl.line - 1), 0);
       vscode.window.showTextDocument(abs, { selection: new vscode.Range(pos, pos) });
     },
   });

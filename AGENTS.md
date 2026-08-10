@@ -61,7 +61,7 @@ Unlisted kinds and pairs are fine.
 
 ### Clickable citations
 
-On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure. In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text; fall back to the bare citation when unsure. Never use a Markdown link for this.
+On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure. In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure.
 <!-- END GRUND MANAGED BLOCK -->
 
 ## Repository workflow

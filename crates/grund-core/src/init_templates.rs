@@ -379,8 +379,12 @@ pub(crate) fn clickable_citations_section(config: &Config) -> String {
     if config.conversation.as_deref() == Some("link") {
         // §DF-repo-conversation-opinion.2.1: plain `path:line` text, never a
         // Markdown link — the only form agent TUIs turn into an editor-open action.
+        // "— never a Markdown link" is bound to the local-conversation clause
+        // with an em-dash, as the global block spells it: a detached "Never use
+        // a Markdown link for this." reads as revoking the repository-web
+        // sentence, which *requires* one.
         section.push_str(
-            " In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text; fall back to the bare citation when unsure. Never use a Markdown link for this.",
+            " In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure.",
         );
     }
     section
