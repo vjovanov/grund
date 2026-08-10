@@ -45,12 +45,19 @@ widenable later under [§FS-config.5](../../functional-spec/FS-config.md#5-schem
 
 ### 2.3 Precedence
 
-Repository opinion > user preference > default (`plain`). Agents already weight project
-instructions over personal ones, so any other order would fight observed behavior; the only
-possible conflict — repository `link` against user `plain` — renders correctly on a machine with
-terminal integrations installed, merely redundantly. The precedence sentence lives in the `plain`
-global block text (the only side with a conflict); the repository block stays silent about user
-preference, keeping it deterministic and config-derived only ([§FS-non-goals.13](../../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
+Explicit user preference > repository opinion > default (`plain`). The committed opinion is the
+*no-knowledge fallback*: it is the right form on every machine that never stated a preference —
+fresh clones, cloud and CI sessions, agents whose only instruction channel is the committed
+entrypoint ([§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)). A recorded `plain` is machine knowledge the repository cannot
+have: it is only ever written by a `grund integrations --write` that installed a rendering layer,
+so bare citations are known to resolve there, and appending a location would be redundant on
+exactly the machine that does not need it. Agents weight project instructions over personal ones,
+so the deference is written into the project text itself — the repository sentence names the
+user-level `plain` block as the exception and the `plain` block asserts itself; both sides state
+the same order, and there is nothing for an agent to reconcile. The remaining risk is a stale
+`plain` on a machine whose integration was since removed; that costs a bare-but-correct citation,
+the state every repository had before the opinion existed. The repository block stays
+deterministic and config-derived only ([§FS-non-goals.13](../../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
 
 ## 3. Consequences
 
@@ -64,7 +71,9 @@ preference, keeping it deterministic and config-derived only ([§FS-non-goals.13
   the presence of a `.agents/grund.toml`, a block version bump under the existing marked-block
   contract; in a non-grund repository their entire footprint is one inert sentence.
 - A grund-using team gets clickable conversation citations with zero per-user setup: clone, the
-  agent reads the committed entrypoint, done. `grund integrations` becomes purely personal tuning.
+  agent reads the committed entrypoint, done. `grund integrations` becomes purely personal tuning
+  — and a machine that recorded `plain` keeps bare citations even in an opinionated repository,
+  because its rendering layer already resolves them.
 
 ## 4. Alternatives considered
 

@@ -3273,7 +3273,9 @@ default = "must-not"
         assert_eq!(outcome, BlockOutcome::Updated);
         assert!(updated.starts_with("# Mine\n\n<!-- >>> grund integrations citation rendering (v2) >>> -->\n"));
         assert!(updated.contains("In repositories with a `.agents/grund.toml`:"));
-        assert!(updated.contains("takes precedence"));
+        // §DF-repo-conversation-opinion.2.3: the machine-local `plain` wins over
+        // a repository's linked-citations opinion.
+        assert!(updated.contains("Follow this even when repository instructions ask for linked citations"));
         assert!(!updated.contains("(v1)"));
         assert!(updated.ends_with("keep-after\n"));
     }
@@ -4057,7 +4059,7 @@ default = "must-not"
         let rendered = clickable_citations_section(&config);
         assert!(rendered.starts_with("### Clickable citations\n\nOn repository web surfaces,"));
         assert!(rendered.contains(
-            "In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure."
+            "In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure. If a user-level grund block asks for plain citations, write bare citations instead: that machine renders them clickable itself."
         ));
         // No trailing newline, so the template's placeholder keeps init idempotent.
         assert!(!rendered.ends_with('\n'));
