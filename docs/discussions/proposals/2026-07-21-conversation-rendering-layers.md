@@ -54,8 +54,8 @@ Concretely:
   argument.
 - When the key is set, the managed agent-entrypoint block ([§FS-init.2.3](../../functional-spec/FS-init.md#23-generated-agent-entrypoints)) renders one additional
   config-derived sentence in its `### Clickable citations` section:
-  `In local conversations, follow §<ID> with its declaration location as plain path:line text;
-  fall back to the bare citation when unsure. Never use a Markdown link for this.`
+  `In local conversations, follow §<ID> with its declaration location as plain path:line text —
+  never a Markdown link; fall back to the bare citation when unsure.`
   When the key is absent, the section is unchanged. New template content is a managed-block
   version bump to v5, carried under [§GOAL-no-silent-breakage](../../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) exactly like the v4 bump
   ([§FS-init.2.3.6](../../functional-spec/FS-init.md#236-clickable-citations)).

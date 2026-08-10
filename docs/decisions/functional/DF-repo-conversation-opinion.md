@@ -27,10 +27,12 @@ unchanged, and its canonical block texts become self-scoping — inert outside g
 
 In a local conversation, a linked citation is the declaration location as plain `path:line` text
 beside the citation — `§FS-check — docs/functional-spec/FS-check.md:1` — never a relative-path
-Markdown link. This is the row-2 form of the [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) viability matrix: agent
-TUIs linkify visible `path:line` text into an editor-open action and do nothing with a hidden
-Markdown target (row 1, recorded non-working). Editor-scheme URLs (row 7) stay machine-local and
-unproven, so they cannot be a committed form.
+Markdown link. This is the row-2 form of the [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) viability matrix: Claude
+Code linkifies visible `path:line` text into an editor-open action itself (row 2), Codex leaves
+the text intact for the terminal layer's own path matching (row 11), and a Markdown target is
+recorded non-working in both — the rendered link's relative target resolves nowhere in Claude
+Code (row 1), and Codex renders the local destination *in place of the citation text* (row 3).
+Editor-scheme URLs (row 7) stay machine-local and unproven, so they cannot be a committed form.
 
 ### 2.2 Only `link` is committable
 
