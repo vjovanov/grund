@@ -1,7 +1,9 @@
 -- grund citation integration for WezTerm.
 -- Makes a §<ID> citation in the terminal Ctrl/Cmd-clickable: the click resolves
 -- the citation with `grund` and opens the declaration in your editor via the
--- installed `grund-open` resolver (§FS-integrations).
+-- installed `grund-open` resolver (§FS-integrations). The location an agent
+-- prints beside a citation — plain `path:line` text — is clickable the same
+-- way, opening the editor at that line.
 --
 -- WezTerm applies hyperlink rules only from the config object you return, so add
 -- one line where you build your config:
@@ -49,10 +51,27 @@ local wezterm = require 'wezterm'
 grund_citation_pattern =
   '[^\\w\\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z][A-Z0-9]*-[a-z0-9][a-z0-9-]*(?:\\.[0-9]+)*'
 
--- Append grund's citation rule to config.hyperlink_rules, seeding WezTerm's
+-- The *location* beside a citation (§FS-integrations.3.1): the `link`
+-- conversation form prints `§<ID> path:line`, and WezTerm's default rules
+-- match URLs only, so the location half would be inert text. A final path
+-- segment with a dot-extension and a :line (optionally :col) suffix is a
+-- location; grund-open tells the two shapes apart itself — an ID's section
+-- suffix is dotted, never coloned — so both rules share one handler.
+grund_location_pattern =
+  '(?:[A-Za-z0-9_.~-]+/)*[A-Za-z0-9_.~-]+\\.[A-Za-z0-9]+:[0-9]+(?::[0-9]+)?'
+
+-- Append grund's rules to config.hyperlink_rules, seeding WezTerm's
 -- defaults first when the config carries none of its own.
 function grund_apply_hyperlink_rule(config)
   config.hyperlink_rules = config.hyperlink_rules or wezterm.default_hyperlink_rules()
+  -- Location before citation: rules are applied in order, and the citation
+  -- matcher false-positives on ID-shaped path segments (§FS-integrations.3.1).
+  -- Registered first, the location rule claims the whole `path:line` as one
+  -- correct link before that fragment can form inside it.
+  table.insert(config.hyperlink_rules, {
+    regex = grund_location_pattern,
+    format = 'grund:$0',
+  })
   table.insert(config.hyperlink_rules, {
     regex = grund_citation_pattern,
     format = 'grund:$0',
@@ -89,8 +108,8 @@ end
 -- left alone; the picked text arrives as the pane's selection.
 function grund_quick_select(peek)
   return wezterm.action.QuickSelectArgs {
-    label = peek and 'peek citation' or 'open citation',
-    patterns = { grund_citation_pattern },
+    label = peek and 'peek citation or location' or 'open citation or location',
+    patterns = { grund_location_pattern, grund_citation_pattern },
     action = wezterm.action_callback(function(window, pane)
       local citation = window:get_selection_text_for_pane(pane)
       if citation and citation ~= '' then

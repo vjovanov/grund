@@ -4010,6 +4010,102 @@ default = "must-not"
         assert_eq!(opened, "apps/app/docs/target.md:12");
     }
 
+    // §FS-integrations.3.1: the *location* an agent prints beside a citation —
+    // `path:line[:col]` — opens too. The shapes are mechanically distinct (an
+    // ID's section suffix is dotted, never coloned); the printed path is
+    // config-root-relative while the click may land in a subdirectory, so the
+    // resolver climbs to the nearest ancestor holding the file — consulting no
+    // `grund` and no config, which is what lets a location click work in any
+    // repository. The fixture has neither, so success proves location mode.
+    #[cfg(unix)]
+    #[test]
+    fn resolver_opens_a_location_token_without_consulting_grund() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = test_root("resolver_opens_a_location_token_without_consulting_grund");
+        let cwd = root.join("src/deep");
+        std::fs::create_dir_all(&cwd).expect("create cwd");
+        write(&root.join("docs/file.test.md"), "l1\nl2\nl3\n");
+        let capture = root.join("opened-argument");
+        let opener = root.join("opener");
+        let resolver = root.join("grund-open");
+        write(&opener, "#!/bin/sh\nprintf '%s\\n' \"$1\" > \"$CAPTURE\"\n");
+        write(&resolver, GRUND_OPEN_RESOLVER);
+        for path in [&opener, &resolver] {
+            let mut permissions = std::fs::metadata(path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(path, permissions).unwrap();
+        }
+        // A multi-dot filename stays whole, a column suffix is dropped, and
+        // swept-in punctuation is tolerated exactly as for citations.
+        for (token, expect) in [
+            ("docs/file.test.md:2", "docs/file.test.md:2"),
+            ("docs/file.test.md:2:9", "docs/file.test.md:2"),
+            ("(docs/file.test.md:3", "docs/file.test.md:3"),
+        ] {
+            let output = std::process::Command::new(&resolver)
+                .arg(token)
+                .current_dir(&cwd)
+                .env("GRUND_OPEN_CMD", &opener)
+                .env("CAPTURE", &capture)
+                .env_remove("EDITOR")
+                .output()
+                .expect("run resolver");
+            assert!(
+                output.status.success(),
+                "{token}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let opened = std::fs::read_to_string(&capture).unwrap();
+            assert_eq!(
+                opened.trim_end(),
+                format!("{}/{expect}", root.display()),
+                "token {token}"
+            );
+        }
+        let missing = std::process::Command::new(&resolver)
+            .arg("no/such/file.md:3")
+            .current_dir(&cwd)
+            .env("GRUND_OPEN_CMD", &opener)
+            .env_remove("EDITOR")
+            .output()
+            .expect("run resolver");
+        assert_eq!(missing.status.code(), Some(1));
+        assert!(
+            String::from_utf8_lossy(&missing.stderr).contains("no file 'no/such/file.md'")
+        );
+    }
+
+    // §FS-integrations.3.1: the location rule must be registered before the
+    // citation rule — ordered the other way, the citation matcher's recorded
+    // false positive claims an ID-shaped fragment *inside* a `:line`-suffixed
+    // path, and the location can never become one link. kitty encodes the same
+    // order as alternation inside a single regex.
+    #[test]
+    fn location_matcher_precedes_citation_matcher() {
+        let apply = WEZTERM_SNIPPET
+            .split("function grund_apply_hyperlink_rule")
+            .nth(1)
+            .expect("wezterm apply function");
+        let location = apply.find("grund_location_pattern").expect("location rule");
+        let citation = apply.find("grund_citation_pattern").expect("citation rule");
+        assert!(location < citation, "wezterm must register the location rule first");
+        assert!(
+            WEZTERM_SNIPPET
+                .contains("patterns = { grund_location_pattern, grund_citation_pattern }"),
+            "quick-select must offer both shapes, location first"
+        );
+        // Both kitty gestures: location alternative, then `|`, then the marker
+        // run that opens the citation alternative.
+        assert_eq!(
+            KITTY_SNIPPET
+                .matches(":[0-9]+(?::[0-9]+)?|[^\\w\\s]{1,3}")
+                .count(),
+            2,
+            "both kitty hints must match location-first alternation"
+        );
+    }
+
     // The `body` field carries arbitrary declaration prose. Field extraction is
     // anchored to the end of the object so prose containing `"path":` or `"line":`
     // cannot be read as the real field (§FS-integrations.3.1).

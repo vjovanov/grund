@@ -10,7 +10,9 @@
 # Paste into tmux.conf, or let `grund integrations tmux --write` manage it.
 #
 # prefix + g opens the citation currently copied to the tmux buffer; use copy
-# mode to select a §<ID> first, then prefix + g.
+# mode to select a §<ID> first, then prefix + g. The buffer may also hold the
+# location an agent printed beside a citation — `path:line` — which opens the
+# same way: grund-open tells the two shapes apart itself (§FS-integrations.3.1).
 #
 # #{q:...} shell-quotes the buffer so the selection reaches grund-open as one
 # argument, never evaluated as shell source — the buffer is arbitrary text.
@@ -44,7 +46,7 @@ bind-key G display-popup -E -w 80% -h 60% 'cd #{q:pane_current_path} && grund-op
 # can put it in an overlay, popup, or split pane. Both modes share one resolution
 # path so a peek and a click can never disagree about where a citation points.
 #
-# Usage: grund-open [--peek] <§ID | ID>[.<section>]
+# Usage: grund-open [--peek] <§ID | ID>[.<section>] | <path>:<line>[:<col>]
 set -eu
 
 peek=
@@ -56,6 +58,44 @@ fi
 token=${1:-}
 [ -n "$token" ] || { echo "grund-open: no citation given" >&2; exit 2; }
 
+# A *location* beside a citation — the `link` conversation form prints
+# `§<ID> path:line` (§FS-integrations.3.1) — is openable too. The shapes are
+# mechanically distinct: an ID's section suffix is dotted, never coloned, so a
+# token whose final dot-extension segment ends in `:<line>[:<col>]` is a
+# location. Detected before marker stripping, which would mangle a path; the
+# lighter clean below drops swept-in punctuation while preserving `/ . ~`.
+loc=$(printf '%s' "$token" | sed 's/^[^A-Za-z0-9_.~/]*//')
+loc_path=$(printf '%s' "$loc" | sed -n 's/^\(.*\.[A-Za-z0-9][A-Za-z0-9]*\):\([0-9][0-9]*\)\(:[0-9][0-9]*\)\{0,1\}$/\1/p')
+loc_line=$(printf '%s' "$loc" | sed -n 's/^\(.*\.[A-Za-z0-9][A-Za-z0-9]*\):\([0-9][0-9]*\)\(:[0-9][0-9]*\)\{0,1\}$/\2/p')
+
+id=''
+root=''
+path=''
+lineno=''
+if [ -n "$loc_path" ]; then
+    # The printed path is config-root-relative while the click may arrive with
+    # the shell anywhere in the tree, so climb ancestors, nearest first, until
+    # the relative path exists. No `grund` and no config is consulted: a
+    # location click works in any repository, grund-using or not.
+    case $loc_path in
+        /*) if [ -f "$loc_path" ]; then path=$loc_path; fi ;;
+        *)
+            dir=$PWD
+            while :; do
+                if [ -f "$dir/$loc_path" ]; then
+                    path=$dir/$loc_path
+                    break
+                fi
+                [ "$dir" = "/" ] && break
+                dir=$(dirname "$dir")
+            done
+            ;;
+    esac
+    [ -n "$path" ] || { echo "grund-open: no file '$loc_path' at or above $PWD" >&2; exit 1; }
+    lineno=$loc_line
+fi
+
+if [ -z "$path" ]; then
 # Strip the citation marker without hardcoding one: `[reference] marker` is
 # per-repo, so drop any leading run of non-alphanumeric characters instead of a
 # literal §. This keeps a workspace-qualified `<alias>/<ID>` intact (the alias
@@ -77,7 +117,6 @@ id=$(printf '%s' "$token" | sed 's/^[^A-Za-z0-9]*//')
 # relative to the root it ran in and whose `line` is the cited section's line,
 # not merely the declaration's.
 json=''
-root=''
 seen_config=''
 dir=$PWD
 while :; do
@@ -118,6 +157,8 @@ lineno=${lineno:-1}
 # subdirectory. An E2E case resolves to its directory, where a `:line` suffix
 # would garble the argument, so the target drops it.
 path="$root/$path"
+fi
+
 if [ -d "$path" ]; then
     target=$path
 else
@@ -132,7 +173,13 @@ if [ -n "$peek" ]; then
     # actionable: it is the same `path:line` a click would open.
     {
         printf '%s\n\n' "$target"
-        (cd "$root" && grund "$id") 2>/dev/null || printf 'could not render %s\n' "$id"
+        if [ -n "$id" ]; then
+            (cd "$root" && grund "$id") 2>/dev/null || printf 'could not render %s\n' "$id"
+        else
+            # A location has no declaration to render; page the file from the
+            # cited line — the header above names the exact path:line.
+            tail -n "+$lineno" "$path"
+        fi
     } | {
         if [ -n "${PAGER:-}" ]; then
             # shellcheck disable=SC2086

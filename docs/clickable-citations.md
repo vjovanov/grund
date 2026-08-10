@@ -175,6 +175,12 @@ checking all three shapes:
 | `grund-open '§FS-integrations'` | `FS-integrations.md:1` — the declaration |
 | `grund-open '§FS-integrations.3.1'` | `FS-integrations.md:36` — that section |
 | `grund-open '§FS-integrations.4.3'` | `FS-integrations.md:137` — that section |
+| `grund-open 'docs/functional-spec/FS-integrations.md:36'` | the same file at line 36 — a *location*, the `path:line` an agent prints beside a citation |
+
+The last row is the other clickable shape: a location needs no `grund` and no
+grund repository at all — the resolver climbs to the nearest ancestor holding
+the file and opens it at that line — so the text agents write beside citations
+in the `link` conversation form (§6) is a link in its own right.
 
 Those line numbers move whenever the spec is edited, so treat `grund` as the
 authority rather than this table — it prints the line the click should land on:
@@ -286,7 +292,9 @@ grund integrations --write --conversation link
 
 This preference-only form touches no terminal config; it updates your grund
 config and the global instruction files. In Claude Code the `path:line` is
-clickable on its own; elsewhere it is a correct location you can open by hand.
+clickable on its own, iTerm2 and the VS Code terminal click it natively, and
+the §3 terminal integrations match it as a *location* alongside citations —
+elsewhere it is a correct location you can open by hand.
 
 **You want everyone served, not just you** — teammates who will never run a
 setup command, cloud agent sessions, CI reviewers, and Cursor or Windsurf,
@@ -352,11 +360,13 @@ from a citation with a custom marker. Clicking that fragment reports
 `unknown id`; the real citation on the same line still works. Click the
 `§<ID>`, not the path beside it.
 
-In a repository that commits `[reference] conversation = "link"`, this is
-routine rather than rare: agents write a `path:line` beside every citation,
-and that path carries such a fragment. The citation stays the reliable click
-target — and note that a misclicked *open* reports its `unknown id` only in
-the terminal's own log, while a *peek* shows the error in its surface.
+A path with a `:line` suffix — the location agents write beside citations in
+the `link` form — does not fall into this: the location matcher claims the
+whole `path:line` first and clicking it opens the file at that line. What
+remains is the bare path with no line suffix, where the ID-shaped fragment can
+still match; there, click the `§<ID>`, not the path — a misclicked *open*
+reports its `unknown id` only in the terminal's own log, while a *peek* shows
+the error in its surface.
 
 **If it prints nothing and exits**, no editor was found. See §1.
 

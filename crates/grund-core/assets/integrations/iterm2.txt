@@ -51,4 +51,7 @@ Notes
 You may not need this at all. iTerm2's Semantic History already makes a plain
 `path:line` cmd-clickable, so `grund integrations --write --conversation link`
 makes agents write the location next to each citation and iTerm2 handles the
-rest with no rule (§FS-integrations.4.3).
+rest with no rule (§FS-integrations.4.3). For the same reason the rule above
+stays citation-only: the location beside a citation is Semantic History's job
+here, where the other terminals need grund's location matcher
+(§FS-integrations.3.1).
