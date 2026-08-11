@@ -24,6 +24,10 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Added
+
+- [§AR-ci.8](architecture/AR-ci.md#8-commit-message-attribution-gate): CI gains a `commit-messages` job that rejects AI-tool attribution boilerplate — an assistant co-author trailer, a "generated with" marker, a session-link trailer — in the commit messages a push or pull request contributes. The check already existed as a pre-commit hook bound to two stages, but [§AR-ci.1](architecture/AR-ci.md#1-pre-commit-is-the-source-of-truth)'s parity promise is delivered by `pre-commit run --all-files`, which reproduces only the stages whose input is a file list; the `commit-msg` stage takes a message file and was therefore absent from CI, leaving a trailer that touches no tracked file with no remote gate at all. Eleven such commits had reached `main`. The job scans `base..head` on a pull request and `before..sha` on a push, narrowing to the tip commit when the base is unresolvable after a force-push, and runs without a Rust toolchain so it reports in seconds. `scripts/check_no_claude_attribution.py` replaces the shell script and serves all three surfaces — staged files, one message file, a revision range — from a single pattern set, kept narrow so ordinary prose about Claude stays legal. §AR-ci.1 now records the `--all-files` limitation so the next stage-bound hook does not repeat the gap. PR #58
+
 ## 2. [0.8.0] — 2026-08-11
 
 ### Added
