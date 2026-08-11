@@ -220,39 +220,19 @@ That installs the `grund` binary from the [`grund` crate on crates.io](https://c
 
 ## Make citations clickable
 
-Turn a `§<ID>` in your terminal into something you click, landing at the exact
-line it cites. **[Clickable citations](docs/clickable-citations.md)** is the
-full setup guide — prerequisites, per-client steps, how to check it works, and
-what to do when a click does nothing. The short version:
-
-See which terminal or editor integrations match the current environment, then
-preview one before installing it:
+Turn a `§<ID>` in your terminal into something you click, landing at the exact line it cites:
 
 ```bash
-grund integrations
-grund integrations wezterm
-grund integrations wezterm --write
+grund integrations                  # what applies in this environment
+grund integrations wezterm          # read the snippet and the resolver first
+grund integrations wezterm --write  # install it
 ```
 
-Supported clients are `codium`, `iterm2`, `kitty`, `tmux`, `vscode`, and
-`wezterm`. `--write` is a
-one-time, idempotent user setup: it installs the selected integration, records
-the local-conversation preference in the user Grund config, and updates global
-instruction blocks for whichever of Codex, Claude, Gemini, GitHub Copilot, Zed, and Pi
-you actually have installed. It does not change any
-repository's `.agents/grund.toml`.
+Supported clients are `codium`, `iterm2`, `kitty`, `tmux`, `vscode`, and `wezterm`. `--write` is a one-time, idempotent user setup — the integration, the `grund-open` resolver, and a global instruction block for whichever agents you have installed. It changes no repository.
 
-The default asks agents for plain citations because the installed integration
-makes them clickable. To override that for a TUI without rendering support, run
-`grund integrations --write --conversation link`; this preference-only form
-updates the user config and global instructions without installing an arbitrary
-client. The setting it records is `[reference] conversation` in
-`~/.config/grund/config.toml` — the same key a repository may commit in its
-`.agents/grund.toml` to serve teammates, CI, and cloud sessions that never ran
-this setup, where your machine's value wins. Repository web links remain a
-fixed project instruction: `grund init` teaches agents to use the PR branch in
-PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and
-the default branch otherwise. See [§FS-integrations](docs/functional-spec/FS-integrations.md).
+**`~/.local/bin` must be on your `PATH`** — that is where the resolver is installed, and it is not there by default on macOS, where a missing `PATH` entry makes every click silently do nothing.
+
+**[Clickable citations](docs/user-facing/clickable-citations.md)** is the full setup guide: the per-client reload each one needs, the manual step WezTerm and iTerm2 require, how to check it works, what to do when a click does nothing, and how to control the citations agents write in conversations. See also [§FS-integrations](docs/functional-spec/FS-integrations.md).
 
 ## 🧑‍💻 Editor Support via [LSP](https://microsoft.github.io/language-server-protocol/)
 
@@ -338,7 +318,7 @@ That rule plus a clean `grund check` is the whole contract: every reference reso
 
 `grund` follows its own scheme. Start at [`AGENTS.md`](AGENTS.md), then read down through [`docs/`](docs/):
 
-- [`docs/clickable-citations.md`](docs/clickable-citations.md) — make citations clickable in your terminal
+- [`docs/user-facing/clickable-citations.md`](docs/user-facing/clickable-citations.md) — make citations clickable in your terminal
 - [`docs/grund.md`](docs/grund.md) — why this exists
 - [`docs/goals.md`](docs/goals.md) — what we measure ourselves against
 - [`docs/roadmap.md`](docs/roadmap.md) — what's next

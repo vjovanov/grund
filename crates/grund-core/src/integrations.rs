@@ -148,6 +148,12 @@ fn known_agents_list() -> String {
 /// single source so the descriptor plan and the writer cannot drift.
 const RESOLVER_TARGET: &str = "~/.local/bin/grund-open";
 
+/// The user-facing setup guide, named by detection (§FS-integrations.2). It
+/// carries what `--write` cannot do for the caller: the prerequisites that fail
+/// silently, and the per-client manual step.
+const SETUP_GUIDE_URL: &str =
+    "https://github.com/vjovanov/grund/blob/main/docs/user-facing/clickable-citations.md";
+
 /// The rendering-layer clients grund ships an integration for. The set is closed
 /// and frozen (§FS-integrations.1); the ordering here is the frozen output order
 /// used by detection and every listing.
@@ -744,16 +750,17 @@ fn print_detection(json: bool) -> ExitCode {
         for client in IntegrationClient::ALL {
             println!("  {:<8} {}", client.name(), client.install_command());
         }
-        println!();
-        println!("Run `grund integrations <client>` to preview one before installing.");
     } else {
         println!("Detected integrations for this environment:");
         for client in detected {
             println!("  {:<8} {}", client.name(), client.install_command());
         }
-        println!();
-        println!("Run `grund integrations <client>` to preview one before installing.");
     }
+    println!();
+    println!("Run `grund integrations <client>` to preview one before installing.");
+    // The prerequisites and the per-client manual step live in the guide, and
+    // this is the command a user reaches first (§FS-integrations.2).
+    println!("Setup guide: {SETUP_GUIDE_URL}");
     ExitCode::SUCCESS
 }
 
@@ -1111,6 +1118,14 @@ fn write_terminal_integration(client: IntegrationClient, snippet: &str) -> ExitC
         block_outcome_verb(outcome),
         config_path.display()
     );
+    // Reported rather than silent (§FS-integrations.4.1): the install is
+    // otherwise indistinguishable from one that works.
+    if needs_wezterm_wiring(client, &updated) {
+        eprintln!(
+            "note: {} does not call `{WEZTERM_APPLY_CALL}config)` on the config it returns, so WezTerm reads the block and registers nothing; add that line where you build your config",
+            config_path.display()
+        );
+    }
     match write_resolver_script() {
         Ok(Some(path)) => eprintln!("wrote {}", path.display()),
         Ok(None) => {}
@@ -1120,6 +1135,33 @@ fn write_terminal_integration(client: IntegrationClient, snippet: &str) -> ExitC
         }
     }
     ExitCode::SUCCESS
+}
+
+/// The call a WezTerm config must make on the object it returns for the managed
+/// block to do anything (§FS-integrations.4.1).
+const WEZTERM_APPLY_CALL: &str = "grund_apply_hyperlink_rule(";
+
+/// Whether this write leaves the user one manual step short of a working
+/// integration (§FS-integrations.4.1). WezTerm applies hyperlink rules only from
+/// the config object the user's own Lua returns, and no installer can safely
+/// rewrite the function that builds it — so the block can be perfectly installed
+/// and every click still inert, which reports exactly like a broken install.
+///
+/// The search is the unmanaged remainder alone, never the whole file: the block
+/// defines the helper and names it in its own comments, so a whole-file test
+/// would match on every config and report nothing. A file grund scaffolded from
+/// scratch calls the helper below the block and is therefore already wired.
+fn needs_wezterm_wiring(client: IntegrationClient, text: &str) -> bool {
+    if client != IntegrationClient::Wezterm {
+        return false;
+    }
+    let outside = match find_managed_block(client.comment_prefix(), text) {
+        Ok(Some(span)) => format!("{}{}", &text[..span.start], &text[span.stop..]),
+        // No block, or a block this binary cannot read: the caller has already
+        // failed on the latter, and the former cannot be wired either way.
+        _ => text.to_string(),
+    };
+    !outside.contains(WEZTERM_APPLY_CALL)
 }
 
 fn block_outcome_verb(outcome: BlockOutcome) -> &'static str {
