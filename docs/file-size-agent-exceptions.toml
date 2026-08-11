@@ -1,4 +1,14 @@
 fissile_exceptions_version = 1
+# Soft-severity file-size exceptions. An agent may add an entry here on its own;
+# hard entries are a human's (§AR-ci.9).
+#
+# Two shapes live in this file. Most entries carry their own argument. Twelve are
+# *soft twins*: a file past the hard budget is past the soft one too, and fissile
+# reports both tiers, so the file needs an entry in each registry. The argument
+# for those lives once, in `docs/file-size-human-exceptions.toml`, and the twin
+# here points at it — the same ceiling, retiring with the entry it names. Copying
+# the prose instead would give one file two arguments that can silently disagree,
+# and `tests/test_file_size_exceptions.py` enforces the pointer shape.
 [[exceptions]]
 id = "EX-015-api-rs"
 path = "crates/grund-core/src/api.rs"
@@ -6,9 +16,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 1592, unit = "lines" }
-until = "move the private conversion adapters out, keeping the public contract in api.rs"
+until = "EX-003-api-rs is retired"
 reason = """
-The file mixes two things §AR-core-module-layout.2 keeps distinct: the published embedding contract (ShowOpts, CheckOpts, Report, check, show, scan), which genuinely belongs in one file an embedder can read end to end, and the private adapters that convert core types into it (public_report, public_finding, show_with_scope_and_overlays). The contract is the reason to keep one file; the adapters are why it is oversized. Missing boundary: an adapter module for the conversion layer, leaving api.rs as the surface it is documented to be.
+Soft twin of EX-003-api-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-016-integrations-rs"
@@ -17,9 +27,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 1525, unit = "lines" }
-until = "extract the managed-block protocol as the shared implementation, then split detection from per-client writers"
+until = "EX-004-integrations-rs is retired"
 reason = """
-Three responsibilities with no boundary between them: client detection, the managed-block protocol (find, version, migrate, rewrite a delimited block inside a foreign config file), and per-client artifact writing. The middle one is a general mechanism, not an integrations concern — init.rs implements the same protocol again for AGENTS.md — and it is trapped here as private helpers. Missing boundary: the managed-block protocol as one module both callers use.
+Soft twin of EX-004-integrations-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-017-scanner-rs"
@@ -28,9 +38,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 1493, unit = "lines" }
-until = "move the pure tokenizer and comment-block helpers out, keeping the single pass intact"
+until = "EX-005-scanner-rs is retired"
 reason = """
-The `scan_file_text` loop is a genuine single pass: eight pieces of mutable state (fence, Python docstring, current declaration, heading stack, counters) advance together per line, and that loop must not be broken apart. The rest of the file is not that. The citation tokenizer and comment-block classifiers are pure functions over a line, called from the loop and coupled to it only by call. Missing boundary: those pure helpers in a sibling, leaving the walker and its state machine whole (§AR-scanner).
+Soft twin of EX-005-scanner-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-018-shutdown-rs"
@@ -39,9 +49,9 @@ match = "exact"
 rules = ["tests"]
 kind = "deferred"
 max_accepted = { value = 1301, unit = "lines" }
-until = "extract the stdio harness as shared test support, then split by LSP request"
+until = "EX-006-shutdown-rs is retired"
 reason = """
-Every case drives a real LSP server over stdio through one harness that spawns the process, performs the initialize handshake, and tears it down; that harness is the file's actual cohesion, and the file name is an accident of the first case written against it. Missing boundary: the harness as a shared test-support module, after which cases group by the request under test.
+Soft twin of EX-006-shutdown-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-019-lib-rs"
@@ -50,9 +60,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 1229, unit = "lines" }
-until = "state the snapshot/line-cache contract, then split handlers by request family"
+until = "EX-007-lib-rs is retired"
 reason = """
-The 29 request handlers share &mut self on one Server whose snapshot, open_docs, and line_cache carry an invariant: the per-snapshot line cache is valid only between refreshes (§AR-lsp.5). That invariant is why the handlers read as one unit, but Rust allows several impl Server blocks across include!d files, so it does not require one file — it requires the contract to be written down before they move. Missing boundary: that contract stated explicitly, after which handlers split by request family and transport stays in lib.rs.
+Soft twin of EX-007-lib-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-020-checker-rs"
@@ -61,9 +71,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 1128, unit = "lines" }
-until = "separate workspace resolution from check_with_workspace, then split the rule families"
+until = "EX-008-checker-rs is retired"
 reason = """
-The rule families share only an accumulator (&mut CheckReport), which is a weak coupling rather than an architectural one, so this file has no unifying invariant to protect. The obstacle is check_with_workspace: 368 lines that inline workspace resolution, per-project scanning, and diagnostic assembly in one body, so no rule can be lifted until those are separated. Missing boundary: workspace resolution as its own step, after which each rule family moves independently.
+Soft twin of EX-008-checker-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-021-init-rs"
@@ -72,9 +82,9 @@ match = "exact"
 rules = ["tests"]
 kind = "deferred"
 max_accepted = { value = 1023, unit = "lines" }
-until = "extract the fixture builder, then split by init scenario"
+until = "EX-009-init-rs is retired"
 reason = """
-The cases share a fixture builder that constructs a temp repo and asserts over the emitted tree. Same shape as the LSP suite: the shared harness is real cohesion, its residence in one file is not. Missing boundary: the fixture builder extracted to test support, after which cases split by scenario.
+Soft twin of EX-009-init-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-022-init-templates-rs"
@@ -83,9 +93,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 796, unit = "lines" }
-until = "separate the managed-block renderer from the template payload constants"
+until = "EX-011-init-templates-rs is retired"
 reason = """
-Corrects an earlier reason that described this file as mostly template payload. It is not: 641 of its lines are function bodies and only 10 constants are include_str!. The bulk is rendering logic that composes the AGENTS.md managed block from config — citation directions, inline-style sentences, link construction — sitting among the constants because both are reached from init. Missing boundary: payload and renderer are two jobs, and the renderer belongs beside init.rs.
+Soft twin of EX-011-init-templates-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-023-init-rs"
@@ -94,9 +104,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 776, unit = "lines" }
-until = "extract the managed-block machinery and unify it with the integrations.rs implementation"
+until = "EX-012-init-rs is retired"
 reason = """
-Scaffold writing (create a docs tree, write files that do not yet exist) and the managed agent-entrypoint block (locate, version, migrate, rewrite a document in place) are different operations with different failure modes, sharing this file only because both are reached from init. In-place rewriting of a user's file is the risky half and deserves its own module and its own tests. Missing boundary: that machinery, unified with the duplicate implementation in integrations.rs.
+Soft twin of EX-012-init-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-024-config-rs"
@@ -105,9 +115,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 732, unit = "lines" }
-until = "extract the parser with its state made explicit, leaving discovery and defaults here"
+until = "EX-010-config-rs is retired"
 reason = """
-`parse_config_file` is a 409-line hand-written TOML reader: one line-oriented state machine over section and key context, correct only because every branch observes the same state. Splitting it by key group would thread that state through a wider interface, trading a long function for a worse one. Missing boundary: the parser as its own module with its state made explicit, leaving discovery, defaults, and validation here. The ceiling dropped from 936 after the deprecated config command adapter moved to config_cmd.rs.
+Soft twin of EX-010-config-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-025-local-benchmark-report-py"
@@ -116,9 +126,9 @@ match = "exact"
 rules = ["scripts"]
 kind = "deferred"
 max_accepted = { value = 534, unit = "lines" }
-until = "extract the pure rendering layer so it can be tested"
+until = "EX-013-local-benchmark-report-py is retired"
 reason = """
-Measurement, aggregation, and report rendering in one script. Rendering is the only part with no I/O and the only part worth testing, and it is currently unreachable from a test. Extracting it makes the script testable, which is the real argument here; the line count is only the symptom.
+Soft twin of EX-013-local-benchmark-report-py, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-026-clickable-citations-md"
@@ -127,9 +137,9 @@ match = "exact"
 rules = ["docs"]
 kind = "deferred"
 max_accepted = { value = 493, unit = "lines" }
-until = "write the shared model explicitly, then split per surface into child documents"
+until = "EX-014-clickable-citations-md is retired"
 reason = """
-One document covering every surface (PR bodies, reviews, permalinks, local conversations) because the rules are largely stated by contrast with one another, and a reader deciding what to emit needs that comparison in view. Splitting per surface loses it. Missing boundary: a parent stating the shared model with children per surface — which requires the shared model to be written first, since today it exists only implicitly in the contrasts.
+Soft twin of EX-014-clickable-citations-md, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
 id = "EX-027-release-yml"
@@ -137,10 +147,10 @@ path = ".github/workflows/release.yml"
 match = "exact"
 rules = ["workflows"]
 kind = "deferred"
+until = "a second workflow needs this job sequence, giving workflow_call a real caller"
 max_accepted = { value = 566, unit = "lines" }
-until = "extract a reusable workflow if the release job passes 700 lines"
 reason = """
-One ordered release pipeline whose only real seam is a workflow_call workflow or a composite action. Taking it trades this file's length for indirection across two files and a second place to look when a release fails at 2am. At 566 lines that trade is not worth making (§AR-ci).
+One ordered release pipeline whose only real seam is a workflow_call workflow or a composite action. Extracting it today buys nothing and costs indirection across two files and a second place to look when a release fails at 2am — the move pays for itself once a second caller exists, and not before (§AR-ci).
 """
 [[exceptions]]
 id = "EX-028-cli-help-rs"
@@ -151,7 +161,7 @@ kind = "structural"
 max_accepted = { value = 477, unit = "lines" }
 until = "indefinite"
 reason = """
-The help screens are one user-facing document rendered per command, and their worth is consistency: the same section order, voice, and example style across all 27 arms. That consistency is held by seeing them together. Scattering them beside their commands makes drift between screens the likeliest failure and produces no compile-time signal when it happens. The file is text, not logic: no state, no branching beyond the command match, nothing to test. Its length tracks the command surface, not accumulated logic.
+The help screens are one user-facing document rendered per command, and their worth is consistency: the same section order, voice, and example style across the 12 command arms and the top-level page. That consistency is held by seeing them together. Scattering them beside their commands makes drift between screens the likeliest failure and produces no compile-time signal when it happens. The file is text, not logic: no state, no branching beyond the command match, nothing to test. Its length tracks the command surface, not accumulated logic.
 """
 [[exceptions]]
 id = "EX-029-try-integrations-sh"
@@ -159,10 +169,10 @@ path = "scripts/try-integrations.sh"
 match = "exact"
 rules = ["scripts"]
 kind = "deferred"
+until = "it stops being driven by hand and needs automated coverage"
 max_accepted = { value = 452, unit = "lines" }
-until = "promote to a tested crate if it passes 600, or when it stops being run by hand"
 reason = """
-A manual smoke script a human reads top to bottom while testing terminals by hand; its linearity is the feature and functions would hide the sequence being followed. The genuine risk is that it has no automated coverage at all, not its length.
+A manual smoke script a human reads top to bottom while testing terminals by hand; its linearity is the feature and functions would hide the sequence being followed. The genuine risk is that it has no automated coverage at all, not its length — so the trigger is the day it is run unattended, when the missing tests start to matter and the shape has to change anyway.
 """
 [[exceptions]]
 id = "EX-030-show-render-rs"
@@ -173,7 +183,7 @@ kind = "deferred"
 max_accepted = { value = 434, unit = "lines" }
 until = "move declaration-body extraction out of the renderer"
 reason = """
-`extract_declaration_body` (209 lines) is the substance: one traversal deciding where a declaration's body begins and ends across Markdown and every supported comment dialect. The per-format renderers around it are thin. The architectural point is that body extraction is a scanner-adjacent concern about source structure and does not belong in a renderer at all. Missing boundary: extraction moved next to the scanner, leaving genuine rendering here.
+`extract_declaration_body` (208 lines) is the substance: one traversal deciding where a declaration's body begins and ends across Markdown and every supported comment dialect. The per-format renderers around it are thin. The architectural point is that body extraction is a scanner-adjacent concern about source structure and does not belong in a renderer at all. Missing boundary: extraction moved next to the scanner, leaving genuine rendering here.
 """
 [[exceptions]]
 id = "EX-031-fmt-links-rs"
@@ -181,8 +191,8 @@ path = "crates/grund-core/src/fmt_links.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
+until = "a third emission profile lands and the planner gains real branching"
 max_accepted = { value = 423, unit = "lines" }
-until = "split planning from writing when a third emission profile lands"
 reason = """
 Link planning (which citations need a link, and to which anchor) and link writing (splice text without disturbing surrounding bytes) are two phases communicating through a plan type, so the seam exists and is clean. It is simply not worth taking at 73 lines over: two files whose combined interface is larger than today's. Revisit when a third emission profile lands (§FS-fmt.6) and the planner gains real branching.
 """
@@ -195,7 +205,7 @@ kind = "structural"
 max_accepted = { value = 416, unit = "lines" }
 until = "indefinite"
 reason = """
-`Model` is the shared vocabulary layer of §AR-core-module-layout.1: 24 type definitions against 9 functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if a self-contained sub-domain of types appears that no other category depends on.
+`Model` is the shared vocabulary layer of §AR-core-module-layout.1: 25 type definitions against 9 free functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if such a sub-domain appears.
 """
 [[exceptions]]
 id = "EX-033-skill-md"
@@ -214,10 +224,10 @@ path = "crates/grund-core/src/fmt.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
+until = "a mode stops sharing the traversal"
 max_accepted = { value = 384, unit = "lines" }
-until = "revisit if it passes 500, or when a mode stops sharing the traversal"
 reason = """
-Citation normalization as a single pass over a document, 34 lines over budget. No seam here improves on the current shape: the modes share their traversal, and separating them duplicates it.
+Citation normalization as a single pass over a document, 34 lines over budget. The modes are one traversal with per-mode decisions inside it, so the only split available today duplicates the walk — two files that must stay in step, to save 34 lines. The seam appears the day a mode needs its own traversal, and not from growth alone.
 """
 [[exceptions]]
 id = "EX-035-list-rs"
@@ -225,10 +235,10 @@ path = "crates/grund-core/src/list.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
+until = "the renderers stop changing with the query"
 max_accepted = { value = 368, unit = "lines" }
-until = "revisit if it passes 500"
 reason = """
-The declaration catalog query and its renderers, 18 lines over budget. The query and its output shapes are small and change together; splitting now creates two files that are always edited as one.
+The declaration catalog query and its renderers, 18 lines over budget. They change together — every field the query learns to select is a field the output shapes have to show — so splitting now produces two files that are always opened as a pair. What retires this is that coupling ending, not the file growing.
 """
 [[exceptions]]
 id = "EX-036-checker-cmd-rs"
@@ -236,10 +246,10 @@ path = "crates/grund-core/src/checker_cmd.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
+until = "it gains logic beyond argument translation and report dispatch"
 max_accepted = { value = 361, unit = "lines" }
-until = "revisit if it passes 500"
 reason = """
-The check command adapter, 11 lines over budget. It is already the thin layer between CLI arguments and checker.rs, and the category boundary it would split along is the one it already sits on.
+The check command adapter, 11 lines over budget. It is already the thin layer between CLI arguments and checker.rs, so the category boundary a split would cut along is the one this file already sits on — the result would be two halves of one adapter. It stops being an adapter, and becomes splittable, only if checking logic starts landing here.
 """
 [[exceptions]]
 id = "EX-037-fs-workspace-md"

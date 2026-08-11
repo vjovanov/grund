@@ -20,6 +20,7 @@ include = [
   "docs",
   "e2e",
   "scripts",
+  "tests",
   "skills",
   "templates",
   "editor",
@@ -65,7 +66,7 @@ enabled = false
 [[messages]]
 id = "split-core-soft"
 text = """
-Should split, next time you are in one of these files: move a cohesive group of items into a new sibling file and add one `include!("<new>.rs")` line to the crate's `lib.rs`, next to its category peers. Split along a category boundary from §AR-core-module-layout.1 (model, config, scanner, checker, output, show, refs, cover, list, fmt, id, init, completions, api), never at the line count.
+Should split, next time you are in one of these files: move a cohesive group of items into a new sibling file and add one `include!("<new>.rs")` line to the crate's `lib.rs`, next to its category peers. Split along a category boundary from §AR-core-module-layout.1 — read it rather than guessing, it is the list this repository maintains — never at the line count.
 Because the crate is assembled by `include!`, the move needs no `mod`, no `pub(crate)`, and no `use` edits — if a split is costing you visibility churn, you are cutting across the wrong seam.
 If no split leaves the design better than it is now, record the debt instead of forcing one:
 fissile exception add <path> --severity soft --rule {rule}
@@ -83,7 +84,8 @@ fissile exception add <path> --severity hard --rule {rule}
 [[messages]]
 id = "split-tests-soft"
 text = """
-Should split, next time you are in this test file: group tests by the category under test (§AR-core-module-layout.1) and move a group into a sibling `tests_<category>.rs` with its own `#[cfg(test)] mod`, registered by one `include!()` in `lib.rs`.
+Should split, next time you are in this test file: move a group of cases into a sibling `tests_<area>.rs` with its own `#[cfg(test)] mod`, registered by one `include!()` in `lib.rs`.
+Group by the behavior under test and name the file after it, the way `crates/grund-core/src/` already does — `tests_workspace.rs`, `tests_citation_directions.rs`, `tests_grounding_style.rs`. That is the spec area the cases pin down, which is not always a module: the group belongs together because it fails together, not because one file implements it. Open the module with a doc comment citing the spec it covers, and put fixtures shared across areas in `tests_support.rs` rather than copying them.
 Tests are read the same way source is — a reader looking for the scanner's cases should not page through the checker's.
 fissile exception add <path> --severity soft --rule {rule}
 """
@@ -91,8 +93,15 @@ fissile exception add <path> --severity soft --rule {rule}
 [[messages]]
 id = "split-tests-hard"
 text = """
-Must split before more tests land here: move whole test groups into sibling `tests_<category>.rs` files, one per category from §AR-core-module-layout.1, each with its own `#[cfg(test)] mod` and one `include!()` line. Move tests unchanged — a split that edits assertions is two changes wearing one commit.
+Must split before more tests land here: move whole groups into sibling `tests_<area>.rs` files, one per behavior area, each with its own `#[cfg(test)] mod`, a doc comment citing the spec it covers, and one `include!()` line. Shared fixtures go to `tests_support.rs`. Move tests unchanged — a split that edits assertions is two changes wearing one commit, and the diff no longer proves the suite still tests what it did.
 fissile exception add <path> --severity hard --rule {rule}
+"""
+
+[[messages]]
+id = "split-python-tests"
+text = """
+Should split: the `tests/` suite is one `unittest` module per script under test, and this one has outgrown its subject. Move a group of cases into a new `tests/test_<subject>.py` named after what it covers, not after the fixture it shares — a module that tests two scripts fails for two reasons and tells the reader neither.
+fissile exception add <path> --severity soft --rule {rule}
 """
 
 [[messages]]
@@ -184,6 +193,20 @@ count_comment_lines = false
 priority = 20
 soft_message = "split-tests-soft"
 hard_message = "split-tests-hard"
+
+# The Python suite that gates the repo's own scripts. Same budget as the Rust
+# test rule and for the same reason — cases repeat setup by design — but its own
+# message, because "add an `include!()` line" is advice for a Rust crate.
+[[rules]]
+id = "python-tests"
+include = ["tests/**/*.py"]
+unit = "lines"
+soft = 450
+hard = 700
+count_blank_lines = false
+count_comment_lines = false
+priority = 20
+message = "split-python-tests"
 
 [[rules]]
 id = "docs"
