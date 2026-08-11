@@ -1,0 +1,1 @@
+error: --conversation-target must be one of file | path | web | vscode | vscodium | cursor

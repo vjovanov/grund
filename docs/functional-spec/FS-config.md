@@ -54,7 +54,28 @@ warn_on_suggested            = false                   # if true, soft-cap overr
 
 Per [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger). `strict = true` requires a non-empty `marker`; `strict = false` is the compatibility mode for repositories that still rely on bare citations.
 
-`conversation` is the repository's committed conversation-rendering opinion ([§DF-repo-conversation-opinion](../decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion)). It is absent by default (no opinion). The only accepted value is `link` — a closed enum, widenable later without a `grund_config_version` bump (§5); any other value is a load-time error (§4.3). When set, the generated agent entrypoint teaches linked local-conversation citations ([§FS-init.2.3.4.17](FS-init.md#23417-clickable-citations)): the declaration location as plain `path:line` text beside the citation, never a Markdown link. `plain` is deliberately not a value: it presumes an installed rendering layer, which is machine state, and stays user-scoped in `grund integrations` ([§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions)). The key does not affect scanning, checking, or formatting — it only selects entrypoint guidance.
+`conversation` selects how agents render citations in **local conversations** — the answers, reviews, and transcripts an agent writes, not the citations on disk ([§DF-repo-conversation-opinion](../decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion)). It is absent by default (no opinion), and it does not affect scanning, checking, or formatting — it only selects entrypoint guidance.
+
+The key has **one name and two scopes**, and the scope decides both who is instructed and which values are legal:
+
+| Where | File | Accepted | Instructs |
+| --- | --- | --- | --- |
+| Repository *opinion* | `.agents/grund.toml` | `link` only | every agent that clones the repo, through the generated entrypoint ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)) |
+| User *preference* | `$XDG_CONFIG_HOME/grund/config.toml` | `plain` \| `link` | every agent on this machine, through its global instruction file ([§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions)) |
+
+A second key, **`conversation_target`**, selects how a linked citation addresses its declaration. It is
+**user-scope only** — there is no repository spelling, and setting it in `.agents/grund.toml` is the
+same unknown-key error as any other (§4.3). Its accepted values are `file` (default), `path`, `web`,
+`vscode`, `vscodium`, and `cursor`; the templates each one fills, and the per-agent gate that decides
+where the linked form is instructed at all, are specified in [§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions) and decided in
+[§DF-conversation-link-target](../decisions/functional/DF-conversation-link-target.md#df-conversation-link-target-the-conversation-link-form-is-a-markdown-link-over-an-absolute-uri-addressed-per-machine). The key is inert unless the effective `conversation` is
+`link`; it is still parsed and reported either way, like the `inline_note_*` keys below.
+
+The same spelling in both files is deliberate: one setting the user already knows by name, read at two scopes, rather than a second vocabulary for the same idea. Only the *values* narrow, and only in the direction a repository can actually justify.
+
+**Set the repository key to `link`** when the citations your agents write should carry their declaration location for readers whose machines grund never touched — teammates on a fresh clone, cloud agent sessions, CI reviewers, and Cursor or Windsurf users, who have no user-level file grund can write. It costs installed users nothing: their recorded `plain` still wins (§3.1, [§DF-repo-conversation-opinion.2.3](../decisions/functional/DF-repo-conversation-opinion.md#23-precedence)). **Leave it absent** when local-conversation rendering is each contributor's own business — then the user preference governs alone, and a machine that never stated one gets today's bare citations.
+
+**`plain` is deliberately not a repository value.** It presumes an installed rendering layer, which is machine state a repository cannot know; committing it would break exactly the clones the key exists to serve ([§DF-repo-conversation-opinion.2.2](../decisions/functional/DF-repo-conversation-opinion.md#22-only-link-is-committable)). The repository value set is therefore a closed enum with the single member `link`, widenable later without a `grund_config_version` bump (§5); any other value — including `plain` — is a load-time error (§4.3) raised by every command that renders or checks the entrypoint, `grund init` included. `link` makes the declaration's location travel with the citation; the committed form is a Markdown link over the machine-independent `file` target, which the reader's own `conversation_target` may override ([§FS-init.2.3.4.17](FS-init.md#23417-clickable-citations), [§DF-conversation-link-target.2.3](../decisions/functional/DF-conversation-link-target.md#23-the-target-is-user-scoped-but-the-default-is-committable)).
 
 `require_grounding = true` adds the ungrounded-source-file error ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)): every scanned non-Markdown file must carry at least one resolving citation, or declare an ID inline. `grund check --require-grounding` forces it on for one run. Per [§DF-require-grounding](../decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec); off by default so adopting the discipline is a deliberate step, like `strict`.
 

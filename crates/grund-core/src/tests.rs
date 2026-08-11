@@ -128,11 +128,12 @@ mod tests {
             &Config::default_for(PathBuf::from(".")),
             Path::new("."),
             true,
+            ConversationSurface::Plain,
         )
     }
 
     fn current_marker() -> &'static str {
-        "## Grounding with grund (v5)"
+        "## Grounding with grund (v6)"
     }
 
     #[test]
@@ -2519,7 +2520,7 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         assert!(
             report.errors.iter().any(|error| error.code == "agents-init"
                 && error.path.as_deref() == Some(expected_path.as_path())
-                && error.message.contains("missing grund init block v5")),
+                && error.message.contains("missing grund init block v6")),
             "Zed workspace .rules should be required to carry the managed block: {:?}",
             report.errors
                 .iter()
@@ -3194,7 +3195,7 @@ default = "must-not"
         let config = load_config(&root).expect("load config");
 
         // A fresh block carries the matching section → no drift finding.
-        let fresh = render_agents_append_block("demo", &config, &root, true);
+        let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
         write(&root.join("AGENTS.md"), &format!("# demo\n\n{fresh}"));
         let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
         let report = check_findings(&findings, &config);
@@ -3226,7 +3227,7 @@ default = "must-not"
         let config = load_config(&root).expect("load config");
 
         // Block rendered without the opinion → no drift while the key is absent.
-        let fresh = render_agents_append_block("demo", &config, &root, true);
+        let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
         write(&root.join("AGENTS.md"), &format!("# demo\n\n{fresh}"));
         let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
         let report = check_findings(&findings, &config);
@@ -3252,7 +3253,7 @@ default = "must-not"
         );
 
         // `grund init`'s re-render clears the drift.
-        let refreshed = render_agents_append_block("demo", &config, &root, true);
+        let refreshed = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
         assert!(refreshed.contains("plain `path:line` text"));
         write(&root.join("AGENTS.md"), &format!("# demo\n\n{refreshed}"));
         let report = check_findings(&findings, &config);
@@ -3263,15 +3264,20 @@ default = "must-not"
         );
     }
 
-    // §FS-integrations.4.3: a v1 guidance block upgrades in place to the current
-    // self-scoping v2 text, preserving everything around it.
+    // §FS-integrations.4.3: an older guidance block upgrades in place to the
+    // current text, preserving everything around it.
     #[test]
     fn agent_guidance_block_upgrades_older_version_in_place() {
         let existing = "# Mine\n\n<!-- >>> grund integrations citation rendering (v1) >>> -->\n## Grund citation rendering\n\nIn local conversations, write plain `§<ID>` citations; `grund integrations` makes them clickable.\n<!-- <<< grund integrations citation rendering (v1) <<< -->\nkeep-after\n";
         let (updated, outcome) =
-            install_agent_guidance_block(existing, ConversationRendering::Plain).unwrap();
+            install_agent_guidance_block(
+                existing,
+                ConversationRendering::Plain,
+                ConversationTarget::Path,
+            )
+            .unwrap();
         assert_eq!(outcome, BlockOutcome::Updated);
-        assert!(updated.starts_with("# Mine\n\n<!-- >>> grund integrations citation rendering (v2) >>> -->\n"));
+        assert!(updated.starts_with("# Mine\n\n<!-- >>> grund integrations citation rendering (v3) >>> -->\n"));
         assert!(updated.contains("In repositories with a `.agents/grund.toml`:"));
         // §DF-repo-conversation-opinion.2.3: the machine-local `plain` wins over
         // a repository's linked-citations opinion.
@@ -3290,7 +3296,7 @@ default = "must-not"
             "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
-        let fresh = render_agents_append_block("demo", &config, &root, true);
+        let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
         let stale = fresh.replace("**E2E** must cite FS", "**E2E** should cite GOAL");
         let expected = citation_directions_section(&config);
         write(
@@ -3319,7 +3325,7 @@ default = "must-not"
             "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
-        let fresh = render_agents_append_block("demo", &config, &root, true);
+        let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
         let expected = citation_directions_section(&config);
         let stale = fresh.replace(
             &expected,
@@ -3349,7 +3355,7 @@ default = "must-not"
             "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
-        let fresh = render_agents_append_block("demo", &config, &root, true);
+        let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
         let crlf = format!("# demo\n\n{fresh}").replace('\n', "\r\n");
         write(&root.join("AGENTS.md"), &crlf);
 
@@ -3706,44 +3712,316 @@ default = "must-not"
         assert_eq!(invocation.conversation, Some(ConversationRendering::Link));
     }
 
+    // §FS-integrations.1: `--conversation-target` alone is also a complete
+    // clientless write target, and an unknown value is a CLI error listing the
+    // accepted set — a value the caller typed, not a stale line in a file.
+    #[test]
+    fn integrations_accepts_target_only_write() {
+        let args = ["--write", "--conversation-target", "vscodium"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        let invocation = parse_integrations_args(&args).expect("parse target-only write");
+        assert!(invocation.client.is_none());
+        assert!(invocation.write);
+        assert_eq!(invocation.conversation, None);
+        assert_eq!(
+            invocation.conversation_target,
+            Some(ConversationTarget::Vscodium)
+        );
+
+        let joined = ["--write", "--conversation-target=web"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            parse_integrations_args(&joined)
+                .expect("parse joined form")
+                .conversation_target,
+            Some(ConversationTarget::Web)
+        );
+
+        for rejected in [
+            vec!["--write", "--conversation-target", "emacs"],
+            vec!["--conversation-target", "file"],
+        ] {
+            let args = rejected
+                .into_iter()
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            assert!(
+                parse_integrations_args(&args).is_err(),
+                "must be rejected: {args:?}"
+            );
+        }
+    }
+
+    // §DF-conversation-link-target.2.4: an agent is instructed only in the form
+    // its renderer is verified to honor. The gate can hold a target where it
+    // was, never make one worse — every downgrade lands on `path`, the form
+    // that surface already had.
+    #[test]
+    fn link_support_gates_unverified_targets_to_path() {
+        for target in ConversationTarget::ALL {
+            assert_eq!(
+                LinkSupport::Every.resolve(target),
+                target,
+                "a verified renderer takes every target"
+            );
+            assert_eq!(
+                LinkSupport::Unverified.resolve(target),
+                ConversationTarget::Path
+            );
+        }
+        // Codex hyperlinks web URLs and renders a *local* destination in place
+        // of the label, erasing the citation — so web survives and the local
+        // schemes do not.
+        assert_eq!(
+            LinkSupport::WebOnly.resolve(ConversationTarget::Web),
+            ConversationTarget::Web
+        );
+        for local in [
+            ConversationTarget::File,
+            ConversationTarget::Vscode,
+            ConversationTarget::Vscodium,
+            ConversationTarget::Cursor,
+        ] {
+            assert_eq!(
+                LinkSupport::WebOnly.resolve(local),
+                ConversationTarget::Path
+            );
+        }
+    }
+
+    // §FS-integrations.4.3: the `link` block addresses the declaration through
+    // the effective target, and `path` keeps the plain-location sentence.
+    #[test]
+    fn link_instruction_names_the_effective_target() {
+        let path_form = ConversationRendering::Link.instruction(ConversationTarget::Path);
+        assert!(path_form.contains(
+            "follow each citation with its declaration location as plain `path:line` text"
+        ));
+        assert!(!path_form.contains("Markdown link"));
+
+        for (target, phrase) in [
+            (ConversationTarget::File, "`file://<absolute path>#L<line>`"),
+            (
+                ConversationTarget::Vscodium,
+                "`vscodium://file<absolute path>:<line>`",
+            ),
+            (
+                ConversationTarget::Web,
+                "the repository's forge URL for the declaration at the current commit",
+            ),
+        ] {
+            let rendered = ConversationRendering::Link.instruction(target);
+            assert!(
+                rendered.contains(
+                    "render each citation as a Markdown link whose visible text is the citation itself"
+                ),
+                "{target:?} must teach the link form: {rendered}"
+            );
+            assert!(rendered.contains(phrase), "{target:?}: {rendered}");
+            // Self-scoping, like every other block text (§FS-integrations.4.3).
+            assert!(rendered.starts_with("In repositories with a `.agents/grund.toml`:"));
+            assert!(rendered.ends_with("Elsewhere, ignore this."));
+        }
+
+        // `plain` ignores the target entirely: there is no location to address.
+        assert_eq!(
+            ConversationRendering::Plain.instruction(ConversationTarget::Vscodium),
+            ConversationRendering::Plain.instruction(ConversationTarget::Path)
+        );
+    }
+
+    // §FS-integrations.4.3: the two keys are independent — an unreadable target
+    // never costs the `plain`/`link` preference recorded beside it, and both are
+    // recorded even when the target is inert under `plain`.
+    #[test]
+    fn conversation_target_is_recorded_independently() {
+        let (written, outcome) = install_reference_key(
+            "[reference]\nconversation = \"link\"\n",
+            CONVERSATION_TARGET_KEY_PATH,
+            "conversation_target",
+            ConversationTarget::Vscodium.name(),
+            false,
+        );
+        assert_eq!(outcome, BlockOutcome::Updated);
+        assert_eq!(
+            conversation_target_preference(&written),
+            Some(ConversationTarget::Vscodium)
+        );
+        assert_eq!(
+            conversation_preference(&written),
+            Some(ConversationRendering::Link)
+        );
+
+        // An unreadable target is a warning that leaves no target from this
+        // file; the preference beside it still reads.
+        let broken = "[reference]\nconversation = \"link\"\nconversation_target = \"emacs\"\n";
+        let scan = scan_user_config(broken);
+        assert_eq!(scan.preference, Some(ConversationRendering::Link));
+        assert_eq!(scan.target, None);
+        assert_eq!(scan.problems.len(), 1);
+        assert!(
+            scan.problems[0].1.contains("must be one of file | path | web"),
+            "{:?}",
+            scan.problems
+        );
+
+        // Neither key is reported as unused, and every other one still is.
+        let stray = "[reference]\nconversation = \"plain\"\nconversation_target = \"file\"\nmarker = \"§\"\n";
+        let scan = scan_user_config(stray);
+        assert_eq!(scan.problems.len(), 1);
+        assert!(scan.problems[0].1.contains("unused key `reference.marker`"));
+        assert!(
+            scan.problems[0]
+                .1
+                .contains("`reference.conversation` and `reference.conversation_target`")
+        );
+    }
+
     // §FS-integrations.4.3: the user preference is installed without rewriting
     // unrelated configuration and an explicit override replaces only its line.
     #[test]
     fn conversation_preference_appends_and_updates() {
         let existing = "keep = true\n";
         let (plain, outcome) =
-            install_conversation_preference(existing, ConversationRendering::Plain).unwrap();
+            install_conversation_preference(existing, ConversationRendering::Plain);
         assert_eq!(outcome, BlockOutcome::Appended);
         assert_eq!(
             plain,
-            "keep = true\n\n[render.links]\nconversation = \"plain\"\n"
+            "keep = true\n\n[reference]\nconversation = \"plain\"\n"
         );
         assert_eq!(
-            conversation_preference(&plain).unwrap(),
+            conversation_preference(&plain),
             Some(ConversationRendering::Plain)
         );
 
         let (linked, outcome) =
-            install_conversation_preference(&plain, ConversationRendering::Link).unwrap();
+            install_conversation_preference(&plain, ConversationRendering::Link);
         assert_eq!(outcome, BlockOutcome::Updated);
-        assert!(linked.starts_with("keep = true\n\n[render.links]\n"));
+        assert!(linked.starts_with("keep = true\n\n[reference]\n"));
         assert!(linked.ends_with("conversation = \"link\"\n"));
         let (again, outcome) =
-            install_conversation_preference(&linked, ConversationRendering::Link).unwrap();
+            install_conversation_preference(&linked, ConversationRendering::Link);
         assert_eq!(outcome, BlockOutcome::Unchanged);
         assert_eq!(again, linked);
     }
 
+    // §FS-integrations.4.3: every TOML spelling of the key is the same setting.
+    // A spelling grund failed to *see* would be silently reversed to the default
+    // and written back beside the original, so these are read, not ignored.
     #[test]
-    fn conversation_preference_rejects_duplicates_and_invalid_values() {
-        assert!(conversation_preference(
-            "[render.links]\nconversation = \"plain\"\nconversation = \"link\"\n"
-        )
-        .is_err());
-        assert!(conversation_preference(
-            "[render.links]\nconversation = \"neither\"\n"
-        )
-        .is_err());
+    fn conversation_preference_reads_equivalent_toml_spellings() {
+        for text in [
+            "[reference]\nconversation = \"link\"\n",
+            "[ reference ]\nconversation = \"link\"\n",
+            "reference.conversation = \"link\"\n",
+            "[reference]\nconversation = 'link'\n",
+            "[reference]\nconversation = \"link\" # chosen\n",
+            "[output]\nformat = \"json\"\n\n[reference]\nconversation  =  \"link\"\n",
+        ] {
+            assert_eq!(
+                conversation_preference(text),
+                Some(ConversationRendering::Link),
+                "spelling not recognized: {text:?}"
+            );
+            // Already recorded: the bytes are left exactly as the user wrote
+            // them, comment and all, and the run reports `exists`.
+            let (same, outcome) =
+                install_conversation_preference(text, ConversationRendering::Link);
+            assert_eq!(outcome, BlockOutcome::Unchanged);
+            assert_eq!(same, text);
+        }
+    }
+
+    // A rewrite keeps the key exactly as written: a dotted root key re-spelled
+    // as a bare `conversation` would land in whatever table precedes it.
+    #[test]
+    fn conversation_preference_rewrite_preserves_key_spelling() {
+        let (updated, outcome) = install_conversation_preference(
+            "reference.conversation = \"link\"\n",
+            ConversationRendering::Plain,
+        );
+        assert_eq!(outcome, BlockOutcome::Updated);
+        assert_eq!(updated, "reference.conversation = \"plain\"\n");
+        assert_eq!(
+            conversation_preference(&updated),
+            Some(ConversationRendering::Plain)
+        );
+    }
+
+    // §FS-integrations.4.3: nothing in this file fails. A value grund cannot
+    // interpret leaves it with no preference — the state of a machine that never
+    // wrote one — and a duplicate resolves to the first, which is the occurrence
+    // a write rewrites, so a read and a write cannot disagree.
+    #[test]
+    fn user_config_reports_bad_values_and_duplicates_without_failing() {
+        let scan = scan_user_config("[reference]\nconversation = \"neither\"\n");
+        assert_eq!(scan.preference, None);
+        assert_eq!(scan.problems.len(), 1);
+        assert!(scan.problems[0].1.contains("must be one of plain | link"));
+
+        let scan = scan_user_config("[reference]\nconversation = bare\n");
+        assert_eq!(scan.preference, None);
+        assert!(scan.problems[0].1.contains("must be a quoted"));
+
+        let scan = scan_user_config("[reference]\nconversation = \"link\"\nconversation = \"plain\"\n");
+        assert_eq!(scan.preference, Some(ConversationRendering::Link));
+        assert_eq!(scan.problems, vec![(3, "ignoring duplicate `reference.conversation`; the first one is used".to_string())]);
+        // The write targets the same occurrence the read used, so an unchanged
+        // preference stays a no-op instead of rewriting the other line.
+        let (same, outcome) = install_conversation_preference(
+            "[reference]\nconversation = \"link\"\nconversation = \"plain\"\n",
+            ConversationRendering::Link,
+        );
+        assert_eq!(outcome, BlockOutcome::Unchanged);
+        assert_eq!(same, "[reference]\nconversation = \"link\"\nconversation = \"plain\"\n");
+    }
+
+    // §FS-integrations.4.3: nothing else in this file has any effect, so every
+    // unconsumed key is reported with its line — a typo, a retired spelling, and
+    // a repository-only key set here all read as "configured" otherwise.
+    #[test]
+    fn user_config_reports_every_unused_key() {
+        let scan = scan_user_config(
+            "[reference]\n\
+             conversation = \"link\"\n\
+             converstaion = \"plain\"\n\
+             marker = \"@\"\n\
+             \n\
+             [render.links]\n\
+             conversation = \"plain\"\n",
+        );
+        // The recognized key still resolves; the rest are named, not guessed at.
+        assert_eq!(scan.preference, Some(ConversationRendering::Link));
+        assert_eq!(
+            scan.problems
+                .iter()
+                .map(|(line, message)| (*line, message.split(';').next().unwrap().to_string()))
+                .collect::<Vec<_>>(),
+            vec![
+                (3, "unused key `reference.converstaion`".to_string()),
+                (4, "unused key `reference.marker`".to_string()),
+                (7, "unused key `render.links.conversation`".to_string()),
+            ]
+        );
+    }
+
+    // A file grund fully consumes warns about nothing.
+    #[test]
+    fn user_config_reports_nothing_when_every_key_is_read() {
+        for text in [
+            "[reference]\nconversation = \"plain\"\n",
+            "reference.conversation = \"link\"\n",
+            "# only a comment\n\n[reference]\n",
+        ] {
+            assert!(
+                scan_user_config(text).problems.is_empty(),
+                "spurious warning in {text:?}"
+            );
+        }
     }
 
     // §FS-integrations.4.3: global agent guidance is versioned, idempotent, and
@@ -3751,7 +4029,7 @@ default = "must-not"
     #[test]
     fn agent_guidance_block_tracks_user_preference() {
         let (plain, outcome) =
-            install_agent_guidance_block("# My instructions\n", ConversationRendering::Plain)
+            install_agent_guidance_block("# My instructions\n", ConversationRendering::Plain, ConversationTarget::Path)
                 .unwrap();
         assert_eq!(outcome, BlockOutcome::Appended);
         assert!(plain.starts_with("# My instructions\n\n<!-- >>>"));
@@ -3759,7 +4037,12 @@ default = "must-not"
 
         let with_tail = format!("{plain}keep-after\n");
         let (linked, outcome) =
-            install_agent_guidance_block(&with_tail, ConversationRendering::Link).unwrap();
+            install_agent_guidance_block(
+                &with_tail,
+                ConversationRendering::Link,
+                ConversationTarget::Path,
+            )
+            .unwrap();
         assert_eq!(outcome, BlockOutcome::Updated);
         assert!(linked.starts_with("# My instructions\n"));
         assert!(linked.ends_with("keep-after\n"));
@@ -3769,14 +4052,19 @@ default = "must-not"
         // hardcode a marker — `[reference] marker` is per-repo, and a `§` here
         // would be wrong in every repository configured with another one.
         for text in [
-            ConversationRendering::Plain.instruction(),
-            ConversationRendering::Link.instruction(),
+            ConversationRendering::Plain.instruction(ConversationTarget::Path),
+            ConversationRendering::Link.instruction(ConversationTarget::Path),
         ] {
             assert!(!text.contains('\u{a7}'), "global block must name no marker: {text}");
         }
 
         let (again, outcome) =
-            install_agent_guidance_block(&linked, ConversationRendering::Link).unwrap();
+            install_agent_guidance_block(
+                &linked,
+                ConversationRendering::Link,
+                ConversationTarget::Path,
+            )
+            .unwrap();
         assert_eq!(outcome, BlockOutcome::Unchanged);
         assert_eq!(again, linked);
     }
@@ -3784,7 +4072,14 @@ default = "must-not"
     #[test]
     fn agent_guidance_block_rejects_newer_version() {
         let newer = "<!-- >>> grund integrations citation rendering (v99) >>> -->\nx\n<!-- <<< grund integrations citation rendering (v99) <<< -->\n";
-        assert!(install_agent_guidance_block(newer, ConversationRendering::Plain).is_err());
+        assert!(
+            install_agent_guidance_block(
+                newer,
+                ConversationRendering::Plain,
+                ConversationTarget::Path
+            )
+            .is_err()
+        );
     }
 
     // §FS-integrations.4.2: a matching marker alone does not hide a missing or
@@ -4167,15 +4462,16 @@ default = "must-not"
         let root = test_root("clickable_citations_section_is_fixed_without_opinion");
         write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
         let config = load_config(&root).expect("load config");
-        let rendered = clickable_citations_section(&config);
+        let rendered = clickable_citations_section(&config, ConversationSurface::Plain);
         assert_eq!(
             rendered,
             "### Clickable citations\n\nOn repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure."
         );
     }
 
-    // §FS-init.2.3.4.17, §DF-repo-conversation-opinion: the committed `link`
-    // opinion adds the config-derived local-conversation sentence.
+    // §FS-init.2.3.4.17, §DF-conversation-link-target: the committed `link`
+    // opinion adds the config-derived local-conversation sentence, in the form
+    // the entrypoint's own agent is verified to render.
     #[test]
     fn clickable_citations_section_renders_conversation_opinion() {
         let root = test_root("clickable_citations_section_renders_conversation_opinion");
@@ -4184,13 +4480,27 @@ default = "must-not"
             "grund_config_version = 1\n[reference]\nconversation = \"link\"\n",
         );
         let config = load_config(&root).expect("load config");
-        let rendered = clickable_citations_section(&config);
-        assert!(rendered.starts_with("### Clickable citations\n\nOn repository web surfaces,"));
-        assert!(rendered.contains(
-            "In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure. If a user-level grund block asks for plain citations, write bare citations instead: that machine renders them clickable itself."
+        let deference = "If a user-level grund block states a local-conversation rendering, follow that instead: that machine knows what its surface can open.";
+
+        // The gated fallback (§DF-conversation-link-target.2.4): the location
+        // travels as plain text where no click-test says more.
+        let plain = clickable_citations_section(&config, ConversationSurface::Plain);
+        assert!(plain.starts_with("### Clickable citations\n\nOn repository web surfaces,"));
+        assert!(plain.contains(
+            "In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text; fall back to the bare citation when unsure."
         ));
+        assert!(plain.contains(deference));
         // No trailing newline, so the template's placeholder keeps init idempotent.
-        assert!(!rendered.ends_with('\n'));
+        assert!(!plain.ends_with('\n'));
+
+        // The Claude entrypoints: a Markdown link over the machine-independent
+        // `file` target, the citation itself as the visible text.
+        let linked = clickable_citations_section(&config, ConversationSurface::Linked);
+        assert!(linked.contains(
+            "In local conversations, render `§<ID>` as a Markdown link whose visible text is the citation itself and whose target is `file://<absolute path>#L<line>` for its declaration; fall back to the bare citation when unsure."
+        ));
+        assert!(linked.contains(deference));
+        assert!(!linked.ends_with('\n'));
     }
 
     // §FS-init.2.3.6: the wording is fixed, the marker is the repository's. A
@@ -4205,10 +4515,17 @@ default = "must-not"
             "grund_config_version = 1\n[reference]\nmarker = \"@\"\nconversation = \"link\"\n",
         );
         let config = load_config(&root).expect("load config");
-        let rendered = clickable_citations_section(&config);
+        let rendered = clickable_citations_section(&config, ConversationSurface::Plain);
         // Both sentences: the always-present web rule and the config-derived one.
         assert!(rendered.contains("On repository web surfaces, link `@<ID>` to the PR branch"));
         assert!(rendered.contains("In local conversations, follow `@<ID>` with its declaration"));
+        // The linked form renders the marker too — it is the citation's own.
+        let linked = clickable_citations_section(&config, ConversationSurface::Linked);
+        assert!(linked.contains("In local conversations, render `@<ID>` as a Markdown link"));
+        assert!(
+            !linked.contains('\u{a7}'),
+            "no hardcoded § may survive in a custom-marker repo: {linked}"
+        );
         assert!(
             !rendered.contains('\u{a7}'),
             "no hardcoded § may survive in a custom-marker repo: {rendered}"
@@ -4233,11 +4550,12 @@ default = "must-not"
             .contains("unknown [reference] conversation `plain` (expected link)"));
     }
 
-    // §FS-integrations.4.3: the TUI preference is user-scoped and therefore not
-    // accepted by the repository configuration parser.
+    // §FS-config.3.1: `[render.links]` is the retired spelling of the user-level
+    // preference; the two scopes now share the `[reference] conversation` name.
+    // It must stay an unknown section rather than come back as a silent alias.
     #[test]
-    fn repository_config_rejects_render_links() {
-        let root = test_root("repository_config_rejects_render_links");
+    fn repository_config_rejects_the_retired_render_links_section() {
+        let root = test_root("repository_config_rejects_the_retired_render_links_section");
         write(
             &root.join(".agents/grund.toml"),
             "grund_config_version = 1\n[render.links]\nconversation = \"plain\"\n",

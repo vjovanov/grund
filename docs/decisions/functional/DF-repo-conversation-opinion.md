@@ -12,8 +12,8 @@ deterministic, carrying only the fixed repository-web rule ([§FS-init.2.3.4.17]
 Two frictions surfaced in practice, examined in [§DISC-conversation-rendering-layers](../../discussions/proposals/2026-07-21-conversation-rendering-layers.md#disc-conversation-rendering-layers-layered-ownership-of-local-conversation-citation-rendering): the global
 block leaks into repositories that do not use grund, and a contributor to a grund-using
 repository who never ran `grund integrations --write` gets no conversation rendering guidance at
-all — even though a `path:line` location beside a citation would open in their editor with zero
-setup.
+all — even though the declaration's location, travelling with the citation, would open in their
+editor with zero setup.
 
 ## 2. Decision
 
@@ -23,22 +23,28 @@ makes the generated agent entrypoint ([§FS-init.2.3](../../functional-spec/FS-i
 absence of the key keeps today's behavior. The user-scoped mechanism of [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions) is
 unchanged, and its canonical block texts become self-scoping — inert outside grund repositories.
 
-### 2.1 The link form is plain `path:line` text
+### 2.1 The link form is a Markdown link over an absolute URI
 
-In a local conversation, a linked citation is the declaration location as plain `path:line` text
-beside the citation — `§FS-check — docs/functional-spec/FS-check.md:1` — never a relative-path
-Markdown link. This is the row-2 form of the [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) viability matrix: Claude
-Code linkifies visible `path:line` text into an editor-open action itself (row 2), Codex leaves
-the text intact for the terminal layer's own path matching (row 11), and a Markdown target is
-recorded non-working in both — the rendered link's relative target resolves nowhere in Claude
-Code (row 1), and Codex renders the local destination *in place of the citation text* (row 3).
-Editor-scheme URLs (row 7) stay machine-local and unproven, so they cannot be a committed form.
+In a local conversation, a linked citation is a Markdown link whose label is the bare citation and
+whose target is the declaration's absolute URI — `[§FS-check](file:///<repo>/docs/functional-spec/FS-check.md#L1)`.
+The addressing scheme is a per-machine choice and the form is instructed only to agents verified to
+render it; both live in §DF-conversation-link-target.
+
+This section originally specified plain `path:line` text and forbade a Markdown link outright. That
+rested on row 2 of the §DF-neural-link-generation matrix — Claude Code linkifying visible `path:line`
+text into an editor-open action — which was click-tested on 2026-08-11 and failed, taking the original
+form's whole justification with it. What was true and stayed true is the shape of the hazard: never a
+*relative* Markdown target (row 1), and never a local target on a surface that renders the destination
+in place of the citation (row 3, Codex). The gate in §DF-conversation-link-target.2.4 is where that
+constraint now lives, and plain `path:line` (row 11) is what it falls back to.
 
 ### 2.2 Only `link` is committable
 
-`link` degrades gracefully: plain `path:line` text opens the declaration wherever the surface
-linkifies paths and is still a correct, readable location everywhere else — a clone with no grund
-tooling installed has no broken state. `plain` does not degrade: a bare `§<ID>` is clickable only
+`link` degrades gracefully: its committed form is the machine-independent `file` target
+(§DF-conversation-link-target.2.3), which opens the declaration wherever the scheme dispatches, falls
+back to plain `path:line` on the surfaces that cannot render it (§DF-conversation-link-target.2.4),
+and is a correct, readable location in either form — a clone with no grund tooling installed has no
+broken state. `plain` does not degrade: a bare `§<ID>` is clickable only
 where a resolver from [§FS-integrations.3](../../functional-spec/FS-integrations.md#3-per-client-artifacts) is installed, so `plain` encodes a machine assumption
 and stays user-scoped. The key's value set is a closed enum with the single member `link`,
 widenable later under [§FS-config.5](../../functional-spec/FS-config.md#5-schema-versioning).
@@ -65,6 +71,14 @@ deterministic and config-derived only ([§FS-non-goals.13](../../functional-spec
   keys" stance of [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions). The repository block remains deterministic: the sentence
   is config-derived, like the citation-directions section ([§FS-init.2.3.5](../../functional-spec/FS-init.md#235-citation-directions)), so two installs still
   agree byte-for-byte.
+- **One name, two scopes.** The user-level preference is spelled `[reference] conversation` too,
+  in `$XDG_CONFIG_HOME/grund/config.toml` ([§FS-config.3.1](../../functional-spec/FS-config.md#31-reference--citation-form)). Having two names for one setting was the
+  worse outcome of adding this layer, not a neutral one: the file is hand-editable, so the
+  repository spelling is the spelling a user will reach for, and a scan that failed to see it
+  would silently record the *opposite* preference and write it back beside what the user wrote.
+  Only the accepted values differ by scope — `plain | link` for a machine, `link` for a
+  repository — which is exactly the asymmetry §2.2 argues for, expressed in values rather than
+  in vocabulary.
 - The managed agent-entrypoint block bumps to v5 ([§FS-init.2.3.6](../../functional-spec/FS-init.md#236-clickable-citations)): setting the key renders one
   additional sentence in the `### Clickable citations` section.
 - The global instruction block texts of [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions) are rewritten to gate themselves on
@@ -94,6 +108,10 @@ deterministic and config-derived only ([§FS-non-goals.13](../../functional-spec
 - **Allowing `plain` as a committable value.** Rejected: `plain` presumes an installed resolver,
   which is machine state a repository cannot know (§2.2); committing it would break exactly the
   clones the repository layer exists to serve.
-- **A Markdown-link form for conversations.** Rejected on evidence: recorded non-working in
-  terminal TUIs by the [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) matrix and confirmed in practice in Claude
-  Code. Markdown links remain the correct form on repository web surfaces ([§FS-init.2.3.4.17](../../functional-spec/FS-init.md#23417-clickable-citations)).
+- **A Markdown-link form for conversations.** Rejected here on the §DF-neural-link-generation matrix
+  as recorded non-working in terminal TUIs — then **reversed** by §DF-conversation-link-target after
+  click-testing showed the matrix had generalized from a *relative*-target failure (row 1) to Markdown
+  links as such, while the row that carried the replacement form (row 2) had never been tested at all.
+  An absolute-URI target works in Claude Code (rows 12–14). The rejection was correct for the evidence
+  as recorded and wrong about the evidence as gathered, which is why the reversal moved the constraint
+  onto the surfaces that genuinely break (row 3) rather than onto the form.

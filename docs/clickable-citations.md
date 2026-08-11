@@ -272,9 +272,9 @@ session transcripts. Two independent things can make those navigable:
 
 1. **A rendering layer on your machine** (§2–§3) turns a bare `§<ID>` into a
    click.
-2. **The agent writing the location beside each citation** — plain `path:line`
-   text — which many surfaces linkify with nothing installed: Claude Code does
-   it natively, and iTerm2 and the VS Code terminal recognize the path.
+2. **The agent carrying the declaration's location with each citation** — as a
+   Markdown link over an absolute URI, so the visible text stays the citation
+   and the click opens the file. Which scheme it uses is yours to pick (§6.2).
 
 Pick your situation:
 
@@ -291,10 +291,12 @@ grund integrations --write --conversation link
 ```
 
 This preference-only form touches no terminal config; it updates your grund
-config and the global instruction files. In Claude Code the `path:line` is
-clickable on its own, iTerm2 and the VS Code terminal click it natively, and
-the §3 terminal integrations match it as a *location* alongside citations —
-elsewhere it is a correct location you can open by hand.
+config and the global instruction files. By default agents then write
+`[§FS-check](file:///abs/path/docs/functional-spec/FS-check.md#L1)` — the
+citation as the visible text, the file behind it. Pick a different scheme with
+`--conversation-target` (§6.2); `--conversation-target path` gets you the older
+plain `path:line` form, which iTerm2 and the VS Code terminal click natively
+and the §3 terminal integrations match as a *location*.
 
 **You want everyone served, not just you** — teammates who will never run a
 setup command, cloud agent sessions, CI reviewers, and Cursor or Windsurf,
@@ -311,6 +313,62 @@ and re-run `grund init`. The generated agent entrypoint then teaches the
 linked form to every agent that clones the repository — it is the only channel
 that reaches readers whose machines grund never touched.
 
+### 6.1 The key, and where to put it
+
+The setting has one name, `[reference] conversation`, and lives in two files.
+Which file you put it in is the whole decision — it decides *who* is
+instructed, and that in turn decides which values are legal:
+
+| File | Scope | Values | Instructs |
+|---|---|---|---|
+| `~/.config/grund/config.toml` (or `$XDG_CONFIG_HOME/grund/config.toml`) | this machine, every repository | `plain` \| `link` | every agent you run here |
+| `<repo>/.agents/grund.toml`, committed | this repository, every machine | `link` only | every agent that clones it |
+
+```toml
+# ~/.config/grund/config.toml — your machine
+[reference]
+conversation = "plain"   # or "link"
+```
+
+**Use the machine file** to describe *your* setup: `plain` when you installed
+an integration from §3 and bare citations are already clickable for you,
+`link` when they are not. `grund integrations --write` writes it for you, but
+editing it by hand is equivalent — run `grund integrations --write
+--conversation <value>` afterwards to push the change into the global
+instruction files.
+
+`reference.conversation` and `reference.conversation_target` (§6.2) are the
+**only** keys grund reads from this file, and nothing in it is ever fatal. Anything grund did not act on is reported at its
+line and then ignored:
+
+```
+$ grund integrations --write --conversation link
+warning: /home/you/.config/grund/config.toml:2: unused key `reference.marker`; grund reads only `reference.conversation` and `reference.conversation_target` from this file
+warning: /home/you/.config/grund/config.toml:5: ignoring `reference.conversation = "bare"`: must be one of plain | link
+```
+
+That covers a typo, a key that only belongs in a repository's
+`.agents/grund.toml`, a spelling from an older grund, and a value grund cannot
+read — the last simply leaves it with no preference from this file, exactly
+like a machine that never wrote one. A repeated key resolves to the first.
+This is the opposite of a repository config, where an unknown key or a bad
+value is refused outright
+([§FS-config.4.3](functional-spec/FS-config.md#43-invalid-config-behavior)):
+that file decides whether a tree checks clean, while this one only picks
+between two renderings of the same true citation, so a stale line here should
+never stop you installing a terminal integration.
+
+**Use the repository key** to describe what *readers of this project* need
+when their machine has said nothing — teammates on a fresh clone, cloud agent
+sessions, CI reviewers, Cursor and Windsurf users. Leave it absent if
+conversation rendering is each contributor's own business.
+
+`plain` is not accepted in the repository file, and this is the point of the
+split rather than an arbitrary restriction: `plain` claims a resolver is
+installed, which is true of a machine and never of a repository. Committing it
+would silently break the fresh clones the key exists to serve, so
+`grund init` and `grund check` both reject it with exit `2`.
+
 **How the layers combine.** Your machine's recorded preference wins over the
 repository opinion; the repository opinion covers every machine that never
 stated one; the default is `plain`
@@ -321,16 +379,65 @@ bare clickable citations — while everyone else gets locations. Concretely:
 | Reader | Where the guidance comes from | What they get |
 |---|---|---|
 | You, integration installed | your global instruction files (`plain`) | bare `§<ID>`, clickable in the terminal |
-| You, no rendering layer | your global instruction files (`link`) | `§<ID>` + `path:line`, clickable in Claude Code, iTerm2, VS Code |
-| A teammate, fresh clone | the committed entrypoint | `§<ID>` + `path:line`, zero setup |
-| Cloud / CI agent session | the committed entrypoint | `§<ID>` + `path:line` in the transcript |
+| You, no rendering layer | your global instruction files (`link`) | `[§<ID>](<uri>)` in Claude, in the scheme you picked (§6.2) |
+| A teammate, fresh clone | the committed entrypoint | the same link over `file:`, zero setup |
+| Cloud / CI agent session | the committed entrypoint | a citation carrying its location in the transcript |
 | Cursor / Windsurf | the committed entrypoint (their only grund channel) | `§<ID>` + `path:line` in the panel |
 
 The global instruction files are written for Codex, Claude, Gemini, GitHub
 Copilot, Zed, and Pi
 ([§FS-integrations.4.3](functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions));
 the blocks scope themselves to grund repositories, so they are inert
-everywhere else.
+everywhere else. Only agents you actually use are touched — a target whose
+directory (`~/.claude`, `~/.codex`, …) does not exist is reported `skipped`
+and nothing is created for it:
+
+```
+$ grund integrations --write --conversation link
+appended /home/you/.config/grund/config.toml
+appended /home/you/.codex/AGENTS.md
+appended /home/you/.claude/CLAUDE.md
+skipped /home/you/.gemini/GEMINI.md (no ~/.gemini)
+skipped /home/you/.copilot/copilot-instructions.md (no ~/.copilot)
+skipped /home/you/.config/zed/AGENTS.md (no ~/.config/zed)
+skipped /home/you/.pi/agent/AGENTS.md (no ~/.pi)
+```
+
+Install one of those agents later and re-run the same command; it is
+idempotent, so the only thing that changes is the target that just appeared.
+
+### 6.2 Which scheme the link uses
+
+`[reference] conversation_target` picks how a linked citation addresses its
+declaration. It is a machine key only — there is no repository spelling,
+because the scheme depends on what *your* desktop can open:
+
+```bash
+grund integrations --write --conversation-target vscodium
+```
+
+| Value | What agents write | Use it when |
+|---|---|---|
+| `file` (default) | `file://<abs>#L<line>` | you want no assumptions — every desktop opens `file:` somehow |
+| `vscode`, `vscodium`, `cursor` | `<scheme>://file<abs>:<line>` | you want the declaration to open in your editor, at the line |
+| `web` | the forge URL at the current commit | the transcript will be read by people without the repository |
+| `path` | the location as plain `path:line` text | you prefer no link at all |
+
+The flag records the value and re-renders the instruction blocks; editing the
+key by hand and re-running `grund integrations --write` is equivalent. It is
+accepted (and inert) while your preference is still `plain`, so the target you
+picked is waiting if you later switch to `link`.
+
+**Not every agent gets your choice, deliberately.** grund writes the linked
+form only into the instruction files of agents whose renderers are verified to
+honor it — Claude today, plus `web` for Codex, whose TUI replaces a local
+Markdown destination with the URL and erases the citation itself. Every other
+agent's block keeps plain `path:line`, the form it already had
+([§DF-conversation-link-target.2.4](decisions/functional/DF-conversation-link-target.md#24-the-form-is-gated-per-agent-and-the-fallback-is-path)).
+The same gate applies to the repository entrypoints: `CLAUDE.md` teaches the
+link form, `AGENTS.md` does not — so if your `CLAUDE.md` is a symlink to
+`AGENTS.md`, it is one file and it keeps the plain form. Run
+`grund init --claude` to write real Claude entrypoints instead.
 
 ## 7. When a click does nothing
 

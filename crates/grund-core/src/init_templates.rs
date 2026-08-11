@@ -20,7 +20,10 @@ pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-
 // unmodified. v3 (§FS-init.2.3.5, §DF-citation-directions) replaced the
 // hand-written climbing-rule bullet with a generated `### Citation directions`
 // section derived from `[citations]`.
-const AGENTS_BLOCK_VERSION: u32 = 5;
+// v6 (§FS-init.2.3.6, §DF-conversation-link-target): the local-conversation
+// sentence became the gated link form — a Markdown link over the `file` target
+// on the Claude entrypoints, the plain location everywhere else.
+const AGENTS_BLOCK_VERSION: u32 = 6;
 const CANONICAL_AGENT_ENTRYPOINT: &str = "AGENTS.md";
 const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
     CompanionAgentEntrypoint {
@@ -172,6 +175,14 @@ enum InitCompanionAgentEntrypoint {
     MissingAlias(PathBuf),
 }
 
+impl InitCompanionAgentEntrypoint {
+    pub(crate) fn path(&self) -> &Path {
+        match self {
+            Self::Existing(path) | Self::MissingAlias(path) => path.as_path(),
+        }
+    }
+}
+
 pub fn canonical_template_text(template: &str) -> String {
     template.replace("\r\n", "\n").replace('\r', "\n")
 }
@@ -193,6 +204,7 @@ fn agents_template_substitutions(
     config: &Config,
     target: &Path,
     canonical_agent_entrypoint_selected: bool,
+    surface: ConversationSurface,
 ) -> Vec<(&'static str, String)> {
     let sep = config.section_separator.as_str();
     let marker = config.marker.as_str();
@@ -237,7 +249,10 @@ fn agents_template_substitutions(
         ("{TRIGGER}", config.trigger.clone()),
         ("{DECLARATION_MAP}", declaration_map(config)),
         ("{CITATION_DIRECTIONS}", citation_directions_section(config)),
-        ("{CLICKABLE_CITATIONS}", clickable_citations_section(config)),
+        (
+            "{CLICKABLE_CITATIONS}",
+            clickable_citations_section(config, surface),
+        ),
         (
             "{WORKSPACE_MEMBERS}",
             render_workspace_members_section(
@@ -373,7 +388,7 @@ fn citation_directions_section(config: &Config) -> String {
 /// §DF-repo-conversation-opinion). Without the opinion, local conversation
 /// rendering belongs to user-level instructions installed by
 /// `grund integrations --write` (§FS-integrations.4.3).
-pub(crate) fn clickable_citations_section(config: &Config) -> String {
+pub(crate) fn clickable_citations_section(config: &Config, surface: ConversationSurface) -> String {
     // The wording is fixed; the marker is the repository's own (§FS-init.2.3.6).
     // Interpolated here rather than left as a `{MARKER}` placeholder because this
     // section is spliced into the template *after* that placeholder is expanded,
@@ -383,21 +398,56 @@ pub(crate) fn clickable_citations_section(config: &Config) -> String {
         "### Clickable citations\n\nOn repository web surfaces, link `{marker}<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure."
     );
     if config.conversation.as_deref() == Some("link") {
-        // §DF-repo-conversation-opinion.2.1: plain `path:line` text, never a
-        // Markdown link — the only form agent TUIs turn into an editor-open action.
-        // "— never a Markdown link" is bound to the local-conversation clause
-        // with an em-dash, as the global block spells it: a detached "Never use
-        // a Markdown link for this." reads as revoking the repository-web
-        // sentence, which *requires* one.
+        // §DF-conversation-link-target: the committed form is always the `file`
+        // target, composed at write time from the repository root the agent
+        // already holds — it embeds nothing about any machine, so two installs
+        // render byte-identical files (§FS-non-goals.13). Which of the two forms
+        // is rendered is the per-agent gate (§DF-conversation-link-target.2.4):
+        // instructing the link form to a renderer that shows the destination in
+        // place of the label would erase the citation itself.
+        //
         // The deference clause is the §DF-repo-conversation-opinion.2.3
         // precedence: this committed opinion is the no-knowledge fallback, and a
-        // machine whose user-level block recorded `plain` has an installed
-        // rendering layer — its knowledge wins.
-        section.push_str(&format!(
-            " In local conversations, follow `{marker}<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure. If a user-level grund block asks for plain citations, write bare citations instead: that machine renders them clickable itself."
-        ));
+        // machine whose user-level block states a rendering knows something
+        // about its own surface that the repository cannot — its choice wins.
+        let local = match surface {
+            ConversationSurface::Linked => format!(
+                " In local conversations, render `{marker}<ID>` as a Markdown link whose visible text is the citation itself and whose target is `file://<absolute path>#L<line>` for its declaration; fall back to the bare citation when unsure."
+            ),
+            ConversationSurface::Plain => format!(
+                " In local conversations, follow `{marker}<ID>` with its declaration location as plain `path:line` text; fall back to the bare citation when unsure."
+            ),
+        };
+        section.push_str(&local);
+        section.push_str(
+            " If a user-level grund block states a local-conversation rendering, follow that instead: that machine knows what its surface can open.",
+        );
     }
     section
+}
+
+/// Which local-conversation form one entrypoint file teaches
+/// (§FS-init.2.3.4.17). A pure function of the target path, so the generated
+/// block stays reproducible (§FS-non-goals.13).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ConversationSurface {
+    /// The Claude entrypoints, whose renderer is verified to honor an
+    /// absolute-URI Markdown link (§DF-neural-link-generation, rows 12–14).
+    Linked,
+    /// Every other entrypoint: the location travels as plain `path:line` text
+    /// until a click-test says more.
+    Plain,
+}
+
+impl ConversationSurface {
+    /// `CLAUDE.md` at the repository root or under `.claude/` — the two paths
+    /// the Claude entrypoint family occupies (§FS-init.2.3).
+    pub(crate) fn for_entrypoint(path: &Path) -> Self {
+        match path.file_name().and_then(|name| name.to_str()) {
+            Some("CLAUDE.md") => Self::Linked,
+            _ => Self::Plain,
+        }
+    }
 }
 
 /// The verb-phrase clauses for one citing kind's rules, joined by "; " in the
@@ -515,6 +565,7 @@ fn render_agents_append_block(
     config: &Config,
     target: &Path,
     canonical_agent_entrypoint_selected: bool,
+    surface: ConversationSurface,
 ) -> String {
     let mut rendered = canonical_template_text(AGENTS_TEMPLATE);
     for (placeholder, value) in agents_template_substitutions(
@@ -522,6 +573,7 @@ fn render_agents_append_block(
         config,
         target,
         canonical_agent_entrypoint_selected,
+        surface,
     ) {
         rendered = rendered.replace(placeholder, &value);
     }
@@ -540,7 +592,13 @@ fn render_agents_md(
     target: &Path,
     canonical_agent_entrypoint_selected: bool,
 ) -> String {
-    let block = render_agents_append_block(name, config, target, canonical_agent_entrypoint_selected);
+    let block = render_agents_append_block(
+        name,
+        config,
+        target,
+        canonical_agent_entrypoint_selected,
+        ConversationSurface::Plain,
+    );
     render_agents_md_from_block(name, &block)
 }
 
@@ -724,15 +782,26 @@ fn is_symlink_to(path: &Path, target: &Path) -> Result<bool> {
 /// callers must not treat it as reflecting persisted state. We do **not** walk
 /// up to an ancestor's config here — `init` always writes a config *in*
 /// `target` when one is absent.
-fn init_pending_effective_config(target: &Path, name: &str, description: Option<&str>) -> Config {
+///
+/// A config that fails to load is an error, not a fallback to defaults
+/// (§FS-init.2.3): the block is rendered *from* this config, so silently
+/// substituting defaults writes agent instructions that describe a repository
+/// the user does not have — an invalid `[reference] conversation`, marker, or
+/// kind set would drop the guidance it selects while `init` still reported
+/// success. `grund check` rejects the same file with exit `2`.
+fn init_pending_effective_config(
+    target: &Path,
+    name: &str,
+    description: Option<&str>,
+) -> Result<Config> {
     let local_config = target.join(".agents").join("grund.toml");
     if local_config.is_file() {
-        load_config(target).unwrap_or_else(|_| Config::default_for(target.to_path_buf()))
+        load_config(target)
     } else {
         let mut config = Config::default_for(target.to_path_buf());
         config.project_name = Some(name.to_string());
         config.project_description = description.map(str::to_string);
-        config
+        Ok(config)
     }
 }
 

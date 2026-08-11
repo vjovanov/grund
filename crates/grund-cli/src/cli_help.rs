@@ -433,21 +433,28 @@ fn print_subcommand_help(cmd: &str) {
                 "grund integrations — print or install the clickable-citation terminal/editor integrations."
             );
             println!();
-            println!("Usage:  grund integrations [<client>] [--write] [--conversation plain|link] [--format text|json]");
+            println!(
+                "Usage:  grund integrations [<client>] [--write] [--conversation plain|link]"
+            );
+            println!(
+                "                          [--conversation-target file|path|web|vscode|vscodium|cursor] [--format text|json]"
+            );
             println!();
             println!("With no client, detects the terminal/editor from the environment and prints");
             println!("what applies. With a client — codium, iterm2, kitty, tmux, vscode, or");
             println!("wezterm — prints that integration's snippet and the grund-open resolver;");
             println!("--write installs it as a managed, idempotent block instead of printing. A");
             println!("write also records the local conversation preference and updates global agent");
-            println!("instructions. With no client, --write --conversation changes only that");
-            println!("preference. --format json emits a plan.");
+            println!("instructions. With no client, --write with either conversation flag changes");
+            println!("only that preference. --conversation-target picks how a linked citation");
+            println!("addresses its declaration. --format json emits a plan.");
             println!();
             println!("Preview and install examples:");
             println!("  grund integrations                    # detect and list what applies");
             println!("  grund integrations wezterm            # print the snippet + resolver");
             println!("  grund integrations wezterm --write    # install it, idempotently");
             println!("  grund integrations --write --conversation link  # preference only");
+            println!("  grund integrations --write --conversation-target vscodium  # open in the editor");
             println!();
             println!("Exit:  0 printed or installed · 2 invalid options, missing write target, or a newer block.");
         }

@@ -219,8 +219,8 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
 
     // §FS-init.2.3: render agent instructions against the config `init` leaves in
     // place, so the ID-shape / kind / marker prose matches `.agents/grund.toml`.
-    let init_config =
-        init_pending_effective_config(&target, &resolved_name, description.as_deref());
+    let init_config = init_pending_effective_config(&target, &resolved_name, description.as_deref())
+        .map_err(|err| InitError::new(err.to_string()))?;
 
     // Render the managed block once and reuse it for both surfaces — the
     // workspace-members walk-up (§FS-init.2.3.4.15) is non-trivial I/O for a
@@ -228,12 +228,28 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     // entrypoint plan determines whether a missing self `AGENTS.md` should be
     // treated as about-to-exist; companion-only init must not link to a missing
     // canonical entrypoint.
-    let agents_block = render_agents_append_block(
-        &resolved_name,
-        &init_config,
-        &target,
-        agent_entrypoints.canonical,
-    );
+    // Two surfaces at most: the local-conversation sentence differs between the
+    // Claude entrypoints and everything else (§FS-init.2.3.4.17), and nothing
+    // else in the block does. The linked variant is rendered only when a Claude
+    // entrypoint is actually selected, so the common run still walks the
+    // workspace once.
+    let render_block = |surface| {
+        render_agents_append_block(
+            &resolved_name,
+            &init_config,
+            &target,
+            agent_entrypoints.canonical,
+            surface,
+        )
+    };
+    let agents_block = render_block(ConversationSurface::Plain);
+    let claude_block = agent_entrypoints
+        .companions
+        .iter()
+        .any(|entrypoint| {
+            ConversationSurface::for_entrypoint(entrypoint.path()) == ConversationSurface::Linked
+        })
+        .then(|| render_block(ConversationSurface::Linked));
     let agents_contents = render_agents_md_from_block(&resolved_name, &agents_block);
     let mut workflow_entrypoint = None;
     // Track whether any path changed (or, under --dry-run, *would* change).
@@ -260,9 +276,12 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     }
 
     for entrypoint in agent_entrypoints.companions {
-        let path_ref = match &entrypoint {
-            InitCompanionAgentEntrypoint::Existing(path)
-            | InitCompanionAgentEntrypoint::MissingAlias(path) => path.as_path(),
+        let path_ref = entrypoint.path();
+        // The Claude entrypoints teach the linked form; every other companion
+        // gets the plain-location block (§FS-init.2.3.4.17).
+        let entrypoint_block = match ConversationSurface::for_entrypoint(path_ref) {
+            ConversationSurface::Linked => claude_block.as_deref().unwrap_or(&agents_block),
+            ConversationSurface::Plain => &agents_block,
         };
         let rel = path_ref.strip_prefix(&target).unwrap_or(path_ref).to_path_buf();
         let rel = format_path(&rel);
@@ -271,7 +290,7 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         }
         match entrypoint {
             InitCompanionAgentEntrypoint::Existing(path) => {
-                match update_agents_block(&path, &agents_block, &rel, dry_run) {
+                match update_agents_block(&path, entrypoint_block, &rel, dry_run) {
                     Ok(AgentsUpdateResult::Appended) => {
                         events.push(InitEvent { verb: verb_appended(dry_run), path: rel });
                         any_change = true;
@@ -303,7 +322,7 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
                     ));
                 }
                 if !dry_run
-                    && let Err(err) = fs::write(&path, &agents_block)
+                    && let Err(err) = fs::write(&path, entrypoint_block)
                 {
                     return Err(InitError::with_events(
                         events,
