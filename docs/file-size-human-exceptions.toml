@@ -56,7 +56,7 @@ kind = "deferred"
 max_accepted = { value = 1229, unit = "lines" }
 until = "state the snapshot/line-cache contract, then split handlers by request family"
 reason = """
-The 29 request handlers share &mut self on one Server whose snapshot, open_docs, and line_cache carry an invariant: the per-snapshot line cache is valid only between refreshes (§AR-lsp.5). That invariant is why the handlers read as one unit, but Rust allows several impl Server blocks across include!d files, so it does not require one file — it requires the contract to be written down before they move. Missing boundary: that contract stated explicitly, after which handlers split by request family and transport stays in lib.rs.
+The handlers behind the 12 dispatch arms (6 requests, 6 notifications) share &mut self on one impl Server whose snapshot, open_docs, and line_cache carry an invariant: the per-snapshot line cache is valid only between refreshes (§AR-lsp.5). That invariant is why they read as one unit, but Rust allows several impl Server blocks across include!d files, so it does not require one file — it requires the contract to be written down before they move. Missing boundary: that contract stated explicitly, after which handlers split by request family and transport stays in lib.rs.
 """
 [[exceptions]]
 id = "EX-008-checker-rs"
@@ -67,7 +67,7 @@ kind = "deferred"
 max_accepted = { value = 1128, unit = "lines" }
 until = "separate workspace resolution from check_with_workspace, then split the rule families"
 reason = """
-The rule families share only an accumulator (&mut CheckReport), which is a weak coupling rather than an architectural one, so this file has no unifying invariant to protect. The obstacle is check_with_workspace: 368 lines that inline workspace resolution, per-project scanning, and diagnostic assembly in one body, so no rule can be lifted until those are separated. Missing boundary: workspace resolution as its own step, after which each rule family moves independently.
+The rule families share only an accumulator (&mut CheckReport), which is a weak coupling rather than an architectural one, so this file has no unifying invariant to protect. The obstacle is check_with_workspace: 363 lines that inline workspace resolution, per-project scanning, and diagnostic assembly in one body, so no rule can be lifted until those are separated. Missing boundary: workspace resolution as its own step, after which each rule family moves independently.
 """
 [[exceptions]]
 id = "EX-009-init-rs"
