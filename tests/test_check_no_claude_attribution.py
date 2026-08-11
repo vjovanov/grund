@@ -99,6 +99,25 @@ class ScanCommitsTests(unittest.TestCase):
             finally:
                 os.chdir(cwd)
 
+    def test_reports_how_many_messages_it_read(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.make_repo(tmp)
+            import io
+            import os
+            from contextlib import redirect_stdout
+
+            cwd = os.getcwd()
+            os.chdir(root)
+            try:
+                self.commit(root, "first")
+                self.commit(root, "second")
+                out = io.StringIO()
+                with redirect_stdout(out):
+                    check_no_claude_attribution.scan_commits(["HEAD"])
+                self.assertIn("scanned 2 commit message(s)", out.getvalue())
+            finally:
+                os.chdir(cwd)
+
     def test_unreachable_base_narrows_to_the_tip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = self.make_repo(tmp)
