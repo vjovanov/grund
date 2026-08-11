@@ -15,6 +15,19 @@ mod tests {
         dir
     }
 
+    /// A test root as the *operating system* reports it, for fixtures whose
+    /// expectations are compared against paths a subprocess printed. On macOS
+    /// `$TMPDIR` lives under `/var/folders/…`, which is a symlink to
+    /// `/private/var/folders/…`; a shell resolving its own working directory
+    /// reports the physical form, so a logical root used as an expected prefix
+    /// matches only as a substring and leaves a `/private` stub on the front of
+    /// the result. Canonicalizing is a no-op wherever the two agree.
+    #[cfg(unix)]
+    fn physical_test_root(name: &str) -> PathBuf {
+        let root = test_root(name);
+        std::fs::canonicalize(&root).expect("canonicalize test root")
+    }
+
     fn write(path: &Path, text: &str) {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).expect("create parent");
@@ -4629,7 +4642,7 @@ default = "must-not"
     fn run_resolver(name: &str, cwd_suffix: &str, token: &str, json: &str) -> (String, String) {
         use std::os::unix::fs::PermissionsExt;
 
-        let root = test_root(name);
+        let root = physical_test_root(name);
         let bin = root.join("bin");
         std::fs::create_dir_all(&bin).expect("create mock bin");
         write(&root.join(".agents/grund.toml"), "[project]\n");
@@ -4747,7 +4760,7 @@ default = "must-not"
     fn resolver_opens_a_location_token_without_consulting_grund() {
         use std::os::unix::fs::PermissionsExt;
 
-        let root = test_root("resolver_opens_a_location_token_without_consulting_grund");
+        let root = physical_test_root("resolver_opens_a_location_token_without_consulting_grund");
         let cwd = root.join("src/deep");
         std::fs::create_dir_all(&cwd).expect("create cwd");
         write(&root.join("docs/file.test.md"), "l1\nl2\nl3\n");
