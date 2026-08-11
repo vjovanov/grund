@@ -15,6 +15,7 @@ use unicode_normalization::UnicodeNormalization;
 include!("grammar.rs");
 include!("model.rs");
 include!("config.rs");
+include!("config_cmd.rs");
 include!("scanner.rs");
 include!("checker.rs");
 include!("checker_cmd.rs");
@@ -34,4 +35,19 @@ include!("init_templates.rs");
 include!("init.rs");
 include!("api.rs");
 include!("compat_cli.rs");
-include!("tests.rs");
+// Tests, one module per category (§AR-core-module-layout.1). `tests_support`
+// holds the fixtures they share and must come first.
+include!("tests_support.rs");
+include!("tests_config_scan.rs");
+include!("tests_grounding_style.rs");
+include!("tests_scanner.rs");
+include!("tests_citation_directions.rs");
+include!("tests_managed_block_drift.rs");
+include!("tests_workspace.rs");
+include!("tests_workspace_members.rs");
+include!("tests_init_agents.rs");
+include!("tests_integrations.rs");
+include!("tests_integrations_config.rs");
+include!("tests_resolver.rs");
+include!("tests_clickable_citations.rs");
+include!("tests_api.rs");

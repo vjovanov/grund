@@ -1,0 +1,231 @@
+fissile_exceptions_version = 1
+[[exceptions]]
+id = "EX-015-api-rs"
+path = "crates/grund-core/src/api.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 1592, unit = "lines" }
+until = "split by command group, keeping the public entrypoints in api.rs"
+reason = """
+Public embedding API for every command in one file. Mirrors hard exception EX-003; capped here too so the warning does not fire on every unrelated commit while the split is pending.
+"""
+[[exceptions]]
+id = "EX-016-integrations-rs"
+path = "crates/grund-core/src/integrations.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 1525, unit = "lines" }
+until = "split into integrations_detect.rs, integrations_block.rs, and per-client artifact writers"
+reason = """
+Client detection, arg parsing, managed-block install machinery, and per-client artifact writers share one file. Mirrors EX-004.
+"""
+[[exceptions]]
+id = "EX-017-scanner-rs"
+path = "crates/grund-core/src/scanner.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 1493, unit = "lines" }
+until = "split citation tokenizing and comment-block parsing out of the file walker"
+reason = """
+File walking, citation tokenizing, and comment-block parsing are three jobs in one file. Mirrors EX-005.
+"""
+[[exceptions]]
+id = "EX-018-shutdown-rs"
+path = "crates/grund-lsp/tests/shutdown.rs"
+match = "exact"
+rules = ["tests"]
+max_accepted = { value = 1301, unit = "lines" }
+until = "split by LSP request under test"
+reason = """
+Every LSP request's tests accumulated in the file named for one of them. Mirrors EX-006.
+"""
+[[exceptions]]
+id = "EX-019-lib-rs"
+path = "crates/grund-lsp/src/lib.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 1229, unit = "lines" }
+until = "move the impl Server request handlers into sibling files, keeping transport in lib.rs"
+reason = """
+A single 776-line impl Server carries every request handler alongside transport setup. Mirrors EX-007.
+"""
+[[exceptions]]
+id = "EX-020-checker-rs"
+path = "crates/grund-core/src/checker.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 1128, unit = "lines" }
+until = "extract check_with_workspace and the citation-obligation rules into sibling files"
+reason = """
+Contains a 368-line check_with_workspace plus obligation, prohibition, and style rules. Mirrors EX-008.
+"""
+[[exceptions]]
+id = "EX-021-init-rs"
+path = "crates/grund-cli/tests/init.rs"
+match = "exact"
+rules = ["tests"]
+max_accepted = { value = 1023, unit = "lines" }
+until = "split by init scenario (scaffold, agent entrypoints, workspace)"
+reason = """
+Every init scenario in one integration test file. Mirrors EX-009.
+"""
+[[exceptions]]
+id = "EX-022-init-templates-rs"
+path = "crates/grund-core/src/init_templates.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 796, unit = "lines" }
+until = "move remaining inline template strings into assets/templates/ behind include_str!"
+reason = """
+Mostly template payload, but only 10 templates are include_str!; the rest are inline string constants. Mirrors EX-011.
+"""
+[[exceptions]]
+id = "EX-023-init-rs"
+path = "crates/grund-core/src/init.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 776, unit = "lines" }
+until = "split the agents-block update machinery out of the scaffold writer"
+reason = """
+Scaffold writing and the managed agents-block update machinery share one file. Mirrors EX-012.
+"""
+[[exceptions]]
+id = "EX-024-config-rs"
+path = "crates/grund-core/src/config.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 732, unit = "lines" }
+until = "extract the 409-line parse_config_file into a sibling parser file"
+reason = """
+Still contains a 409-line parse_config_file. Mirrors EX-010, re-capped after the config_cmd.rs extraction.
+"""
+[[exceptions]]
+id = "EX-025-local-benchmark-report-py"
+path = "scripts/local-benchmark-report.py"
+match = "exact"
+rules = ["scripts"]
+max_accepted = { value = 534, unit = "lines" }
+until = "extract report rendering from measurement"
+reason = """
+Measurement, aggregation, and report rendering in one script. Mirrors EX-013.
+"""
+[[exceptions]]
+id = "EX-026-clickable-citations-md"
+path = "docs/user-facing/clickable-citations.md"
+match = "exact"
+rules = ["docs"]
+max_accepted = { value = 493, unit = "lines" }
+until = "split per-surface guidance into child documents the parent links"
+reason = """
+Covers every repository surface in one document. Mirrors EX-014.
+"""
+[[exceptions]]
+id = "EX-027-release-yml"
+path = ".github/workflows/release.yml"
+match = "exact"
+rules = ["workflows"]
+max_accepted = { value = 566, unit = "lines" }
+until = "extract a reusable workflow if the release job passes 700 lines"
+reason = """
+The release pipeline is one ordered sequence; its only real seam is extracting a reusable workflow_call workflow or a composite action, which trades this file's length for indirection across two files. Not worth it at this size.
+"""
+[[exceptions]]
+id = "EX-028-cli-help-rs"
+path = "crates/grund-cli/src/cli_help.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 477, unit = "lines" }
+until = "split alongside the per-command cli_*.rs files if it passes 600"
+reason = """
+One help screen per command in a single match. The help text is written and reviewed as one voice — scattering it across ten files would make tone drift between commands the likeliest failure.
+"""
+[[exceptions]]
+id = "EX-029-try-integrations-sh"
+path = "scripts/try-integrations.sh"
+match = "exact"
+rules = ["scripts"]
+max_accepted = { value = 452, unit = "lines" }
+until = "extract per-client stages into functions, or promote to a tested crate, if it passes 600"
+reason = """
+A manual integration smoke script: a linear sequence of per-client checks a human reads top to bottom while testing terminals by hand.
+"""
+[[exceptions]]
+id = "EX-030-show-render-rs"
+path = "crates/grund-core/src/show_render.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 434, unit = "lines" }
+until = "split per format if it passes 550"
+reason = """
+Text, Markdown, and JSON renderers for one output type, kept adjacent so a change to the shape is made in all three at once.
+"""
+[[exceptions]]
+id = "EX-031-fmt-links-rs"
+path = "crates/grund-core/src/fmt_links.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 423, unit = "lines" }
+until = "split planning from writing if it passes 550"
+reason = """
+Cross-reference link planning and writing for §FS-fmt.6, a single algorithm split across two phases that share their state.
+"""
+[[exceptions]]
+id = "EX-032-model-rs"
+path = "crates/grund-core/src/model.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 416, unit = "lines" }
+until = "revisit only if it passes 550, or if a clear sub-domain of types appears"
+reason = """
+Shared data types and small helpers used by every command (§AR-core-module-layout.1). A type registry is legitimately long: splitting it scatters definitions that are always read together and buys no boundary.
+"""
+[[exceptions]]
+id = "EX-033-skill-md"
+path = "skills/grund-init/SKILL.md"
+match = "exact"
+rules = ["docs"]
+max_accepted = { value = 385, unit = "lines" }
+until = "indefinite — splitting is not a legal move for this file"
+reason = """
+PERMANENT. A shipped SKILL.md is a single-file contract: it is byte-mirrored into crates/grund-core/assets/, embedded via include_str! as AGENT_SETUP_INSTRUCTIONS, printed whole by grund agent-setup-instructions, and asserted byte-identical by test (§FS-init.5). Splitting it would change emitted bytes and break the command's output.
+"""
+[[exceptions]]
+id = "EX-034-fmt-rs"
+path = "crates/grund-core/src/fmt.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 384, unit = "lines" }
+until = "revisit if it passes 500"
+reason = """
+Citation normalization, marginally over the soft budget with no seam that improves on the current single-pass shape.
+"""
+[[exceptions]]
+id = "EX-035-list-rs"
+path = "crates/grund-core/src/list.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 368, unit = "lines" }
+until = "revisit if it passes 500"
+reason = """
+Declaration catalog query and rendering, marginally over budget.
+"""
+[[exceptions]]
+id = "EX-036-checker-cmd-rs"
+path = "crates/grund-core/src/checker_cmd.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 361, unit = "lines" }
+until = "revisit if it passes 500"
+reason = """
+The check command adapter, marginally over budget; it is already the thin layer over checker.rs.
+"""
+[[exceptions]]
+id = "EX-037-fs-workspace-md"
+path = "docs/functional-spec/FS-workspace.md"
+match = "exact"
+rules = ["docs"]
+max_accepted = { value = 328, unit = "lines" }
+until = "split sections into child FS documents, after a grund refs sweep, if it passes 450"
+reason = """
+A spec document whose numbered sections are live citation targets. Splitting relocates IDs, so it needs a grund refs sweep and coordinated citation updates first — a heavier move than the 78-line overage justifies.
+"""
