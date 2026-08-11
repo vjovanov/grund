@@ -17,6 +17,7 @@
 # One-time setup:
 #   pip install pre-commit
 #   cargo install lychee
+#   cargo install fissile
 #   pre-commit install   # installs pre-commit, pre-push, and commit-msg hooks
 default_install_hook_types: [pre-commit, pre-push, commit-msg]
 repos:
@@ -95,6 +96,22 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        stages: [pre-commit]
+      # `fissile check` enforces the file-size budgets in `.agents/fissile.toml`,
+      # which is where §AR-core-module-layout.3's "below 500 lines of code"
+      # finally gets teeth (§AR-ci.9). Like `lychee`, this calls an installed
+      # binary rather than `cargo run`: it is a third-party tool, not this
+      # repository's own, so CI installs it before the pre-commit step (§AR-ci.1).
+      # Soft overflows warn and exit 0; hard overflows block, and the only way
+      # past one is a reviewed entry in `docs/file-size-human-exceptions.toml`.
+      # `pass_filenames` is true so the hook measures exactly the files the
+      # commit touches, and `pre-commit run --all-files` in CI measures the
+      # whole tree — the parity §AR-ci.1 requires.
+      - id: fissile
+        name: fissile (file size budgets)
+        entry: fissile check
+        language: system
+        pass_filenames: true
         stages: [pre-commit]
       - id: no-claude-attribution
         name: no Claude attribution boilerplate (staged files)

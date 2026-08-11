@@ -30,4 +30,18 @@ const SUBCOMMANDS: &[&str] = &[
 ];
 
 include!("cli_help.rs");
+// Top-level dispatch, shared output helpers, and `main_entry`. One file per
+// command follows, in `SUBCOMMANDS` order — the frontend crate is assembled by
+// `include!` just as `grund-core` is, so a command's file is a flat slice of
+// the same crate and needs no `mod`/`use` wiring (§AR-core-module-layout.3).
 include!("cli.rs");
+include!("cli_check.rs");
+include!("cli_show.rs");
+include!("cli_list.rs");
+include!("cli_refs.rs");
+include!("cli_cover.rs");
+include!("cli_fmt.rs");
+include!("cli_id.rs");
+include!("cli_init.rs");
+include!("cli_config.rs");
+include!("cli_complete.rs");

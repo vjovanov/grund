@@ -1,0 +1,231 @@
+# fissile — file-size budgets for this repository.
+#
+# The numbers here are not a new opinion: §AR-core-module-layout.3 already says
+# "each implementation file under `src/` stays below 500 lines of code". That
+# rule had no enforcement, so files drifted to 8x it. fissile is the feedback
+# loop that makes the existing architecture rule bite at commit time.
+#
+# `grund` does not scan `.toml`, so the `§` citations below are for the reader,
+# not checked by `grund check` — re-verify them by hand if an AR is renamed.
+
+fissile_config_version = 1
+
+[scan]
+# Mirrors the reasoning in `.agents/grund.toml` [scan]: the e2e fixture trees
+# under `e2e/cases/*/` are test inputs, not this project's code, and `assets/`
+# holds generated payload that is byte-identical to its source by test
+# (§FS-init.5) — splitting either is not a legal move, so neither is measured.
+include = [
+  "crates",
+  "docs",
+  "e2e",
+  "scripts",
+  "skills",
+  "templates",
+  "editor",
+  "examples",
+  ".github",
+  "README.md",
+  "CLAUDE.md",
+  "AGENTS.md",
+]
+exclude = [
+  "target/**",
+  ".git/**",
+  "**/*.lock",
+  "**/assets/**",
+  "e2e/cases/*/repo/**",
+  "e2e/cases/*/expected.repo/**",
+  "**/*.png",
+  "**/*.jpg",
+  "**/*.svg",
+]
+respect_gitignore = true
+
+[output]
+format = "text"
+color = "auto"
+success = "ok"
+
+[exceptions]
+soft_registry = "docs/file-size-agent-exceptions.toml"
+hard_registry = "docs/file-size-human-exceptions.toml"
+stale = "warn"
+
+[tokens]
+enabled = false
+
+# ---------------------------------------------------------------------------
+# Messages. These name grund's real destinations, because the shipped defaults
+# cannot guess them: `crates/grund-core` is not a module tree — `lib.rs` is a
+# list of `include!()` lines, so a "split" is one more `include!` plus moved
+# items, with no visibility or import churn to pay for.
+# ---------------------------------------------------------------------------
+
+[[messages]]
+id = "split-core-soft"
+text = """
+Should split, next time you are in one of these files: move a cohesive group of items into a new sibling file and add one `include!("<new>.rs")` line to the crate's `lib.rs`, next to its category peers. Split along a category boundary from §AR-core-module-layout.1 (model, config, scanner, checker, output, show, refs, cover, list, fmt, id, init, completions, api), never at the line count.
+Because the crate is assembled by `include!`, the move needs no `mod`, no `pub(crate)`, and no `use` edits — if a split is costing you visibility churn, you are cutting across the wrong seam.
+If no split leaves the design better than it is now, record the debt instead of forcing one:
+fissile exception add <path> --severity soft --rule {rule}
+"""
+
+[[messages]]
+id = "split-core-hard"
+text = """
+Must split before more code lands here: this file is over the 500-line ceiling §AR-core-module-layout.3 sets for implementation files. Move cohesive groups into sibling files registered with `include!()` in `lib.rs`, along the category boundaries in §AR-core-module-layout.1. Keep the public API surface in `api.rs` (§AR-core-module-layout.2) and do not change CLI output, diagnostics, scan behavior, or template bytes — the split is a pure refactor.
+Do not invent an abstraction or shuffle lines to get under the limit; a worse layout under budget is not the goal.
+If you cannot see a split that leaves the architecture intact, stop and ask a human. The only other way past this gate is a reviewed exception:
+fissile exception add <path> --severity hard --rule {rule}
+"""
+
+[[messages]]
+id = "split-tests-soft"
+text = """
+Should split, next time you are in this test file: group tests by the category under test (§AR-core-module-layout.1) and move a group into a sibling `tests_<category>.rs` with its own `#[cfg(test)] mod`, registered by one `include!()` in `lib.rs`.
+Tests are read the same way source is — a reader looking for the scanner's cases should not page through the checker's.
+fissile exception add <path> --severity soft --rule {rule}
+"""
+
+[[messages]]
+id = "split-tests-hard"
+text = """
+Must split before more tests land here: move whole test groups into sibling `tests_<category>.rs` files, one per category from §AR-core-module-layout.1, each with its own `#[cfg(test)] mod` and one `include!()` line. Move tests unchanged — a split that edits assertions is two changes wearing one commit.
+fissile exception add <path> --severity hard --rule {rule}
+"""
+
+[[messages]]
+id = "split-doc-soft"
+text = """
+Should split, next time you edit this document: keep one subject per file and move secondary detail into a child document the parent links. For a spec or architecture doc, a numbered section that has grown its own sub-structure is usually a document — give it its own ID rather than a deeper heading, so citations point at the fact instead of a chapter.
+If the document has to be read whole, record it instead:
+fissile exception add <path> --severity soft --rule {rule}
+"""
+
+[[messages]]
+id = "split-doc-hard"
+text = """
+Must split before adding more: move secondary detail into linked child documents, and give any section that carries its own behavior a declared ID of its own — `grund refs` will tell you who is citing what before you move it.
+If no split keeps the document coherent, ask a human rather than cutting at an arbitrary heading.
+"""
+
+[[messages]]
+id = "split-script-soft"
+text = """
+Should split or shrink: a repo script this long is usually a pipeline of stages. Extract the stages into functions in a sibling module, or move the whole job into a crate under `crates/` if it has grown real logic worth testing.
+fissile exception add <path> --severity soft --rule {rule}
+"""
+
+[[messages]]
+id = "split-script-hard"
+text = """
+Must split before more is added: extract cohesive stages into a sibling module, or promote the script into a tested crate. A 500-line untested script is the least reviewable code in the repository.
+fissile exception add <path> --severity hard --rule {rule}
+"""
+
+[[messages]]
+id = "split-workflow"
+text = """
+This CI workflow has outgrown one file. Extract a reusable workflow (`workflow_call`) or a composite action under `.github/actions/`, and keep this file as the trigger and the job wiring (§AR-ci).
+fissile exception add <path> --severity soft --rule {rule}
+"""
+
+[[messages]]
+id = "large-fixture"
+text = """
+Large e2e fixture. Golden files are data — do not hand-trim one to fit a budget, because the trimmed bytes are the assertion. If a case genuinely needs a corpus this large, accept it with a written exception; if it does not, narrow the case.
+"""
+
+[[messages]]
+id = "large-file-default"
+text = """
+Large file for its type, and no rule claims it. Exclude it in [scan].exclude if it is generated, vendored, or binary; otherwise give this file type a rule of its own with a limit and guidance that fit it.
+"""
+
+# ---------------------------------------------------------------------------
+# Rules. Line rules count code lines only — blank and comment lines are free.
+# That is deliberate: grund's method puts citations and rationale in doc
+# comments (§AR-core-module-layout.4), and a budget that taxed comments would
+# pay agents to delete the grounding this repository exists to keep. The bytes
+# rule below is the backstop that still catches a file too expensive to read.
+# ---------------------------------------------------------------------------
+
+[[rules]]
+id = "large-file-default"
+include = ["**/*"]
+unit = "bytes"
+soft = 262144
+hard = 524288
+message = "large-file-default"
+
+[[rules]]
+id = "core-source"
+include = ["crates/*/src/**/*.rs"]
+unit = "lines"
+soft = 350
+hard = 500
+count_blank_lines = false
+count_comment_lines = false
+soft_message = "split-core-soft"
+hard_message = "split-core-hard"
+
+# Test code earns a wider budget than implementation code: cases repeat setup by
+# design, and deduplicating them into helpers costs more readability than it
+# saves. Higher priority so it wins over `core-source` for in-tree test files.
+[[rules]]
+id = "tests"
+include = ["crates/*/src/tests*.rs", "crates/*/tests/**/*.rs"]
+unit = "lines"
+soft = 450
+hard = 700
+count_blank_lines = false
+count_comment_lines = false
+priority = 20
+soft_message = "split-tests-soft"
+hard_message = "split-tests-hard"
+
+[[rules]]
+id = "docs"
+include = ["docs/**/*.md", "skills/**/*.md", "README.md", "CLAUDE.md", "AGENTS.md"]
+unit = "lines"
+soft = 250
+hard = 400
+count_blank_lines = false
+count_comment_lines = true
+soft_message = "split-doc-soft"
+hard_message = "split-doc-hard"
+
+[[rules]]
+id = "scripts"
+include = ["scripts/**/*.py", "scripts/**/*.sh"]
+unit = "lines"
+soft = 300
+hard = 500
+count_blank_lines = false
+count_comment_lines = false
+soft_message = "split-script-soft"
+hard_message = "split-script-hard"
+
+# CI YAML splits only into reusable workflows, which is a real but heavier move —
+# so this warns well before it blocks.
+[[rules]]
+id = "workflows"
+include = [".github/workflows/*.yml", ".github/workflows/*.yaml"]
+unit = "lines"
+soft = 300
+hard = 600
+count_blank_lines = false
+count_comment_lines = false
+message = "split-workflow"
+
+# Golden files are assertions, measured in bytes and never line-trimmed. Covers
+# `examples/` too — those are the same thing wearing a different directory.
+[[rules]]
+id = "e2e-fixtures"
+include = ["e2e/cases/**", "examples/**"]
+unit = "bytes"
+soft = 65536
+hard = 262144
+priority = 30
+message = "large-fixture"

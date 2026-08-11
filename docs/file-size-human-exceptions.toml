@@ -1,0 +1,125 @@
+fissile_exceptions_version = 1
+# EX-001 (crates/grund-core/src/tests.rs, 4111 lines) and EX-002
+# (crates/grund-cli/src/cli.rs, 1735 lines) were retired when those files were
+# split — tests.rs into twelve `tests_*` category modules plus `tests_support`,
+# cli.rs into one file per command. Both are now under budget with no exception.
+[[exceptions]]
+id = "EX-003-api-rs"
+path = "crates/grund-core/src/api.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 1592, unit = "lines" }
+until = "split by command group, keeping the public entrypoints in api.rs"
+reason = """
+Public embedding API for every command in one file; §AR-core-module-layout.2 keeps entrypoints here but not every implementation.
+"""
+[[exceptions]]
+id = "EX-004-integrations-rs"
+path = "crates/grund-core/src/integrations.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 1525, unit = "lines" }
+until = "split into integrations_detect.rs, integrations_block.rs, and per-client artifact writers"
+reason = """
+Client detection, arg parsing, managed-block install machinery, and per-client artifact writers share one file.
+"""
+[[exceptions]]
+id = "EX-005-scanner-rs"
+path = "crates/grund-core/src/scanner.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 1493, unit = "lines" }
+until = "split citation tokenizing and comment-block parsing out of the file walker"
+reason = """
+File walking, citation tokenizing, and comment-block parsing are three jobs in one file.
+"""
+[[exceptions]]
+id = "EX-006-shutdown-rs"
+path = "crates/grund-lsp/tests/shutdown.rs"
+match = "exact"
+rules = ["tests"]
+max_accepted = { value = 1301, unit = "lines" }
+until = "split by LSP request under test"
+reason = """
+Every LSP request's tests accumulated in the file named for one of them.
+"""
+[[exceptions]]
+id = "EX-007-lib-rs"
+path = "crates/grund-lsp/src/lib.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 1229, unit = "lines" }
+until = "move the impl Server request handlers into sibling files, keeping transport in lib.rs"
+reason = """
+A single 776-line `impl Server` (lines 140-916) carries every request handler alongside transport setup.
+"""
+[[exceptions]]
+id = "EX-008-checker-rs"
+path = "crates/grund-core/src/checker.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 1128, unit = "lines" }
+until = "extract check_with_workspace and the citation-obligation rules into sibling files"
+reason = """
+Contains a 368-line check_with_workspace (lines 146-514) plus obligation, prohibition, and style rules.
+"""
+[[exceptions]]
+id = "EX-009-init-rs"
+path = "crates/grund-cli/tests/init.rs"
+match = "exact"
+rules = ["tests"]
+max_accepted = { value = 1023, unit = "lines" }
+until = "split by init scenario (scaffold, agent entrypoints, workspace)"
+reason = """
+Every init scenario in one integration test file.
+"""
+[[exceptions]]
+id = "EX-010-config-rs"
+path = "crates/grund-core/src/config.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 732, unit = "lines" }
+until = "extract the 409-line parse_config_file into a sibling parser file"
+reason = """
+Still contains a 409-line parse_config_file (lines 77-486). The deprecated `config` command adapter has been moved out to config_cmd.rs, which is why the ceiling dropped from 936 to 732. The CLI rendering that looks duplicated in grund-cli/src/cli_config.rs is deliberate: it is the deprecation boundary for `grund_core::main_entry()` (§AR-bindings.2), and grund-cli imports no `grund_core::command_*` symbol.
+"""
+[[exceptions]]
+id = "EX-011-init-templates-rs"
+path = "crates/grund-core/src/init_templates.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 796, unit = "lines" }
+until = "move remaining inline template strings into assets/templates/ behind include_str!"
+reason = """
+Mostly template payload, but only 10 of the templates are include_str!; the rest are inline string constants.
+"""
+[[exceptions]]
+id = "EX-012-init-rs"
+path = "crates/grund-core/src/init.rs"
+match = "exact"
+rules = ["core-source"]
+max_accepted = { value = 776, unit = "lines" }
+until = "split the agents-block update machinery out of the scaffold writer"
+reason = """
+Scaffold writing and the managed agents-block update machinery share one file.
+"""
+[[exceptions]]
+id = "EX-013-local-benchmark-report-py"
+path = "scripts/local-benchmark-report.py"
+match = "exact"
+rules = ["scripts"]
+max_accepted = { value = 534, unit = "lines" }
+until = "extract report rendering from measurement"
+reason = """
+Measurement, aggregation, and report rendering in one script.
+"""
+[[exceptions]]
+id = "EX-014-clickable-citations-md"
+path = "docs/user-facing/clickable-citations.md"
+match = "exact"
+rules = ["docs"]
+max_accepted = { value = 493, unit = "lines" }
+until = "split per-surface guidance into child documents the parent links"
+reason = """
+Covers every repository surface (PR bodies, reviews, permalinks, local conversations) in one document.
+"""
