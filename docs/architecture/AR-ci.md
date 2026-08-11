@@ -8,6 +8,8 @@ The hook list lives in `.pre-commit-config.yaml`. CI must invoke that list direc
 
 When a new pre-commit hook is added, the same change must ensure CI can run it. If the hook needs an external binary, the CI workflow installs that binary before the pre-commit step. If the hook is intentionally local-only, it does not belong in `.pre-commit-config.yaml`; put it in a developer-local hook instead.
 
+`pre-commit run --all-files` reproduces only the stages whose input is a file list. A hook bound to a stage with different input — `commit-msg`, whose argument is a message file — is silently absent from that run, so "CI runs the config" is not by itself parity. Every such hook needs an explicit CI counterpart that feeds it the input the stage would have supplied; §8 is the first.
+
 ## 2. Platform scope
 
 The full Rust build and test matrix still runs on every configured operating system. The pre-commit gate may run on one representative CI platform when the hooks are platform-independent, because its job is policy parity with local commits, not cross-platform behavior coverage. Platform-specific behavior belongs in the build and test jobs.
@@ -39,3 +41,11 @@ Development CI does **not** run the profile-guided-optimization pipeline. `scrip
 ## 7. Pull-request changelog gate
 
 On `pull_request` events, CI runs `scripts/check_changelog_pr_entry.py` before the Python unit tests. The gate is intentionally local and deterministic: it reads the current PR number from the workflow context and scans only `docs/changelog.md`'s `## Unreleased` body for `PR #N`, `pull request #N`, or a `/pull/N` URL. It does not call the GitHub API in CI, so forks and restricted-token runs get the same result as owner branches. Push CI skips the gate because there is no current PR number. The local pre-push hook may ask `gh pr view` for the current branch's PR number and then runs the same check; if no current-branch PR exists yet, it skips and leaves the first enforceable check to pull-request CI. This implements the release-note discipline in [§FS-distribution.4](../functional-spec/FS-distribution.md#4-release-process).
+
+## 8. Commit-message attribution gate
+
+No AI-tool attribution boilerplate — a co-author trailer naming an assistant, a "generated with" marker, a session-link trailer, an assistant's no-reply address — may land in this repository's files or in its commit messages. `scripts/check_no_claude_attribution.py` owns the pattern set and scans three surfaces from one definition: staged file contents at `pre-commit`, a single message at `commit-msg`, and a revision range in CI. The patterns are narrow by design, because the target is machine-appended boilerplate rather than the subject matter: prose that discusses Claude is ordinary repository content and stays legal.
+
+The two local stages are advisory, and both failure modes are real. `pre-commit install --hook-type commit-msg` is a per-clone step a fresh clone has not run, and `--no-verify` skips whatever is installed; a repository history is the evidence that neither is hypothetical. CI is therefore the enforcing layer, and it runs as a dedicated `commit-messages` job rather than a step in the test matrix: the check needs the full history (`fetch-depth: 0`) that the matrix deliberately does not fetch, needs no Rust toolchain, and should report in seconds rather than behind a build.
+
+The job scans what the event contributes, not the whole history — a pull request's `base..head`, a push's `before..sha`. An unresolvable base is not a failure: the first push of a branch reports the all-zero SHA and a force-push reports a SHA the runner cannot reach, so the script narrows to the tip commit and says so. The consequence worth stating plainly is that a gate on messages catches an offending commit only while it is still cheap to amend; once merged, the same trailer costs a history rewrite and a force-push of every descendant branch and tag, which is why this runs on the pull request rather than on the release.
