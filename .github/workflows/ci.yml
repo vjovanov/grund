@@ -67,16 +67,8 @@ jobs:
 
       # `.pre-commit-config.yaml` is the local gate; CI runs it directly so every
       # pre-commit hook remains enforced remotely (§AR-ci.1).
-      #
-      # lychee reads GITHUB_TOKEN for github.com links. Without it GitHub serves
-      # anonymous issue requests a 404, so a live issue reads as a dead link and
-      # the run fails on a URL that is fine — lychee says as much in a warning.
-      # The token is the ambient job token; it grants nothing beyond public reads
-      # here and is what lets the check stay honest instead of being excluded.
       - name: pre-commit
         if: matrix.os == 'ubuntu-latest'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pre-commit run --all-files
 
       - name: cargo build
