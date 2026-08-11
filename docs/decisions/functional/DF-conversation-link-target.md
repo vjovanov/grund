@@ -81,7 +81,8 @@ block keeps `path`:
 | --- | --- | --- |
 | Claude | every target | rows 12–14, click-tested 2026-08-11 |
 | Codex | `web` only; local schemes fall back to `path` | rows 3 and 15, click-tested 2026-08-11; row 11 for the fallback |
-| Gemini, Copilot, Zed, Pi, Cursor, Windsurf | `path` | unverified — no row claims either way |
+| Pi | `file` and `web`; editor schemes fall back to `path` | row 16, click-tested 2026-08-11 — the floor, not the ceiling (below) |
+| Gemini, Copilot, Zed, Cursor, Windsurf | `path` | unverified — no row claims either way |
 
 Codex was click-tested against this table on 2026-08-11 and the table survived, with one qualification
 worth recording: its TUI never hides a destination behind a label, so even the `web` form it *is* given
@@ -90,10 +91,51 @@ natively clickable form on that surface, not because it renders the way it does 
 scheme, by contrast, measured as the worst of both — a long inline URL and no click at all — which is
 the concrete reason the local schemes fall back instead of being passed through on the user's say-so.
 
+Pi adds a third profile and, with it, the sharpest statement of what the gate actually measures. Its
+labels always survive, and what it does with a destination depends on the *terminal* rather than on
+Pi: with OSC 8 available it hides the URI behind the label and every scheme dispatches, editor
+schemes included, while without it the renderer prints `text (url)` and only the schemes a terminal's
+own URL matcher knows — `file:` and `https:` — can be clicked (row 16).
+
+That splits Pi's entry along an axis the other agents do not have, and the table records the
+guaranteed floor rather than the ceiling: `file` and `web` click under **both** outcomes, an editor
+scheme only under one. A reader whose terminal grund never saw is the case the table has to be right
+for, so Pi is listed at what works everywhere. The ceiling is reachable and worth reaching — it needs
+grund to know the reader's terminal at the moment the instruction is written, which is a real
+extension of §2.4 rather than a correction to it.
+
 The gate can only hold a surface at the form it already had, never make one worse, and it is reported
 rather than silent: `grund integrations --write` names the effective form per target (§FS-integrations.4.3),
 so a machine that set `vscodium` can see which agents took it. An unverified agent leaves the table by
 being click-tested and gaining a matrix row, which is the same evidence bar row 2 failed to meet.
+
+### 2.5 A per-agent override is a preference, not evidence
+
+One machine reads several agents and they demonstrably do not render alike, so the machine-wide
+target is the wrong granularity for a machine that reads two of them. `[reference.agents.<agent>]`
+is a **partial of the machine-wide settings, keyed by agent**, shallow-merged over them
+(§FS-integrations.4.4): a key present under an agent replaces the base for that agent, an absent
+key inherits, and there is no per-agent default to reason about.
+
+The shape was chosen against a flatter alternative — a `conversation_target_by_agent` map of
+scalars beside the key it overrides. That is smaller while exactly one key is overridable, and it
+does not survive a second: the two would be parallel maps under the same agent names, tied
+together by naming convention rather than by structure, and both would have to be read to answer
+what one agent gets. A partial of the parent is the same idea expressed as data, so a second key
+is one more accepted name inside it rather than a second map.
+
+What the layer must *not* become is a way around §2.4. The override sets the **request**; the gate
+sets the **verdict**, and it still runs last. `[reference.agents.codex] conversation_target =
+"vscodium"` resolves to `vscodium` and is then gated to `path`, precisely as the machine-wide value
+would be. The distinction is the whole reason the layer is safe to add: a user asserting a
+preference about their own machine is ordinary configuration, while a user overriding a click-test
+would be writing an instruction recorded as erasing citations on that surface, and no
+configuration key should be able to buy that. The motivating case needs no such power anyway —
+Claude on `vscodium` with Codex on `web` is two requests the gate already grants.
+
+Both layers are therefore reported per target (§FS-integrations.4.4). Unreported, an override and a
+gate downgrade and an unread key all look identical from the outside: a block that does not say
+what the user set.
 
 ## 3. Consequences
 
@@ -110,3 +152,7 @@ being click-tested and gaining a matrix row, which is the same evidence bar row 
   verified here, and shipping an unverified template is what this decision was written to stop.
 - A machine that wants the old behavior sets `conversation_target = "path"`, so nothing that worked
   before this decision becomes unreachable.
+- The user configuration gains its first nested table. It stays a closed allow-list of warnings
+  rather than errors (§FS-integrations.4.3), with one new member: an override under an agent grund
+  does not know names the closed agent set rather than the key, because the mistake is nearly
+  always the agent's spelling.

@@ -69,7 +69,9 @@ same unknown-key error as any other (§4.3). Its accepted values are `file` (def
 `vscode`, `vscodium`, and `cursor`; the templates each one fills, and the per-agent gate that decides
 where the linked form is instructed at all, are specified in [§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions) and decided in
 [§DF-conversation-link-target](../decisions/functional/DF-conversation-link-target.md#df-conversation-link-target-the-conversation-link-form-is-a-markdown-link-over-an-absolute-uri-addressed-per-machine). The key is inert unless the effective `conversation` is
-`link`; it is still parsed and reported either way, like the `inline_note_*` keys below.
+`link`; it is still parsed and reported either way, like the `inline_note_*` keys below. One machine
+may read several agents that do not render alike, so the same key is also accepted per agent under
+`[reference.agents.<agent>]`, a partial merged over the machine-wide value ([§FS-integrations.4.4](FS-integrations.md#44-per-agent-overrides)).
 
 The same spelling in both files is deliberate: one setting the user already knows by name, read at two scopes, rather than a second vocabulary for the same idea. Only the *values* narrow, and only in the direction a repository can actually justify.
 

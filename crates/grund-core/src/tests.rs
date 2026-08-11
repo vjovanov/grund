@@ -3773,6 +3773,21 @@ default = "must-not"
                 ConversationTarget::Path
             );
         }
+        // Pi's labels always survive and its clicks come from the terminal's own
+        // URL matcher, which knows `file:` and `https:` and no editor scheme.
+        for kept in [ConversationTarget::File, ConversationTarget::Web] {
+            assert_eq!(LinkSupport::FileAndWeb.resolve(kept), kept);
+        }
+        for dropped in [
+            ConversationTarget::Vscode,
+            ConversationTarget::Vscodium,
+            ConversationTarget::Cursor,
+        ] {
+            assert_eq!(
+                LinkSupport::FileAndWeb.resolve(dropped),
+                ConversationTarget::Path
+            );
+        }
         // Codex hyperlinks web URLs and renders a *local* destination in place
         // of the label, erasing the citation — so web survives and the local
         // schemes do not.
@@ -3804,14 +3819,17 @@ default = "must-not"
         assert!(!path_form.contains("Markdown link"));
 
         for (target, phrase) in [
-            (ConversationTarget::File, "`file://<absolute path>#L<line>`"),
+            (
+                ConversationTarget::File,
+                "`file://<absolute path>#L<line>` for the declaration",
+            ),
             (
                 ConversationTarget::Vscodium,
-                "`vscodium://file<absolute path>:<line>`",
+                "`vscodium://file<absolute path>:<line>` for the declaration",
             ),
             (
                 ConversationTarget::Web,
-                "the repository's forge URL for the declaration at the current commit",
+                "the declaration's forge URL at the current commit",
             ),
         ] {
             let rendered = ConversationRendering::Link.instruction(target);
@@ -3841,7 +3859,7 @@ default = "must-not"
     fn conversation_target_is_recorded_independently() {
         let (written, outcome) = install_reference_key(
             "[reference]\nconversation = \"link\"\n",
-            CONVERSATION_TARGET_KEY_PATH,
+            "reference",
             "conversation_target",
             ConversationTarget::Vscodium.name(),
             false,
@@ -3877,8 +3895,204 @@ default = "must-not"
         assert!(
             scan.problems[0]
                 .1
-                .contains("`reference.conversation` and `reference.conversation_target`")
+                .contains("`reference.agents.<agent>.conversation_target`")
         );
+    }
+
+    // §FS-integrations.4.4: `[reference.agents.<agent>]` is a partial of the
+    // machine-wide keys — a key present under an agent replaces the base for
+    // that agent, an absent key inherits it.
+    #[test]
+    fn agent_partial_overrides_only_what_it_names() {
+        let text = concat!(
+            "[reference]\n",
+            "conversation = \"link\"\n",
+            "conversation_target = \"vscodium\"\n",
+            "\n",
+            "[reference.agents.codex]\n",
+            "conversation_target = \"web\"\n",
+        );
+        let scan = scan_user_config(text);
+        assert_eq!(scan.preference, Some(ConversationRendering::Link));
+        assert_eq!(scan.target, Some(ConversationTarget::Vscodium));
+        assert_eq!(
+            scan.agent_targets,
+            vec![("codex".to_string(), ConversationTarget::Web)]
+        );
+        assert!(scan.problems.is_empty(), "{:?}", scan.problems);
+
+        // Inheritance is the absence of an entry, not a per-agent default:
+        // every other agent still resolves to the base.
+        assert_eq!(
+            scan.agent_targets
+                .iter()
+                .find(|(name, _)| name == "claude")
+                .map(|(_, value)| *value),
+            None
+        );
+    }
+
+    // §FS-integrations.4.4: an override under an unknown agent names the closed
+    // set rather than the key — the mistake is nearly always the spelling — and
+    // an unknown key inside a known agent is the ordinary unused-key warning.
+    #[test]
+    fn agent_partial_reports_unknown_agents_and_keys() {
+        let scan = scan_user_config(
+            "[reference.agents.codx]\nconversation_target = \"web\"\n",
+        );
+        assert!(scan.agent_targets.is_empty());
+        assert_eq!(scan.problems.len(), 1);
+        assert!(
+            scan.problems[0].1.contains("unknown agent `codx`")
+                && scan.problems[0].1.contains("codex, claude, gemini, copilot, zed, pi"),
+            "{:?}",
+            scan.problems
+        );
+
+        let scan = scan_user_config("[reference.agents.codex]\nmarker = \"@\"\n");
+        assert!(scan.agent_targets.is_empty());
+        assert_eq!(scan.problems.len(), 1);
+        assert!(
+            scan.problems[0]
+                .1
+                .contains("unused key `reference.agents.codex.marker`"),
+            "{:?}",
+            scan.problems
+        );
+
+        // An unreadable value costs that agent's override and nothing else.
+        let scan = scan_user_config(concat!(
+            "[reference]\n",
+            "conversation_target = \"vscodium\"\n",
+            "[reference.agents.codex]\n",
+            "conversation_target = \"emacs\"\n",
+        ));
+        assert_eq!(scan.target, Some(ConversationTarget::Vscodium));
+        assert!(scan.agent_targets.is_empty());
+        assert_eq!(scan.problems.len(), 1);
+    }
+
+    // §FS-integrations.4.4: a scoped write lands in the agent's own table and
+    // leaves the machine-wide base byte-for-byte alone.
+    #[test]
+    fn agent_override_installs_into_its_own_table() {
+        let base = "[reference]\nconversation = \"link\"\nconversation_target = \"vscodium\"\n";
+        let (written, outcome) = install_reference_key(
+            base,
+            &agent_override_table("codex"),
+            "conversation_target",
+            ConversationTarget::Web.name(),
+            false,
+        );
+        assert_eq!(outcome, BlockOutcome::Appended);
+        assert!(written.starts_with(base), "base must be untouched: {written}");
+        assert!(written.contains("[reference.agents.codex]\nconversation_target = \"web\"\n"));
+
+        let scan = scan_user_config(&written);
+        assert_eq!(scan.target, Some(ConversationTarget::Vscodium));
+        assert_eq!(
+            scan.agent_targets,
+            vec![("codex".to_string(), ConversationTarget::Web)]
+        );
+
+        // Recording the same value again is a no-op reporting `exists`.
+        let (again, outcome) = install_reference_key(
+            &written,
+            &agent_override_table("codex"),
+            "conversation_target",
+            ConversationTarget::Web.name(),
+            true,
+        );
+        assert_eq!(outcome, BlockOutcome::Unchanged);
+        assert_eq!(again, written);
+    }
+
+    // §FS-integrations.4.4 / §DF-conversation-link-target.2.5: the override sets
+    // the request, the gate sets the verdict. Asking for a local scheme under an
+    // agent that erases citations still resolves to `path`.
+    #[test]
+    fn agent_override_cannot_outrank_the_gate() {
+        let requested = ConversationTarget::Vscodium;
+        assert_eq!(
+            LinkSupport::WebOnly.resolve(requested),
+            ConversationTarget::Path,
+            "an override moves the request, never the verdict"
+        );
+        // The motivating case needs no such power: `web` is a request the gate
+        // already grants Codex.
+        assert_eq!(
+            LinkSupport::WebOnly.resolve(ConversationTarget::Web),
+            ConversationTarget::Web
+        );
+    }
+
+    // §FS-integrations.4.4: the report names the form each agent received, and
+    // why when it is not the one asked for — unreported, an override, a gate
+    // downgrade, and an unread key look identical from the outside.
+    #[test]
+    fn effective_form_describes_override_and_gate() {
+        let plain = EffectiveForm {
+            rendering: ConversationRendering::Plain,
+            target: ConversationTarget::Path,
+            requested: ConversationTarget::Vscodium,
+            overridden: false,
+        };
+        assert_eq!(plain.describe(), "plain");
+
+        let taken = EffectiveForm {
+            rendering: ConversationRendering::Link,
+            target: ConversationTarget::Vscodium,
+            requested: ConversationTarget::Vscodium,
+            overridden: false,
+        };
+        assert_eq!(taken.describe(), "link \u{2192} vscodium");
+
+        let overridden = EffectiveForm {
+            rendering: ConversationRendering::Link,
+            target: ConversationTarget::Web,
+            requested: ConversationTarget::Web,
+            overridden: true,
+        };
+        assert_eq!(overridden.describe(), "link \u{2192} web; agent override");
+
+        let gated = EffectiveForm {
+            rendering: ConversationRendering::Link,
+            target: ConversationTarget::Path,
+            requested: ConversationTarget::Vscodium,
+            overridden: false,
+        };
+        assert_eq!(gated.describe(), "link \u{2192} path; vscodium unverified here");
+    }
+
+    // §FS-integrations.1 / §FS-integrations.6: `--agent` scopes
+    // `--conversation-target` and nothing else.
+    #[test]
+    fn agent_flag_requires_write_and_a_target() {
+        let ok = ["--write", "--agent", "codex", "--conversation-target", "web"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        let invocation = parse_integrations_args(&ok).expect("parse scoped write");
+        assert_eq!(invocation.agent, Some("codex"));
+        assert_eq!(
+            invocation.conversation_target,
+            Some(ConversationTarget::Web)
+        );
+
+        for rejected in [
+            // no --write
+            vec!["--agent", "codex", "--conversation-target", "web"],
+            // nothing to scope
+            vec!["--write", "--agent", "codex"],
+            // unknown agent
+            vec!["--write", "--agent", "codx", "--conversation-target", "web"],
+        ] {
+            let args = rejected.into_iter().map(str::to_string).collect::<Vec<_>>();
+            assert!(
+                parse_integrations_args(&args).is_err(),
+                "must be rejected: {args:?}"
+            );
+        }
     }
 
     // §FS-integrations.4.3: the user preference is installed without rewriting
