@@ -854,6 +854,11 @@ fn render_init_output(output: &InitOutput) {
     for event in &output.events {
         eprintln!("{} {}", event.verb, event.path);
     }
+    // §FS-init.2.3.4.17: reported, never fatal — a note names something the run
+    // could not do that the caller would otherwise have to notice for itself.
+    for note in &output.notes {
+        eprintln!("note: {note}");
+    }
     if let Some(next) = &output.next {
         render_init_next(next);
     }

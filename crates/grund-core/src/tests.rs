@@ -3899,6 +3899,70 @@ default = "must-not"
         );
     }
 
+    // §FS-init.2.3.4.17: a Claude entrypoint that is a symlink to the canonical
+    // `AGENTS.md` resolves to that one file, which every other agent reads too,
+    // so the linked form cannot reach Claude through it. `init` must say so.
+    // Unix-only: the fixture needs a real symlink (§FS-init.2.3.4.17).
+    #[cfg(unix)]
+    #[test]
+    fn claude_symlink_to_agents_md_is_detected() {
+        let root = test_root("claude_symlink_to_agents_md_is_detected");
+        write(&root.join("AGENTS.md"), "# demo\n");
+        std::os::unix::fs::symlink("AGENTS.md", root.join("CLAUDE.md")).expect("symlink");
+        assert_eq!(
+            claude_entrypoints_shadowed_by_symlink(&root),
+            vec!["CLAUDE.md".to_string()]
+        );
+
+        // A real file is not shadowed — it carries its own block.
+        let other = test_root("claude_real_file_is_not_shadowed");
+        write(&other.join("AGENTS.md"), "# demo\n");
+        write(&other.join("CLAUDE.md"), "# demo\n");
+        assert!(claude_entrypoints_shadowed_by_symlink(&other).is_empty());
+    }
+
+    // §FS-init.2.3.4.17: the note is emitted only when the repository actually
+    // commits the opinion — without it there is no linked form to be shadowed,
+    // and a note would be noise on every run in a repo that never opted in.
+    // Unix-only: the fixture needs a real symlink (§FS-init.2.3.4.17).
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_claude_entrypoint_is_reported_only_under_the_link_opinion() {
+        let root = test_root("symlinked_claude_entrypoint_is_reported");
+        write(&root.join("AGENTS.md"), "# demo\n");
+        std::os::unix::fs::symlink("AGENTS.md", root.join("CLAUDE.md")).expect("symlink");
+
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n",
+        );
+        let output = init(InitOpts {
+            target: root.clone(),
+            dry_run: true,
+            ..InitOpts::default()
+        })
+        .expect("init without the opinion");
+        assert!(output.notes.is_empty(), "{:?}", output.notes);
+
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n[reference]\nconversation = \"link\"\n",
+        );
+        let output = init(InitOpts {
+            target: root.clone(),
+            dry_run: true,
+            ..InitOpts::default()
+        })
+        .expect("init with the opinion");
+        assert_eq!(output.notes.len(), 1, "{:?}", output.notes);
+        assert!(
+            output.notes[0].starts_with("CLAUDE.md is a symlink to AGENTS.md"),
+            "{:?}",
+            output.notes
+        );
+        assert!(output.notes[0].contains("grund init --claude"));
+    }
+
     // §FS-integrations.4.4: `[reference.agents.<agent>]` is a partial of the
     // machine-wide keys — a key present under an agent replaces the base for
     // that agent, an absent key inherits it.

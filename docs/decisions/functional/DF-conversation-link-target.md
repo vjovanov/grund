@@ -45,7 +45,7 @@ declaration's absolute path and line:
 | `file` | `file://<abs>#L<line>` | **default**; assumes only a desktop handler for `file:` |
 | `path` | *(no URI)* — plain `path:line` beside the citation | the pre-2026-08-11 form, kept as the opt-out |
 | `web` | the forge blob URL for the current ref | the §DF-neural-link-generation repository-web recipe, reused |
-| `vscode`, `vscodium`, `cursor` | `<scheme>://file<abs>:<line>` | one shape across the VS Code family; `vscodium` verified (row 13) |
+| `vscode`, `vscodium`, `cursor` | `<scheme>://file<abs>:<line>` | one shape across the VS Code family; `vscodium` verified (row 13), including that the `:<line>` suffix lands on the cited line rather than the file's head |
 
 `file` is the default because it is the only local form that presumes nothing about the machine beyond
 a handler every desktop already has, and because it names the real file: where the scheme fails to
