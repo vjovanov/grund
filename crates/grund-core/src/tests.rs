@@ -2107,6 +2107,58 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         );
     }
 
+    /// §DF-github-anchor-fidelity: a renderer resolves inline code spans before
+    /// it looks for markup, so `<alias>/<ID>` inside backticks is literal text
+    /// and survives into the anchor. Verified against the rendered heading on
+    /// github.com, which carries `id="user-content-81-grund-aliasid"`.
+    #[test]
+    fn section_anchor_keeps_angle_brackets_inside_code_spans() {
+        let heading = "### 8.1 `grund <alias>/<ID>`";
+        let text = section_anchor_text(heading, "8.1");
+
+        assert_eq!(text, "81 `grund <alias>/<ID>`");
+        assert_eq!(anchor_slug_github(&text), "81-grund-aliasid");
+
+        // Outside a code span the same shape *is* a tag, and a renderer drops
+        // it — leaving the space that preceded it, which slugs to a trailing
+        // `-`. `## RM-refs: grund refs <ID>` really does carry
+        // `id="user-content-rm-refs-grund-refs-"` on github.com, so the two
+        // cases must not be conflated.
+        let raw = reduce_heading_text("RM-refs: grund refs <ID>");
+        assert_eq!(raw, "RM-refs: grund refs ");
+        assert_eq!(anchor_slug_github(&raw), "rm-refs-grund-refs-");
+
+        // A backtick run that never closes is ordinary text, not an opener that
+        // swallows the rest of the heading.
+        let unclosed = section_anchor_text("### 3.1 a ` b <ID>", "3.1");
+        assert_eq!(anchor_slug_github(&unclosed), "31-a--b");
+
+        // A link inside a code span is literal too — no label extraction.
+        let literal_link = section_anchor_text("### 4.2 `[a](b)`", "4.2");
+        assert_eq!(anchor_slug_github(&literal_link), "42-ab");
+    }
+
+    /// §FS-init.5: the distributable skill and the binary-embedded copy the CLI
+    /// prints must be byte-identical, and a release that edits one surface
+    /// without the other is invalid. Nothing enforced that, so an edit to the
+    /// repository copy alone shipped stale setup instructions to every agent
+    /// reaching grund through `agent-setup-instructions` rather than the repo.
+    #[test]
+    fn agent_setup_instructions_match_the_distributable_skill() {
+        let distributable = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../skills/grund-init/SKILL.md");
+        // Absent when the tests run from a packaged crate rather than the
+        // workspace; in the repository — where the invariant can be violated —
+        // it is always present.
+        let Ok(text) = std::fs::read_to_string(&distributable) else {
+            return;
+        };
+        assert_eq!(
+            text, AGENT_SETUP_INSTRUCTIONS,
+            "skills/grund-init/SKILL.md and crates/grund-core/assets/skills/grund-init/SKILL.md must be byte-identical (§FS-init.5)"
+        );
+    }
+
     #[test]
     fn embedded_templates_are_lf_canonical() {
         assert_eq!(
@@ -3696,6 +3748,72 @@ default = "must-not"
         // Clients whose config is not a program get no scaffold.
         assert!(IntegrationClient::Kitty.fresh_config_scaffold().is_none());
         assert!(IntegrationClient::Tmux.fresh_config_scaffold().is_none());
+    }
+
+    // §FS-integrations.4.1: the wiring step is reported, and the test is the
+    // unmanaged remainder alone. A whole-file search would match the block's own
+    // definition and comments on every config and so report nothing, ever.
+    #[test]
+    fn wezterm_wiring_note_reads_only_outside_the_block() {
+        let block_only =
+            install_managed_block("--", true, "", WEZTERM_SNIPPET).expect("install block");
+        assert!(
+            block_only.0.contains("function grund_apply_hyperlink_rule(config)"),
+            "the block defines the helper it is checked for"
+        );
+        assert!(
+            needs_wezterm_wiring(IntegrationClient::Wezterm, &block_only.0),
+            "a config that is only the block calls nothing and must be reported"
+        );
+
+        // A from-scratch write appends the scaffold, which calls the helper.
+        let mut fresh = block_only.0.clone();
+        fresh.push_str(
+            IntegrationClient::Wezterm
+                .fresh_config_scaffold()
+                .expect("wezterm ships a starter config"),
+        );
+        assert!(!needs_wezterm_wiring(IntegrationClient::Wezterm, &fresh));
+
+        // A user config that already wires it up is silent too.
+        let wired = install_managed_block(
+            "--",
+            true,
+            "local config = wezterm.config_builder()\ngrund_apply_hyperlink_rule(config)\nreturn config\n",
+            WEZTERM_SNIPPET,
+        )
+        .expect("install block into a wired config");
+        assert!(!needs_wezterm_wiring(IntegrationClient::Wezterm, &wired.0));
+
+        // An existing config that never calls it is the reported case.
+        let unwired = install_managed_block(
+            "--",
+            true,
+            "local config = wezterm.config_builder()\nreturn config\n",
+            WEZTERM_SNIPPET,
+        )
+        .expect("install block into an unwired config");
+        assert!(needs_wezterm_wiring(IntegrationClient::Wezterm, &unwired.0));
+
+        // No other client has a wiring step, so none of them can be reported.
+        for client in [
+            IntegrationClient::Kitty,
+            IntegrationClient::Tmux,
+            IntegrationClient::Vscode,
+            IntegrationClient::Codium,
+            IntegrationClient::Iterm2,
+        ] {
+            assert!(!needs_wezterm_wiring(client, ""));
+        }
+    }
+
+    // §FS-integrations.2: detection closes on the preview line and the setup
+    // guide, in both the detected and the nothing-detected form — the guide
+    // carries the prerequisites and manual steps `--write` cannot perform.
+    #[test]
+    fn detection_names_the_setup_guide() {
+        assert!(SETUP_GUIDE_URL.starts_with("https://"));
+        assert!(SETUP_GUIDE_URL.ends_with("docs/user-facing/clickable-citations.md"));
     }
 
     // §FS-integrations.1 / §FS-integrations.4.3: an explicit conversation

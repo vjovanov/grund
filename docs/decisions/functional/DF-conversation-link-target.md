@@ -2,8 +2,8 @@
 
 ## 1. Context
 
-§DF-repo-conversation-opinion.2.1 defined the `link` form as the declaration location in plain
-`path:line` text, *never* a Markdown link. That form rested on row 2 of the §DF-neural-link-generation
+[§DF-repo-conversation-opinion.2.1](DF-repo-conversation-opinion.md#21-the-link-form-is-a-markdown-link-over-an-absolute-uri) defined the `link` form as the declaration location in plain
+`path:line` text, *never* a Markdown link. That form rested on row 2 of the [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command)
 matrix — Claude Code linkifies `file_path:line_number` references itself — which was documented
 behavior recorded without a click-test, the one row in the matrix carrying no observation of its own.
 
@@ -21,8 +21,8 @@ schemes tested worked on the first attempt: `file:`, `vscodium:`, and `https:` (
 
 A citation in a local conversation renders as a **Markdown link whose label is the bare citation and
 whose target is an absolute URI**. Which scheme addresses the declaration is the machine's choice,
-recorded as `[reference] conversation_target` in the user configuration (§FS-config.3.1,
-§FS-integrations.4.3), and the form is instructed only to agents whose renderers are verified to
+recorded as `[reference] conversation_target` in the user configuration ([§FS-config.3.1](../../functional-spec/FS-config.md#31-reference--citation-form),
+[§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)), and the form is instructed only to agents whose renderers are verified to
 honor it (§2.4). `conversation = "link"` remains the switch that decides *whether* a location travels
 with the citation; this key decides only *how it is addressed*.
 
@@ -30,7 +30,7 @@ with the citation; this key decides only *how it is addressed*.
 
 `[§FS-refs.3.3](file:///repo/docs/functional-spec/FS-refs.md#L50)` keeps the property every earlier
 form was chosen to protect: the visible text is exactly the citation, so the ID layer survives being
-quoted back into the repository and `grund check` still validates it (§DF-neural-link-generation).
+quoted back into the repository and `grund check` still validates it ([§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command)).
 What changes is that the location stops competing with the citation for line width — it moves behind
 the label instead of trailing it, which is also why the form can carry a full absolute URI without
 costing the reader anything.
@@ -44,7 +44,7 @@ declaration's absolute path and line:
 | --- | --- | --- |
 | `file` | `file://<abs>#L<line>` | **default**; assumes only a desktop handler for `file:` |
 | `path` | *(no URI)* — plain `path:line` beside the citation | the pre-2026-08-11 form, kept as the opt-out |
-| `web` | the forge blob URL for the current ref | the §DF-neural-link-generation repository-web recipe, reused |
+| `web` | the forge blob URL for the current ref | the [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) repository-web recipe, reused |
 | `vscode`, `vscodium`, `cursor` | `<scheme>://file<abs>:<line>` | one shape across the VS Code family; `vscodium` verified (row 13), including that the `:<line>` suffix lands on the cited line rather than the file's head |
 
 `file` is the default because it is the only local form that presumes nothing about the machine beyond
@@ -57,15 +57,15 @@ that must already exist on the forge, so an unpushed commit resolves to nothing.
 ### 2.3 The target is user-scoped, but the default is committable
 
 `vscodium:` opens only where that editor registered a scheme handler; that is machine state, and
-committing it fails the §DF-repo-conversation-opinion.2.2 test the same way `plain` does. The key is
+committing it fails the [§DF-repo-conversation-opinion.2.2](DF-repo-conversation-opinion.md#22-only-link-is-committable) test the same way `plain` does. The key is
 therefore a user-configuration key with no repository spelling.
 
 The *default* is a different question, and it is committable. `file` embeds nothing machine-specific:
 the agent composes the absolute path at write time from the repository root it already has, so two
-installs render the same instruction byte-for-byte (§FS-non-goals.13). A repository that commits
+installs render the same instruction byte-for-byte ([§FS-non-goals.13](../../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)). A repository that commits
 `conversation = "link"` therefore teaches the `file` form through its generated entrypoint
-(§FS-init.2.3.4.17), and a machine that names a target overrides it under the precedence rule that
-already governs this pair (§DF-repo-conversation-opinion.2.3).
+([§FS-init.2.3.4.17](../../functional-spec/FS-init.md#23417-clickable-citations)), and a machine that names a target overrides it under the precedence rule that
+already governs this pair ([§DF-repo-conversation-opinion.2.3](DF-repo-conversation-opinion.md#23-precedence)).
 
 ### 2.4 The form is gated per agent, and the fallback is `path`
 
@@ -105,7 +105,7 @@ grund to know the reader's terminal at the moment the instruction is written, wh
 extension of §2.4 rather than a correction to it.
 
 The gate can only hold a surface at the form it already had, never make one worse, and it is reported
-rather than silent: `grund integrations --write` names the effective form per target (§FS-integrations.4.3),
+rather than silent: `grund integrations --write` names the effective form per target ([§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)),
 so a machine that set `vscodium` can see which agents took it. An unverified agent leaves the table by
 being click-tested and gaining a matrix row, which is the same evidence bar row 2 failed to meet.
 
@@ -114,7 +114,7 @@ being click-tested and gaining a matrix row, which is the same evidence bar row 
 One machine reads several agents and they demonstrably do not render alike, so the machine-wide
 target is the wrong granularity for a machine that reads two of them. `[reference.agents.<agent>]`
 is a **partial of the machine-wide settings, keyed by agent**, shallow-merged over them
-(§FS-integrations.4.4): a key present under an agent replaces the base for that agent, an absent
+([§FS-integrations.4.4](../../functional-spec/FS-integrations.md#44-per-agent-overrides)): a key present under an agent replaces the base for that agent, an absent
 key inherits, and there is no per-agent default to reason about.
 
 The shape was chosen against a flatter alternative — a `conversation_target_by_agent` map of
@@ -133,7 +133,7 @@ would be writing an instruction recorded as erasing citations on that surface, a
 configuration key should be able to buy that. The motivating case needs no such power anyway —
 Claude on `vscodium` with Codex on `web` is two requests the gate already grants.
 
-Both layers are therefore reported per target (§FS-integrations.4.4). Unreported, an override and a
+Both layers are therefore reported per target ([§FS-integrations.4.4](../../functional-spec/FS-integrations.md#44-per-agent-overrides)). Unreported, an override and a
 gate downgrade and an unread key all look identical from the outside: a block that does not say
 what the user set.
 
@@ -143,16 +143,16 @@ what the user set.
   decision exists, and the reason an unverified row is now recorded as unverified rather than as
   behavior.
 - The clause *never a Markdown link* leaves the three texts that carried it — the repository entrypoint
-  (§FS-init.2.3.4.17), the `link` global block (§FS-integrations.4.3), and §DF-repo-conversation-opinion.2.1
+  ([§FS-init.2.3.4.17](../../functional-spec/FS-init.md#23417-clickable-citations)), the `link` global block ([§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)), and [§DF-repo-conversation-opinion.2.1](DF-repo-conversation-opinion.md#21-the-link-form-is-a-markdown-link-over-an-absolute-uri)
   — and is replaced by the narrower true statement: never a *relative* target, and never a local target
   on a surface that renders the destination in place of the label.
-- The managed entrypoint block bumps to v6 and the agent-guidance block to v3 (§GOAL-no-silent-breakage).
-- The enum is widenable without a `grund_config_version` bump (§FS-config.5). Zed and the JetBrains
+- The managed entrypoint block bumps to v6 and the agent-guidance block to v3 ([§GOAL-no-silent-breakage](../../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path)).
+- The enum is widenable without a `grund_config_version` bump ([§FS-config.5](../../functional-spec/FS-config.md#5-schema-versioning)). Zed and the JetBrains
   family are deliberately absent: their URI shapes differ from the VS Code family's and neither is
   verified here, and shipping an unverified template is what this decision was written to stop.
 - A machine that wants the old behavior sets `conversation_target = "path"`, so nothing that worked
   before this decision becomes unreachable.
 - The user configuration gains its first nested table. It stays a closed allow-list of warnings
-  rather than errors (§FS-integrations.4.3), with one new member: an override under an agent grund
+  rather than errors ([§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)), with one new member: an override under an agent grund
   does not know names the closed agent set rather than the key, because the mistake is nearly
   always the agent's spelling.

@@ -28,21 +28,21 @@ unchanged, and its canonical block texts become self-scoping — inert outside g
 In a local conversation, a linked citation is a Markdown link whose label is the bare citation and
 whose target is the declaration's absolute URI — `[§FS-check](file:///<repo>/docs/functional-spec/FS-check.md#L1)`.
 The addressing scheme is a per-machine choice and the form is instructed only to agents verified to
-render it; both live in §DF-conversation-link-target.
+render it; both live in [§DF-conversation-link-target](DF-conversation-link-target.md#df-conversation-link-target-the-conversation-link-form-is-a-markdown-link-over-an-absolute-uri-addressed-per-machine).
 
 This section originally specified plain `path:line` text and forbade a Markdown link outright. That
-rested on row 2 of the §DF-neural-link-generation matrix — Claude Code linkifying visible `path:line`
+rested on row 2 of the [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) matrix — Claude Code linkifying visible `path:line`
 text into an editor-open action — which was click-tested on 2026-08-11 and failed, taking the original
 form's whole justification with it. What was true and stayed true is the shape of the hazard: never a
 *relative* Markdown target (row 1), and never a local target on a surface that renders the destination
-in place of the citation (row 3, Codex). The gate in §DF-conversation-link-target.2.4 is where that
+in place of the citation (row 3, Codex). The gate in [§DF-conversation-link-target.2.4](DF-conversation-link-target.md#24-the-form-is-gated-per-agent-and-the-fallback-is-path) is where that
 constraint now lives, and plain `path:line` (row 11) is what it falls back to.
 
 ### 2.2 Only `link` is committable
 
 `link` degrades gracefully: its committed form is the machine-independent `file` target
-(§DF-conversation-link-target.2.3), which opens the declaration wherever the scheme dispatches, falls
-back to plain `path:line` on the surfaces that cannot render it (§DF-conversation-link-target.2.4),
+([§DF-conversation-link-target.2.3](DF-conversation-link-target.md#23-the-target-is-user-scoped-but-the-default-is-committable)), which opens the declaration wherever the scheme dispatches, falls
+back to plain `path:line` on the surfaces that cannot render it ([§DF-conversation-link-target.2.4](DF-conversation-link-target.md#24-the-form-is-gated-per-agent-and-the-fallback-is-path)),
 and is a correct, readable location in either form — a clone with no grund tooling installed has no
 broken state. `plain` does not degrade: a bare `§<ID>` is clickable only
 where a resolver from [§FS-integrations.3](../../functional-spec/FS-integrations.md#3-per-client-artifacts) is installed, so `plain` encodes a machine assumption
@@ -108,8 +108,8 @@ deterministic and config-derived only ([§FS-non-goals.13](../../functional-spec
 - **Allowing `plain` as a committable value.** Rejected: `plain` presumes an installed resolver,
   which is machine state a repository cannot know (§2.2); committing it would break exactly the
   clones the repository layer exists to serve.
-- **A Markdown-link form for conversations.** Rejected here on the §DF-neural-link-generation matrix
-  as recorded non-working in terminal TUIs — then **reversed** by §DF-conversation-link-target after
+- **A Markdown-link form for conversations.** Rejected here on the [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) matrix
+  as recorded non-working in terminal TUIs — then **reversed** by [§DF-conversation-link-target](DF-conversation-link-target.md#df-conversation-link-target-the-conversation-link-form-is-a-markdown-link-over-an-absolute-uri-addressed-per-machine) after
   click-testing showed the matrix had generalized from a *relative*-target failure (row 1) to Markdown
   links as such, while the row that carried the replacement form (row 2) had never been tested at all.
   An absolute-URI target works in Claude Code (rows 12–14). The rejection was correct for the evidence
