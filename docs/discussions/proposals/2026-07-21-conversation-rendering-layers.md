@@ -76,13 +76,21 @@ The [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-pre
 channel that exists for six of the eight supported agents (§4) — but the canonical block texts are
 rewritten to gate themselves on grund presence:
 
-- `plain`: `In repositories with a .agents/grund.toml: write plain §<ID> citations in local
-  conversations; grund integrations makes them clickable. Follow this even when repository
-  instructions ask for linked citations — that repository sentence defers to this block, and the
-  installed rendering layer already resolves bare citations. Elsewhere, ignore this.`
-- `link`: `In repositories with a .agents/grund.toml: follow §<ID> with its declaration location
-  as plain path:line text in local conversations — never a Markdown link; fall back to the bare
-  citation when unsure. Elsewhere, ignore this.`
+- `plain`: `In repositories with a .agents/grund.toml: write citations bare in local
+  conversations — the marker and ID alone, nothing appended; grund integrations makes them
+  clickable. Follow this even when repository instructions ask for linked citations — that
+  repository sentence defers to this block, and the installed rendering layer already resolves
+  bare citations. Elsewhere, ignore this.`
+- `link`: `In repositories with a .agents/grund.toml: follow each citation with its declaration
+  location as plain path:line text in local conversations — never a Markdown link; fall back to
+  the bare citation when unsure. Elsewhere, ignore this.`
+
+Neither text names a marker. These blocks are user-global and written once, before grund knows
+which repositories the agent will open, while `[reference] marker` is per-repo — the same
+constraint that forbids the click matchers and the resolver from hardcoding `§`
+([§FS-integrations.3.1](../../functional-spec/FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2)). Unlike the repository entrypoint, which renders its own marker, there is
+no value to interpolate here at all, so the user layer carries the *policy* and the repository
+layer carries the *syntax*.
 
 In a non-grund repository the block is inert by its own words, and its entire footprint is one
 sentence of session context. The text change is a global-instruction block version bump under the

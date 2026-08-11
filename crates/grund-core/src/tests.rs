@@ -3582,8 +3582,7 @@ default = "must-not"
             .env("PAGER", "cat")
             .env("GRUND_OPEN_CMD", bin.join("opener"))
             .env_remove("EDITOR")
-            .output()
-            .expect("run resolver --peek");
+            .output_unbusy();
 
         assert!(
             output.status.success(),
@@ -3756,7 +3755,7 @@ default = "must-not"
                 .unwrap();
         assert_eq!(outcome, BlockOutcome::Appended);
         assert!(plain.starts_with("# My instructions\n\n<!-- >>>"));
-        assert!(plain.contains("write plain `§<ID>` citations"));
+        assert!(plain.contains("write citations bare in local conversations"));
 
         let with_tail = format!("{plain}keep-after\n");
         let (linked, outcome) =
@@ -3764,8 +3763,17 @@ default = "must-not"
         assert_eq!(outcome, BlockOutcome::Updated);
         assert!(linked.starts_with("# My instructions\n"));
         assert!(linked.ends_with("keep-after\n"));
-        assert!(linked.contains("follow `§<ID>` with its declaration location as plain `path:line` text"));
-        assert!(!linked.contains("write plain `§<ID>` citations"));
+        assert!(linked.contains("follow each citation with its declaration location as plain `path:line` text"));
+        assert!(!linked.contains("write citations bare in local conversations"));
+        // §FS-integrations.4.3: user-global and written once, so neither text may
+        // hardcode a marker — `[reference] marker` is per-repo, and a `§` here
+        // would be wrong in every repository configured with another one.
+        for text in [
+            ConversationRendering::Plain.instruction(),
+            ConversationRendering::Link.instruction(),
+        ] {
+            assert!(!text.contains('\u{a7}'), "global block must name no marker: {text}");
+        }
 
         let (again, outcome) =
             install_agent_guidance_block(&linked, ConversationRendering::Link).unwrap();
@@ -3874,8 +3882,7 @@ default = "must-not"
             .env("GRUND_OPEN_CMD", &opener)
             .env("CAPTURE", &capture)
             .env_remove("EDITOR")
-            .output()
-            .expect("run resolver");
+            .output_unbusy();
 
         assert!(output.status.success(), "resolver failed: {}", String::from_utf8_lossy(&output.stderr));
         assert!(!pwned.exists(), "repository path was evaluated as shell source");
@@ -3888,12 +3895,40 @@ default = "must-not"
             .env("PATH", &path)
             .env("GRUND_OPEN_CMD", "   ")
             .env_remove("EDITOR")
-            .output()
-            .expect("run resolver with empty command");
+            .output_unbusy();
         assert_eq!(empty_command.status.code(), Some(2));
         assert!(
             String::from_utf8_lossy(&empty_command.stderr).contains("contains no command")
         );
+    }
+
+    /// Run a just-written script, waiting out a kernel that still calls it busy.
+    /// These tests `fs::write` a script, mark it executable, and exec it — while
+    /// the rest of the suite runs in parallel. Any other test that spawns a
+    /// process in the window where this file's write descriptor is open leaks
+    /// that descriptor into its child, and exec then fails with `ETXTBSY` until
+    /// the child exits. Nothing here can close another test's fd, so the honest
+    /// fix is to retry rather than to fail a test that has found no defect.
+    #[cfg(unix)]
+    trait OutputRetryingBusy {
+        fn output_unbusy(&mut self) -> std::process::Output;
+    }
+
+    #[cfg(unix)]
+    impl OutputRetryingBusy for std::process::Command {
+        fn output_unbusy(&mut self) -> std::process::Output {
+            const ETXTBSY: i32 = 26;
+            for _ in 0..100 {
+                match self.output() {
+                    Ok(output) => return output,
+                    Err(err) if err.raw_os_error() == Some(ETXTBSY) => {
+                        std::thread::sleep(std::time::Duration::from_millis(20));
+                    }
+                    Err(err) => panic!("run script: {err}"),
+                }
+            }
+            panic!("script stayed busy for 2s; a leaked write descriptor never closed")
+        }
     }
 
     /// Drive the real embedded `grund-open` against a mock `grund` that echoes a
@@ -3942,8 +3977,7 @@ default = "must-not"
             .env("GRUND_OPEN_CMD", &opener)
             .env("CAPTURE", &capture)
             .env_remove("EDITOR")
-            .output()
-            .expect("run resolver");
+            .output_unbusy();
         assert!(
             output.status.success(),
             "resolver failed: {}",
@@ -4049,8 +4083,7 @@ default = "must-not"
                 .env("GRUND_OPEN_CMD", &opener)
                 .env("CAPTURE", &capture)
                 .env_remove("EDITOR")
-                .output()
-                .expect("run resolver");
+                .output_unbusy();
             assert!(
                 output.status.success(),
                 "{token}: {}",
@@ -4068,8 +4101,7 @@ default = "must-not"
             .current_dir(&cwd)
             .env("GRUND_OPEN_CMD", &opener)
             .env_remove("EDITOR")
-            .output()
-            .expect("run resolver");
+            .output_unbusy();
         assert_eq!(missing.status.code(), Some(1));
         assert!(
             String::from_utf8_lossy(&missing.stderr).contains("no file 'no/such/file.md'")
