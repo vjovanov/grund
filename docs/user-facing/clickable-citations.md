@@ -246,7 +246,7 @@ cmd-click.
 heading and first paragraph to the link as a tooltip, so you just point at a
 citation — no click, no binding. No terminal can do this: none of them expose a
 hover event or a link tooltip to configuration, and
-[WezTerm has had an open request for one since 2018](https://github.com/wez/wezterm/issues/4).
+[WezTerm has had an open request for one since 2018](https://github.com/wezterm/wezterm/issues/4).
 Peek is the terminal's answer to the same question.
 
 **On iTerm2 you may not need any of this.** Its Semantic History already makes a

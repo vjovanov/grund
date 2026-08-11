@@ -126,7 +126,7 @@ end
 
 -- Ctrl-click opens the declaration in your editor; Ctrl-Shift-click peeks at it
 -- in a split pane instead (§FS-integrations.3.3). WezTerm has no hover event and
--- no link tooltip (wez/wezterm#4, open since 2018), so peek is the read-without-
+-- no link tooltip (wezterm/wezterm#4, open since 2018), so peek is the read-without-
 -- leaving path here.
 --
 -- Ctrl-click duplicates a WezTerm default on purpose: the default variant is
