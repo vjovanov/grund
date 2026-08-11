@@ -104,10 +104,17 @@ impl ConversationRendering {
     // user `plain` is the only possible conflict, and the machine wins it
     // (§DF-repo-conversation-opinion.2.3) — `plain` is only ever recorded by a
     // `--write` that installed a rendering layer, knowledge no repository has.
+    //
+    // These texts name no marker, for the same reason the matchers and the
+    // resolver do not hardcode one (§FS-integrations.3.1): they are user-global
+    // and written once, before grund knows which repositories will be opened,
+    // and `[reference] marker` is per-repo. There is nothing to interpolate at
+    // install time, so these carry the policy and the repository entrypoint —
+    // which does render its own marker — carries the syntax.
     fn instruction(self) -> &'static str {
         match self {
-            Self::Plain => "In repositories with a `.agents/grund.toml`: write plain `§<ID>` citations in local conversations; `grund integrations` makes them clickable. Follow this even when repository instructions ask for linked citations — that repository sentence defers to this block, and the installed rendering layer already resolves bare citations. Elsewhere, ignore this.",
-            Self::Link => "In repositories with a `.agents/grund.toml`: follow `§<ID>` with its declaration location as plain `path:line` text in local conversations — never a Markdown link; fall back to the bare citation when unsure. Elsewhere, ignore this.",
+            Self::Plain => "In repositories with a `.agents/grund.toml`: write citations bare in local conversations — the marker and ID alone, nothing appended; `grund integrations` makes them clickable. Follow this even when repository instructions ask for linked citations — that repository sentence defers to this block, and the installed rendering layer already resolves bare citations. Elsewhere, ignore this.",
+            Self::Link => "In repositories with a `.agents/grund.toml`: follow each citation with its declaration location as plain `path:line` text in local conversations — never a Markdown link; fall back to the bare citation when unsure. Elsewhere, ignore this.",
         }
     }
 }
