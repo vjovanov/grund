@@ -86,5 +86,9 @@ architecture. It is a simple guard, not a style police.
 - Never damage the design to fit a budget. If no split leaves the code better,
   record a soft overflow with `fissile exception add --severity soft`; for a
   hard overflow, ask a human — `--severity hard` is theirs to add, not yours.
+- An exception's `--reason` is a claim, not a description of the file. Say
+  either what makes splitting illegal (`--kind structural`, never expires) or
+  which boundary is missing and what has to exist first (`--kind deferred`,
+  with `--until` naming what retires it). Restating the finding is not a reason.
 - Run `fissile audit --stale-exceptions` before removing or moving large files.
 
