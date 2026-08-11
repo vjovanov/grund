@@ -47,6 +47,9 @@ pub enum InitFsHome {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct InitOutput {
     pub events: Vec<InitEvent>,
+    /// Things the run could not do that the caller would otherwise have to
+    /// notice for itself (§FS-init.2.3.4.17). Reported, never fatal.
+    pub notes: Vec<String>,
     pub next: Option<InitNext>,
 }
 
@@ -66,7 +69,11 @@ impl InitError {
 
     fn with_events(events: Vec<InitEvent>, message: impl Into<String>) -> Self {
         Self {
-            output: InitOutput { events, next: None },
+            output: InitOutput {
+                events,
+                notes: Vec::new(),
+                next: None,
+            },
             message: message.into(),
         }
     }
@@ -408,12 +415,34 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         entrypoint: workflow_entrypoint.unwrap_or_else(|| CANONICAL_AGENT_ENTRYPOINT.to_string()),
         fs_home,
     });
-    Ok(InitOutput { events, next })
+    // §FS-init.2.3.4.17: the committed `link` opinion is rendered per entrypoint,
+    // and a Claude entrypoint that is a symlink to `AGENTS.md` is the canonical
+    // file — which every other agent reads too, so it must keep the plain form.
+    // Silence here would read as the opinion simply not working.
+    let mut notes = Vec::new();
+    if init_config.conversation.as_deref() == Some("link") {
+        let shadowed = claude_entrypoints_shadowed_by_symlink(&target);
+        if !shadowed.is_empty() {
+            notes.push(format!(
+                "{} {} a symlink to {CANONICAL_AGENT_ENTRYPOINT}, so Claude reads the plain-location form; run `grund init --claude` to write real Claude entrypoints that teach the linked form",
+                shadowed.join(", "),
+                if shadowed.len() == 1 { "is" } else { "are" },
+            ));
+        }
+    }
+    Ok(InitOutput {
+        events,
+        notes,
+        next,
+    })
 }
 
 fn print_init_output(output: &InitOutput) {
     for event in &output.events {
         eprintln!("{} {}", event.verb, event.path);
+    }
+    for note in &output.notes {
+        eprintln!("note: {note}");
     }
     if let Some(next) = &output.next {
         print_next_block_for_home(next.docs, Some(&next.entrypoint), &next.fs_home);

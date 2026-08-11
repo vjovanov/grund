@@ -636,6 +636,25 @@ fn companion_agent_entrypoints(root: &Path) -> Result<Vec<PathBuf>, (PathBuf, St
     Ok(paths)
 }
 
+/// Claude entrypoints that are symlinks to the canonical `AGENTS.md`
+/// (§FS-init.2.3.4.17). A symlink resolves to the canonical target, so one file
+/// carries the block for every agent — and that file is the one Codex reads,
+/// where the linked form is recorded as erasing the citation. The committed
+/// `link` opinion therefore cannot reach Claude through a symlinked entrypoint,
+/// and `init` says so rather than leaving the sentence silently absent.
+pub(crate) fn claude_entrypoints_shadowed_by_symlink(root: &Path) -> Vec<String> {
+    let canonical = root.join(CANONICAL_AGENT_ENTRYPOINT);
+    COMPANION_AGENT_ENTRYPOINTS
+        .iter()
+        .filter(|entrypoint| entrypoint.agent == Some(AgentEntrypoint::Claude))
+        .filter(|entrypoint| {
+            let path = root.join(entrypoint.rel);
+            is_file_or_symlink(&path) && is_symlink_to(&path, &canonical).unwrap_or(false)
+        })
+        .map(|entrypoint| entrypoint.rel.to_string())
+        .collect()
+}
+
 /// Companion entrypoints `grund init` should update or create (§FS-init.2.1).
 /// Existing companions are updated in place. Generic non-discovery entrypoints
 /// are not selected by filename alone, but they are selected when the owning
