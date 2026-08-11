@@ -74,6 +74,13 @@ deterministic and config-derived only ([§FS-non-goals.13](../../functional-spec
   agent reads the committed entrypoint, done. `grund integrations` becomes purely personal tuning
   — and a machine that recorded `plain` keeps bare citations even in an opinionated repository,
   because its rendering layer already resolves them.
+- The written location is agent-composed and therefore approximate: measured over 15 headless
+  trials (2026-08-11), the opinion bound a location to the citation in every trial where it was
+  set and inconsistently where it was absent, but a third of those locations named the prose line
+  inside the cited section rather than the section's own heading line that `grund` resolves. It is
+  the same anchor-fidelity trade [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) already accepts for web links: off by a
+  couple of lines in the right file, never a wrong file, and a click on the citation itself — the
+  half a rendering layer resolves — stays exact ([§FS-integrations.3.1](../../functional-spec/FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2)).
 
 ## 4. Alternatives considered
 

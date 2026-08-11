@@ -4161,6 +4161,28 @@ default = "must-not"
         assert!(!rendered.ends_with('\n'));
     }
 
+    // §FS-init.2.3.6: the wording is fixed, the marker is the repository's. A
+    // hardcoded `§` in a repo configured with another marker would teach agents
+    // a token that repo does not treat as a citation — `grund check` ignores it
+    // under strict, so the grounded claim is silently never verified.
+    #[test]
+    fn clickable_citations_section_renders_the_configured_marker() {
+        let root = test_root("clickable_citations_section_renders_the_configured_marker");
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n[reference]\nmarker = \"@\"\nconversation = \"link\"\n",
+        );
+        let config = load_config(&root).expect("load config");
+        let rendered = clickable_citations_section(&config);
+        // Both sentences: the always-present web rule and the config-derived one.
+        assert!(rendered.contains("On repository web surfaces, link `@<ID>` to the PR branch"));
+        assert!(rendered.contains("In local conversations, follow `@<ID>` with its declaration"));
+        assert!(
+            !rendered.contains('\u{a7}'),
+            "no hardcoded § may survive in a custom-marker repo: {rendered}"
+        );
+    }
+
     // §FS-config.3.1: the closed enum admits only `link` — `plain` is machine
     // state and stays user-scoped (§DF-repo-conversation-opinion.2.2).
     #[test]

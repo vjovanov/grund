@@ -374,8 +374,14 @@ fn citation_directions_section(config: &Config) -> String {
 /// rendering belongs to user-level instructions installed by
 /// `grund integrations --write` (§FS-integrations.4.3).
 pub(crate) fn clickable_citations_section(config: &Config) -> String {
-    let mut section = "### Clickable citations\n\nOn repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure."
-        .to_string();
+    // The wording is fixed; the marker is the repository's own (§FS-init.2.3.6).
+    // Interpolated here rather than left as a `{MARKER}` placeholder because this
+    // section is spliced into the template *after* that placeholder is expanded,
+    // so a placeholder in this string would survive into the written block.
+    let marker = config.marker.as_str();
+    let mut section = format!(
+        "### Clickable citations\n\nOn repository web surfaces, link `{marker}<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure."
+    );
     if config.conversation.as_deref() == Some("link") {
         // §DF-repo-conversation-opinion.2.1: plain `path:line` text, never a
         // Markdown link — the only form agent TUIs turn into an editor-open action.
@@ -387,9 +393,9 @@ pub(crate) fn clickable_citations_section(config: &Config) -> String {
         // precedence: this committed opinion is the no-knowledge fallback, and a
         // machine whose user-level block recorded `plain` has an installed
         // rendering layer — its knowledge wins.
-        section.push_str(
-            " In local conversations, follow `§<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure. If a user-level grund block asks for plain citations, write bare citations instead: that machine renders them clickable itself.",
-        );
+        section.push_str(&format!(
+            " In local conversations, follow `{marker}<ID>` with its declaration location as plain `path:line` text — never a Markdown link; fall back to the bare citation when unsure. If a user-level grund block asks for plain citations, write bare citations instead: that machine renders them clickable itself."
+        ));
     }
     section
 }
