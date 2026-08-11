@@ -2,6 +2,10 @@
 #[cfg(test)]
 mod tests_resolver {
     use super::*;
+    // The resolver is a POSIX shell script, so every case that builds a
+    // fixture for it is `cfg(unix)`. On Windows only the pure matcher case
+    // below is compiled, and it needs no fixtures.
+    #[cfg(unix)]
     use super::tests_support::*;
 
     #[cfg(unix)]

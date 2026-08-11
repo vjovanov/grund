@@ -2,6 +2,9 @@
 #[cfg(test)]
 mod tests_integrations {
     use super::*;
+    // Only the symlink and resolver-peek cases build a fixture on disk, and
+    // both are `cfg(unix)`; the rest of this module works on strings.
+    #[cfg(unix)]
     use super::tests_support::*;
 
     // §FS-integrations.4.1: managed dotfile block splice is idempotent.
