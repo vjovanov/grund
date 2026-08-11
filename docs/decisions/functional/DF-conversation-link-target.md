@@ -79,9 +79,16 @@ block keeps `path`:
 
 | Agent | Instructed form | Evidence |
 | --- | --- | --- |
-| Claude | every target | rows 12–14, verified 2026-08-11 |
-| Codex | `web` only; local schemes fall back to `path` | row 3, verified 2026-08-10; row 11 for the fallback |
+| Claude | every target | rows 12–14, click-tested 2026-08-11 |
+| Codex | `web` only; local schemes fall back to `path` | rows 3 and 15, click-tested 2026-08-11; row 11 for the fallback |
 | Gemini, Copilot, Zed, Pi, Cursor, Windsurf | `path` | unverified — no row claims either way |
+
+Codex was click-tested against this table on 2026-08-11 and the table survived, with one qualification
+worth recording: its TUI never hides a destination behind a label, so even the `web` form it *is* given
+renders as the citation followed by a visible URL. `web` earns its place there because it is the only
+natively clickable form on that surface, not because it renders the way it does in Claude. An editor
+scheme, by contrast, measured as the worst of both — a long inline URL and no click at all — which is
+the concrete reason the local schemes fall back instead of being passed through on the user's say-so.
 
 The gate can only hold a surface at the form it already had, never make one worse, and it is reported
 rather than silent: `grund integrations --write` names the effective form per target (§FS-integrations.4.3),

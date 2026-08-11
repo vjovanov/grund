@@ -439,6 +439,30 @@ link form, `AGENTS.md` does not — so if your `CLAUDE.md` is a symlink to
 `AGENTS.md`, it is one file and it keeps the plain form. Run
 `grund init --claude` to write real Claude entrypoints instead.
 
+### 6.3 Codex, specifically
+
+grund can instruct Codex to emit citation links; it cannot change Codex's
+renderer, and that renderer is the whole constraint. Click-tested 2026-08-11:
+
+- **HTTPS links work**, and they keep `§AR-checker` as the clickable label.
+- **Local paths, `file:` URLs, and editor-scheme URLs are not clickable here.**
+  A `file:` target is worse than not clickable: the citation is replaced by the
+  destination, so the reference disappears from the transcript.
+- **Codex exposes no configuration that would enable arbitrary local Markdown
+  links.** `desktop.custom_file_handlers` is not that switch — it only chooses
+  the "Open in" target for files Codex already recognizes.
+
+So for Codex: **use `web` if you want clickable citations, and otherwise leave
+it on plain `§<ID> path:line`.** That is what the gate does for you already —
+`web` passes through to Codex, every local scheme falls back to `path` — so the
+only decision left is whether the transcripts you read there are worth pointing
+at the forge instead of at your disk.
+
+One consequence worth knowing before you choose: `conversation_target` is a
+single machine-wide value, so setting `web` for Codex's benefit also moves
+Claude's citations to the forge and away from your editor. If you read both,
+pick the one you read more.
+
 ## 7. When a click does nothing
 
 Work from the inside out — this separates a matcher problem from a resolver
