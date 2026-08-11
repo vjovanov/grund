@@ -458,10 +458,55 @@ it on plain `§<ID> path:line`.** That is what the gate does for you already —
 only decision left is whether the transcripts you read there are worth pointing
 at the forge instead of at your disk.
 
-One consequence worth knowing before you choose: `conversation_target` is a
-single machine-wide value, so setting `web` for Codex's benefit also moves
-Claude's citations to the forge and away from your editor. If you read both,
-pick the one you read more.
+If you read both Claude and Codex, you do not have to pick — override the one
+that differs (§6.4).
+
+### 6.4 Overriding one agent
+
+`conversation_target` is machine-wide, but agents do not render alike, so a
+single value is the wrong granularity for a machine that reads two of them.
+`--agent` scopes the choice to one:
+
+```bash
+grund integrations --write --conversation-target vscodium   # the machine
+grund integrations --write --agent codex --conversation-target web
+```
+
+which records a partial under that agent, merged over the base:
+
+```toml
+[reference]
+conversation        = "link"
+conversation_target = "vscodium"   # everyone inherits this
+
+[reference.agents.codex]
+conversation_target = "web"        # except Codex
+```
+
+The rule is one line: **a key under an agent replaces the base for that agent;
+an absent key inherits it.** There is no per-agent default and nothing to
+unset — delete the entry and that agent goes back to inheriting. Accepted agent
+names are `codex`, `claude`, `gemini`, `copilot`, `zed`, and `pi`; anything else
+is an error listing the six.
+
+**An override is a preference, not evidence.** It sets what you *ask* for; the
+gate in §6.3 still decides what gets written. Asking for `vscodium` under
+`codex` resolves to `vscodium` and is then held at `path`, exactly as the
+machine-wide value would be — because the click-test says the citation would be
+worse there, and no key should be able to buy that
+([§DF-conversation-link-target.2.5](decisions/functional/DF-conversation-link-target.md#25-a-per-agent-override-is-a-preference-not-evidence)).
+The pairing above needs no such power: `web` is a request the gate already
+grants Codex.
+
+Both layers show up in the report, so you never have to guess which one acted:
+
+```
+$ grund integrations --write --conversation-target vscodium
+updated /home/you/.claude/CLAUDE.md (link → vscodium)
+updated /home/you/.codex/AGENTS.md (link → web; agent override)
+updated /home/you/.gemini/GEMINI.md (link → path; vscodium unverified here)
+skipped /home/you/.pi/agent/AGENTS.md (no ~/.pi)
+```
 
 ## 7. When a click does nothing
 

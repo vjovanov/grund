@@ -32,8 +32,11 @@ const AGENT_GUIDANCE_BLOCK_VERSION: u32 = 3;
 enum LinkSupport {
     /// Every target, local schemes included (matrix rows 12–14).
     Every,
+    /// `file:` and web URLs dispatch, editor schemes do not; labels survive
+    /// either way (matrix row 16, Pi).
+    FileAndWeb,
     /// Web URLs only; a local destination is rendered in place of the link
-    /// label, erasing the citation (matrix row 3, Codex).
+    /// label, erasing the citation (matrix rows 3 and 15, Codex).
     WebOnly,
     /// No click-test either way, so the citation keeps its plain location.
     Unverified,
@@ -43,6 +46,7 @@ impl LinkSupport {
     fn resolve(self, target: ConversationTarget) -> ConversationTarget {
         match (self, target) {
             (Self::Every, _) => target,
+            (Self::FileAndWeb, ConversationTarget::File | ConversationTarget::Web) => target,
             (Self::WebOnly, ConversationTarget::Web) => target,
             _ => ConversationTarget::Path,
         }
@@ -54,6 +58,9 @@ impl LinkSupport {
 /// agent: `--write` installs a *rendering layer*, and provisioning the config
 /// tree of five agents the machine does not have is not part of that.
 struct GlobalAgentTarget {
+    /// The agent's name — the key `[reference.agents.<agent>]` is written under
+    /// and the value `--agent` accepts (§FS-integrations.4.4).
+    agent: &'static str,
     /// `~`-rooted instruction file, printed verbatim so reports stay stable.
     file: &'static str,
     /// `~`-rooted directory that shows the agent is in use.
@@ -67,34 +74,40 @@ struct GlobalAgentTarget {
 /// repository entrypoints in §FS-init.2.1.
 const GLOBAL_AGENT_INSTRUCTION_TARGETS: [GlobalAgentTarget; 6] = [
     GlobalAgentTarget {
+        agent: "codex",
         file: "~/.codex/AGENTS.md",
         home: "~/.codex",
         link_support: LinkSupport::WebOnly,
     },
     GlobalAgentTarget {
+        agent: "claude",
         file: "~/.claude/CLAUDE.md",
         home: "~/.claude",
         link_support: LinkSupport::Every,
     },
     GlobalAgentTarget {
+        agent: "gemini",
         file: "~/.gemini/GEMINI.md",
         home: "~/.gemini",
         link_support: LinkSupport::Unverified,
     },
     GlobalAgentTarget {
+        agent: "copilot",
         file: "~/.copilot/copilot-instructions.md",
         home: "~/.copilot",
         link_support: LinkSupport::Unverified,
     },
     GlobalAgentTarget {
+        agent: "zed",
         file: "~/.config/zed/AGENTS.md",
         home: "~/.config/zed",
         link_support: LinkSupport::Unverified,
     },
     GlobalAgentTarget {
+        agent: "pi",
         file: "~/.pi/agent/AGENTS.md",
         home: "~/.pi",
-        link_support: LinkSupport::Unverified,
+        link_support: LinkSupport::FileAndWeb,
     },
 ];
 
@@ -111,9 +124,25 @@ const CONVERSATION_KEY_PATH: &str = "reference.conversation";
 /// (§DF-conversation-link-target.2.3).
 const CONVERSATION_TARGET_KEY_PATH: &str = "reference.conversation_target";
 
-/// The two keys grund consumes from the user configuration, for the unused-key
+/// The keys grund consumes from the user configuration, for the unused-key
 /// warning that names them.
-const USER_CONFIG_KEY_PATHS: &str = "`reference.conversation` and `reference.conversation_target`";
+const USER_CONFIG_KEY_PATHS: &str = "`reference.conversation`, `reference.conversation_target`, and `reference.agents.<agent>.conversation_target`";
+
+/// The table one agent's overrides live under (§FS-integrations.4.4). The
+/// partial is merged over the machine-wide keys, so only the names above are
+/// accepted inside it.
+fn agent_override_table(agent: &str) -> String {
+    format!("reference.agents.{agent}")
+}
+
+/// `codex | claude | …` for the errors that list the accepted set.
+fn known_agents_list() -> String {
+    GLOBAL_AGENT_INSTRUCTION_TARGETS
+        .iter()
+        .map(|target| target.agent)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
 
 /// Where `--write` installs the `grund-open` resolver for terminal clients; a
 /// single source so the descriptor plan and the writer cannot drift.
@@ -201,7 +230,7 @@ impl ConversationRendering {
             Self::Link => match target.uri_phrase() {
                 None => "In repositories with a `.agents/grund.toml`: follow each citation with its declaration location as plain `path:line` text in local conversations; fall back to the bare citation when unsure. Elsewhere, ignore this.".to_string(),
                 Some(phrase) => format!(
-                    "In repositories with a `.agents/grund.toml`: in local conversations render each citation as a Markdown link whose visible text is the citation itself and whose target is {phrase} for the declaration's location; fall back to the bare citation when unsure. Elsewhere, ignore this."
+                    "In repositories with a `.agents/grund.toml`: in local conversations render each citation as a Markdown link whose visible text is the citation itself and whose target is {phrase}; fall back to the bare citation when unsure. Elsewhere, ignore this."
                 ),
             },
         }
@@ -267,13 +296,11 @@ impl ConversationTarget {
     fn uri_phrase(self) -> Option<&'static str> {
         match self {
             Self::Path => None,
-            Self::File => Some("`file://<absolute path>#L<line>`"),
-            Self::Web => {
-                Some("the repository's forge URL for the declaration at the current commit")
-            }
-            Self::Vscode => Some("`vscode://file<absolute path>:<line>`"),
-            Self::Vscodium => Some("`vscodium://file<absolute path>:<line>`"),
-            Self::Cursor => Some("`cursor://file<absolute path>:<line>`"),
+            Self::File => Some("`file://<absolute path>#L<line>` for the declaration"),
+            Self::Web => Some("the declaration's forge URL at the current commit"),
+            Self::Vscode => Some("`vscode://file<absolute path>:<line>` for the declaration"),
+            Self::Vscodium => Some("`vscodium://file<absolute path>:<line>` for the declaration"),
+            Self::Cursor => Some("`cursor://file<absolute path>:<line>` for the declaration"),
         }
     }
 }
@@ -485,6 +512,9 @@ struct IntegrationsInvocation {
     json: bool,
     conversation: Option<ConversationRendering>,
     conversation_target: Option<ConversationTarget>,
+    /// `--agent <name>`: scope `conversation_target` to one agent instead of
+    /// the machine (§FS-integrations.4.4).
+    agent: Option<&'static str>,
 }
 
 /// Parse args, or return an error `ExitCode` after printing a CLI-level message.
@@ -494,6 +524,7 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
     let mut format: Option<String> = None;
     let mut conversation: Option<String> = None;
     let mut conversation_target: Option<String> = None;
+    let mut agent: Option<String> = None;
     let mut idx = 0;
     while idx < args.len() {
         match args[idx].as_str() {
@@ -508,6 +539,17 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
             }
             other if other.starts_with("--conversation=") => {
                 conversation = Some(other.trim_start_matches("--conversation=").to_string());
+            }
+            "--agent" => {
+                idx += 1;
+                if idx >= args.len() {
+                    eprintln!("error: --agent requires a value");
+                    return Err(ExitCode::from(2));
+                }
+                agent = Some(args[idx].clone());
+            }
+            other if other.starts_with("--agent=") => {
+                agent = Some(other.trim_start_matches("--agent=").to_string());
             }
             "--conversation-target" => {
                 idx += 1;
@@ -584,6 +626,30 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
             }
         },
     };
+    // §FS-integrations.4.4: `--agent` scopes `--conversation-target` and
+    // nothing else, so an agent with no target is an error rather than a
+    // silent no-op.
+    let agent = match agent.as_deref() {
+        None => None,
+        Some(value) => match known_agent(value) {
+            Some(known) => Some(known),
+            None => {
+                eprintln!(
+                    "error: unknown agent `{value}`; known agents: {}",
+                    known_agents_list()
+                );
+                return Err(ExitCode::from(2));
+            }
+        },
+    };
+    if agent.is_some() && !write {
+        eprintln!("error: --agent requires --write");
+        return Err(ExitCode::from(2));
+    }
+    if agent.is_some() && conversation_target.is_none() {
+        eprintln!("error: --agent requires --conversation-target");
+        return Err(ExitCode::from(2));
+    }
     if conversation.is_some() && !write {
         eprintln!("error: --conversation requires --write");
         return Err(ExitCode::from(2));
@@ -613,6 +679,7 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
         json,
         conversation,
         conversation_target,
+        agent,
     })
 }
 
@@ -640,11 +707,13 @@ pub fn run_integrations(args: &[String]) -> ExitCode {
                 client,
                 invocation.conversation,
                 invocation.conversation_target,
+                invocation.agent,
                 user_config,
             ),
             None => write_user_citation_guidance_command(
                 invocation.conversation,
                 invocation.conversation_target,
+                invocation.agent,
                 user_config,
             ),
         };
@@ -945,6 +1014,7 @@ fn write_integration(
     client: IntegrationClient,
     conversation: Option<ConversationRendering>,
     conversation_target: Option<ConversationTarget>,
+    agent: Option<&'static str>,
     user_config: UserConfig,
 ) -> ExitCode {
     let integration_status = match client.install_kind() {
@@ -955,15 +1025,16 @@ fn write_integration(
     if integration_status != ExitCode::SUCCESS {
         return integration_status;
     }
-    write_user_citation_guidance_command(conversation, conversation_target, user_config)
+    write_user_citation_guidance_command(conversation, conversation_target, agent, user_config)
 }
 
 fn write_user_citation_guidance_command(
     conversation: Option<ConversationRendering>,
     conversation_target: Option<ConversationTarget>,
+    agent: Option<&'static str>,
     user_config: UserConfig,
 ) -> ExitCode {
-    match write_user_citation_guidance(conversation, conversation_target, user_config) {
+    match write_user_citation_guidance(conversation, conversation_target, agent, user_config) {
         Ok(()) => ExitCode::SUCCESS,
         Err((path, message)) => {
             eprintln!("error: {}: {message}", path.display());
@@ -1156,6 +1227,35 @@ enum GuidancePlan {
     /// The agent is not in use on this machine — report why and write nothing.
     /// Named so the report says which directory would make it apply.
     Skip(&'static str),
+    /// An instruction file, reported with the form it received
+    /// (§FS-integrations.4.4).
+    WriteAgent(String, BlockOutcome, EffectiveForm),
+}
+
+/// What one agent's block ended up teaching, and why it is not what was asked
+/// for when it is not (§FS-integrations.4.4). Reported per target, because
+/// unreported an override, a gate downgrade, and an unread key are
+/// indistinguishable from the outside.
+struct EffectiveForm {
+    rendering: ConversationRendering,
+    target: ConversationTarget,
+    requested: ConversationTarget,
+    overridden: bool,
+}
+
+impl EffectiveForm {
+    fn describe(&self) -> String {
+        if self.rendering == ConversationRendering::Plain {
+            return ConversationRendering::Plain.name().to_string();
+        }
+        let mut note = format!("{} \u{2192} {}", self.rendering.name(), self.target.name());
+        if self.target != self.requested {
+            note.push_str(&format!("; {} unverified here", self.requested.name()));
+        } else if self.overridden {
+            note.push_str("; agent override");
+        }
+        note
+    }
 }
 
 /// The user configuration `--write` reads, loaded once per invocation so its
@@ -1165,6 +1265,7 @@ struct UserConfig {
     text: String,
     preference: Option<ConversationRendering>,
     target: Option<ConversationTarget>,
+    agent_targets: Vec<(String, ConversationTarget)>,
 }
 
 /// Read and report on the user configuration without writing anything. Every
@@ -1189,6 +1290,7 @@ fn load_user_config() -> Result<UserConfig, (PathBuf, String)> {
         text,
         preference: scan.preference,
         target: scan.target,
+        agent_targets: scan.agent_targets,
     })
 }
 
@@ -1199,6 +1301,7 @@ fn load_user_config() -> Result<UserConfig, (PathBuf, String)> {
 fn write_user_citation_guidance(
     requested: Option<ConversationRendering>,
     requested_target: Option<ConversationTarget>,
+    scoped_agent: Option<&'static str>,
     user_config: UserConfig,
 ) -> Result<(), (PathBuf, String)> {
     let UserConfig {
@@ -1206,29 +1309,54 @@ fn write_user_citation_guidance(
         text: config_existing,
         preference: stored,
         target: stored_target,
+        mut agent_targets,
     } = user_config;
     let effective = requested.or(stored).unwrap_or(ConversationRendering::Plain);
-    let effective_target = requested_target
-        .or(stored_target)
-        .unwrap_or_else(ConversationTarget::default);
+    // A scoped write changes one agent's partial and leaves the base exactly as
+    // it was — that is the whole point of the flag (§FS-integrations.4.4).
+    let machine_target = if scoped_agent.is_some() {
+        stored_target.unwrap_or_default()
+    } else {
+        requested_target.or(stored_target).unwrap_or_default()
+    };
     // Both keys are recorded, and both are recorded even when inert: a machine
     // that set a target under `plain` keeps it when it later switches to `link`
     // (§FS-integrations.1).
     let (config_updated, conversation_outcome) = install_reference_key(
         &config_existing,
-        CONVERSATION_KEY_PATH,
+        "reference",
         "conversation",
         effective.name(),
         stored == Some(effective),
     );
     let (config_updated, target_outcome) = install_reference_key(
         &config_updated,
-        CONVERSATION_TARGET_KEY_PATH,
+        "reference",
         "conversation_target",
-        effective_target.name(),
-        stored_target == Some(effective_target),
+        machine_target.name(),
+        stored_target == Some(machine_target),
     );
-    let config_outcome = merge_outcomes(conversation_outcome, target_outcome);
+    let mut config_outcome = merge_outcomes(conversation_outcome, target_outcome);
+    let mut config_updated = config_updated;
+    if let (Some(agent), Some(target)) = (scoped_agent, requested_target) {
+        let stored_for_agent = agent_targets
+            .iter()
+            .find(|(name, _)| name == agent)
+            .map(|(_, value)| *value);
+        let (next, outcome) = install_reference_key(
+            &config_updated,
+            &agent_override_table(agent),
+            "conversation_target",
+            target.name(),
+            stored_for_agent == Some(target),
+        );
+        config_updated = next;
+        config_outcome = merge_outcomes(config_outcome, outcome);
+        match agent_targets.iter_mut().find(|(name, _)| name == agent) {
+            Some(entry) => entry.1 = target,
+            None => agent_targets.push((agent.to_string(), target)),
+        }
+    }
 
     let mut plans = vec![(
         config_path,
@@ -1250,14 +1378,26 @@ fn write_user_citation_guidance(
             plans.push((path, GuidancePlan::Skip(target.home)));
             continue;
         }
-        // §DF-conversation-link-target.2.4: an agent is instructed in the form
-        // its renderer is verified to honor, and never in one that would erase
-        // the citation. The gate only ever holds a target at `path`.
-        let gated = target.link_support.resolve(effective_target);
+        // §FS-integrations.4.4: the agent's own partial replaces the base, then
+        // §DF-conversation-link-target.2.4 gates the result — the override moves
+        // the request, never the verdict, so no key can instruct a form recorded
+        // as erasing the citation on that surface.
+        let overridden = agent_targets
+            .iter()
+            .find(|(name, _)| name == target.agent)
+            .map(|(_, value)| *value);
+        let requested_for_agent = overridden.unwrap_or(machine_target);
+        let gated = target.link_support.resolve(requested_for_agent);
+        let form = EffectiveForm {
+            rendering: effective,
+            target: gated,
+            requested: requested_for_agent,
+            overridden: overridden.is_some(),
+        };
         let existing = read_optional_text(&path)?;
         let (updated, outcome) = install_agent_guidance_block(&existing, effective, gated)
             .map_err(|message| (path.clone(), message))?;
-        plans.push((path, GuidancePlan::Write(updated, outcome)));
+        plans.push((path, GuidancePlan::WriteAgent(updated, outcome, form)));
     }
 
     for (path, plan) in plans {
@@ -1271,6 +1411,21 @@ fn write_user_citation_guidance(
                     fs::write(&path, updated).map_err(|err| (path.clone(), err.to_string()))?;
                 }
                 eprintln!("{} {}", block_outcome_verb(outcome), path.display());
+            }
+            GuidancePlan::WriteAgent(updated, outcome, form) => {
+                if outcome != BlockOutcome::Unchanged {
+                    if let Some(parent) = path.parent() {
+                        fs::create_dir_all(parent)
+                            .map_err(|err| (parent.to_path_buf(), err.to_string()))?;
+                    }
+                    fs::write(&path, updated).map_err(|err| (path.clone(), err.to_string()))?;
+                }
+                eprintln!(
+                    "{} {} ({})",
+                    block_outcome_verb(outcome),
+                    path.display(),
+                    form.describe()
+                );
             }
             GuidancePlan::Skip(home) => {
                 eprintln!("skipped {} (no {home})", path.display());
@@ -1349,6 +1504,10 @@ struct UserConfigScan {
     /// unreadable target never costs the `plain`/`link` value recorded beside
     /// it (§FS-integrations.4.3).
     target: Option<ConversationTarget>,
+    /// `[reference.agents.<agent>]` partials, in file order — the override
+    /// layer merged over `target` per agent (§FS-integrations.4.4). Only known
+    /// agents land here; an unknown one is a warning naming the closed set.
+    agent_targets: Vec<(String, ConversationTarget)>,
     /// `(line, message)` for everything in the file grund did not act on, in
     /// file order. Every message names what is being ignored, so the report says
     /// what the run will do rather than only what is wrong.
@@ -1382,6 +1541,7 @@ fn scan_user_config(text: &str) -> UserConfigScan {
     let mut section = String::new();
     let mut preference = None;
     let mut target = None;
+    let mut agent_targets: Vec<(String, ConversationTarget)> = Vec::new();
     let mut problems = Vec::new();
     for (idx, raw_line) in text.lines().enumerate() {
         let line = strip_comment(raw_line).trim();
@@ -1456,6 +1616,45 @@ fn scan_user_config(text: &str) -> UserConfigScan {
                     )),
                 }
             }
+            // §FS-integrations.4.4: `[reference.agents.<agent>]` is a partial of
+            // the keys above, so it accepts the same names and nothing else.
+            _ if section.starts_with("reference.agents.") => {
+                let agent = section.trim_start_matches("reference.agents.");
+                let Some(known) = known_agent(agent) else {
+                    problems.push((
+                        idx + 1,
+                        format!(
+                            "unknown agent `{agent}` in reference.agents; known agents: {}",
+                            known_agents_list()
+                        ),
+                    ));
+                    continue;
+                };
+                if key.trim() != "conversation_target" {
+                    problems.push((
+                        idx + 1,
+                        format!(
+                            "unused key `{qualified}`; grund reads only {USER_CONFIG_KEY_PATHS} from this file"
+                        ),
+                    ));
+                    continue;
+                }
+                if agent_targets.iter().any(|(name, _)| name == known) {
+                    problems.push((
+                        idx + 1,
+                        format!("ignoring duplicate `{qualified}`; the first one is used"),
+                    ));
+                    continue;
+                }
+                let accepted = ConversationTarget::accepted_list();
+                match unquote_toml_string(value).and_then(ConversationTarget::from_name) {
+                    Some(parsed) => agent_targets.push((known.to_string(), parsed)),
+                    None => problems.push((
+                        idx + 1,
+                        format!("ignoring `{qualified} = {value}`: must be one of {accepted}"),
+                    )),
+                }
+            }
             _ => problems.push((
                 idx + 1,
                 format!(
@@ -1467,8 +1666,17 @@ fn scan_user_config(text: &str) -> UserConfigScan {
     UserConfigScan {
         preference,
         target,
+        agent_targets,
         problems,
     }
+}
+
+/// The canonical spelling of a known agent name, or `None` (§FS-integrations.4.4).
+fn known_agent(name: &str) -> Option<&'static str> {
+    GLOBAL_AGENT_INSTRUCTION_TARGETS
+        .iter()
+        .map(|target| target.agent)
+        .find(|known| *known == name)
 }
 
 /// The `plain`/`link` preference alone, for tests that assert on one key.
@@ -1492,7 +1700,7 @@ fn install_conversation_preference(
 ) -> (String, BlockOutcome) {
     install_reference_key(
         existing,
-        CONVERSATION_KEY_PATH,
+        "reference",
         "conversation",
         preference.name(),
         conversation_preference(existing) == Some(preference),
@@ -1503,17 +1711,19 @@ fn install_conversation_preference(
 /// Infallible: every defect in this file is a warning reported at load
 /// (§FS-integrations.4.3), so there is nothing left here to refuse.
 ///
-/// `key_path` is the fully-qualified name to match an existing line on, and
-/// `bare_key` the name to write when the key is absent; they differ only in
-/// that the file may spell the key dotted at root. `already_recorded` says the
-/// scan already read this exact value from the file.
+/// `table` is the table the key belongs to — `reference`, or one agent's
+/// `reference.agents.<agent>` partial (§FS-integrations.4.4) — and `bare_key`
+/// the name to write when the key is absent; the two are joined to match an
+/// existing line, since the file may spell the key dotted at root.
+/// `already_recorded` says the scan already read this exact value.
 fn install_reference_key(
     existing: &str,
-    key_path: &str,
+    table: &str,
     bare_key: &str,
     value: &str,
     already_recorded: bool,
 ) -> (String, BlockOutcome) {
+    let key_path = format!("{table}.{bare_key}");
     // Already recorded: leave the bytes alone. Rewriting an identical value would
     // report `updated` for a no-op and drop whatever comment the user wrote
     // beside it — a second `--write` is a no-op reporting `exists`
@@ -1530,7 +1740,7 @@ fn install_reference_key(
         let line = strip_comment(raw).trim();
         if let Some(name) = section_header_name(line) {
             section = name;
-            if section == "reference" {
+            if section == table {
                 section_stop = Some(stop);
             }
             offset = stop;
@@ -1579,7 +1789,7 @@ fn install_reference_key(
     if !existing.is_empty() {
         updated.push('\n');
     }
-    updated.push_str("[reference]\n");
+    updated.push_str(&format!("[{table}]\n"));
     updated.push_str(&replacement);
     (updated, BlockOutcome::Appended)
 }

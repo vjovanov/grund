@@ -437,7 +437,10 @@ fn print_subcommand_help(cmd: &str) {
                 "Usage:  grund integrations [<client>] [--write] [--conversation plain|link]"
             );
             println!(
-                "                          [--conversation-target file|path|web|vscode|vscodium|cursor] [--format text|json]"
+                "                          [--conversation-target file|path|web|vscode|vscodium|cursor]"
+            );
+            println!(
+                "                          [--agent codex|claude|gemini|copilot|zed|pi] [--format text|json]"
             );
             println!();
             println!("With no client, detects the terminal/editor from the environment and prints");
@@ -447,7 +450,8 @@ fn print_subcommand_help(cmd: &str) {
             println!("write also records the local conversation preference and updates global agent");
             println!("instructions. With no client, --write with either conversation flag changes");
             println!("only that preference. --conversation-target picks how a linked citation");
-            println!("addresses its declaration. --format json emits a plan.");
+            println!("addresses its declaration; --agent scopes that choice to one agent instead");
+            println!("of the machine. --format json emits a plan.");
             println!();
             println!("Preview and install examples:");
             println!("  grund integrations                    # detect and list what applies");
@@ -455,6 +459,7 @@ fn print_subcommand_help(cmd: &str) {
             println!("  grund integrations wezterm --write    # install it, idempotently");
             println!("  grund integrations --write --conversation link  # preference only");
             println!("  grund integrations --write --conversation-target vscodium  # open in the editor");
+            println!("  grund integrations --write --agent codex --conversation-target web  # that agent only");
             println!();
             println!("Exit:  0 printed or installed · 2 invalid options, missing write target, or a newer block.");
         }
