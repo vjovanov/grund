@@ -112,6 +112,39 @@ jobs:
       - name: cargo test
         run: cargo test --workspace --all-targets --locked
 
+  # The commit-msg pre-commit stage cannot be reproduced by `pre-commit run
+  # --all-files` — it takes a message file, not a file list — so the `test` job's
+  # pre-commit step never sees it and a trailer that lives only in a commit
+  # message rides in unchecked. This job closes that gap by scanning the messages
+  # the push or pull request actually adds (§AR-ci.8). No Rust toolchain: it is a
+  # Python scan over `git log`, so it stays seconds-fast and fails early.
+  commit-messages:
+    name: commit message attribution gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # The range endpoints must both be present; a shallow clone has neither.
+          fetch-depth: 0
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: scan commit messages
+        shell: bash
+        env:
+          # A pull request scans base..head, so a rewritten or rebased branch is
+          # judged on the commits it actually contributes. A push scans what it
+          # added; the script narrows to the tip commit when `before` names a
+          # commit the runner cannot resolve (first push, force-push).
+          RANGE: >-
+            ${{ github.event_name == 'pull_request'
+                && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha)
+                || format('{0}..{1}', github.event.before, github.sha) }}
+        run: python scripts/check_no_claude_attribution.py --range "$RANGE"
+
   # Instruction-counting benchmarks for the hot CLI commands (§AR-benchmarks /
   # §AR-ci.5). Kept out of the `test` matrix because the harness runs `grund` under
   # Callgrind — only this job needs Valgrind, and the `bench` Cargo feature gate

@@ -98,23 +98,25 @@ repos:
         stages: [pre-commit]
       - id: no-claude-attribution
         name: no Claude attribution boilerplate (staged files)
-        entry: scripts/check-no-claude-attribution.sh
+        entry: python scripts/check_no_claude_attribution.py --files
         language: system
         # Run against staged file content. The script accepts the file list
         # pre-commit passes. The script's own source documents the patterns
         # it blocks; exclude it so the hook does not flag itself.
         pass_filenames: true
-        exclude: ^scripts/check-no-claude-attribution\.sh$
+        exclude: ^scripts/check_no_claude_attribution\.py$
         stages: [pre-commit]
       - id: no-claude-attribution-commit-msg
         name: no Claude attribution boilerplate (commit message)
-        entry: scripts/check-no-claude-attribution.sh
+        entry: python scripts/check_no_claude_attribution.py --message-file
         language: system
         # Same script, second stage. pre-commit passes the commit-message
-        # file as the single argument; the script greps it with the same
+        # file as the single argument; the script scans it with the same
         # patterns as the staged-files hook. Catches forbidden co-author
         # and generated-by trailers that slip into commit messages even when no
-        # tracked file contains them.
+        # tracked file contains them. This stage is invisible to
+        # `pre-commit run --all-files`, so CI enforces it over a commit range
+        # instead (§AR-ci.8).
         stages: [commit-msg]
         pass_filenames: true
         always_run: true
