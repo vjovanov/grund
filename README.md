@@ -238,14 +238,18 @@ Supported clients are `codium`, `iterm2`, `kitty`, `tmux`, `vscode`, and
 `wezterm`. `--write` is a
 one-time, idempotent user setup: it installs the selected integration, records
 the local-conversation preference in the user Grund config, and updates global
-instruction blocks for Codex, Claude, Gemini, GitHub Copilot, Zed, and Pi. It does not change any
+instruction blocks for whichever of Codex, Claude, Gemini, GitHub Copilot, Zed, and Pi
+you actually have installed. It does not change any
 repository's `.agents/grund.toml`.
 
 The default asks agents for plain citations because the installed integration
 makes them clickable. To override that for a TUI without rendering support, run
 `grund integrations --write --conversation link`; this preference-only form
 updates the user config and global instructions without installing an arbitrary
-client. Repository web links remain a
+client. The setting it records is `[reference] conversation` in
+`~/.config/grund/config.toml` — the same key a repository may commit in its
+`.agents/grund.toml` to serve teammates, CI, and cloud sessions that never ran
+this setup, where your machine's value wins. Repository web links remain a
 fixed project instruction: `grund init` teaches agents to use the PR branch in
 PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and
 the default branch otherwise. See [§FS-integrations](docs/functional-spec/FS-integrations.md).

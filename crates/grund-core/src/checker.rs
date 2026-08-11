@@ -1156,9 +1156,13 @@ fn check_agent_block_path(
                 // §FS-init.2.3.6: the local-conversation sentence derives from
                 // `[reference] conversation`, so flipping the key without
                 // re-running `grund init` must surface as drift.
+                // The local-conversation sentence also varies by entrypoint
+                // (§FS-init.2.3.4.17), so the drift comparison re-renders for
+                // *this* file's surface — deriving it from the path, the same
+                // way `init` chose it.
                 (
                     "### Clickable citations",
-                    clickable_citations_section(config),
+                    clickable_citations_section(config, ConversationSurface::for_entrypoint(path)),
                     "clickable citations",
                 ),
             ];

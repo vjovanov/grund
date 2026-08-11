@@ -66,8 +66,8 @@ Target forms: **rel** = repo-relative path, **abs** = absolute path, **file** = 
 
 | # | Surface | Input form | Target | Expected | Observed |
 |---|---------|-----------|--------|----------|----------|
-| 1 | Claude Code (assistant message) | Markdown link `[§FS-check](…)` | rel / abs | rendered as clickable link | **fails** for rel targets (verified 2026-07-02): the terminal's click handler receives a bare relative path, not a URI, and has no working directory to resolve it against |
-| 2 | Claude Code (assistant message) | plain `path:line` text | rel / abs | clickable file reference | documented Claude Code behavior (`file_path:line_number` references are clickable) |
+| 1 | Claude Code (assistant message) | Markdown link `[§FS-check](…)` | rel | rendered as clickable link | **fails** (verified 2026-07-02): the terminal's click handler receives a bare relative path, not a URI, and has no working directory to resolve it against. The failure is the missing *scheme*, not the Markdown link — an absolute URI target works (rows 12–14) |
+| 2 | Claude Code (assistant message) | plain `path:line` text | rel / abs | clickable file reference | **fails** (verified 2026-08-11): neither form linkifies. This row previously recorded *documented* Claude Code behavior that was never click-tested, and it was wrong; rows 12–14 are what replaced it |
 | 3 | Codex TUI (assistant message) | Markdown link | rel / abs / web | rendered as clickable link | **fails** for rel / abs (verified 2026-08-10 against the Codex TUI renderer source): a local-path destination is rendered *in place of the link label*, erasing the visible citation, and only `http(s)` URLs receive OSC 8 hyperlinks — web targets alone render clickable |
 | 4 | Plain terminal: kitty / WezTerm / iTerm2 / ghostty / VTE ≥ 0.50 | OSC 8 escape | file | Ctrl/Cmd-click opens the file | degrades to visible text where unsupported, by protocol design; no producer ships |
 | 5 | GitHub PR description / issue / review comment | Markdown link | web | clickable, anchor jumps to the heading | standard GitHub Markdown rendering; web links posted on issue #33 and PR #45 (2026-07-02) |
@@ -77,6 +77,9 @@ Target forms: **rel** = repo-relative path, **abs** = absolute path, **file** = 
 | 9 | LSP editor (hover) | plain `§<ID>` citation | — | declaration preview on hover | shipped behavior — `grund-lsp` hover ([§FS-lsp](../../functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server)); no markup needed |
 | 10 | Terminal TUI (hover) | any link form | — | declaration content on hover | not achievable from the text side: terminals only preview the target URL on hover; content hover needs client-side integration — a VSCodium `TerminalLinkProvider` prototype validated this; productized as `grund integrations vscode` (issue #46, PR #45) |
 | 11 | Codex TUI (assistant message) | plain `path:line` text | rel / abs | clickable file reference | not linkified by Codex itself — its renderer hyperlinks web URLs only (verified 2026-08-10) — but the text survives verbatim for the rendering layer: `grund integrations` clients, iTerm2 Semantic History, and the VS Code terminal's own path links make it clickable |
+| 12 | Claude Code (assistant message) | Markdown link `[§FS-refs.3.3](…)` | file | label stays the citation, click opens the file | **works** (verified 2026-08-11): `file:///<abs>#L<line>` |
+| 13 | Claude Code (assistant message) | Markdown link | editor | click opens the editor at the line | **works** (verified 2026-08-11): `vscodium://file/<abs>:<line>`, dispatched through the scheme handler the editor's own desktop entry registers |
+| 14 | Claude Code (assistant message) | Markdown link | web | click opens the browser | **works** (verified 2026-08-11) — the control that separates "the renderer honors Markdown links" from "this scheme dispatches" |
 
 ## Recipe
 
@@ -87,9 +90,12 @@ The long form behind the two-sentence `AGENTS.md` instruction:
   existing wrap's target from a file already read and re-base it.
 - **TUI messages**: follow the user-level instruction installed by `grund integrations --write`.
   Its default says to write the plain citation because the rendering layer resolves it (row 10);
-  users without that layer may select the link override. Where a location must be explicit, use
-  plain `path:line` text (row 2) or an editor-scheme link on the user's own machine (row 7), never
-  a relative-path Markdown link (row 1).
+  users without that layer may select the link override. Where a location must be explicit, the
+  form is a Markdown link whose label is the bare citation and whose target is an **absolute URI**
+  — `file:`, an editor scheme, or the forge URL, selected per machine
+  ([§DF-conversation-link-target](DF-conversation-link-target.md#df-conversation-link-target-the-conversation-link-form-is-a-markdown-link-over-an-absolute-uri-addressed-per-machine)).
+  Never a relative-path target (row 1), and never a local target on a surface that renders the
+  destination in place of the label (row 3): the citation itself is the one part that must survive.
 - **Repository web surfaces**: use the forge's file URL without a Markdown link title (row 8).
   The writing context selects the ref: PR branch in PR bodies, reviewed commit in reviews,
   explicit commit for permalinks, and the default branch otherwise. When unsure, keep the plain

@@ -20,19 +20,100 @@ const INTEGRATIONS_BLOCK_VERSION: u32 = 1;
 /// Version for the user-level agent-instruction block (§FS-integrations.4.3).
 /// v2 (§DF-repo-conversation-opinion): self-scoping texts — gated on the presence
 /// of a `.agents/grund.toml`, with the repo-opinion precedence sentence in `plain`.
-const AGENT_GUIDANCE_BLOCK_VERSION: u32 = 2;
+/// v3 (§DF-conversation-link-target): the `link` text addresses the declaration
+/// through `conversation_target`, gated per agent.
+const AGENT_GUIDANCE_BLOCK_VERSION: u32 = 3;
+
+/// How much of the linked conversation form one agent's renderer is *verified*
+/// to honor (§DF-conversation-link-target.2.4). Anything unverified resolves to
+/// `ConversationTarget::Path`, the form that surface already had — the gate can
+/// hold a target where it is, never make one worse.
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum LinkSupport {
+    /// Every target, local schemes included (matrix rows 12–14).
+    Every,
+    /// Web URLs only; a local destination is rendered in place of the link
+    /// label, erasing the citation (matrix row 3, Codex).
+    WebOnly,
+    /// No click-test either way, so the citation keeps its plain location.
+    Unverified,
+}
+
+impl LinkSupport {
+    fn resolve(self, target: ConversationTarget) -> ConversationTarget {
+        match (self, target) {
+            (Self::Every, _) => target,
+            (Self::WebOnly, ConversationTarget::Web) => target,
+            _ => ConversationTarget::Path,
+        }
+    }
+}
+
+/// One agent's file-backed global instruction surface (§FS-integrations.4.3).
+/// `home` is the directory whose presence says the user actually runs that
+/// agent: `--write` installs a *rendering layer*, and provisioning the config
+/// tree of five agents the machine does not have is not part of that.
+struct GlobalAgentTarget {
+    /// `~`-rooted instruction file, printed verbatim so reports stay stable.
+    file: &'static str,
+    /// `~`-rooted directory that shows the agent is in use.
+    home: &'static str,
+    /// What this agent's renderer is verified to do with a linked citation.
+    link_support: LinkSupport,
+}
 
 /// The file-backed global instruction surfaces for every agent grund supports
 /// end-to-end (§FS-integrations.4.3). Keep this superset aligned with the
 /// repository entrypoints in §FS-init.2.1.
-const GLOBAL_AGENT_INSTRUCTION_TARGETS: [&str; 6] = [
-    "~/.codex/AGENTS.md",
-    "~/.claude/CLAUDE.md",
-    "~/.gemini/GEMINI.md",
-    "~/.copilot/copilot-instructions.md",
-    "~/.config/zed/AGENTS.md",
-    "~/.pi/agent/AGENTS.md",
+const GLOBAL_AGENT_INSTRUCTION_TARGETS: [GlobalAgentTarget; 6] = [
+    GlobalAgentTarget {
+        file: "~/.codex/AGENTS.md",
+        home: "~/.codex",
+        link_support: LinkSupport::WebOnly,
+    },
+    GlobalAgentTarget {
+        file: "~/.claude/CLAUDE.md",
+        home: "~/.claude",
+        link_support: LinkSupport::Every,
+    },
+    GlobalAgentTarget {
+        file: "~/.gemini/GEMINI.md",
+        home: "~/.gemini",
+        link_support: LinkSupport::Unverified,
+    },
+    GlobalAgentTarget {
+        file: "~/.copilot/copilot-instructions.md",
+        home: "~/.copilot",
+        link_support: LinkSupport::Unverified,
+    },
+    GlobalAgentTarget {
+        file: "~/.config/zed/AGENTS.md",
+        home: "~/.config/zed",
+        link_support: LinkSupport::Unverified,
+    },
+    GlobalAgentTarget {
+        file: "~/.pi/agent/AGENTS.md",
+        home: "~/.pi",
+        link_support: LinkSupport::Unverified,
+    },
 ];
+
+/// The user-level Grund configuration `--write` records the preference in
+/// (§FS-integrations.4.3). `~/.config` resolves through `XDG_CONFIG_HOME`.
+const USER_CONFIG_TARGET: &str = "~/.config/grund/config.toml";
+
+/// The user-level setting spelled exactly as the repository key for the same
+/// concept (§FS-config.3.1): one name, two scopes.
+const CONVERSATION_KEY_PATH: &str = "reference.conversation";
+
+/// How a linked citation addresses its declaration (§FS-integrations.4.3). No
+/// repository spelling — the scheme is machine state
+/// (§DF-conversation-link-target.2.3).
+const CONVERSATION_TARGET_KEY_PATH: &str = "reference.conversation_target";
+
+/// The two keys grund consumes from the user configuration, for the unused-key
+/// warning that names them.
+const USER_CONFIG_KEY_PATHS: &str = "`reference.conversation` and `reference.conversation_target`";
 
 /// Where `--write` installs the `grund-open` resolver for terminal clients; a
 /// single source so the descriptor plan and the writer cannot drift.
@@ -111,10 +192,88 @@ impl ConversationRendering {
     // and `[reference] marker` is per-repo. There is nothing to interpolate at
     // install time, so these carry the policy and the repository entrypoint —
     // which does render its own marker — carries the syntax.
-    fn instruction(self) -> &'static str {
+    fn instruction(self, target: ConversationTarget) -> String {
         match self {
-            Self::Plain => "In repositories with a `.agents/grund.toml`: write citations bare in local conversations — the marker and ID alone, nothing appended; `grund integrations` makes them clickable. Follow this even when repository instructions ask for linked citations — that repository sentence defers to this block, and the installed rendering layer already resolves bare citations. Elsewhere, ignore this.",
-            Self::Link => "In repositories with a `.agents/grund.toml`: follow each citation with its declaration location as plain `path:line` text in local conversations — never a Markdown link; fall back to the bare citation when unsure. Elsewhere, ignore this.",
+            Self::Plain => "In repositories with a `.agents/grund.toml`: write citations bare in local conversations — the marker and ID alone, nothing appended; `grund integrations` makes them clickable. Follow this even when repository instructions ask for linked citations — that repository sentence defers to this block, and the installed rendering layer already resolves bare citations. Elsewhere, ignore this.".to_string(),
+            // The target is the one value interpolated here, and legitimately
+            // so: unlike the marker it *is* machine state, which is what a
+            // user-global file is for (§FS-integrations.4.3).
+            Self::Link => match target.uri_phrase() {
+                None => "In repositories with a `.agents/grund.toml`: follow each citation with its declaration location as plain `path:line` text in local conversations; fall back to the bare citation when unsure. Elsewhere, ignore this.".to_string(),
+                Some(phrase) => format!(
+                    "In repositories with a `.agents/grund.toml`: in local conversations render each citation as a Markdown link whose visible text is the citation itself and whose target is {phrase} for the declaration's location; fall back to the bare citation when unsure. Elsewhere, ignore this."
+                ),
+            },
+        }
+    }
+}
+
+/// How a linked citation addresses its declaration (§FS-config.3.1,
+/// §DF-conversation-link-target.2.2). A closed enum: each value names one fixed
+/// template an agent fills from the declaration's absolute path and line.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum ConversationTarget {
+    /// `file://<abs>#L<line>` — the default, and the only local form that
+    /// presumes nothing about the machine beyond a handler for `file:`.
+    #[default]
+    File,
+    /// No URI: the location travels as plain `path:line` text. The pre-2026-08-11
+    /// form, kept as the opt-out and used as the gate's fallback.
+    Path,
+    /// The forge blob URL for the current ref, per the repository-web rule.
+    Web,
+    Vscode,
+    Vscodium,
+    Cursor,
+}
+
+impl ConversationTarget {
+    /// Accepted values, in the order the error message lists them.
+    const ALL: [ConversationTarget; 6] = [
+        ConversationTarget::File,
+        ConversationTarget::Path,
+        ConversationTarget::Web,
+        ConversationTarget::Vscode,
+        ConversationTarget::Vscodium,
+        ConversationTarget::Cursor,
+    ];
+
+    fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|target| target.name() == name)
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::File => "file",
+            Self::Path => "path",
+            Self::Web => "web",
+            Self::Vscode => "vscode",
+            Self::Vscodium => "vscodium",
+            Self::Cursor => "cursor",
+        }
+    }
+
+    /// `file | path | web | …` for the error that lists the accepted set.
+    fn accepted_list() -> String {
+        Self::ALL
+            .iter()
+            .map(|target| target.name())
+            .collect::<Vec<_>>()
+            .join(" | ")
+    }
+
+    /// The template clause the instruction block names, or `None` for `Path`,
+    /// which carries no URI and takes the plain-location sentence instead.
+    fn uri_phrase(self) -> Option<&'static str> {
+        match self {
+            Self::Path => None,
+            Self::File => Some("`file://<absolute path>#L<line>`"),
+            Self::Web => {
+                Some("the repository's forge URL for the declaration at the current commit")
+            }
+            Self::Vscode => Some("`vscode://file<absolute path>:<line>`"),
+            Self::Vscodium => Some("`vscodium://file<absolute path>:<line>`"),
+            Self::Cursor => Some("`cursor://file<absolute path>:<line>`"),
         }
     }
 }
@@ -325,6 +484,7 @@ struct IntegrationsInvocation {
     write: bool,
     json: bool,
     conversation: Option<ConversationRendering>,
+    conversation_target: Option<ConversationTarget>,
 }
 
 /// Parse args, or return an error `ExitCode` after printing a CLI-level message.
@@ -333,6 +493,7 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
     let mut write = false;
     let mut format: Option<String> = None;
     let mut conversation: Option<String> = None;
+    let mut conversation_target: Option<String> = None;
     let mut idx = 0;
     while idx < args.len() {
         match args[idx].as_str() {
@@ -347,6 +508,18 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
             }
             other if other.starts_with("--conversation=") => {
                 conversation = Some(other.trim_start_matches("--conversation=").to_string());
+            }
+            "--conversation-target" => {
+                idx += 1;
+                if idx >= args.len() {
+                    eprintln!("error: --conversation-target requires a value");
+                    return Err(ExitCode::from(2));
+                }
+                conversation_target = Some(args[idx].clone());
+            }
+            other if other.starts_with("--conversation-target=") => {
+                conversation_target =
+                    Some(other.trim_start_matches("--conversation-target=").to_string());
             }
             "--format" => {
                 idx += 1;
@@ -398,11 +571,31 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
             }
         },
     };
+    let conversation_target = match conversation_target.as_deref() {
+        None => None,
+        Some(value) => match ConversationTarget::from_name(value) {
+            Some(value) => Some(value),
+            None => {
+                eprintln!(
+                    "error: --conversation-target must be one of {}",
+                    ConversationTarget::accepted_list()
+                );
+                return Err(ExitCode::from(2));
+            }
+        },
+    };
     if conversation.is_some() && !write {
         eprintln!("error: --conversation requires --write");
         return Err(ExitCode::from(2));
     }
-    if write && client.is_none() && conversation.is_none() {
+    if conversation_target.is_some() && !write {
+        eprintln!("error: --conversation-target requires --write");
+        return Err(ExitCode::from(2));
+    }
+    // Either conversation flag is enough to make the clientless form
+    // unambiguous: it updates the preference and the instruction blocks and
+    // installs no arbitrary client (§FS-integrations.1).
+    if write && client.is_none() && conversation.is_none() && conversation_target.is_none() {
         eprintln!("error: integrations --write requires a client or --conversation");
         eprintln!("{}", known_clients_line());
         return Err(ExitCode::from(2));
@@ -419,6 +612,7 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
         write,
         json,
         conversation,
+        conversation_target,
     })
 }
 
@@ -429,10 +623,34 @@ pub fn run_integrations(args: &[String]) -> ExitCode {
         Ok(invocation) => invocation,
         Err(code) => return code,
     };
+    // §FS-integrations.4.3: `--write` reads the user configuration exactly once,
+    // before any artifact is installed — so its warnings are reported once, and
+    // a file grund cannot parse fails the command outright rather than after a
+    // client's config and the resolver are already on disk.
+    if invocation.write {
+        let user_config = match load_user_config() {
+            Ok(config) => config,
+            Err((path, message)) => {
+                eprintln!("error: {}: {message}", path.display());
+                return ExitCode::from(2);
+            }
+        };
+        return match invocation.client {
+            Some(client) => write_integration(
+                client,
+                invocation.conversation,
+                invocation.conversation_target,
+                user_config,
+            ),
+            None => write_user_citation_guidance_command(
+                invocation.conversation,
+                invocation.conversation_target,
+                user_config,
+            ),
+        };
+    }
     match invocation.client {
-        None if invocation.write => write_user_citation_guidance_command(invocation.conversation),
         None => print_detection(invocation.json),
-        Some(client) if invocation.write => write_integration(client, invocation.conversation),
         Some(client) if invocation.json => {
             print!("{}", client_descriptor_json(client));
             ExitCode::SUCCESS
@@ -726,6 +944,8 @@ fn vscode_integration_is_current(dir: &Path) -> bool {
 fn write_integration(
     client: IntegrationClient,
     conversation: Option<ConversationRendering>,
+    conversation_target: Option<ConversationTarget>,
+    user_config: UserConfig,
 ) -> ExitCode {
     let integration_status = match client.install_kind() {
         InstallKind::Block => write_terminal_integration(client, client.snippet().unwrap_or("")),
@@ -735,13 +955,15 @@ fn write_integration(
     if integration_status != ExitCode::SUCCESS {
         return integration_status;
     }
-    write_user_citation_guidance_command(conversation)
+    write_user_citation_guidance_command(conversation, conversation_target, user_config)
 }
 
 fn write_user_citation_guidance_command(
     conversation: Option<ConversationRendering>,
+    conversation_target: Option<ConversationTarget>,
+    user_config: UserConfig,
 ) -> ExitCode {
-    match write_user_citation_guidance(conversation) {
+    match write_user_citation_guidance(conversation, conversation_target, user_config) {
         Ok(()) => ExitCode::SUCCESS,
         Err((path, message)) => {
             eprintln!("error: {}: {message}", path.display());
@@ -926,51 +1148,146 @@ fn write_vscode_integration(client: IntegrationClient) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// What `--write` will do to one user-guidance file, decided before any of them
+/// is touched (§FS-integrations.4.3).
+enum GuidancePlan {
+    /// Write these bytes, reporting the block outcome's verb.
+    Write(String, BlockOutcome),
+    /// The agent is not in use on this machine — report why and write nothing.
+    /// Named so the report says which directory would make it apply.
+    Skip(&'static str),
+}
+
+/// The user configuration `--write` reads, loaded once per invocation so its
+/// warnings are reported exactly once (§FS-integrations.4.3).
+struct UserConfig {
+    path: PathBuf,
+    text: String,
+    preference: Option<ConversationRendering>,
+    target: Option<ConversationTarget>,
+}
+
+/// Read and report on the user configuration without writing anything. Every
+/// line grund did not act on is warned about here, at the one point the file is
+/// read: nothing else in this file has any effect, and a setting that silently
+/// does nothing is indistinguishable from one that works. Only failing to reach
+/// the file is an error; its contents never are (§FS-integrations.4.3).
+fn load_user_config() -> Result<UserConfig, (PathBuf, String)> {
+    let path = user_grund_config_path().ok_or_else(|| {
+        (
+            PathBuf::from(USER_CONFIG_TARGET),
+            "cannot resolve user configuration directory".to_string(),
+        )
+    })?;
+    let text = read_optional_text(&path)?;
+    let scan = scan_user_config(&text);
+    for (line, message) in &scan.problems {
+        eprintln!("warning: {}:{line}: {message}", path.display());
+    }
+    Ok(UserConfig {
+        path,
+        text,
+        preference: scan.preference,
+        target: scan.target,
+    })
+}
+
 /// Persist the machine-local conversation preference and synchronize it into
 /// global agent instructions (§FS-integrations.4.3). All files are planned
 /// before the first write so malformed managed blocks fail without touching any
 /// of these user-guidance targets.
 fn write_user_citation_guidance(
     requested: Option<ConversationRendering>,
+    requested_target: Option<ConversationTarget>,
+    user_config: UserConfig,
 ) -> Result<(), (PathBuf, String)> {
-    let config_path = user_grund_config_path().ok_or_else(|| {
-        (
-            PathBuf::from("~/.config/grund/config.toml"),
-            "cannot resolve user configuration directory".to_string(),
-        )
-    })?;
-    let config_existing = read_optional_text(&config_path)?;
-    let stored = conversation_preference(&config_existing)
-        .map_err(|message| (config_path.clone(), message))?;
+    let UserConfig {
+        path: config_path,
+        text: config_existing,
+        preference: stored,
+        target: stored_target,
+    } = user_config;
     let effective = requested.or(stored).unwrap_or(ConversationRendering::Plain);
-    let (config_updated, config_outcome) = install_conversation_preference(
+    let effective_target = requested_target
+        .or(stored_target)
+        .unwrap_or_else(ConversationTarget::default);
+    // Both keys are recorded, and both are recorded even when inert: a machine
+    // that set a target under `plain` keeps it when it later switches to `link`
+    // (§FS-integrations.1).
+    let (config_updated, conversation_outcome) = install_reference_key(
         &config_existing,
-        effective,
-    )
-    .map_err(|message| (config_path.clone(), message))?;
+        CONVERSATION_KEY_PATH,
+        "conversation",
+        effective.name(),
+        stored == Some(effective),
+    );
+    let (config_updated, target_outcome) = install_reference_key(
+        &config_updated,
+        CONVERSATION_TARGET_KEY_PATH,
+        "conversation_target",
+        effective_target.name(),
+        stored_target == Some(effective_target),
+    );
+    let config_outcome = merge_outcomes(conversation_outcome, target_outcome);
 
-    let mut plans = vec![(config_path, config_updated, config_outcome)];
+    let mut plans = vec![(
+        config_path,
+        GuidancePlan::Write(config_updated, config_outcome),
+    )];
     for target in GLOBAL_AGENT_INSTRUCTION_TARGETS {
-        let path = expand_target(target).ok_or_else(|| {
-            (PathBuf::from(target), "cannot resolve home directory".to_string())
+        let path = expand_target(target.file).ok_or_else(|| {
+            (
+                PathBuf::from(target.file),
+                "cannot resolve home directory".to_string(),
+            )
         })?;
+        // In use when the agent's own directory exists, or when the instruction
+        // file already does — the latter keeps a target grund wrote earlier (or
+        // the user maintains by hand) synchronized even if the directory check
+        // would no longer select it.
+        let in_use = expand_target(target.home).is_some_and(|home| home.is_dir()) || path.is_file();
+        if !in_use {
+            plans.push((path, GuidancePlan::Skip(target.home)));
+            continue;
+        }
+        // §DF-conversation-link-target.2.4: an agent is instructed in the form
+        // its renderer is verified to honor, and never in one that would erase
+        // the citation. The gate only ever holds a target at `path`.
+        let gated = target.link_support.resolve(effective_target);
         let existing = read_optional_text(&path)?;
-        let (updated, outcome) = install_agent_guidance_block(&existing, effective)
+        let (updated, outcome) = install_agent_guidance_block(&existing, effective, gated)
             .map_err(|message| (path.clone(), message))?;
-        plans.push((path, updated, outcome));
+        plans.push((path, GuidancePlan::Write(updated, outcome)));
     }
 
-    for (path, updated, outcome) in plans {
-        if outcome != BlockOutcome::Unchanged {
-            if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent)
-                    .map_err(|err| (parent.to_path_buf(), err.to_string()))?;
+    for (path, plan) in plans {
+        match plan {
+            GuidancePlan::Write(updated, outcome) => {
+                if outcome != BlockOutcome::Unchanged {
+                    if let Some(parent) = path.parent() {
+                        fs::create_dir_all(parent)
+                            .map_err(|err| (parent.to_path_buf(), err.to_string()))?;
+                    }
+                    fs::write(&path, updated).map_err(|err| (path.clone(), err.to_string()))?;
+                }
+                eprintln!("{} {}", block_outcome_verb(outcome), path.display());
             }
-            fs::write(&path, updated).map_err(|err| (path.clone(), err.to_string()))?;
+            GuidancePlan::Skip(home) => {
+                eprintln!("skipped {} (no {home})", path.display());
+            }
         }
-        eprintln!("{} {}", block_outcome_verb(outcome), path.display());
     }
     Ok(())
+}
+
+/// One file, two managed keys: `exists` only when neither line moved, and an
+/// append anywhere makes the whole write an append (§FS-integrations.6).
+fn merge_outcomes(first: BlockOutcome, second: BlockOutcome) -> BlockOutcome {
+    match (first, second) {
+        (BlockOutcome::Unchanged, other) | (other, BlockOutcome::Unchanged) => other,
+        (BlockOutcome::Appended, _) | (_, BlockOutcome::Appended) => BlockOutcome::Appended,
+        _ => BlockOutcome::Updated,
+    }
 }
 
 fn read_optional_text(path: &Path) -> Result<String, (PathBuf, String)> {
@@ -982,87 +1299,252 @@ fn read_optional_text(path: &Path) -> Result<String, (PathBuf, String)> {
 }
 
 fn user_grund_config_path() -> Option<PathBuf> {
-    if let Some(base) = std::env::var_os("XDG_CONFIG_HOME").filter(|value| !value.is_empty()) {
-        return Some(PathBuf::from(base).join("grund/config.toml"));
-    }
-    let home = std::env::var_os("HOME")?;
-    Some(PathBuf::from(home).join(".config/grund/config.toml"))
+    expand_target(USER_CONFIG_TARGET)
 }
 
-/// Read the single user-level preference while ignoring unrelated user config.
-/// A duplicate section/key or malformed value is rejected rather than guessed.
-fn conversation_preference(text: &str) -> Result<Option<ConversationRendering>, String> {
-    let mut in_render_links = false;
-    let mut section_seen = false;
+/// The dotted name of a `[section]` header line, whitespace-normalized so
+/// `[ reference ]` and `[reference]` — the same table in TOML — are the same
+/// section here. `[[array]]` headers keep their inner bracket and therefore
+/// never compare equal to a real section name.
+fn section_header_name(line: &str) -> Option<String> {
+    let inner = line.strip_prefix('[')?.strip_suffix(']')?;
+    Some(
+        inner
+            .split('.')
+            .map(str::trim)
+            .collect::<Vec<_>>()
+            .join("."),
+    )
+}
+
+/// The contents of a TOML basic or literal string, or `None` when the value is
+/// not quoted. Both quote styles mean the same thing for a value from a closed
+/// enum, and rejecting `'link'` — which TOML accepts — would reject a config the
+/// user wrote correctly.
+fn unquote_toml_string(value: &str) -> Option<&str> {
+    let value = value.trim();
+    ['"', '\''].into_iter().find_map(|quote| {
+        value
+            .strip_prefix(quote)
+            .and_then(|inner| inner.strip_suffix(quote))
+    })
+}
+
+/// The fully-qualified key path of a `key = value` line inside `section`, so the
+/// equivalent TOML spellings — `[reference]` + `conversation`, `[reference]` +
+/// nothing with a dotted root `reference.conversation`, `[reference.sub]` — all
+/// reduce to one name.
+fn qualified_key(section: &str, key: &str) -> String {
+    if section.is_empty() {
+        key.to_string()
+    } else {
+        format!("{section}.{key}")
+    }
+}
+
+/// What one scan of the user configuration found (§FS-integrations.4.3).
+struct UserConfigScan {
+    preference: Option<ConversationRendering>,
+    /// The recorded addressing target, independent of `preference`: an
+    /// unreadable target never costs the `plain`/`link` value recorded beside
+    /// it (§FS-integrations.4.3).
+    target: Option<ConversationTarget>,
+    /// `(line, message)` for everything in the file grund did not act on, in
+    /// file order. Every message names what is being ignored, so the report says
+    /// what the run will do rather than only what is wrong.
+    problems: Vec<(usize, String)>,
+}
+
+/// Scan the user configuration for the single preference grund reads there, and
+/// collect everything else it did not act on (§FS-integrations.4.3).
+///
+/// This is a targeted scan, not a TOML parser, so it must accept every spelling
+/// TOML calls equivalent — whitespace inside the section header, a dotted key
+/// path, either quote style. A spelling grund merely failed to *see* would be
+/// silently reversed to the default and then written back alongside the
+/// original, leaving the opposite of what the user asked for.
+///
+/// Recognizing the right spelling is only half of that, though: nothing tells a
+/// reader of this file which keys grund actually consumes, so a typo, a retired
+/// spelling, or a repository key set here in the belief that it applies globally
+/// all read as "configured" and do nothing.
+///
+/// **Nothing here fails.** One rule covers the whole file: report it, ignore it,
+/// continue on the documented default. This file is machine-local, read by one
+/// command, and decides nothing about whether a tree checks clean — the opposite
+/// of the closed allow-list the repository config enforces (§FS-config.4.3),
+/// where an unknown key means two installs could disagree about a checked tree.
+/// A stale line in a personal config is not a reason to refuse to install a
+/// terminal integration, and an unparseable value is not more of a reason than
+/// an unread key: both mean grund has no preference from this file, which is
+/// exactly the state of a machine that never wrote one.
+fn scan_user_config(text: &str) -> UserConfigScan {
+    let mut section = String::new();
     let mut preference = None;
+    let mut target = None;
+    let mut problems = Vec::new();
     for (idx, raw_line) in text.lines().enumerate() {
         let line = strip_comment(raw_line).trim();
-        if line.starts_with('[') && line.ends_with(']') {
-            in_render_links = line == "[render.links]";
-            if in_render_links {
-                if section_seen {
-                    return Err("duplicate [render.links] section in user config".to_string());
-                }
-                section_seen = true;
-            }
-            continue;
-        }
-        if !in_render_links || line.is_empty() {
+        if let Some(name) = section_header_name(line) {
+            section = name;
             continue;
         }
         let Some((key, value)) = line.split_once('=') else {
             continue;
         };
-        if key.trim() != "conversation" {
-            continue;
-        }
-        if preference.is_some() {
-            return Err("duplicate render.links.conversation in user config".to_string());
-        }
+        let qualified = qualified_key(&section, key.trim());
         let value = value.trim();
-        let value = value
-            .strip_prefix('"')
-            .and_then(|value| value.strip_suffix('"'))
-            .ok_or_else(|| {
+        // First occurrence wins, per key, and it is the one a write rewrites, so
+        // a read and a write can never disagree about which line is the setting.
+        match qualified.as_str() {
+            CONVERSATION_KEY_PATH => {
+                if preference.is_some() {
+                    problems.push((
+                        idx + 1,
+                        format!(
+                            "ignoring duplicate `{CONVERSATION_KEY_PATH}`; the first one is used"
+                        ),
+                    ));
+                    continue;
+                }
+                let Some(unquoted) = unquote_toml_string(value) else {
+                    problems.push((
+                        idx + 1,
+                        format!(
+                            "ignoring `{CONVERSATION_KEY_PATH} = {value}`: must be a quoted plain | link value"
+                        ),
+                    ));
+                    continue;
+                };
+                match ConversationRendering::from_name(unquoted) {
+                    Some(parsed) => preference = Some(parsed),
+                    None => problems.push((
+                        idx + 1,
+                        format!(
+                            "ignoring `{CONVERSATION_KEY_PATH} = {value}`: must be one of plain | link"
+                        ),
+                    )),
+                }
+            }
+            CONVERSATION_TARGET_KEY_PATH => {
+                if target.is_some() {
+                    problems.push((
+                        idx + 1,
+                        format!(
+                            "ignoring duplicate `{CONVERSATION_TARGET_KEY_PATH}`; the first one is used"
+                        ),
+                    ));
+                    continue;
+                }
+                let accepted = ConversationTarget::accepted_list();
+                let Some(unquoted) = unquote_toml_string(value) else {
+                    problems.push((
+                        idx + 1,
+                        format!(
+                            "ignoring `{CONVERSATION_TARGET_KEY_PATH} = {value}`: must be a quoted {accepted} value"
+                        ),
+                    ));
+                    continue;
+                };
+                match ConversationTarget::from_name(unquoted) {
+                    Some(parsed) => target = Some(parsed),
+                    None => problems.push((
+                        idx + 1,
+                        format!(
+                            "ignoring `{CONVERSATION_TARGET_KEY_PATH} = {value}`: must be one of {accepted}"
+                        ),
+                    )),
+                }
+            }
+            _ => problems.push((
+                idx + 1,
                 format!(
-                    "line {}: render.links.conversation must be a quoted plain | link value",
-                    idx + 1
-                )
-            })?;
-        preference = Some(ConversationRendering::from_name(value).ok_or_else(|| {
-            format!(
-                "line {}: render.links.conversation must be one of plain | link",
-                idx + 1
-            )
-        })?);
+                    "unused key `{qualified}`; grund reads only {USER_CONFIG_KEY_PATHS} from this file"
+                ),
+            )),
+        }
     }
-    Ok(preference)
+    UserConfigScan {
+        preference,
+        target,
+        problems,
+    }
 }
 
-/// Install or replace the preference line while preserving unrelated bytes.
+/// The `plain`/`link` preference alone, for tests that assert on one key.
+#[cfg(test)]
+fn conversation_preference(text: &str) -> Option<ConversationRendering> {
+    scan_user_config(text).preference
+}
+
+/// The recorded addressing target alone, for tests that assert on one key.
+#[cfg(test)]
+fn conversation_target_preference(text: &str) -> Option<ConversationTarget> {
+    scan_user_config(text).target
+}
+
+/// `install_reference_key` bound to the `conversation` key, which is what most
+/// of the preference-file tests exercise.
+#[cfg(test)]
 fn install_conversation_preference(
     existing: &str,
     preference: ConversationRendering,
-) -> Result<(String, BlockOutcome), String> {
-    // Validate duplicates and existing syntax before attempting a surgical edit.
-    let _ = conversation_preference(existing)?;
-    let replacement = format!("conversation = \"{}\"\n", preference.name());
+) -> (String, BlockOutcome) {
+    install_reference_key(
+        existing,
+        CONVERSATION_KEY_PATH,
+        "conversation",
+        preference.name(),
+        conversation_preference(existing) == Some(preference),
+    )
+}
+
+/// Install or replace one `[reference]` line while preserving unrelated bytes.
+/// Infallible: every defect in this file is a warning reported at load
+/// (§FS-integrations.4.3), so there is nothing left here to refuse.
+///
+/// `key_path` is the fully-qualified name to match an existing line on, and
+/// `bare_key` the name to write when the key is absent; they differ only in
+/// that the file may spell the key dotted at root. `already_recorded` says the
+/// scan already read this exact value from the file.
+fn install_reference_key(
+    existing: &str,
+    key_path: &str,
+    bare_key: &str,
+    value: &str,
+    already_recorded: bool,
+) -> (String, BlockOutcome) {
+    // Already recorded: leave the bytes alone. Rewriting an identical value would
+    // report `updated` for a no-op and drop whatever comment the user wrote
+    // beside it — a second `--write` is a no-op reporting `exists`
+    // (§FS-integrations.6).
+    if already_recorded {
+        return (existing.to_string(), BlockOutcome::Unchanged);
+    }
     let mut offset = 0;
-    let mut in_render_links = false;
+    let mut section = String::new();
     let mut section_stop = None;
     for raw_line in existing.split_inclusive('\n') {
         let stop = offset + raw_line.len();
-        let line = strip_comment(raw_line.trim_end_matches(['\n', '\r'])).trim();
-        if line.starts_with('[') && line.ends_with(']') {
-            in_render_links = line == "[render.links]";
-            if in_render_links {
+        let raw = raw_line.trim_end_matches(['\n', '\r']);
+        let line = strip_comment(raw).trim();
+        if let Some(name) = section_header_name(line) {
+            section = name;
+            if section == "reference" {
                 section_stop = Some(stop);
             }
-        } else if in_render_links
-            && line
-                .split_once('=')
-                .is_some_and(|(key, _)| key.trim() == "conversation")
+            offset = stop;
+            continue;
+        }
+        if let Some((key, _)) = line.split_once('=')
+            && qualified_key(&section, key.trim()) == key_path
         {
+            // Rewrite only the value, keeping the key exactly as written: a
+            // dotted `reference.conversation` at root rewritten as a bare
+            // `conversation` would land in whatever table precedes it and stop
+            // being this setting at all.
+            let head = &raw[..raw.find('=').unwrap_or(raw.len()) + 1];
+            let replacement = format!("{head} \"{value}\"\n");
             let mut updated = String::with_capacity(existing.len() + replacement.len());
             updated.push_str(&existing[..offset]);
             updated.push_str(&replacement);
@@ -1072,11 +1554,12 @@ fn install_conversation_preference(
             } else {
                 BlockOutcome::Updated
             };
-            return Ok((updated, outcome));
+            return (updated, outcome);
         }
         offset = stop;
     }
 
+    let replacement = format!("{bare_key} = \"{value}\"\n");
     if let Some(insert_at) = section_stop {
         let mut updated = String::with_capacity(existing.len() + replacement.len());
         updated.push_str(&existing[..insert_at]);
@@ -1085,7 +1568,7 @@ fn install_conversation_preference(
         }
         updated.push_str(&replacement);
         updated.push_str(&existing[insert_at..]);
-        return Ok((updated, BlockOutcome::Updated));
+        return (updated, BlockOutcome::Updated);
     }
 
     let mut updated = String::with_capacity(existing.len() + replacement.len() + 18);
@@ -1096,9 +1579,9 @@ fn install_conversation_preference(
     if !existing.is_empty() {
         updated.push('\n');
     }
-    updated.push_str("[render.links]\n");
+    updated.push_str("[reference]\n");
     updated.push_str(&replacement);
-    Ok((updated, BlockOutcome::Appended))
+    (updated, BlockOutcome::Appended)
 }
 
 fn agent_guidance_markers(version: u32) -> (String, String) {
@@ -1111,11 +1594,12 @@ fn agent_guidance_markers(version: u32) -> (String, String) {
 fn install_agent_guidance_block(
     existing: &str,
     preference: ConversationRendering,
+    target: ConversationTarget,
 ) -> Result<(String, BlockOutcome), String> {
     let (begin, end) = agent_guidance_markers(AGENT_GUIDANCE_BLOCK_VERSION);
     let block = format!(
         "{begin}\n## Grund citation rendering\n\n{}\n{end}\n",
-        preference.instruction()
+        preference.instruction(target)
     );
     if let Some(span) = find_agent_guidance_block(existing)? {
         let mut updated = String::with_capacity(existing.len() + block.len());
@@ -1192,12 +1676,31 @@ fn agent_guidance_marker_version(line: &str, begin: bool) -> Option<u32> {
         .ok()
 }
 
-/// Expand a leading `~` in an install-target hint against `$HOME`.
+/// Expand a leading `~` in an install-target hint against `$HOME`, resolving
+/// `~/.config` through `XDG_CONFIG_HOME` when that is set (§FS-integrations.4).
+///
+/// The hints themselves are printed verbatim and stay `~`-rooted so reports are
+/// byte-stable across machines (§FS-integrations.6); only resolution is
+/// environment-dependent. Every client whose configuration lives under
+/// `~/.config` — kitty, WezTerm, Zed, and grund's own user config — reads it
+/// from `$XDG_CONFIG_HOME` when set, so writing to a hardcoded `~/.config`
+/// there lands where the tool never looks, and the failure is silent in exactly
+/// the way §FS-integrations.3.2 refuses to accept for VSCodium.
 fn expand_target(target: &str) -> Option<PathBuf> {
+    if let Some(rest) = target.strip_prefix("~/.config/") {
+        return Some(user_config_base()?.join(rest));
+    }
     if let Some(rest) = target.strip_prefix("~/") {
         let home = std::env::var_os("HOME")?;
-        Some(PathBuf::from(home).join(rest))
-    } else {
-        Some(PathBuf::from(target))
+        return Some(PathBuf::from(home).join(rest));
     }
+    Some(PathBuf::from(target))
+}
+
+/// `$XDG_CONFIG_HOME`, or `$HOME/.config` when it is unset or empty.
+fn user_config_base() -> Option<PathBuf> {
+    if let Some(base) = std::env::var_os("XDG_CONFIG_HOME").filter(|value| !value.is_empty()) {
+        return Some(PathBuf::from(base));
+    }
+    Some(PathBuf::from(std::env::var_os("HOME")?).join(".config"))
 }
