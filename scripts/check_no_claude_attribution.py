@@ -89,12 +89,18 @@ def scan_commits(log_args: Sequence[str]) -> list[Finding]:
         raise AttributionError(f"git log {' '.join(log_args)} failed: {result.stderr.strip()}")
 
     findings = []
+    scanned = 0
     for record in result.stdout.split("\x1e"):
         record = record.strip("\n")
         if not record:
             continue
         sha, _, message = record.partition("\x1f")
+        scanned += 1
         findings.extend(find_attribution(message, f"commit {sha[:10]}"))
+    # Say how much was actually read. A mis-built range selects nothing and
+    # passes, which is indistinguishable from a real pass unless the count is
+    # on the record.
+    print(f"scanned {scanned} commit message(s) in {' '.join(log_args)}")
     return findings
 
 
