@@ -1,148 +1,138 @@
-fissile_exceptions_version = 1
+fissile_exceptions_version = 2
 # Soft-severity file-size exceptions. An agent may add an entry here on its own;
 # hard entries are a human's (§AR-ci.9).
 #
 # Two shapes live in this file. Most entries carry their own argument. Twelve are
-# *soft twins*: a file past the hard budget is past the soft one too, and fissile
-# reports both tiers, so the file needs an entry in each registry. The argument
-# for those lives once, in `docs/file-size-human-exceptions.toml`, and the twin
-# here points at it — the same ceiling, retiring with the entry it names. Copying
-# the prose instead would give one file two arguments that can silently disagree,
-# and `tests/test_file_size_exceptions.py` enforces the pointer shape.
+# *soft twins*: a file past the hard budget is past the soft one too, and a
+# `deferred` hard entry deliberately leaves the soft finding standing, so the file
+# needs an entry in each registry. (A `structural` hard entry silences both tiers
+# by itself and wants no twin — this repository has none.) The argument for a twin
+# lives once, in `docs/file-size-human-exceptions.toml`, and the twin here points
+# at it the way fissile identifies any entry: by registry and path, both already
+# on the lines above. Copying the prose instead would give one file two arguments
+# that can silently disagree, and `tests/test_file_size_exceptions.py` enforces
+# the pointer shape.
 [[exceptions]]
-id = "EX-015-api-rs"
 path = "crates/grund-core/src/api.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 1592, unit = "lines" }
-until = "EX-003-api-rs is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-003-api-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-016-integrations-rs"
 path = "crates/grund-core/src/integrations.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 1525, unit = "lines" }
-until = "EX-004-integrations-rs is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-004-integrations-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-017-scanner-rs"
 path = "crates/grund-core/src/scanner.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 1493, unit = "lines" }
-until = "EX-005-scanner-rs is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-005-scanner-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-018-shutdown-rs"
 path = "crates/grund-lsp/tests/shutdown.rs"
 match = "exact"
 rules = ["tests"]
 kind = "deferred"
 max_accepted = { value = 1301, unit = "lines" }
-until = "EX-006-shutdown-rs is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-006-shutdown-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-019-lib-rs"
 path = "crates/grund-lsp/src/lib.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 1229, unit = "lines" }
-until = "EX-007-lib-rs is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-007-lib-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-020-checker-rs"
 path = "crates/grund-core/src/checker.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 1128, unit = "lines" }
-until = "EX-008-checker-rs is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-008-checker-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-021-init-rs"
 path = "crates/grund-cli/tests/init.rs"
 match = "exact"
 rules = ["tests"]
 kind = "deferred"
 max_accepted = { value = 1023, unit = "lines" }
-until = "EX-009-init-rs is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-009-init-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-022-init-templates-rs"
 path = "crates/grund-core/src/init_templates.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 796, unit = "lines" }
-until = "EX-011-init-templates-rs is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-011-init-templates-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-023-init-rs"
 path = "crates/grund-core/src/init.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 776, unit = "lines" }
-until = "EX-012-init-rs is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-012-init-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-024-config-rs"
 path = "crates/grund-core/src/config.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 max_accepted = { value = 732, unit = "lines" }
-until = "EX-010-config-rs is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-010-config-rs, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-025-local-benchmark-report-py"
 path = "scripts/local-benchmark-report.py"
 match = "exact"
 rules = ["scripts"]
 kind = "deferred"
 max_accepted = { value = 534, unit = "lines" }
-until = "EX-013-local-benchmark-report-py is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-013-local-benchmark-report-py, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-026-clickable-citations-md"
 path = "docs/user-facing/clickable-citations.md"
 match = "exact"
 rules = ["docs"]
 kind = "deferred"
 max_accepted = { value = 493, unit = "lines" }
-until = "EX-014-clickable-citations-md is retired"
+until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
-Soft twin of EX-014-clickable-citations-md, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
 """
 [[exceptions]]
-id = "EX-027-release-yml"
 path = ".github/workflows/release.yml"
 match = "exact"
 rules = ["workflows"]
@@ -153,7 +143,6 @@ reason = """
 One ordered release pipeline whose only real seam is a workflow_call workflow or a composite action. Extracting it today buys nothing and costs indirection across two files and a second place to look when a release fails at 2am — the move pays for itself once a second caller exists, and not before (§AR-ci).
 """
 [[exceptions]]
-id = "EX-028-cli-help-rs"
 path = "crates/grund-cli/src/cli_help.rs"
 match = "exact"
 rules = ["core-source"]
@@ -164,7 +153,6 @@ reason = """
 The help screens are one user-facing document rendered per command, and their worth is consistency: the same section order, voice, and example style across the 12 command arms and the top-level page. That consistency is held by seeing them together. Scattering them beside their commands makes drift between screens the likeliest failure and produces no compile-time signal when it happens. The file is text, not logic: no state, no branching beyond the command match, nothing to test. Its length tracks the command surface, not accumulated logic.
 """
 [[exceptions]]
-id = "EX-029-try-integrations-sh"
 path = "scripts/try-integrations.sh"
 match = "exact"
 rules = ["scripts"]
@@ -175,7 +163,6 @@ reason = """
 A manual smoke script a human reads top to bottom while testing terminals by hand; its linearity is the feature and functions would hide the sequence being followed. The genuine risk is that it has no automated coverage at all, not its length — so the trigger is the day it is run unattended, when the missing tests start to matter and the shape has to change anyway.
 """
 [[exceptions]]
-id = "EX-030-show-render-rs"
 path = "crates/grund-core/src/show_render.rs"
 match = "exact"
 rules = ["core-source"]
@@ -186,7 +173,6 @@ reason = """
 `extract_declaration_body` (208 lines) is the substance: one traversal deciding where a declaration's body begins and ends across Markdown and every supported comment dialect. The per-format renderers around it are thin. The architectural point is that body extraction is a scanner-adjacent concern about source structure and does not belong in a renderer at all. Missing boundary: extraction moved next to the scanner, leaving genuine rendering here.
 """
 [[exceptions]]
-id = "EX-031-fmt-links-rs"
 path = "crates/grund-core/src/fmt_links.rs"
 match = "exact"
 rules = ["core-source"]
@@ -197,7 +183,6 @@ reason = """
 Link planning (which citations need a link, and to which anchor) and link writing (splice text without disturbing surrounding bytes) are two phases communicating through a plan type, so the seam exists and is clean. It is simply not worth taking at 73 lines over: two files whose combined interface is larger than today's. Revisit when a third emission profile lands (§FS-fmt.6) and the planner gains real branching.
 """
 [[exceptions]]
-id = "EX-032-model-rs"
 path = "crates/grund-core/src/model.rs"
 match = "exact"
 rules = ["core-source"]
@@ -208,7 +193,6 @@ reason = """
 `Model` is the shared vocabulary layer of §AR-core-module-layout.1: 25 type definitions against 9 free functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if such a sub-domain appears.
 """
 [[exceptions]]
-id = "EX-033-skill-md"
 path = "skills/grund-init/SKILL.md"
 match = "exact"
 rules = ["docs"]
@@ -219,7 +203,6 @@ reason = """
 This file cannot be split. It is a shipped artifact, not source: init_templates.rs embeds it verbatim via include_str! as AGENT_SETUP_INSTRUCTIONS, `grund agent-setup-instructions` prints exactly those bytes, and a test asserts it is byte-identical to the mirror under crates/grund-core/assets/ (§FS-init.5). Any split either changes the emitted document or makes the command reassemble it at runtime, which moves document structure into code. Its length is the length of the instructions grund promises to emit; the only honest way to shrink it is to promise less.
 """
 [[exceptions]]
-id = "EX-034-fmt-rs"
 path = "crates/grund-core/src/fmt.rs"
 match = "exact"
 rules = ["core-source"]
@@ -230,7 +213,6 @@ reason = """
 Citation normalization as a single pass over a document, 34 lines over budget. The modes are one traversal with per-mode decisions inside it, so the only split available today duplicates the walk — two files that must stay in step, to save 34 lines. The seam appears the day a mode needs its own traversal, and not from growth alone.
 """
 [[exceptions]]
-id = "EX-035-list-rs"
 path = "crates/grund-core/src/list.rs"
 match = "exact"
 rules = ["core-source"]
@@ -241,7 +223,6 @@ reason = """
 The declaration catalog query and its renderers, 18 lines over budget. They change together — every field the query learns to select is a field the output shapes have to show — so splitting now produces two files that are always opened as a pair. What retires this is that coupling ending, not the file growing.
 """
 [[exceptions]]
-id = "EX-036-checker-cmd-rs"
 path = "crates/grund-core/src/checker_cmd.rs"
 match = "exact"
 rules = ["core-source"]
@@ -252,7 +233,6 @@ reason = """
 The check command adapter, 11 lines over budget. It is already the thin layer between CLI arguments and checker.rs, so the category boundary a split would cut along is the one this file already sits on — the result would be two halves of one adapter. It stops being an adapter, and becomes splittable, only if checking logic starts landing here.
 """
 [[exceptions]]
-id = "EX-037-fs-workspace-md"
 path = "docs/functional-spec/FS-workspace.md"
 match = "exact"
 rules = ["docs"]
