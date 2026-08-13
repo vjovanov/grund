@@ -62,6 +62,11 @@ way: someone deliberately puts a bare file next to an existing `.agents/` one, a
 that is to move to the form the tool recommends. Winning the tie is that move working; losing it is
 the move silently doing nothing.
 
+And it is the only order that does not invert §2.4. If the hidden file outranked the visible one,
+then a reader who *can* see a config in the root listing would be reading the one that does not
+apply — strictly worse than either file alone, because the visible artifact would now actively
+mislead about the grammar in force.
+
 The ignored file is reported: `grund check` emits a warning naming the `.agents/grund.toml` and the
 bare `grund.toml` that outranks it ([§FS-check.4.3](../../functional-spec/FS-check.md#43-redundant-config-pair)). A file a user edits and `grund` ignores is
 precisely the confusion dual discovery could otherwise introduce, and a warning says so without
@@ -82,18 +87,42 @@ code ([§FS-check.2](../../functional-spec/FS-check.md#2-outputs)), so a reposit
 and what it teaches first is where the file lives. A tool that supports both forms and generates
 the one that needs a directory created for it is recommending the other one by omission.
 
-The bare form is what the rest of the ecosystem does. `Cargo.toml`, `package.json`,
-`pyproject.toml`, `deno.json`, `.editorconfig` are all root-visible: a contributor who opens the
-repository sees that the project is grund-grounded without knowing to look inside a dot-directory,
-and every "where do I change the marker" question answers itself from a directory listing. That
-discoverability is the same argument [§GOAL-friendliness-first](../../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible) makes for loud config errors, applied
-one step earlier — to finding the file at all.
+The bare form is also what the rest of the ecosystem does. `Cargo.toml`, `package.json`,
+`pyproject.toml`, `deno.json` are all root-visible, and every "where do I change the marker"
+question answers itself from a directory listing. The deeper reason is §2.4.
 
 Existing repositories are untouched. `init` never overwrites a config it finds ([§FS-init.3](../../functional-spec/FS-init.md#3-non-intrusive-guarantees)), and
 that rule now reads across both names: a repository with `.agents/grund.toml` gets
 `exists .agents/grund.toml` and no second file, so re-running `init` after this change cannot
-produce the redundant pair §2.2 warns about. Moving an existing config to the root is a `git mv`
-with no other edit, and never required.
+produce the redundant pair §2.2 warns about. Under §2.2's tie-break that probe is load-bearing
+rather than tidy: a bare file written beside an existing `.agents/` config would *take over* the
+repository's grammar, not sit inert. Moving an existing config to the root is a `git mv` with no
+other edit, and never required.
+
+### 2.4 A project's grounding must be visible from its root listing
+
+This is the argument the other two rest on, and it comes from practice rather than principle:
+**several grund workspaces are used together.** A workspace root with members, sibling repositories
+checked out side by side, a machine carrying a dozen projects some of which are grounded and some
+of which are not.
+
+`.agents/` is a dot-directory, and dot-directories are hidden by construction — `ls` omits them,
+editor file trees and file managers hide them by default, and shell globs skip them unless asked. So
+under the old layout the question *"is this a grund workspace?"* had no answer you could see. You
+had to already know to look inside a hidden directory, or run a command per candidate, or grep. The
+config was not merely inconvenient to find; the **existence of the grounding** was invisible.
+
+That cost is per project and multiplies with how many are in view. With one repository you learn it
+once and never think about it again — which is why the original choice looked right. With eight
+open at once, all eight look like ordinary un-grounded repositories, and the one property a reader
+most needs at a glance is the one the layout hides. A root `grund.toml` answers the question the way
+`Cargo.toml` answers "is this a Rust crate": from the listing, with no tool and no prior knowledge.
+
+The `.agents/` rationale is not wrong, it is just narrower than it looked: keeping agent tooling off
+a crowded root is worth something, and a project that values it keeps the form (§2.1). What it
+cannot buy back is discoverability across a set of projects, and that is what the default now
+optimizes for ([§GOAL-friendliness-first](../../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible) — the same argument as loud config errors, applied one
+step earlier, to finding out there is a config at all).
 
 ## 3. Consequences
 
@@ -114,7 +143,12 @@ with no other edit, and never required.
 - **Two names to search for.** Anyone grepping a machine for grund configs, and any future tool that
   wants to read one, has two paths to consider instead of one. This is the standing cost of the
   decision, paid once per such consumer, and the reason §2.1 fixes the probe order rather than
-  leaving it to a search.
+  leaving it to a search. Note that it does not undo §2.4: a *search* getting harder is a cost to
+  tooling, while what §2.4 buys is an answer with no search at all.
+- **A grounded project is identifiable without running anything.** `ls` across a set of checkouts
+  now separates the grounded ones from the rest (§2.4). Repositories that keep the `.agents/` form
+  keep the old invisibility — that is their choice to make, and `grund check` still tells anyone who
+  runs it, but the default no longer requires a tool to answer "is this grounded".
 
 ## 4. Alternatives considered
 
