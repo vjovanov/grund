@@ -40,7 +40,7 @@ even when the citing/root project uses a different ID format.
 
 ## 2. Workspace configuration
 
-A workspace is declared in the root project's `.agents/grund.toml`:
+A workspace is declared in the root project's `grund.toml` ([§FS-config.1](FS-config.md#1-file-location-and-discovery)):
 
 ```toml
 project_name = "root"
@@ -61,9 +61,11 @@ every direct child directory under `packages/`; recursive `**` globs are not
 part of v1. `include_root` defaults to `true`; when false, `grund check` at the
 workspace root checks only member projects.
 
-Each member is a separate project namespace. If a member has its own
-`.agents/grund.toml`, that file configures the member. If it does not, the
-canonical defaults apply with the member directory as the config root.
+Each member is a separate project namespace. If a member has its own config —
+either discovery form, `.agents/grund.toml` or a bare `grund.toml`
+([§FS-config.1](FS-config.md#1-file-location-and-discovery)) — that file configures the member. If it has neither, the
+canonical defaults apply with the member directory as the config root. Root and
+members choose independently, so a workspace may mix the two forms.
 
 ## 3. Aliases
 
@@ -78,7 +80,7 @@ qualified citation would otherwise have two possible targets.
 A project's optional one-line `project_description` ([§FS-config.3](FS-config.md#3-schema)) follows the
 same residency rule as the alias: a member's description comes from the
 member's own config, the root row's from the root config, and a member without
-its own `.agents/grund.toml` has none ([§DF-workspace-member-descriptions](../decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists)).
+its own config has none ([§DF-workspace-member-descriptions](../decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists)).
 Unlike the alias it is presentation metadata only — generated workspace member
 lists render it beside the alias ([§FS-init.2.3.4.15](FS-init.md#23415-workspace-members)), and it never
 participates in alias derivation, citation resolution, or `check` semantics.
@@ -172,7 +174,7 @@ every command in this section:
 
 - **Discovery follows the same walk-up rule as `grund check`** ([§FS-config.1](FS-config.md#1-file-location-and-discovery),
   §5): from the CWD (or from an explicit `<path>` argument), walk up to the
-  nearest `.agents/grund.toml`. If the nearest config is a member's own config,
+  nearest `grund.toml` in either discovery form. If the nearest config is a member's own config,
   the command runs member-local — qualified `<alias>/<ID>` cannot resolve, the
   same way `check` errors at the member scope (§5). If the nearest config is
   the workspace root, the command runs workspace-wide. An explicit `<path>`
@@ -223,7 +225,7 @@ member-local — `grund api/FS-login` exits `2` with two stderr lines:
 
 ```text
 error: unknown project alias `api`
-note: workspace aliases are defined in the root .agents/grund.toml under [workspace]
+note: workspace aliases are defined in the root grund.toml under [workspace]
 ```
 
 Ambiguity within a project is unchanged ([§FS-show.2.2.1](FS-show.md#221-ambiguous-id)). An ID that exists in

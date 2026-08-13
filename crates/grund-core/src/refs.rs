@@ -93,7 +93,7 @@ fn command_refs(args: &[String]) -> ExitCode {
                 eprintln!("error: unknown project alias `{name}`");
                 if !context.workspace_loaded {
                     eprintln!(
-                        "note: workspace aliases are defined in the root .agents/grund.toml under [workspace]"
+                        "note: workspace aliases are defined in the root grund.toml under [workspace]"
                     );
                 } else {
                     let known = context.aliases().join(", ");

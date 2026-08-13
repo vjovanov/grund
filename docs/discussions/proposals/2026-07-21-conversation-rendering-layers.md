@@ -18,7 +18,7 @@ the committed entrypoint.
 exclusively into *global* agent instruction files (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, …),
 on the grounds that rendering is "a property of the user's machine, not a repository". The
 repository entrypoint owns only the repository-web rule ([§FS-init.2.3.4.17](../../functional-spec/FS-init.md#23417-clickable-citations)), and the repository
-`.agents/grund.toml` schema deliberately has no rendering keys ([§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents)).
+`.agents/grund.toml` schema deliberately has no rendering keys ([§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)).
 
 Two frictions with the global-only design surfaced in practice:
 
@@ -129,7 +129,7 @@ The repository block stays deterministic and config-derived only ([§FS-non-goal
 ## 4. Researched alternative: a repo-local file excluded from version control
 
 Appending the guidance to an uncommitted per-clone file (registered in `.git/info/exclude`, which
-both git and the scanner already honor via `respect_gitignore`, [§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents)) was researched across
+both git and the scanner already honor via `respect_gitignore`, [§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)) was researched across
 the fixed supported-agent set ([§FS-init.2.3](../../functional-spec/FS-init.md#23-generated-agent-entrypoints)). Result: it is not a portable mechanism.
 
 | Agent | Repo-local uncommitted instruction file | Mechanism |

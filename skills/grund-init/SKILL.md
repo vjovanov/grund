@@ -1,11 +1,11 @@
 ---
 name: grund-init
-description: Use when bootstrapping or adopting grund in a repository, especially when the user wants an interactive guided setup for grund init, .agents/grund.toml, AGENTS.md, docs scaffolding, citation format, scan scope, output format, or Markdown link settings.
+description: Use when bootstrapping or adopting grund in a repository, especially when the user wants an interactive guided setup for grund init, grund.toml, AGENTS.md, docs scaffolding, citation format, scan scope, output format, or Markdown link settings.
 ---
 
 # grund init
 
-Guide the user through `grund` adoption. `grund init` itself is non-interactive, so this skill acts as the interactive wrapper: inspect the repository, recommend suitable settings, ask the user to confirm or override every option, write `.agents/grund.toml`, run `grund init`, then validate.
+Guide the user through `grund` adoption. `grund init` itself is non-interactive, so this skill acts as the interactive wrapper: inspect the repository, recommend suitable settings, ask the user to confirm or override every option, write `grund.toml`, run `grund init`, then validate.
 
 ## Workflow
 
@@ -13,7 +13,7 @@ Guide the user through `grund` adoption. `grund init` itself is non-interactive,
 2. Present a short "detected repo shape" summary and recommended setup.
 3. If existing specs or spec-like artifacts are present, show the canonical `grund` artifact types beside the detected project-specific sections/tags/document classes, then ask which artifact model to adopt before writing config or refactoring docs.
 4. Ask each remaining setup/config question below. For every question, include the recommended value, repo evidence, pros, cons, and when to choose something else.
-5. Write `.agents/grund.toml` from the analysis before running `grund init`, so generated guidance reflects the repository's actual grammar, marker, strict mode, kinds, artifact folders, and scan scope.
+5. Write `grund.toml` from the analysis before running `grund init`, so generated guidance reflects the repository's actual grammar, marker, strict mode, kinds, artifact folders, and scan scope.
 6. Run `grund init [path] [--name NAME] [--force]`, adding `--docs` only when the repo is fresh or the user selected a canonical-layout migration that needs the scaffold. Preview the run with `--dry-run` if the user wants to inspect what will change before committing.
 7. Run `grund config validate [path]` and `grund check [path]`.
 8. Summarize generated files, validation results, existing specs/artifacts found, and any follow-up cleanup.
@@ -25,7 +25,7 @@ Use `rg` and `rg --files` first. Prefer evidence from existing files over generi
 
 Analyze:
 
-- Existing `AGENTS.md`, `.agents/grund.toml`, root `grund.toml`, and grund-style citations.
+- Existing `AGENTS.md`, a `grund.toml` in either discovery location (root or `.agents/`), and grund-style citations.
 - Documentation layout: `docs/`, `e2e/`, `spec/`, `rfcs/`, `adr/`, `decisions/`, `roadmap`, `changelog`.
 - Existing artifact types and their homes: specifications, requirements, RFCs, ADRs/decisions, roadmaps, changelogs, plans, end-to-end fixtures, examples, package READMEs, generated reports, and runtime logs. Use these to choose `[[kinds]]`, `[scan].include`, and `[scan].exclude`; do not add generic folders when the repo already has project-specific artifact homes.
 - Source layout: `src/`, `lib/`, `crates/`, `packages/`, `apps/`, `services/`, `cmd/`, `internal/`, `pkg/`, `test/`, `tests/`.
@@ -82,7 +82,7 @@ Then ask the user to choose one adoption model:
 | Canonical core plus project-specific extras | Repos with useful existing ADRs/RFCs/requirements but no clear behavior-vs-architecture backbone. | Use `GRUND`, `GOAL`, `FS`, and `AR` as the grounding backbone, then add custom `[[kinds]]` for project-specific artifacts. |
 | Existing structure with citations | Mature repos with a strong existing taxonomy or high migration cost. | Preserve current sections/tags/document classes, configure `[[kinds]]` and `[scan]` around them, and add `grund` citations/declarations without forcing canonical folders. |
 
-The question should include a recommendation grounded in the inventory. Do not write `.agents/grund.toml`, run `grund init --docs`, move documents, rename headings, or add bulk citations until the user chooses the adoption model. Once selected, use the model to decide whether the setup is only config plus entrypoint refresh, or a broader docs refactor with a visible plan.
+The question should include a recommendation grounded in the inventory. Do not write `grund.toml`, run `grund init --docs`, move documents, rename headings, or add bulk citations until the user chooses the adoption model. Once selected, use the model to decide whether the setup is only config plus entrypoint refresh, or a broader docs refactor with a visible plan.
 
 ## Config Questions
 
@@ -536,7 +536,7 @@ grund init .
 grund check .
 ```
 
-If custom config affects `AGENTS.md`, ensure `.agents/grund.toml` exists before `grund init` so the generated managed block reflects the selected ID grammar, marker, strict mode, kinds, and existing artifact layout.
+If custom config affects `AGENTS.md`, ensure `grund.toml` exists before `grund init` so the generated managed block reflects the selected ID grammar, marker, strict mode, kinds, and existing artifact layout.
 
 ## Editor Setup
 
@@ -554,4 +554,4 @@ Optional, and only if the user wants a plain `§<ID>` citation to be clickable i
 - Show the user the change before touching disk: `grund integrations <client>` prints the config snippet and the `grund-open` resolver (or, for `vscode`, the unpacked extension) so they can read it first.
 - Install only on confirmation: `grund integrations <client> --write` installs the client integration, records the user-local conversation preference, and synchronizes managed blocks into the global instruction files of the six file-backed agents (Codex, Claude, Gemini, GitHub Copilot, Zed, Pi — §FS-integrations.4.3). It is idempotent; never write without the user's go-ahead.
 - The installed default asks agents for plain local citations. Use `grund integrations --write --conversation link` as a preference-only user override when the TUI has no rendering support; no arbitrary client is installed. The editor choice (`GRUND_OPEN_CMD` or `EDITOR`) never belongs in shared repository text.
-- One opinion *is* committable: a repository may set `[reference] conversation = "link"` in `.agents/grund.toml` (§DF-repo-conversation-opinion), and the generated entrypoint then teaches linked local citations to every cloner with zero per-user setup. The form follows the per-agent gate (§DF-conversation-link-target.2.4): `CLAUDE.md` teaches a Markdown link whose visible text is the citation and whose target is `file://<absolute path>#L<line>`, while `AGENTS.md` — the file Codex reads, where that form erases the citation — keeps the location as plain `path:line` text. A `CLAUDE.md` symlinked to `AGENTS.md` is one file and keeps the plain form; `grund init --claude` writes real Claude entrypoints instead. It is the fallback for machines that never stated a preference (fresh clones, cloud sessions, Cursor and Windsurf, whose only grund channel is the committed entrypoint); a machine whose recorded preference is `plain` keeps bare citations there, because its rendering layer already resolves them. Without the key, repository instructions carry only the fixed repository-web rule. Offer it when a team wants clickable conversation citations without asking each member to run `grund integrations`.
+- One opinion *is* committable: a repository may set `[reference] conversation = "link"` in `grund.toml` (§DF-repo-conversation-opinion), and the generated entrypoint then teaches linked local citations to every cloner with zero per-user setup. The form follows the per-agent gate (§DF-conversation-link-target.2.4): `CLAUDE.md` teaches a Markdown link whose visible text is the citation and whose target is `file://<absolute path>#L<line>`, while `AGENTS.md` — the file Codex reads, where that form erases the citation — keeps the location as plain `path:line` text. A `CLAUDE.md` symlinked to `AGENTS.md` is one file and keeps the plain form; `grund init --claude` writes real Claude entrypoints instead. It is the fallback for machines that never stated a preference (fresh clones, cloud sessions, Cursor and Windsurf, whose only grund channel is the committed entrypoint); a machine whose recorded preference is `plain` keeps bare citations there, because its rendering layer already resolves them. Without the key, repository instructions carry only the fixed repository-web rule. Offer it when a team wants clickable conversation citations without asking each member to run `grund integrations`.

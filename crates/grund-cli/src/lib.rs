@@ -9,9 +9,9 @@ use grund_core::{
     CoverTextEntry, Finding, FmtOpts, IdOpts, IdProposal, IdProposalOutcome,
     InitAgentEntrypointSelection, InitFsHome, InitNext, InitOpts, InitOutput, ListEntry, ListOpts,
     NamespaceMatch, RefHit, RefsOpts, Report, ShowFormat, ShowMode, ShowOpts,
-    canonical_template_text, check_with_opts, complete_ids, cover, cover_text, effective_config,
-    format_references, init, list, propose_id, refs, run_integrations, show_with_scope,
-    validate_config,
+    canonical_template_text, check_with_opts, complete_ids, config_warnings, cover, cover_text,
+    effective_config, format_references, init, list, propose_id, refs, run_integrations,
+    show_with_scope, validate_config,
 };
 
 const SUBCOMMANDS: &[&str] = &[

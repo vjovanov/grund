@@ -226,11 +226,11 @@ fn agents_template_substitutions(
     let kinds_set = format!("{{{}}}", kind_prefixes(&config.kinds).join(", "));
     let bare_note = if config.strict {
         format!(
-            "Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `.agents/grund.toml`, so only `{marker}`-prefixed citations are checked."
+            "Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `grund.toml`, so only `{marker}`-prefixed citations are checked."
         )
     } else {
         format!(
-            "Bare ID-shaped tokens are also recognized as citations because `[reference] strict = false` is set in `.agents/grund.toml`; remove that compatibility override or set strict back to `true` to require the `{marker}` marker (run `grund fmt --marker` first to upgrade existing bare citations)."
+            "Bare ID-shaped tokens are also recognized as citations because `[reference] strict = false` is set in `grund.toml`; remove that compatibility override or set strict back to `true` to require the `{marker}` marker (run `grund fmt --marker` first to upgrade existing bare citations)."
         )
     };
     let section_heading_note = section_heading_note(config, marker);
@@ -793,10 +793,10 @@ fn is_symlink_to(path: &Path, target: &Path) -> Result<bool> {
 }
 
 /// The config that `grund init` will leave governing `target`, which the generated
-/// `AGENTS.md` must describe (§FS-init.2.3): an existing `target/.agents/grund.toml`
-/// if there is one, otherwise the defaults plus the *pending* `project_name`
-/// and `project_description` that `init` is about to write into
-/// `target/.agents/grund.toml` (§FS-init.2.4). The `pending` in the name flags
+/// `AGENTS.md` must describe (§FS-init.2.3): `target`'s existing config in either
+/// discovery form if there is one (§FS-config.1), otherwise the defaults plus the
+/// *pending* `project_name` and `project_description` that `init` is about to
+/// write into `target/grund.toml` (§FS-init.2.4). The `pending` in the name flags
 /// that the returned `Config` may carry values that are not yet on disk —
 /// callers must not treat it as reflecting persisted state. We do **not** walk
 /// up to an ancestor's config here — `init` always writes a config *in*
@@ -813,8 +813,7 @@ fn init_pending_effective_config(
     name: &str,
     description: Option<&str>,
 ) -> Result<Config> {
-    let local_config = target.join(".agents").join("grund.toml");
-    if local_config.is_file() {
+    if config_file_in(target).is_some() {
         load_config(target)
     } else {
         let mut config = Config::default_for(target.to_path_buf());
@@ -824,7 +823,7 @@ fn init_pending_effective_config(
     }
 }
 
-/// The generated `.agents/grund.toml` — every default written out explicitly as a
+/// The generated `grund.toml` — every default written out explicitly as a
 /// teaching surface, with only `project_name` substituted (§FS-init.2.4). With
 /// `--description`, the commented `project_description` teaching line becomes
 /// the real key (§FS-init.2.4, §DF-workspace-member-descriptions).
@@ -857,8 +856,8 @@ struct InitWorkspaceProject {
     description: Option<String>,
 }
 
-/// Walk up from `target` to the nearest ancestor whose `.agents/grund.toml`
-/// declares `[workspace]`, then expand its members and derive each alias the
+/// Walk up from `target` to the nearest ancestor whose `grund.toml` — either
+/// discovery form (§FS-config.1) — declares `[workspace]`, then expand its members and derive each alias the
 /// same way `grund check` does (§FS-workspace.2 / §FS-workspace.3). Returns the
 /// alias-sorted project list (root + members, subject to `include_root`) when
 /// `target` sits inside a workspace; `None` otherwise. Returns `None` rather
@@ -894,9 +893,7 @@ fn find_init_workspace_context(
             Some(&root_config.root),
         )
         .ok()?;
-        if member_root == &target_canonical
-            && !member_root.join(".agents").join("grund.toml").is_file()
-        {
+        if member_root == &target_canonical && config_file_in(member_root).is_none() {
             // §FS-init.2.3.4.15: self is rendered against the config `init`
             // is about to write, so `grund init member --name service
             // --description "…"` teaches the future `service/...` workspace
@@ -940,11 +937,10 @@ fn find_init_workspace_context(
 }
 
 /// Walk up from `target` for the nearest ancestor (or `target` itself) whose
-/// `.agents/grund.toml` declares `[workspace]`. Unlike [`load_config`], this
-/// helper does **not** stop at the first config it finds — a member with its
-/// own `.agents/grund.toml` (which cannot declare `[workspace]` per
-/// §FS-workspace.6) must still see the workspace root above it
-/// (§FS-init.2.3.4.15).
+/// config declares `[workspace]`. Unlike [`load_config`], this helper does
+/// **not** stop at the first config it finds — a member with its own config
+/// (which cannot declare `[workspace]` per §FS-workspace.6) must still see the
+/// workspace root above it (§FS-init.2.3.4.15).
 fn find_init_workspace_root(target: &Path) -> Option<Config> {
     // Without a canonical anchor we cannot reliably compare against the
     // canonicalized member roots `expand_workspace_members` returns; bail
@@ -952,8 +948,7 @@ fn find_init_workspace_root(target: &Path) -> Option<Config> {
     let canonical_target = fs::canonicalize(target).ok()?;
     let mut cursor: Option<&Path> = Some(&canonical_target);
     while let Some(dir) = cursor {
-        let candidate = dir.join(".agents").join("grund.toml");
-        if candidate.is_file()
+        if config_file_in(dir).is_some()
             && let Ok(config) = load_config_at(dir, &canonical_target)
             && config.workspace_declared
         {

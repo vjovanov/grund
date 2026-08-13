@@ -28,7 +28,7 @@ fn run_grund<P: AsRef<Path>>(args: &[&str], cwd: P) -> Output {
 
 #[test]
 fn init_default_writes_canonical_pair_and_passes_check() {
-    // §FS-init.2.1 (default form) + §FS-config.1 (.agents/grund.toml location).
+    // §FS-init.2.1 (default form) + §FS-config.1 (config file location).
     let target = workdir("init_default_writes_canonical_pair_and_passes_check");
     let output = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
     assert!(
@@ -42,12 +42,12 @@ fn init_default_writes_canonical_pair_and_passes_check() {
         "AGENTS.md was not written"
     );
     assert!(
-        target.join(".agents/grund.toml").is_file(),
-        ".agents/grund.toml was not written; init must place grund.toml under .agents/"
+        target.join("grund.toml").is_file(),
+        "grund.toml was not written; init generates the bare root form (§DF-config-file-location.2.3)"
     );
     assert!(
-        !target.join("grund.toml").exists(),
-        "init must NOT write grund.toml at the repo root — it lives under .agents/"
+        !target.join(".agents/grund.toml").exists(),
+        "init must NOT write .agents/grund.toml — that form is discovered, not generated"
     );
 
     let validate = run_grund(
@@ -84,7 +84,7 @@ fn init_docs_form_emits_full_scaffold_and_check_is_clean() {
 
     let expected = [
         "AGENTS.md",
-        ".agents/grund.toml",
+        "grund.toml",
         "docs/grund.md",
         "docs/goals.md",
         "docs/roadmap.md",
@@ -106,11 +106,10 @@ fn init_docs_form_emits_full_scaffold_and_check_is_clean() {
         "AGENTS.md must interpolate the --name into the H1 / opening sentence"
     );
 
-    let grund_toml =
-        fs::read_to_string(target.join(".agents/grund.toml")).expect("read .agents/grund.toml");
+    let grund_toml = fs::read_to_string(target.join("grund.toml")).expect("read grund.toml");
     assert!(
         grund_toml.contains("project_name = \"DemoProject\""),
-        ".agents/grund.toml must carry project_name from --name"
+        "grund.toml must carry project_name from --name"
     );
 
     let check = run_grund(&["check", target.to_str().unwrap()], manifest_dir());
@@ -179,11 +178,10 @@ fn init_description_flag_writes_config_key() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let grund_toml =
-        fs::read_to_string(target.join(".agents/grund.toml")).expect("read .agents/grund.toml");
+    let grund_toml = fs::read_to_string(target.join("grund.toml")).expect("read grund.toml");
     assert!(
         grund_toml.contains("project_description = \"Payment API service\""),
-        ".agents/grund.toml must carry project_description from --description"
+        "grund.toml must carry project_description from --description"
     );
     assert!(
         !grund_toml.contains("# project_description ="),
@@ -225,7 +223,7 @@ fn init_description_flag_rejects_multiline_value() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
-        !target.join(".agents/grund.toml").exists(),
+        !target.join("grund.toml").exists(),
         "no file may be written on a rejected --description"
     );
 }
@@ -252,7 +250,7 @@ fn init_failed_docs_write_reports_prior_progress() {
         "stderr should include prior AGENTS.md write, got:\n{stderr}"
     );
     assert!(
-        stderr.contains("wrote .agents/grund.toml"),
+        stderr.contains("wrote grund.toml"),
         "stderr should include prior config write, got:\n{stderr}"
     );
     assert!(
@@ -260,7 +258,7 @@ fn init_failed_docs_write_reports_prior_progress() {
         "stderr should include final error, got:\n{stderr}"
     );
     assert!(target.join("AGENTS.md").is_file());
-    assert!(target.join(".agents/grund.toml").is_file());
+    assert!(target.join("grund.toml").is_file());
 }
 
 #[test]
@@ -275,8 +273,7 @@ fn init_generated_config_comments_list_constrained_values() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let grund_toml =
-        fs::read_to_string(target.join(".agents/grund.toml")).expect("read .agents/grund.toml");
+    let grund_toml = fs::read_to_string(target.join("grund.toml")).expect("read grund.toml");
     for expected in [
         "inline_style = \"citation-with-note\" # citation-with-note | citation-only",
         "section_heading_levels = \"strict\" # strict | warn | loose",
@@ -728,7 +725,7 @@ fn init_rerun_on_current_repo_writes_nothing_and_reports_exists() {
     assert!(first.status.success());
 
     let agents_before = fs::read(target.join("AGENTS.md")).unwrap();
-    let toml_before = fs::read(target.join(".agents/grund.toml")).unwrap();
+    let toml_before = fs::read(target.join("grund.toml")).unwrap();
 
     let second = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
     assert!(second.status.success());
@@ -742,8 +739,8 @@ fn init_rerun_on_current_repo_writes_nothing_and_reports_exists() {
         "second `grund init` must not rewrite an already-current AGENTS.md, got:\n{stderr}"
     );
     assert!(
-        stderr.contains("exists .agents/grund.toml"),
-        "second `grund init` should report `exists .agents/grund.toml`, got:\n{stderr}"
+        stderr.contains("exists grund.toml"),
+        "second `grund init` should report `exists grund.toml`, got:\n{stderr}"
     );
 
     assert_eq!(
@@ -752,9 +749,9 @@ fn init_rerun_on_current_repo_writes_nothing_and_reports_exists() {
         "AGENTS.md bytes changed on a no-op re-init"
     );
     assert_eq!(
-        fs::read(target.join(".agents/grund.toml")).unwrap(),
+        fs::read(target.join("grund.toml")).unwrap(),
         toml_before,
-        ".agents/grund.toml bytes changed on a no-op re-init"
+        "grund.toml bytes changed on a no-op re-init"
     );
 }
 
@@ -812,9 +809,9 @@ fn init_is_byte_deterministic() {
     let agents_a = fs::read(a.join("AGENTS.md")).unwrap();
     let agents_b = fs::read(b.join("AGENTS.md")).unwrap();
     assert_eq!(agents_a, agents_b, "AGENTS.md must be byte-identical");
-    let toml_a = fs::read(a.join(".agents/grund.toml")).unwrap();
-    let toml_b = fs::read(b.join(".agents/grund.toml")).unwrap();
-    assert_eq!(toml_a, toml_b, ".agents/grund.toml must be byte-identical");
+    let toml_a = fs::read(a.join("grund.toml")).unwrap();
+    let toml_b = fs::read(b.join("grund.toml")).unwrap();
+    assert_eq!(toml_a, toml_b, "grund.toml must be byte-identical");
 }
 
 #[test]
@@ -835,8 +832,7 @@ fn init_dry_run_writes_no_files_and_reports_would_prefixes() {
     );
     let stderr = String::from_utf8_lossy(&dry.stderr);
     assert!(
-        stderr.contains("would-write AGENTS.md")
-            && stderr.contains("would-write .agents/grund.toml"),
+        stderr.contains("would-write AGENTS.md") && stderr.contains("would-write grund.toml"),
         "dry-run should report `would-write …` for new files, got:\n{stderr}"
     );
     assert!(
@@ -844,7 +840,7 @@ fn init_dry_run_writes_no_files_and_reports_would_prefixes() {
         "dry-run must not use the real-run verbs, got:\n{stderr}"
     );
     assert!(
-        !target.join("AGENTS.md").exists() && !target.join(".agents/grund.toml").exists(),
+        !target.join("AGENTS.md").exists() && !target.join("grund.toml").exists(),
         "dry-run must not write anything to disk"
     );
 
@@ -852,7 +848,7 @@ fn init_dry_run_writes_no_files_and_reports_would_prefixes() {
     let real = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
     assert!(real.status.success());
     assert!(target.join("AGENTS.md").is_file());
-    assert!(target.join(".agents/grund.toml").is_file());
+    assert!(target.join("grund.toml").is_file());
 }
 
 #[test]
@@ -869,7 +865,7 @@ fn init_dry_run_on_current_repo_suppresses_next_block() {
     assert!(second.status.success());
     let stderr = String::from_utf8_lossy(&second.stderr);
     assert!(
-        stderr.contains("exists AGENTS.md") && stderr.contains("exists .agents/grund.toml"),
+        stderr.contains("exists AGENTS.md") && stderr.contains("exists grund.toml"),
         "second init should report `exists` for both managed paths, got:\n{stderr}"
     );
     assert!(
@@ -906,7 +902,7 @@ fn init_dry_run_with_docs_previews_scaffold_without_writing() {
     let stderr = String::from_utf8_lossy(&dry.stderr);
     for rel in [
         "AGENTS.md",
-        ".agents/grund.toml",
+        "grund.toml",
         "docs/grund.md",
         "docs/goals.md",
         "docs/roadmap.md",
@@ -937,14 +933,14 @@ fn init_dry_run_with_docs_previews_scaffold_without_writing() {
 fn init_force_dry_run_previews_canonical_rewrite() {
     // §FS-init.1 / §FS-init.2.2: --force --dry-run takes the rewrite path
     // (instead of update-in-place) and previews `would-write AGENTS.md`
-    // without changing the file's bytes on disk. .agents/grund.toml is the
-    // exception: --force never overwrites it, so dry-run reports `exists`.
+    // without changing the file's bytes on disk. The config is the exception:
+    // --force never overwrites it, so dry-run reports `exists`.
     let target = workdir("init_force_dry_run_previews_canonical_rewrite");
     let first = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
     assert!(first.status.success());
 
     let agents_before = fs::read(target.join("AGENTS.md")).unwrap();
-    let toml_before = fs::read(target.join(".agents/grund.toml")).unwrap();
+    let toml_before = fs::read(target.join("grund.toml")).unwrap();
 
     let dry = run_grund(
         &["init", target.to_str().unwrap(), "--force", "--dry-run"],
@@ -961,7 +957,7 @@ fn init_force_dry_run_previews_canonical_rewrite() {
         "--force --dry-run should preview the canonical rewrite, got:\n{stderr}"
     );
     assert!(
-        stderr.contains("exists .agents/grund.toml"),
+        stderr.contains("exists grund.toml"),
         "--force never overwrites the config, even under dry-run, got:\n{stderr}"
     );
     assert!(
@@ -974,7 +970,7 @@ fn init_force_dry_run_previews_canonical_rewrite() {
         "--force --dry-run must not modify AGENTS.md"
     );
     assert_eq!(
-        fs::read(target.join(".agents/grund.toml")).unwrap(),
+        fs::read(target.join("grund.toml")).unwrap(),
         toml_before,
         "--force --dry-run must not modify the config"
     );

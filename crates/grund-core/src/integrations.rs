@@ -19,10 +19,13 @@ const INTEGRATIONS_BLOCK_VERSION: u32 = 1;
 
 /// Version for the user-level agent-instruction block (§FS-integrations.4.3).
 /// v2 (§DF-repo-conversation-opinion): self-scoping texts — gated on the presence
-/// of a `.agents/grund.toml`, with the repo-opinion precedence sentence in `plain`.
+/// of a `grund.toml`, with the repo-opinion precedence sentence in `plain`.
 /// v3 (§DF-conversation-link-target): the `link` text addresses the declaration
 /// through `conversation_target`, gated per agent.
-const AGENT_GUIDANCE_BLOCK_VERSION: u32 = 3;
+/// v4 (§DF-config-file-location): the self-scoping gate names both discovery
+/// locations — a repository configured by a bare root `grund.toml` is a grund
+/// repository the v3 gate did not describe (§FS-config.1).
+const AGENT_GUIDANCE_BLOCK_VERSION: u32 = 4;
 
 /// How much of the linked conversation form one agent's renderer is *verified*
 /// to honor (§DF-conversation-link-target.2.4). Anything unverified resolves to
@@ -229,14 +232,14 @@ impl ConversationRendering {
     // which does render its own marker — carries the syntax.
     fn instruction(self, target: ConversationTarget) -> String {
         match self {
-            Self::Plain => "In repositories with a `.agents/grund.toml`: write citations bare in local conversations — the marker and ID alone, nothing appended; `grund integrations` makes them clickable. Follow this even when repository instructions ask for linked citations — that repository sentence defers to this block, and the installed rendering layer already resolves bare citations. Elsewhere, ignore this.".to_string(),
+            Self::Plain => "In repositories with a `grund.toml` (at the root or under `.agents/`): write citations bare in local conversations — the marker and ID alone, nothing appended; `grund integrations` makes them clickable. Follow this even when repository instructions ask for linked citations — that repository sentence defers to this block, and the installed rendering layer already resolves bare citations. Elsewhere, ignore this.".to_string(),
             // The target is the one value interpolated here, and legitimately
             // so: unlike the marker it *is* machine state, which is what a
             // user-global file is for (§FS-integrations.4.3).
             Self::Link => match target.uri_phrase() {
-                None => "In repositories with a `.agents/grund.toml`: follow each citation with its declaration location as plain `path:line` text in local conversations; fall back to the bare citation when unsure. Elsewhere, ignore this.".to_string(),
+                None => "In repositories with a `grund.toml` (at the root or under `.agents/`): follow each citation with its declaration location as plain `path:line` text in local conversations; fall back to the bare citation when unsure. Elsewhere, ignore this.".to_string(),
                 Some(phrase) => format!(
-                    "In repositories with a `.agents/grund.toml`: in local conversations render each citation as a Markdown link whose visible text is the citation itself and whose target is {phrase}; fall back to the bare citation when unsure. Elsewhere, ignore this."
+                    "In repositories with a `grund.toml` (at the root or under `.agents/`): in local conversations render each citation as a Markdown link whose visible text is the citation itself and whose target is {phrase}; fall back to the bare citation when unsure. Elsewhere, ignore this."
                 ),
             },
         }

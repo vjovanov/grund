@@ -1,2 +1,2 @@
 error: unknown project alias `beta`
-note: workspace aliases are defined in the root .agents/grund.toml under [workspace]
+note: workspace aliases are defined in the root grund.toml under [workspace]

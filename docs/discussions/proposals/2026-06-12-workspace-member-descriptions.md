@@ -64,7 +64,7 @@ form, and the *(not yet initialized)* suffix stays last:
 
 Two companion touches:
 
-- The generated `.agents/grund.toml` template ([§FS-init.2.4](../../functional-spec/FS-init.md#24-generated-agentsgrundtoml)) gains a commented
+- The generated `.agents/grund.toml` template ([§FS-init.2.4](../../functional-spec/FS-init.md#24-generated-grundtoml)) gains a commented
   `# project_description = "<one line shown next to this project in workspace member lists>"`
   teaching line under `project_name`, since the template writes its surface
   explicitly.
@@ -90,7 +90,7 @@ Two companion touches:
 
 ## Spec changes this drafts into
 
-- [§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents): the new `project_description` key next to `project_name`, with
+- [§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up): the new `project_description` key next to `project_name`, with
   single-line validation under [§FS-config.4.3](../../functional-spec/FS-config.md#43-invalid-config-behavior).
 - [§FS-workspace.3](../../functional-spec/FS-workspace.md#3-aliases): description resolution alongside alias resolution (member
   config, else none; root config for the root row).

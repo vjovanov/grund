@@ -1174,7 +1174,7 @@ fn check_agent_block_path(
                         line: Some(line),
                         column: None,
                         message: format!(
-                            "stale grund init block: {noun} differ from .agents/grund.toml (run `grund init` to refresh)"
+                            "stale grund init block: {noun} differ from grund.toml (run `grund init` to refresh)"
                         ),
                         sites: Vec::new(),
                     });

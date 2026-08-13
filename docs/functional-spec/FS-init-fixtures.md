@@ -12,13 +12,13 @@ Command:
 grund init {repo_copy}
 ```
 
-Precondition: `{repo_copy}` exists and contains no `AGENTS.md` and no `.agents/grund.toml`.
+Precondition: `{repo_copy}` exists and contains no `AGENTS.md` and no config in either discovery form ([§FS-config.1](FS-config.md#1-file-location-and-discovery)).
 
 Exit `0`, stdout empty, stderr:
 
 ```text
 wrote AGENTS.md
-wrote .agents/grund.toml
+wrote grund.toml
 
 next:
   1. re-run with --docs to scaffold the FS home (requirements.md), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan
@@ -31,10 +31,10 @@ Final tree:
 
 ```text
 AGENTS.md
-.agents/grund.toml
+grund.toml
 ```
 
-`AGENTS.md` contains exactly one delimiter-bounded managed block — `<!-- BEGIN GRUND MANAGED BLOCK -->` through `<!-- END GRUND MANAGED BLOCK -->` ([§FS-init.2.3](FS-init.md#23-generated-agent-entrypoints)) — headed `## Grounding with grund (vN)` at the current schema version. `.agents/grund.toml` is the default generated config from [§FS-init.2.4](FS-init.md#24-generated-agentsgrundtoml), including `grund_config_version = 1`, `project_name`, `[reference]` (including the inline citation style keys from [§FS-inline-citation-style.2](FS-inline-citation-style.md#2-configuration)), `[id]`, every default `[[kinds]]`, `[scan]`, `[output]`, and `[fmt.cross_refs]`. Constrained keys include the inline value-set comments required by [§FS-init.2.4](FS-init.md#24-generated-agentsgrundtoml).
+`AGENTS.md` contains exactly one delimiter-bounded managed block — `<!-- BEGIN GRUND MANAGED BLOCK -->` through `<!-- END GRUND MANAGED BLOCK -->` ([§FS-init.2.3](FS-init.md#23-generated-agent-entrypoints)) — headed `## Grounding with grund (vN)` at the current schema version. `grund.toml` is the default generated config from [§FS-init.2.4](FS-init.md#24-generated-grundtoml), including `grund_config_version = 1`, `project_name`, `[reference]` (including the inline citation style keys from [§FS-inline-citation-style.2](FS-inline-citation-style.md#2-configuration)), `[id]`, every default `[[kinds]]`, `[scan]`, `[output]`, and `[fmt.cross_refs]`. Constrained keys include the inline value-set comments required by [§FS-init.2.4](FS-init.md#24-generated-grundtoml).
 
 ## 2. Docs form
 
@@ -50,7 +50,7 @@ Exit `0`, stdout empty, stderr:
 
 ```text
 wrote AGENTS.md
-wrote .agents/grund.toml
+wrote grund.toml
 wrote requirements.md
 wrote docs/grund.md
 wrote docs/goals.md
@@ -100,10 +100,10 @@ When `AGENTS.md` exists without a managed block and `--force` is not passed, `in
 
 ```text
 appended AGENTS.md
-wrote .agents/grund.toml
+wrote grund.toml
 ```
 
-When `AGENTS.md` exists and `--force` is passed, `init` rewrites the canonical file and reports `wrote AGENTS.md`. When `.agents/grund.toml` already exists, `init --force` still preserves it and reports `exists .agents/grund.toml`; config is never clobbered once present.
+When `AGENTS.md` exists and `--force` is passed, `init` rewrites the canonical file and reports `wrote AGENTS.md`. When a config already exists, `init --force` still preserves it and reports it with `exists ` under the name it was found at — `exists .agents/grund.toml` for the fixture below; config is never clobbered once present, in either discovery form ([§FS-config.1](FS-config.md#1-file-location-and-discovery)).
 
 ## 4. Target and flag failures
 
@@ -191,7 +191,7 @@ Cross-project citations use §alias/<ID>.
 
 ### 6.3 Non-workspace repo
 
-Precondition: `{repo_copy}` exists and contains no `[workspace]` block in its config (or no config at all, in which case the defaults apply per [§FS-init.2.4](FS-init.md#24-generated-agentsgrundtoml)).
+Precondition: `{repo_copy}` exists and contains no `[workspace]` block in its config (or no config at all, in which case the defaults apply per [§FS-init.2.4](FS-init.md#24-generated-grundtoml)).
 
 Command: `grund init {repo_copy}`.
 

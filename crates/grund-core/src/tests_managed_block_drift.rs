@@ -100,8 +100,8 @@ mod tests_managed_block_drift {
             )
             .unwrap();
         assert_eq!(outcome, BlockOutcome::Updated);
-        assert!(updated.starts_with("# Mine\n\n<!-- >>> grund integrations citation rendering (v3) >>> -->\n"));
-        assert!(updated.contains("In repositories with a `.agents/grund.toml`:"));
+        assert!(updated.starts_with("# Mine\n\n<!-- >>> grund integrations citation rendering (v4) >>> -->\n"));
+        assert!(updated.contains("In repositories with a `grund.toml` (at the root or under `.agents/`):"));
         // §DF-repo-conversation-opinion.2.3: the machine-local `plain` wins over
         // a repository's linked-citations opinion.
         assert!(updated.contains("Follow this even when repository instructions ask for linked citations"));

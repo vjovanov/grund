@@ -122,7 +122,7 @@ Cross-project citations add a stable alias before the ID:
 `grund check` at the workspace root validates the root project and every member,
 without letting root scans accidentally absorb member declarations, even if the
 root `[scan] include` names a path inside a member. Members without
-`.agents/grund.toml` use the canonical defaults, and a member that declares its
+a `grund.toml` of their own use the canonical defaults, and a member that declares its
 own `[workspace]` block is rejected in v1. Each project can also set a one-line
 `project_description` next to `project_name`; `grund init` renders it beside
 the alias in the generated workspace member list (see
@@ -170,7 +170,7 @@ Three schemes are supported. Pick one per repo and keep it stable — mixing is 
 
 Rule of thumb: pick `{kind}-{slug}` until rename churn or ID count starts to hurt; switch to `{kind}-{number}-{slug}` when it does.
 
-Citations use the marker `§`, e.g. `§FS-user-login.3.1`; in a workspace, `§api/FS-user-login.3.1` targets the `api` project. Type `$$` in a `grund`-aware editor and it's rewritten to `§` automatically. Both marker and trigger are configurable in `.agents/grund.toml`.
+Citations use the marker `§`, e.g. `§FS-user-login.3.1`; in a workspace, `§api/FS-user-login.3.1` targets the `api` project. Type `$$` in a `grund`-aware editor and it's rewritten to `§` automatically. Both marker and trigger are configurable in `grund.toml`.
 
 The marker is the whole signal: a `§`-prefixed token is a live, checked citation wherever it appears — including inside Markdown backticks — so to show an *example* ID that shouldn't resolve, write it without the marker (`FS-user-login`) or inside a fenced code block.
 
@@ -274,7 +274,7 @@ The server speaks LSP over stdio and has no daemon or socket. The [setup guide](
 ## Set up a repo
 
 ```bash
-grund init           # writes AGENTS.md and .agents/grund.toml in the cwd
+grund init           # writes AGENTS.md and grund.toml in the cwd
 grund init --docs    # also scaffolds docs/ and e2e/ trees
 ```
 
@@ -299,8 +299,8 @@ pip install pre-commit && cargo install lychee && pre-commit install
 - **`grund cover`** — group the citation graph by file, for git-diff recipes.
 - **`grund fmt`** — normalize citation syntax (`$$` → `§`, optional Markdown link wrapping).
 - **`grund id <KIND> "<title>"`** — emit the next conflict-free ID for a new declaration.
-- **`grund init`** — scaffold `AGENTS.md` and `.agents/grund.toml`.
-- **`grund config`** — validate or print the effective `.agents/grund.toml`.
+- **`grund init`** — scaffold `AGENTS.md` and `grund.toml`.
+- **`grund config`** — validate or print the effective `grund.toml`.
 - **`grund completions`** — print bash, zsh, or fish completion scripts.
 - **`grund agent-setup-instructions`** — print the guided setup workflow for AI agents.
 

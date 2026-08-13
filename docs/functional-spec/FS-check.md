@@ -6,7 +6,7 @@ The `check` command walks a repo and reports every violation of the grund refere
 
 - Optional path argument; defaults to the current directory. May be a directory or a single file (`grund check crates/grund-core/src/scanner.rs` scopes the scan to one file but still discovers `.agents/grund.toml` by walking up — [§FS-config.1](FS-config.md#1-file-location-and-discovery)).
 - The walked tree may contain markdown (`.md`) and source files (Rust, Go, Java, TS, Python, etc.).
-- Optional `.agents/grund.toml` configuring marker, trigger, kinds, and skip lists per [§GOAL-configurable](../goals.md#goal-configurable-every-default-is-overridable) ([§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents)).
+- Optional `.agents/grund.toml` configuring marker, trigger, kinds, and skip lists per [§GOAL-configurable](../goals.md#goal-configurable-every-default-is-overridable) ([§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)).
 - Optional `[workspace]` config; when present and `check` is run at the workspace root, `check` validates alias-qualified cross-project citations per [§FS-workspace](FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace).
 - `--watch` is reserved for the planned resident checker (§6) and is not accepted by the current CLI.
 - `--require-grounding` — turn the grounding check (§3.6) on for this run regardless of `[reference] require_grounding` in `.agents/grund.toml` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). It only ever *adds* the check; it cannot switch off a config that already sets it.
@@ -27,11 +27,11 @@ A report on **stdout** — `check` is a linter and its findings are its output (
 
 - `0` — no errors. Warnings allowed (they do not affect the exit code).
 - `1` — at least one error.
-- `2` — scan failure (I/O, malformed file, invalid `.agents/grund.toml`).
+- `2` — scan failure (I/O, malformed file, invalid `grund.toml`).
 
 For verbose text and JSON report examples, including empty JSON scans and global diagnostic ordering, see [§FS-output-shapes](FS-output-shapes.md#fs-output-shapes-machine-readable-output-shapes).
 
-An invalid `.agents/grund.toml` aborts before any file is read ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)): exit `2`, a single `error:` line on stderr, nothing on stdout. A per-file failure encountered *during* the walk (a file that cannot be read or decoded) is different: the offending file is reported as `error: <path>: <reason>` on stderr (the CLI-level shape, [§FS-errors.2.2](FS-errors.md#22-cli-level-message) — the file has no line to point at, and "I could not read this" is about the run, not a finding about the graph), the walk continues over the remaining files, every finding collected from the readable files is still printed to stdout in the normal `<path>:<line>:` form, and the run exits `2` because the view of the tree was incomplete. A `2` therefore always means "do not trust this report as complete"; the printed findings are still real.
+An invalid `grund.toml` aborts before any file is read ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)): exit `2`, a single `error:` line on stderr, nothing on stdout. A per-file failure encountered *during* the walk (a file that cannot be read or decoded) is different: the offending file is reported as `error: <path>: <reason>` on stderr (the CLI-level shape, [§FS-errors.2.2](FS-errors.md#22-cli-level-message) — the file has no line to point at, and "I could not read this" is about the run, not a finding about the graph), the walk continues over the remaining files, every finding collected from the readable files is still printed to stdout in the normal `<path>:<line>:` form, and the run exits `2` because the view of the tree was incomplete. A `2` therefore always means "do not trust this report as complete"; the printed findings are still real.
 
 ### 2.1 Report format
 
@@ -60,13 +60,13 @@ error: <message>
 warning: <message>
 ```
 
-These never carry the bare `<path>:<line>:` prefix a per-finding line wears (the one with no `error:`); the `error:` / `warning:` prefix is what distinguishes them from per-finding lines on stdout. A `.agents/grund.toml` schema error is the one CLI-level message that still points at a line — it is reported `error: <path>:<line>: <message>` ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)): the `error:` prefix keeps it CLI-level (stderr, exit `2`), but the `<path>:<line>:` inside the message text is the breadcrumb to the offending key, since a config file has one and a bad flag does not. CI scripts grep for the leading `error:` to detect launch-time failures. An `error:` always accompanies a non-zero exit; a `warning:` does not affect the exit code. In `--format=json`, a launch-time `error:` (bad flag, unreadable config) stays as raw text; a mid-walk per-file failure is one of the report's diagnostics and is rendered as JSON like the rest (on stderr, since it is `line`-less and not a graph finding — [§FS-errors.5](FS-errors.md#5-json-format)).
+These never carry the bare `<path>:<line>:` prefix a per-finding line wears (the one with no `error:`); the `error:` / `warning:` prefix is what distinguishes them from per-finding lines on stdout. A `grund.toml` schema error is the one CLI-level message that still points at a line — it is reported `error: <path>:<line>: <message>` ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)): the `error:` prefix keeps it CLI-level (stderr, exit `2`), but the `<path>:<line>:` inside the message text is the breadcrumb to the offending key, since a config file has one and a bad flag does not. CI scripts grep for the leading `error:` to detect launch-time failures. An `error:` always accompanies a non-zero exit; a `warning:` does not affect the exit code. In `--format=json`, a launch-time `error:` (bad flag, unreadable config) stays as raw text; a mid-walk per-file failure is one of the report's diagnostics and is rendered as JSON like the rest (on stderr, since it is `line`-less and not a graph finding — [§FS-errors.5](FS-errors.md#5-json-format)).
 
 ### 2.2 Empty scan
 
 A walk that read **no scannable files** at all, and turned up no findings (no errors, no warnings — including the agent-entrypoint check of §3.5, which still runs and still reports even when nothing is scanned), is almost always a misconfigured scope rather than a clean repo. Rather than print nothing and exit `0` — which reads as "all clear" — `check` emits one CLI-level `warning:` line ([§FS-errors.2.2](FS-errors.md#22-cli-level-message)) to **stderr** — it is a caution about the run, not a finding about the repo, so it does not belong on stdout with the findings:
 
-- when the scope is the repo root (no path argument, or `grund check .`) and `[scan] include` is set: the message names the `include` list and points at `.agents/grund.toml` / `grund init`, since the usual cause is a project whose sources live outside the default `docs/`, `e2e/`, `src/`;
+- when the scope is the repo root (no path argument, or `grund check .`) and `[scan] include` is set: the message names the `include` list and points at `grund.toml` / `grund init`, since the usual cause is a project whose sources live outside the default `docs/`, `e2e/`, `src/`;
 - when an explicit path was given: the message names that path and the recognized extensions, since the usual cause is pointing `grund` at a tree with no `.md`/source files.
 
 This is a warning, not an error: the exit code stays `0` (a genuinely empty tree is not a failure), `--format=json` emits the warning as one diagnostic JSON object on stderr (the same stream as the text `warning:` line — it is not part of the findings on stdout), and a repo that *does* have a stale `AGENTS.md` block or any other finding gets that finding (on stdout) and **no** empty-scan notice. This is the friendliness-first counterpart to the explicit success marker ([§GOAL-friendliness-first.1](../goals.md#1-hard-requirements)): the run that scanned nothing is the one case where `success` would be the wrong answer.
@@ -200,7 +200,19 @@ An ID that is declared but never cited. Reported as a warning, not an error — 
 
 ### 4.2 Inline note soft-cap overrun *(opt-in)*
 
-Off by default. When `[reference] warn_on_suggested = true` is set in `.agents/grund.toml` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)), an inline citation site whose line count exceeds `inline_note_suggested_lines` but stays within `inline_note_max_lines` is reported as a warning. The full contract — what counts as a soft-cap overrun and how it interacts with the hard-cap error in §3.10 — lives in [§FS-inline-citation-style.4.2](FS-inline-citation-style.md#42-warnings--opt-in-soft-cap). Off by default because the soft cap is primarily agent-facing guidance ([§FS-inline-citation-style.5](FS-inline-citation-style.md#5-agent-facing-rendering)); flipping the toggle escalates it to a `check`-time signal.
+Off by default. When `[reference] warn_on_suggested = true` is set in the project's `grund.toml` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)), an inline citation site whose line count exceeds `inline_note_suggested_lines` but stays within `inline_note_max_lines` is reported as a warning. The full contract — what counts as a soft-cap overrun and how it interacts with the hard-cap error in §3.10 — lives in [§FS-inline-citation-style.4.2](FS-inline-citation-style.md#42-warnings--opt-in-soft-cap). Off by default because the soft cap is primarily agent-facing guidance ([§FS-inline-citation-style.5](FS-inline-citation-style.md#5-agent-facing-rendering)); flipping the toggle escalates it to a `check`-time signal.
+
+### 4.3 Redundant config pair
+
+A directory that carries both `.agents/grund.toml` and a bare `grund.toml` ([§FS-config.1.1](FS-config.md#11-when-one-directory-carries-both)). The `.agents/` file is the config; the bare one is read by nothing, so a user who edits it changes nothing and is told so:
+
+```
+warning: grund.toml is ignored — .agents/grund.toml takes precedence; delete one
+```
+
+It is a CLI-level `warning:` on **stderr** (§2.1.1), not a per-finding line: it is about which file the run read, not a finding at a site in the citation graph, and there is no offending line to point at — the whole file is ignored. Both paths are rendered relative to the config root ([§FS-config.3.6](FS-config.md#36-output--report-format)), so the message names the two files a user has to choose between. Like every warning it leaves the exit code alone (§2), because the pair is the ordinary transient state of a migration between the two forms ([§DF-config-file-location.2.2](../decisions/functional/DF-config-file-location.md#22-agentsgrundtoml-wins-a-tie-and-check-warns-about-the-pair)).
+
+The same warning is emitted by `grund config validate` and `grund config show` ([§FS-config.4.1](FS-config.md#41-grund-config-validate-path), [§FS-config.4.2](FS-config.md#42-grund-config-show-path)) — those are the surfaces a user reaches for when the answer to "why is my config not taking effect" is that `grund` is reading the other file. No other command reports it: a redundant pair is a fact about the repository's configuration, and `show`, `list`, `refs`, `cover`, and `fmt` answer questions about its content.
 
 ## 5. What grund does not check
 

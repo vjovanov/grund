@@ -29,7 +29,10 @@ fn command_config(args: &[String]) -> ExitCode {
 
     match action {
         "validate" => match validate_config(&path) {
-            Ok(_) => ExitCode::SUCCESS,
+            Ok(config) => {
+                print_config_warnings(&config);
+                ExitCode::SUCCESS
+            }
             Err(err) => {
                 eprintln!("error: {err:#}");
                 ExitCode::FAILURE
@@ -37,6 +40,9 @@ fn command_config(args: &[String]) -> ExitCode {
         },
         "show" => match effective_config(&path) {
             Ok(config) => {
+                // Before the TOML, so "why is this key not taking effect" is
+                // answered next to the effective value (§FS-config.4.2).
+                print_config_warnings(&config);
                 print_effective_config(&config);
                 ExitCode::SUCCESS
             }
@@ -46,6 +52,15 @@ fn command_config(args: &[String]) -> ExitCode {
             }
         },
         _ => unreachable!(),
+    }
+}
+
+/// §FS-config.4.1 / §FS-config.4.2: the config surfaces report the same
+/// non-fatal findings `grund check` does, on stderr, without touching the exit
+/// code — a redundant discovery pair is why a key a user edited is inert.
+fn print_config_warnings(config: &Config) {
+    for warning in config_warnings(config) {
+        eprintln!("warning: {warning}");
     }
 }
 

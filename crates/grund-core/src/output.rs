@@ -230,7 +230,7 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
         (Some(dirs), true) => format!(
             "nothing to scan — grund looked under [scan] include = [{}] and found no files. Run \
              `grund init --docs` to scaffold the canonical requirements.md, docs/, and e2e/ \
-             trees, point `[scan] include` in `.agents/grund.toml` at your sources, or pass a \
+             trees, point `[scan] include` in `grund.toml` at your sources, or pass a \
              path explicitly (`grund check <dir>`).",
             dirs.iter()
                 .map(|dir| format!("\"{dir}\""))
@@ -251,4 +251,25 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
         message,
         sites: Vec::new(),
     }
+}
+
+/// §FS-check.4.3: the warning for a config root holding both discovery names —
+/// `.agents/grund.toml` won, and the bare `grund.toml` beside it is read by
+/// nothing (§FS-config.1.1). `line`-less, so it prints as a CLI-level `warning:`
+/// on stderr: it says which file the run read, not what is wrong at a site.
+fn redundant_config_warning(config: &Config) -> Option<Diagnostic> {
+    let ignored = config.redundant_config_file.as_ref()?;
+    let winner = config.config_file.as_ref()?;
+    Some(Diagnostic {
+        code: "redundant-config",
+        path: None,
+        line: None,
+        column: None,
+        message: format!(
+            "{} is ignored — {} takes precedence; delete one",
+            format_path(ignored),
+            format_path(winner)
+        ),
+        sites: Vec::new(),
+    })
 }
