@@ -14,8 +14,8 @@ Commands:
   cover    Group the citation graph by scanned file.                e.g. grund cover --format json
   fmt      Rewrite `$$` triggers to `§`; --marker upgrades cites.   e.g. grund fmt --check
   id       Next conflict-free ID for a new declaration.             e.g. grund id FS "user login"
-  init     Scaffold agent instructions + grund.toml.               e.g. grund init --docs
-  config   Validate or show the effective grund.toml.              e.g. grund config show
+  init     Scaffold agent instructions + grund.toml.                e.g. grund init --docs
+  config   Validate or show the effective grund.toml.               e.g. grund config show
   agent-setup-instructions  Print AI setup guide.                   e.g. grund agent-setup-instructions
   completions  Print shell completion scripts.                      e.g. grund completions bash
   integrations  Print/install clickable-citation integrations.      e.g. grund integrations wezterm

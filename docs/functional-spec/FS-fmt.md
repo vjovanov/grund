@@ -112,7 +112,7 @@ In addition to the never-rewrite rules in §2.3:
 
 ### 6.6 Why generated configs enable cross-references
 
-Generated `.agents/grund.toml` files set `[fmt.cross_refs] enabled = true`, and the built-in default is the same. This makes rendered Markdown useful by default while keeping the ID citation as the source of truth. The default favors GitHub code review and external discovery over the cleaner editor-only source view, per [§DF-md-link-default-on](../decisions/functional/DF-md-link-default-on.md#df-md-link-default-on-markdown-cross-reference-links-default-on-for-github-review-and-discovery):
+Generated `grund.toml` files set `[fmt.cross_refs] enabled = true`, and the built-in default is the same. This makes rendered Markdown useful by default while keeping the ID citation as the source of truth. The default favors GitHub code review and external discovery over the cleaner editor-only source view, per [§DF-md-link-default-on](../decisions/functional/DF-md-link-default-on.md#df-md-link-default-on-markdown-cross-reference-links-default-on-for-github-review-and-discovery):
 
 1. The source text still contains the exact citation, only wrapped as `[§ID](target)`; `grund check`, `grund show`, and `grund refs` continue to resolve the citation, not the Markdown URL.
 2. The pass runs automatically only for `grund fmt --write` scopes that contain Markdown files; source-only scopes such as `grund fmt src/app.rs --write` stay on the lightweight marker/trigger path unless `--cross-refs` is passed.

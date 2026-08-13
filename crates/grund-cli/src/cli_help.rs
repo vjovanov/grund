@@ -34,10 +34,10 @@ fn print_help() {
         "  id       Next conflict-free ID for a new declaration.             e.g. grund id FS \"user login\""
     );
     println!(
-        "  init     Scaffold agent instructions + grund.toml.               e.g. grund init --docs"
+        "  init     Scaffold agent instructions + grund.toml.                e.g. grund init --docs"
     );
     println!(
-        "  config   Validate or show the effective grund.toml.              e.g. grund config show"
+        "  config   Validate or show the effective grund.toml.               e.g. grund config show"
     );
     println!(
         "  agent-setup-instructions  Print AI setup guide.                   e.g. grund agent-setup-instructions"

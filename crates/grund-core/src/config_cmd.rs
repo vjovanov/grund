@@ -13,14 +13,6 @@ fn render_citation_disjunction(disjunction: &CitationDisjunction) -> String {
         .join("|")
 }
 
-/// §FS-config.4.1 / §FS-config.4.2: the config surfaces report a redundant
-/// discovery pair on stderr, without touching the exit code.
-fn print_config_warnings(config: &Config) {
-    for warning in config_warnings(config) {
-        eprintln!("warning: {warning}");
-    }
-}
-
 fn citation_level_str(level: CitationLevel) -> &'static str {
     match level {
         CitationLevel::Must => "must",

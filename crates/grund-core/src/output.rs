@@ -253,6 +253,19 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
     }
 }
 
+/// Print [`config_warnings`] in the CLI-level shape (§FS-errors.2.2): one
+/// `warning: ` line each, on stderr, exit code untouched. Rendering, so it
+/// lives with the other report printers rather than in `api.rs`, which is the
+/// embedding surface *without* stdout/stderr rendering
+/// (§AR-core-module-layout.1) — and in one place rather than in each `config`
+/// frontend, so the published CLI and the deprecated `grund_core` adapter
+/// cannot drift on the prefix or the stream (§FS-config.4.1, §FS-config.4.2).
+pub fn print_config_warnings(config: &Config) {
+    for warning in config_warnings(config) {
+        eprintln!("warning: {warning}");
+    }
+}
+
 /// §FS-check.4.3: the warning for a config root holding both discovery names —
 /// the bare `grund.toml` won, and the `.agents/grund.toml` beside it is read by
 /// nothing (§FS-config.1.1). `line`-less, so it prints as a CLI-level `warning:`
