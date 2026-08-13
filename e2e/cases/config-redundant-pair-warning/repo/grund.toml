@@ -2,4 +2,4 @@ grund_config_version = 1
 
 [reference]
 marker = "§"
-strict = false
+strict = true

@@ -49,17 +49,25 @@ the cwd. That matters for a bare member under a `.agents/`-style root: the membe
 `grund.toml` must shadow the root config the same way a nested `.agents/grund.toml` always did, or
 the two forms would not be interchangeable.
 
-### 2.2 `.agents/grund.toml` wins a tie, and `check` warns about the pair
+### 2.2 The bare `grund.toml` wins a tie, and `check` warns about the pair
 
-When one directory carries both names, `.agents/grund.toml` is the config. Explicit beats implicit,
-and it is the choice that keeps every repository written before this decision behaving exactly as it
-did — a bare `grund.toml` dropped into such a repository cannot silently take over the grammar the
-project's citations are written against.
+When one directory carries both names, the bare `grund.toml` is the config. **The form the tool
+generates is the form that wins.** §2.3 makes `grund init` write the bare file and argues it is the
+better default; a tie-break that then handed the decision to the other file would say the opposite,
+and a user would have to hold two rules — "grund writes this one" and "grund reads that one" —
+whose only relationship is that they disagree.
 
-The ignored file is reported: `grund check` emits a warning naming the bare `grund.toml` and the
-`.agents/grund.toml` that outranks it ([§FS-check.4.3](../../functional-spec/FS-check.md#43-redundant-config-pair)). A file a user edits and `grund` ignores is
+It is also what a user reaching for a root `grund.toml` means. A repository acquires the pair one
+way: someone deliberately puts a bare file next to an existing `.agents/` one, and the reason to do
+that is to move to the form the tool recommends. Winning the tie is that move working; losing it is
+the move silently doing nothing.
+
+The ignored file is reported: `grund check` emits a warning naming the `.agents/grund.toml` and the
+bare `grund.toml` that outranks it ([§FS-check.4.3](../../functional-spec/FS-check.md#43-redundant-config-pair)). A file a user edits and `grund` ignores is
 precisely the confusion dual discovery could otherwise introduce, and a warning says so without
-blocking the run.
+blocking the run. That warning is what makes the tie-break safe to state this way: the losing file
+is never silently ignored, so the failure mode the opposite order was reaching for — a config
+quietly replaced — is reported at the first `check` either way.
 
 Warning rather than error, because the pair is the natural transient state of a migration in either
 direction: a repository moving its config out of `.agents/` writes the new file, runs `check`, and
@@ -118,9 +126,15 @@ with no other edit, and never required.
   adopted `grund` under the old rule would break at once, with a config silently ignored rather than
   reported — the failure mode [§GOAL-no-silent-breakage](../../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) exists to prevent. Dual discovery reaches the
   same destination for new projects while costing existing ones nothing.
-- **Bare `grund.toml` wins the tie.** Rejected: it lets a stray file at the root override the
-  configuration a repository's citations were written against, which is the one outcome tie-breaking
-  must not produce. The warning of §2.2 carries the same information without the risk.
+- **`.agents/grund.toml` wins the tie.** Rejected in favor of §2.2. The argument for it is that a
+  bare file dropped beside an existing `.agents/` one cannot then take over the grammar a
+  repository's citations were written against, and this repository supplied evidence for exactly
+  that shape: six e2e fixtures carried dead root copies orphaned when their configs moved into
+  `.agents/`, one of them stale enough to disagree with the file actually read. But those files
+  predate dual discovery — under the old rule a bare `grund.toml` was neither generated nor read, so
+  every one of them is an artifact of a form that was never live, not a case of a user writing the
+  file on purpose. Going forward the bare file is the deliberate one, `check` reports the pair
+  either way (§2.2), and the cost of this order is a rule that contradicts the tool's own default.
 - **Erroring on the redundant pair.** Rejected in favor of warning, for the migration reason in
   §2.2. Revisitable if the pair turns out to arise from anything other than a move in progress.
 - **Keeping `init` on `.agents/` while supporting both.** Rejected: it makes the supported bare form

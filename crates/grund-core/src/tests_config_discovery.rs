@@ -40,25 +40,22 @@ mod tests_config_discovery {
         assert_eq!(config.root, canonical_test_path(&root));
     }
 
-    // §FS-config.1.1 / §DF-config-file-location.2.2: `.agents/grund.toml` wins a
-    // tie, so no bare file dropped beside it can take over the grammar the
-    // repository's citations were written against.
+    // §FS-config.1.1 / §DF-config-file-location.2.2: the bare `grund.toml` wins a
+    // tie — the form `grund init` generates is the form that governs, so a project
+    // never holds one rule for the file grund writes and another for what it reads.
     #[test]
-    fn agents_form_wins_a_tie_and_the_loser_is_recorded() {
-        let root = test_root("agents_form_wins_a_tie_and_the_loser_is_recorded");
-        write(&root.join(".agents/grund.toml"), MARKER_AT);
-        write(&root.join("grund.toml"), MARKER_HASH);
+    fn the_bare_form_wins_a_tie_and_the_loser_is_recorded() {
+        let root = test_root("the_bare_form_wins_a_tie_and_the_loser_is_recorded");
+        write(&root.join("grund.toml"), MARKER_AT);
+        write(&root.join(".agents/grund.toml"), MARKER_HASH);
 
         let config = load_config(&root).expect("load tied config");
 
-        assert_eq!(config.marker, "@", "the `.agents/` file is the one that is read");
-        assert_eq!(
-            config.config_file.as_deref(),
-            Some(Path::new(".agents/grund.toml"))
-        );
+        assert_eq!(config.marker, "@", "the bare file is the one that is read");
+        assert_eq!(config.config_file.as_deref(), Some(Path::new("grund.toml")));
         assert_eq!(
             config.redundant_config_file.as_deref(),
-            Some(Path::new("grund.toml")),
+            Some(Path::new(".agents/grund.toml")),
             "the ignored file is recorded so every reporting surface can name it"
         );
     }
@@ -68,15 +65,15 @@ mod tests_config_discovery {
     #[test]
     fn redundant_pair_is_reported_as_a_warning() {
         let root = test_root("redundant_pair_is_reported_as_a_warning");
-        write(&root.join(".agents/grund.toml"), MARKER_AT);
-        write(&root.join("grund.toml"), MARKER_HASH);
+        write(&root.join("grund.toml"), MARKER_AT);
+        write(&root.join(".agents/grund.toml"), MARKER_HASH);
 
         let config = load_config(&root).expect("load tied config");
 
         assert_eq!(
             config_warnings(&config),
             vec![
-                "grund.toml is ignored — .agents/grund.toml takes precedence; delete one"
+                ".agents/grund.toml is ignored — grund.toml takes precedence; delete one"
                     .to_string()
             ]
         );
