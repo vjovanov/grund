@@ -122,8 +122,13 @@ id=$(printf '%s' "$token" | sed 's/^[^A-Za-z0-9]*//')
 
 # Find the root and resolve in one climb (§FS-integrations.3.1). The terminal
 # hands us a token, never a directory, so the click may arrive with the shell
-# anywhere in the tree. Try every ancestor holding `.agents/grund.toml`,
-# nearest first — nearest alone is not enough: from inside a workspace member
+# anywhere in the tree. Try every ancestor holding a config under either
+# discovery name (§FS-config.1) — a repository on the bare root `grund.toml`
+# `grund init` generates is as much a config root as one on `.agents/`, and
+# probing only the latter would leave every default-form repository
+# unclickable. Which name is found does not matter here: both name the same
+# config root, and `grund` itself re-runs the same discovery from that
+# directory. Nearest first — nearest alone is not enough: from inside a workspace member
 # the member's config resolves its own bare IDs, but a workspace-qualified
 # `<alias>/<ID>` only resolves from the workspace root above it, so on failure
 # the climb continues upward instead of giving up.
@@ -135,7 +140,7 @@ json=''
 seen_config=''
 dir=$PWD
 while :; do
-    if [ -f "$dir/.agents/grund.toml" ]; then
+    if [ -f "$dir/grund.toml" ] || [ -f "$dir/.agents/grund.toml" ]; then
         seen_config=1
         if json=$(cd "$dir" && grund "$id" --format json 2>/dev/null) && [ -n "$json" ]; then
             root=$dir
@@ -147,7 +152,7 @@ while :; do
     dir=$(dirname "$dir")
 done
 [ -n "$seen_config" ] || {
-    echo "grund-open: no .agents/grund.toml at or above $PWD" >&2
+    echo "grund-open: no grund.toml (root or .agents/) at or above $PWD" >&2
     exit 1
 }
 [ -n "$root" ] || { echo "grund-open: unknown id '$id'" >&2; exit 1; }

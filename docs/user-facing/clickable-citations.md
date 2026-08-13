@@ -295,7 +295,7 @@ FILE:LINE` for VS Code and Sublime, `FILE:LINE` for helix and micro. Set
 `GRUND_OPEN_CMD` instead when you want an argv prefix that ignores all of that;
 for anything more elaborate, point it at a wrapper script.
 
-**If it prints `no .agents/grund.toml at or above …`**, you are outside a grund
+**If it prints `no grund.toml (root or .agents/) at or above …`**, you are outside a grund
 repository. The resolver looks upward from the current directory for the
 project root; it needs to be inside one.
 
@@ -362,7 +362,7 @@ match as a *location*.
 **You want everyone served, not just you** — teammates who will never run a
 setup command, cloud agent sessions, CI reviewers, and Cursor or Windsurf,
 which have no user-level file grund can write. Commit the opinion in the
-repository's `.agents/grund.toml`
+repository's `grund.toml`
 ([§FS-config.3.1](../functional-spec/FS-config.md#31-reference--citation-form)):
 
 ```toml
@@ -383,7 +383,7 @@ instructed, and that in turn decides which values are legal:
 | File | Scope | Values | Instructs |
 |---|---|---|---|
 | `~/.config/grund/config.toml` (or `$XDG_CONFIG_HOME/grund/config.toml`) | this machine, every repository | `plain` \| `link` | every agent you run here |
-| `<repo>/.agents/grund.toml`, committed | this repository, every machine | `link` only | every agent that clones it |
+| `<repo>/grund.toml`, committed | this repository, every machine | `link` only | every agent that clones it |
 
 ```toml
 # ~/.config/grund/config.toml — your machine
@@ -410,7 +410,7 @@ warning: /home/you/.config/grund/config.toml:5: ignoring `reference.conversation
 ```
 
 That covers a typo, a key that only belongs in a repository's
-`.agents/grund.toml`, a spelling from an older grund, and a value grund cannot
+`grund.toml`, a spelling from an older grund, and a value grund cannot
 read — the last simply leaves it with no preference from this file, exactly
 like a machine that never wrote one. A repeated key resolves to the first.
 This is the opposite of a repository config, where an unknown key or a bad
@@ -612,7 +612,7 @@ today.
 
 No repository is involved in any of this. If you also committed the
 `[reference] conversation` opinion of [§5.1](#51-the-key-and-where-to-put-it)
-in a repository's `.agents/grund.toml`, that is a separate, checked-in setting —
+in a repository's `grund.toml`, that is a separate, checked-in setting —
 remove it there and re-run `grund init`.
 
 ---

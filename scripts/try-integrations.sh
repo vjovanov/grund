@@ -73,9 +73,13 @@ say() { printf '%s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
 
 # Either discovery form makes a directory a grund config root (§FS-config.1), so
-# the harness probes both in the same order grund does.
+# the harness probes both in the same order grund does — bare `grund.toml`
+# first, then `.agents/grund.toml` (§FS-config.1.1). The order is load-bearing,
+# not cosmetic: `CONFIG_REL` is the file `read_marker` parses and the path the
+# location-token checks click on, so probing the losing name on a repository
+# carrying both would test a marker grund never reads.
 CONFIG_REL=
-for candidate in .agents/grund.toml grund.toml; do
+for candidate in grund.toml .agents/grund.toml; do
     [ -f "$FIXTURE/$candidate" ] && { CONFIG_REL=$candidate; break; }
 done
 [ -n "$CONFIG_REL" ] ||

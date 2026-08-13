@@ -52,6 +52,12 @@ function grundRoot() {
   let dir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!dir) return undefined;
   for (;;) {
+    // Both discovery names (§FS-config.1) — a repository configured by the bare
+    // root `grund.toml` that `grund init` generates is a config root too, and
+    // probing only `.agents/` would return undefined there, leaving grund to run
+    // from the extension host's own cwd against an unrelated tree. Either name
+    // answers with the same directory, so no precedence is needed here.
+    if (fs.existsSync(path.join(dir, 'grund.toml'))) return dir;
     if (fs.existsSync(path.join(dir, '.agents', 'grund.toml'))) return dir;
     const parent = path.dirname(dir);
     if (parent === dir) return undefined;
