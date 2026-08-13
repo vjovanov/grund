@@ -1,1 +1,1 @@
-warning: grund.toml is ignored — .agents/grund.toml takes precedence; delete one
+warning: .agents/grund.toml is ignored — grund.toml takes precedence; delete one

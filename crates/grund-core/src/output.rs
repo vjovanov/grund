@@ -254,7 +254,7 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
 }
 
 /// §FS-check.4.3: the warning for a config root holding both discovery names —
-/// `.agents/grund.toml` won, and the bare `grund.toml` beside it is read by
+/// the bare `grund.toml` won, and the `.agents/grund.toml` beside it is read by
 /// nothing (§FS-config.1.1). `line`-less, so it prints as a CLI-level `warning:`
 /// on stderr: it says which file the run read, not what is wrong at a site.
 fn redundant_config_warning(config: &Config) -> Option<Diagnostic> {

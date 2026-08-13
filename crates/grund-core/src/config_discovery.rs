@@ -5,29 +5,32 @@
 // (§AR-core-module-layout.1).
 
 /// The two names one directory may hold its config under, in probe order
-/// (§FS-config.1): `.agents/grund.toml` first, then the bare root-visible
-/// `grund.toml`. Fixed order, not a search — §DF-config-file-location.2.2 makes
-/// the `.agents/` form win a tie so no bare file dropped beside it can take over
-/// the grammar a repository's citations were written against.
-const CONFIG_NAMES: [&[&str]; 2] = [&[".agents", "grund.toml"], &["grund.toml"]];
+/// (§FS-config.1): the bare root-visible `grund.toml` first, then
+/// `.agents/grund.toml`. Fixed order, not a search — §DF-config-file-location.2.2
+/// gives the tie to the form `grund init` generates, so the file a project is
+/// told to write is the file that governs it.
+const CONFIG_NAMES: [&[&str]; 2] = [&["grund.toml"], &[".agents", "grund.toml"]];
+
+/// Every config name `dir` actually carries, in precedence order (§FS-config.1).
+fn config_files_in(dir: &Path) -> impl Iterator<Item = PathBuf> + use<'_> {
+    CONFIG_NAMES
+        .iter()
+        .map(|segments| segments.iter().fold(dir.to_path_buf(), |acc, s| acc.join(s)))
+        .filter(|candidate| candidate.is_file())
+}
 
 /// The config file `dir` carries, or `None` — the one probe every discovery site
 /// funnels through, so root and workspace member ask the same question
 /// (§FS-config.1).
 fn config_file_in(dir: &Path) -> Option<PathBuf> {
-    CONFIG_NAMES
-        .iter()
-        .map(|segments| segments.iter().fold(dir.to_path_buf(), |acc, s| acc.join(s)))
-        .find(|candidate| candidate.is_file())
+    config_files_in(dir).next()
 }
 
 /// The config `dir` ignores because the higher-precedence name outranks it
 /// (§FS-config.1.1) — `Some` only when the directory carries both names, which is
 /// the redundant pair `check` warns about (§FS-check.4.3).
 fn redundant_config_file_in(dir: &Path) -> Option<PathBuf> {
-    let winner = config_file_in(dir)?;
-    let bare = dir.join("grund.toml");
-    (winner != bare && bare.is_file()).then_some(bare)
+    config_files_in(dir).nth(1)
 }
 
 /// Discover and load the effective config: walk upward from `start` for the
