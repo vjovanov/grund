@@ -135,7 +135,7 @@ mod tests_support {
     }
 
     pub(crate) fn current_marker() -> &'static str {
-        "## Grounding with grund (v6)"
+        "## Grounding with grund (v7)"
     }
 
     /// Run a just-written script, waiting out a kernel that still calls it busy.

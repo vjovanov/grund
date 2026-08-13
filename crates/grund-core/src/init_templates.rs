@@ -23,7 +23,13 @@ pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-
 // v6 (§FS-init.2.3.6, §DF-conversation-link-target): the local-conversation
 // sentence became the gated link form — a Markdown link over the `file` target
 // on the Claude entrypoints, the plain location everywhere else.
-const AGENTS_BLOCK_VERSION: u32 = 6;
+// v7 (§FS-config.1, §DF-config-file-location.2.3): the namespace rule tells an
+// agent to give a new subproject a bare `grund.toml` rather than
+// `.agents/grund.toml`. That is the taught workflow changing — an agent
+// following a v6 block creates a config in the form `init` no longer
+// generates — so it carries a version bump rather than a silent rewrite
+// (§FS-init.2.3).
+const AGENTS_BLOCK_VERSION: u32 = 7;
 const CANONICAL_AGENT_ENTRYPOINT: &str = "AGENTS.md";
 const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
     CompanionAgentEntrypoint {
