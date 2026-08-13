@@ -448,7 +448,7 @@ mod tests_integrations {
             );
             assert!(rendered.contains(phrase), "{target:?}: {rendered}");
             // Self-scoping, like every other block text (§FS-integrations.4.3).
-            assert!(rendered.starts_with("In repositories with a `.agents/grund.toml`:"));
+            assert!(rendered.starts_with("In repositories with a `grund.toml` (at the root or under `.agents/`):"));
             assert!(rendered.ends_with("Elsewhere, ignore this."));
         }
 

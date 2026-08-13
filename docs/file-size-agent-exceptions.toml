@@ -17,7 +17,7 @@ path = "crates/grund-core/src/api.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 1592, unit = "lines" }
+max_accepted = { value = 1598, unit = "lines" }
 until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
 Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
@@ -158,7 +158,7 @@ match = "exact"
 rules = ["scripts"]
 kind = "deferred"
 until = "it stops being driven by hand and needs automated coverage"
-max_accepted = { value = 452, unit = "lines" }
+max_accepted = { value = 459, unit = "lines" }
 reason = """
 A manual smoke script a human reads top to bottom while testing terminals by hand; its linearity is the feature and functions would hide the sequence being followed. The genuine risk is that it has no automated coverage at all, not its length — so the trigger is the day it is run unattended, when the missing tests start to matter and the shape has to change anyway.
 """
@@ -187,7 +187,7 @@ path = "crates/grund-core/src/model.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "structural"
-max_accepted = { value = 416, unit = "lines" }
+max_accepted = { value = 420, unit = "lines" }
 until = "indefinite"
 reason = """
 `Model` is the shared vocabulary layer of §AR-core-module-layout.1: 25 type definitions against 9 free functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if such a sub-domain appears.
@@ -228,7 +228,7 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 until = "it gains logic beyond argument translation and report dispatch"
-max_accepted = { value = 361, unit = "lines" }
+max_accepted = { value = 368, unit = "lines" }
 reason = """
 The check command adapter, 11 lines over budget. It is already the thin layer between CLI arguments and checker.rs, so the category boundary a split would cut along is the one this file already sits on — the result would be two halves of one adapter. It stops being an adapter, and becomes splittable, only if checking logic starts landing here.
 """
@@ -237,7 +237,7 @@ path = "docs/functional-spec/FS-workspace.md"
 match = "exact"
 rules = ["docs"]
 kind = "deferred"
-max_accepted = { value = 328, unit = "lines" }
+max_accepted = { value = 330, unit = "lines" }
 until = "split into child FS documents once a grund refs sweep can be landed with the move"
 reason = """
 A spec whose numbered sections are live citation targets, so splitting relocates IDs: `grund refs` must be swept and every citing site updated in the same change, or the repository fails its own grounding check. That coupling between document structure and the citation graph, not the prose, is what makes this heavier than a 78-line overage suggests.

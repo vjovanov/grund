@@ -36,6 +36,9 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - config unknown-key failure
 - config unsupported-version failure (newer `grund_config_version` refused, with upgrade hint)
 - config custom marker in strict mode
+- config discovered as a bare root `grund.toml` from a subdirectory
+- config redundant pair (`.agents/grund.toml` wins, the bare file is warned about)
+- workspace mixing both config discovery forms across its members
 - config include/exclude/extensions
 - explicit `check` subcommand
 - default `show` shorthand and mistyped-path failure with explicit-check hint

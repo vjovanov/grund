@@ -70,7 +70,7 @@ Making `check` workspace-aware first is the narrowest correctness slice: it lets
 ## 4. Consequences
 
 - A new functional spec, [§FS-workspace](../../functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace), ships with this decision and defines the current contract.
-- [§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents) gains the optional `[workspace]` schema section. The addition is under the current `grund_config_version = 1`; no schema bump.
+- [§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up) gains the optional `[workspace]` schema section. The addition is under the current `grund_config_version = 1`; no schema bump.
 - [§FS-check](../../functional-spec/FS-check.md#fs-check-grund-validates-every-reference-in-a-repo) gains workspace aggregation and alias-qualified citation validation. The existing exit-code mapping ([§FS-check.2](../../functional-spec/FS-check.md#2-outputs)) and finding-line shape ([§FS-check.2.1](../../functional-spec/FS-check.md#21-report-format)) are preserved.
 - Qualified `show`, `refs`, `list`, completions, neighboring repositories, lockfiles, and any `grund sync`-style command remain follow-up work.
 - The `[reference] cross_project_when_standalone` opt-in (§3.6) remains follow-up work; today the only configurable axis is "error". Any future relaxation must explicitly remain between *error* and *warning*.

@@ -244,7 +244,7 @@ pub struct CitationRules {
     pub per_kind: BTreeMap<String, KindCitationRules>,
 }
 
-/// The effective configuration: every `.agents/grund.toml` key (§FS-config.3) merged
+/// The effective configuration: every `grund.toml` key (§FS-config.3) merged
 /// over the built-in defaults (§FS-config.2), plus the compiled `Grammar` and the
 /// `root` / `cli_base` paths the walk and the report use.
 #[derive(Clone)]
@@ -252,8 +252,16 @@ pub struct Config {
     pub root: PathBuf,
     /// The resolved path argument (or cwd) — the base for reports when
     /// `[output] relative_paths = false`, i.e. the base `grund` would use if no
-    /// `.agents/grund.toml` were discovered (§FS-config.3.6).
+    /// config were discovered (§FS-config.3.6).
     pub cli_base: PathBuf,
+    /// The config file that was actually read, relative to `root` — either
+    /// `.agents/grund.toml` or the bare `grund.toml` (§FS-config.1). `None` in a
+    /// zero-config tree, where the defaults come from no file at all.
+    pub config_file: Option<PathBuf>,
+    /// The config file at `root` that the discovered one outranks, relative to
+    /// `root` (§FS-config.1.1). `Some` only for the redundant pair `check` and
+    /// `config` warn about (§FS-check.4.3); read by nothing else.
+    pub redundant_config_file: Option<PathBuf>,
     pub project_name: Option<String>,
     pub project_name_source: Option<ConfigLocation>,
     /// Optional one-line description rendered beside the project's alias in
@@ -324,7 +332,7 @@ const DEFAULT_SLUG_PATTERN: &str = r"[a-z0-9][a-z0-9-]*";
 
 impl Config {
     /// The built-in defaults — the canonical grammar a conformant tree gets with
-    /// no `.agents/grund.toml` at all (§FS-config.2, §GOAL-zero-config). `grund init`
+    /// no config at all (§FS-config.2, §GOAL-zero-config). `grund init`
     /// writes these same values out verbatim as a teaching surface (§FS-init.2.4).
     fn default_for(root: PathBuf) -> Self {
         let kinds: Vec<KindConfig> = DEFAULT_KINDS
@@ -352,6 +360,8 @@ impl Config {
         Self {
             cli_base: root.clone(),
             root,
+            config_file: None,
+            redundant_config_file: None,
             project_name: None,
             project_name_source: None,
             project_description: None,
@@ -426,7 +436,7 @@ impl Config {
         }
     }
 
-    /// Compatibility defaults for an already-authored `.agents/grund.toml` that
+    /// Compatibility defaults for an already-authored `grund.toml` that
     /// predates the `requirements.md` generated default and omits `[[kinds]]`.
     /// New zero-config projects and freshly generated configs use
     /// [`Config::default_for`]; existing configs without explicit kind homes keep

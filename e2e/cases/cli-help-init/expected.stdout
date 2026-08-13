@@ -1,4 +1,4 @@
-grund init — scaffold agent instructions + `.agents/grund.toml` (and, with --docs, the docs/ and e2e/ layout).
+grund init — scaffold agent instructions + `grund.toml` (and, with --docs, the docs/ and e2e/ layout).
 Idempotent: re-running updates the managed agent-instructions block in place and leaves your edits alone.
 
 Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] [--dry-run] [--agents-md] [--claude] [--gemini] [--pi] [--copilot] [--cursor] [--windsurf] [--zed]
@@ -6,8 +6,8 @@ Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] 
 Options:
   --docs         also write docs/ (grund, goals, roadmap, changelog, spec READMEs) and e2e/
   --name NAME    project name to interpolate (default: derived from the directory)
-  --description TEXT  one-line project description written to .agents/grund.toml (shown next to this project in workspace member lists)
-  --force        rewrite the canonical AGENTS.md and --docs scaffolds; .agents/grund.toml is never overwritten
+  --description TEXT  one-line project description written to grund.toml (shown next to this project in workspace member lists)
+  --force        rewrite the canonical AGENTS.md and --docs scaffolds; grund.toml is never overwritten
   --dry-run      report what would be written/appended/updated without touching any file
   --agents-md    create/update canonical AGENTS.md even when another entrypoint exists
   --claude       create/update CLAUDE.md and .claude/CLAUDE.md

@@ -34,10 +34,10 @@ fn print_help() {
         "  id       Next conflict-free ID for a new declaration.             e.g. grund id FS \"user login\""
     );
     println!(
-        "  init     Scaffold agent instructions + .agents/grund.toml.        e.g. grund init --docs"
+        "  init     Scaffold agent instructions + grund.toml.               e.g. grund init --docs"
     );
     println!(
-        "  config   Validate or show the effective .agents/grund.toml.       e.g. grund config show"
+        "  config   Validate or show the effective grund.toml.              e.g. grund config show"
     );
     println!(
         "  agent-setup-instructions  Print AI setup guide.                   e.g. grund agent-setup-instructions"
@@ -70,7 +70,7 @@ fn print_subcommand_help(cmd: &str) {
             println!("Usage:  grund check [PATH] [--require-grounding] [--suggestions] [--format text|json]");
             println!();
             println!(
-                "PATH defaults to `.`; config (`.agents/grund.toml`) is discovered by walking up from it."
+                "PATH defaults to `.`; config (`grund.toml`, root or `.agents/`) is discovered by walking up from it."
             );
             println!(
                 "With no config, grund scans `docs/`, `e2e/`, and `src/`; set `[scan] include` to widen it."
@@ -338,7 +338,7 @@ fn print_subcommand_help(cmd: &str) {
         }
         "init" => {
             println!(
-                "grund init — scaffold agent instructions + `.agents/grund.toml` (and, with --docs, the docs/ and e2e/ layout)."
+                "grund init — scaffold agent instructions + `grund.toml` (and, with --docs, the docs/ and e2e/ layout)."
             );
             println!(
                 "Idempotent: re-running updates the managed agent-instructions block in place and leaves your edits alone."
@@ -356,10 +356,10 @@ fn print_subcommand_help(cmd: &str) {
                 "  --name NAME    project name to interpolate (default: derived from the directory)"
             );
             println!(
-                "  --description TEXT  one-line project description written to .agents/grund.toml (shown next to this project in workspace member lists)"
+                "  --description TEXT  one-line project description written to grund.toml (shown next to this project in workspace member lists)"
             );
             println!(
-                "  --force        rewrite the canonical AGENTS.md and --docs scaffolds; .agents/grund.toml is never overwritten"
+                "  --force        rewrite the canonical AGENTS.md and --docs scaffolds; grund.toml is never overwritten"
             );
             println!(
                 "  --dry-run      report what would be written/appended/updated without touching any file"
@@ -391,7 +391,7 @@ fn print_subcommand_help(cmd: &str) {
         }
         "config" => {
             println!(
-                "grund config — inspect the effective `.agents/grund.toml` discovered from a path."
+                "grund config — inspect the effective `grund.toml` discovered from a path."
             );
             println!();
             println!("Usage:  grund config <show | validate> [PATH]");

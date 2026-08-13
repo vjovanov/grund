@@ -54,7 +54,7 @@ remains the exact-position fallback for those clients.
 
 `textDocument/onTypeFormatting` watches the configured trigger sequence (default `$$`, per [§DF-reference-marker.2.2](../decisions/functional/DF-reference-marker.md#22-trigger)) and replaces it with the marker (default `§`) the moment the trigger is followed by a token matching the repo's `[id] format` ([§FS-config.3.2](FS-config.md#32-id--id-grammar) — `FS-007` under a numbered format, `FS-login` under the slug-only form). This is the live counterpart to `grund fmt`'s bulk trigger pass ([§FS-fmt.2.1](FS-fmt.md#21-trigger-to-marker)) and is what makes the marker practical to type without leaving the keyboard.
 
-The trigger, marker, and recognized `KIND` set are read from `.agents/grund.toml` so the editor experience matches the project's choices. In a workspace, the replacement uses the config resolved for the edited document, so member-local trigger and marker overrides behave the same as `grund fmt` ([§FS-workspace.5](FS-workspace.md#5-command-scope)). If no config is present, the defaults from [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger) and [§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents) apply.
+The trigger, marker, and recognized `KIND` set are read from `.agents/grund.toml` so the editor experience matches the project's choices. In a workspace, the replacement uses the config resolved for the edited document, so member-local trigger and marker overrides behave the same as `grund fmt` ([§FS-workspace.5](FS-workspace.md#5-command-scope)). If no config is present, the defaults from [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger) and [§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up) apply.
 
 ### 1.5 Capabilities reserved for later
 
@@ -92,7 +92,7 @@ Adding a new editor's snippet to the user-facing guide is a small contribution; 
 
 ## 3. Configuration
 
-The server reads `.agents/grund.toml` via the same discovery logic as `grund check` ([§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents)), walking up from the workspace root supplied by the editor's LSP `initialize` request. There is no separate LSP config; one source of truth drives both the CLI and the LSP. A workspace without `.agents/grund.toml` falls back to the canonical defaults ([§GOAL-zero-config](../goals.md#goal-zero-config-works-on-any-conformant-tree)).
+The server reads `.agents/grund.toml` via the same discovery logic as `grund check` ([§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)), walking up from the workspace root supplied by the editor's LSP `initialize` request. There is no separate LSP config; one source of truth drives both the CLI and the LSP. A workspace without `.agents/grund.toml` falls back to the canonical defaults ([§GOAL-zero-config](../goals.md#goal-zero-config-works-on-any-conformant-tree)).
 
 Editor-side LSP configuration (server arguments, workspace folders) is the user's responsibility per §2.3 and is not part of `grund.toml`.
 

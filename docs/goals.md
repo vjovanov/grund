@@ -82,7 +82,7 @@ A canonical repo works with no config and no flags. Divergent layouts configure 
 
 ### 1. What "canonical layout" means
 
-Root agent entrypoint, `.agents/grund.toml` when needed, `docs/`, `e2e/`, `src/`, configured kinds, and the canonical citation grammar.
+Root agent entrypoint, `grund.toml` when needed, `docs/`, `e2e/`, `src/`, configured kinds, and the canonical citation grammar.
 
 ### 2. Measurable
 

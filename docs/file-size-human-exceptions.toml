@@ -12,7 +12,7 @@ path = "crates/grund-core/src/api.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 1592, unit = "lines" }
+max_accepted = { value = 1598, unit = "lines" }
 until = "move the private conversion adapters out, keeping the public contract in api.rs"
 reason = """
 The file mixes two things §AR-core-module-layout.2 keeps distinct: the published embedding contract (ShowOpts, CheckOpts, Report, check, show, scan), which genuinely belongs in one file an embedder can read end to end, and the private adapters that convert core types into it (public_report, public_finding, show_with_scope_and_overlays). The contract is the reason to keep one file; the adapters are why it is oversized. Missing boundary: an adapter module for the conversion layer, leaving api.rs as the surface it is documented to be.

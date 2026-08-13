@@ -8,7 +8,7 @@ appended .cursor/rules/grund.mdc
 appended .cursorrules
 appended .windsurfrules
 appended .rules
-wrote .agents/grund.toml
+wrote grund.toml
 
 next:
   1. re-run with --docs to scaffold the FS home (requirements.md), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan

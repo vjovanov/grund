@@ -72,8 +72,14 @@ die() { printf 'try-integrations: %s\n' "$1" >&2; exit 1; }
 say() { printf '%s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
 
-[ -f "$FIXTURE/.agents/grund.toml" ] ||
-    die "no .agents/grund.toml in $FIXTURE — pass --repo <dir> pointing at a grund repository"
+# Either discovery form makes a directory a grund config root (§FS-config.1), so
+# the harness probes both in the same order grund does.
+CONFIG_REL=
+for candidate in .agents/grund.toml grund.toml; do
+    [ -f "$FIXTURE/$candidate" ] && { CONFIG_REL=$candidate; break; }
+done
+[ -n "$CONFIG_REL" ] ||
+    die "no grund.toml in $FIXTURE (root or .agents/) — pass --repo <dir> pointing at a grund repository"
 
 # The resolver climbs from the *clicked pane's* directory to the config root
 # (§FS-integrations.3.1). Starting a subdirectory down is the honest test: a
@@ -197,7 +203,7 @@ read_marker() {
     local m
     # No `| head -1`: an early-exiting reader SIGPIPEs the writer, and this
     # script runs under `set -o pipefail`.
-    m=$(awk -F'"' '/^ *marker *=/ && !seen { print $2; seen = 1 }' "$FIXTURE/.agents/grund.toml")
+    m=$(awk -F'"' '/^ *marker *=/ && !seen { print $2; seen = 1 }' "$FIXTURE/$CONFIG_REL")
     printf '%s' "${m:-§}"
 }
 
@@ -231,9 +237,13 @@ collect_citations() {
     # root above the member, which is what makes the resolver's climb continue
     # past a member config instead of stopping there.
     ID_QUALIFIED=$(grund_here list 2>/dev/null | awk '$1 ~ /\// && !seen { print $1; seen = 1 }')
-    MEMBER_DIR=$(find "$FIXTURE" -mindepth 2 -maxdepth 6 -path '*/.agents/grund.toml' \
+    MEMBER_DIR=$(find "$FIXTURE" -mindepth 2 -maxdepth 6 -name grund.toml \
         -not -path '*/target/*' 2>/dev/null | awk 'NR == 1 { print }')
-    [ -n "$MEMBER_DIR" ] && MEMBER_DIR=$(dirname "$(dirname "$MEMBER_DIR")")
+    if [ -n "$MEMBER_DIR" ]; then
+        MEMBER_DIR=$(dirname "$MEMBER_DIR")
+        # A member on the `.agents/` form has its root one level further up.
+        [ "$(basename "$MEMBER_DIR")" = .agents ] && MEMBER_DIR=$(dirname "$MEMBER_DIR")
+    fi
 }
 
 sheet_body() {
@@ -252,7 +262,7 @@ sheet_body() {
             printf '  %-24s%s%s\n' 'E2E case directory' "$MARKER" "$ID_E2E"
         [ -n "$ID_QUALIFIED" ] &&
             printf '  %-24s%s%s\n' 'workspace-qualified' "$MARKER" "$ID_QUALIFIED"
-        printf '  %-24s%s\n' 'location (path:line)' ".agents/grund.toml:1"
+        printf '  %-24s%s\n' 'location (path:line)' "$CONFIG_REL:1"
         printf '\nMust NOT work:\n\n'
         printf '  %-24s%s\n' 'bare id, no marker' "$ID_PLAIN"
         printf '  %-24s%s%s\n' 'unknown id' "$MARKER" "$ID_UNKNOWN"
@@ -505,9 +515,9 @@ resolve_checks() {
     # open without consulting grund, climbing to the nearest ancestor that
     # holds the file; a column suffix is dropped.
     step "location tokens"
-    check "location, from subdir" "$WORKDIR" ".agents/grund.toml:1" resolves
-    check "location, swept punct" "$WORKDIR" "(.agents/grund.toml:1" resolves
-    check "location, col dropped" "$WORKDIR" ".agents/grund.toml:1:5" resolves
+    check "location, from subdir" "$WORKDIR" "$CONFIG_REL:1" resolves
+    check "location, swept punct" "$WORKDIR" "($CONFIG_REL:1" resolves
+    check "location, col dropped" "$WORKDIR" "$CONFIG_REL:1:5" resolves
     check "location, missing file" "$WORKDIR" "no/such/file.md:3" fails
 
     step "peek"

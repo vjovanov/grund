@@ -1,4 +1,4 @@
-grund config — inspect the effective `.agents/grund.toml` discovered from a path.
+grund config — inspect the effective `grund.toml` discovered from a path.
 
 Usage:  grund config <show | validate> [PATH]
 

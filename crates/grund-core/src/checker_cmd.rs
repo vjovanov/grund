@@ -104,6 +104,10 @@ fn run_check(path: &Path, path_provided: bool, force_require_grounding: bool) ->
             .warnings
             .push(empty_scan_warning(&config, path, path_provided));
     }
+    // §FS-check.4.3, after the empty-scan test above: the two cautions are
+    // independent, and a repository mid-migration must not lose the scope
+    // diagnostic just because it also has a config pair.
+    report.warnings.extend(redundant_config_warning(&config));
 
     Ok(CheckRun {
         config,
@@ -163,6 +167,16 @@ fn run_workspace_check(
             report
                 .warnings
                 .push(empty_scan_warning(&project.config, &project.config.root, true));
+        }
+    }
+    // §FS-check.4.3: the root's pair plus every member's, each named at the path
+    // that project's config was loaded under. The root project is skipped in the
+    // loop — with `include_root = true` it is also a `projects` entry, and the
+    // warning is about one directory, not one scope.
+    report.warnings.extend(redundant_config_warning(&root_config));
+    for project in &projects {
+        if project.config.root != root_config.root {
+            report.warnings.extend(redundant_config_warning(&project.config));
         }
     }
     sort_diagnostics(&mut report.errors);
@@ -232,7 +246,7 @@ fn apply_workspace_boundary(config: &mut Config) -> Result<()> {
 /// §FS-workspace.2 / §FS-workspace.5: when the requested scope lies inside a
 /// configured workspace member, rewrite the resolved config so the run is
 /// rooted at the member rather than the workspace root. This applies whether
-/// the member has its own `.agents/grund.toml` or not — either way a
+/// the member has its own `grund.toml` or not — either way a
 /// member-scoped command runs as an independent project, with member defaults
 /// when no member config exists.
 fn config_for_member_scope(mut config: Config, path: &Path) -> Result<Config> {

@@ -14,6 +14,7 @@ use unicode_normalization::UnicodeNormalization;
 // are still included flat to keep this first package split behavior-preserving.
 include!("grammar.rs");
 include!("model.rs");
+include!("config_discovery.rs");
 include!("config.rs");
 include!("config_cmd.rs");
 include!("scanner.rs");
@@ -38,6 +39,7 @@ include!("compat_cli.rs");
 // Tests, one module per category (§AR-core-module-layout.1). `tests_support`
 // holds the fixtures they share and must come first.
 include!("tests_support.rs");
+include!("tests_config_discovery.rs");
 include!("tests_config_scan.rs");
 include!("tests_grounding_style.rs");
 include!("tests_scanner.rs");

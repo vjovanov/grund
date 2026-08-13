@@ -1,20 +1,26 @@
-# FS-config: grund reads a TOML config file under .agents/
+# FS-config: grund reads a TOML config file found by walking up
 
 `grund` is zero-config out of the box ([§GOAL-zero-config](../goals.md#goal-zero-config-works-on-any-conformant-tree)) and fully configurable when a project's conventions diverge ([§GOAL-configurable](../goals.md#goal-configurable-every-default-is-overridable)). This spec defines the contract: where the config lives, what it contains, what it overrides, and how malformed configs are reported.
 
 ## 1. File location and discovery
 
-The config file is **`.agents/grund.toml`** — the `grund.toml` lives inside an `.agents/` directory at the repo root. Discovery walks upward from the working directory until a directory containing `.agents/grund.toml` is found, mirroring how `cargo` finds `Cargo.toml`. The directory **containing `.agents/`** is the **config root**; relative paths inside the config are resolved against it (not against `.agents/`).
+The config file is named **`grund.toml`** and is discovered at **two locations per directory**: `.agents/grund.toml`, then a bare `grund.toml` beside the project's own metadata files. Discovery walks upward from the working directory, probing both names in that order at every level, and stops at the first directory where either exists — mirroring how `cargo` finds `Cargo.toml`. That directory is the **config root**; relative paths inside the config are resolved against it, never against `.agents/`. One uniform rule at every level: a repository root and a workspace member each pick the form that suits them, and a workspace may mix the two ([§FS-workspace.2](FS-workspace.md#2-workspace-configuration)). Per [§DF-config-file-location](../decisions/functional/DF-config-file-location.md#df-config-file-location-grundtoml-is-discovered-at-two-names-per-directory-and-init-writes-the-bare-one).
 
-`.agents/` is a single-purpose directory: it holds agent-facing tooling configuration that does not belong at the repo root next to the project's own metadata files. Other agent tools may colocate their configuration here in the future; `grund` only owns `.agents/grund.toml`.
+`.agents/` is a single-purpose directory: it holds agent-facing tooling configuration that does not belong at the repo root next to the project's own metadata files. Other agent tools may colocate their configuration here; `grund` only owns `.agents/grund.toml`. The bare `grund.toml` is the form `grund init` generates ([§FS-init.2.4](FS-init.md#24-generated-grundtoml)) and the form the rest of the ecosystem uses — root-visible, like `Cargo.toml` or `package.json`.
 
-If no `.agents/grund.toml` is found, `grund` runs with the built-in defaults defined in this spec. The defaults are the canonical `grund` grammar — they are not stored in any file.
+### 1.1 When one directory carries both
+
+`.agents/grund.toml` wins: explicit over implicit, and every repository written before dual discovery keeps behaving exactly as it did, since no bare file dropped beside it can take over the grammar that repository's citations were written against. The bare `grund.toml` is then read by nothing at all.
+
+Because a config `grund` ignores is still a config a user edits, `grund check` reports the pair as a warning naming both files ([§FS-check.4.3](FS-check.md#43-redundant-config-pair)). It is a warning and not an error because the pair is the ordinary transient state of a move in either direction, and warnings never affect the exit code ([§FS-check.2](FS-check.md#2-outputs)) — a repository mid-migration stays green while the diagnostic stays visible. See [§DF-config-file-location.2.2](../decisions/functional/DF-config-file-location.md#22-agentsgrundtoml-wins-a-tie-and-check-warns-about-the-pair).
+
+If neither name is found anywhere up the walk, `grund` runs with the built-in defaults defined in this spec. The defaults are the canonical `grund` grammar — they are not stored in any file.
 
 ## 2. Precedence
 
 CLI flags > `grund.toml` > built-in defaults. Layering is shallow: a value present in `grund.toml` overrides the entire corresponding default; CLI flags override individual leaf values.
 
-Compatibility note: a pre-existing `.agents/grund.toml` that omits `[[kinds]]` keeps the pre-`requirements.md` implicit FS home (`folder = "docs/functional-spec"`) until the project writes an explicit `[[kinds]]` table. New zero-config projects and freshly generated configs use the canonical defaults in §3.4, where `FS` is `file = "requirements.md"`. This preserves existing configs without adding a new schema version.
+Compatibility note: a pre-existing `grund.toml` that omits `[[kinds]]` keeps the pre-`requirements.md` implicit FS home (`folder = "docs/functional-spec"`) until the project writes an explicit `[[kinds]]` table. New zero-config projects and freshly generated configs use the canonical defaults in §3.4, where `FS` is `file = "requirements.md"`. This preserves existing configs without adding a new schema version.
 
 ## 3. Schema
 
@@ -60,11 +66,11 @@ The key has **one name and two scopes**, and the scope decides both who is instr
 
 | Where | File | Accepted | Instructs |
 | --- | --- | --- | --- |
-| Repository *opinion* | `.agents/grund.toml` | `link` only | every agent that clones the repo, through the generated entrypoint ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)) |
+| Repository *opinion* | the project's `grund.toml` (§1) | `link` only | every agent that clones the repo, through the generated entrypoint ([§FS-init.2.3.6](FS-init.md#236-clickable-citations)) |
 | User *preference* | `$XDG_CONFIG_HOME/grund/config.toml` | `plain` \| `link` | every agent on this machine, through its global instruction file ([§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions)) |
 
 A second key, **`conversation_target`**, selects how a linked citation addresses its declaration. It is
-**user-scope only** — there is no repository spelling, and setting it in `.agents/grund.toml` is the
+**user-scope only** — there is no repository spelling, and setting it in the project's `grund.toml` is the
 same unknown-key error as any other (§4.3). Its accepted values are `file` (default), `path`, `web`,
 `vscode`, `vscodium`, and `cursor`; the templates each one fills, and the per-agent gate that decides
 where the linked form is instructed at all, are specified in [§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions) and decided in
@@ -201,7 +207,7 @@ docstring_python   = true
 respect_gitignore  = true
 ```
 
-`include` is the set of paths walked **from the config root** — the directory containing `.agents/`, or, when no `.agents/grund.toml` was discovered, the current working directory (never a subdirectory that merely happened to be passed as `grund`'s path argument). So in a config-less repo `grund` (no path) and `grund check .` both walk `requirements.md`, `docs/`, `e2e/`, `src/` relative to the cwd, while `grund check src/foo` or `grund check lib/` scans exactly the file or directory it is handed — an explicit path argument overrides `include` rather than being filtered by it. A walk that ends up reading no files at all is reported, not silently passed ([§FS-check.2.2](FS-check.md#22-empty-scan)). `exclude` is the set of directory names skipped at any depth. `extensions` filters which files are read. `comment_prefixes` are the markers recognized when looking for inline declarations and citations in source files. `docstring_python` enables Python triple-quoted-string scanning in addition to `#` comments.
+`include` is the set of paths walked **from the config root** — the directory the discovered `grund.toml` was found at (§1), or, when no config was discovered, the current working directory (never a subdirectory that merely happened to be passed as `grund`'s path argument). So in a config-less repo `grund` (no path) and `grund check .` both walk `requirements.md`, `docs/`, `e2e/`, `src/` relative to the cwd, while `grund check src/foo` or `grund check lib/` scans exactly the file or directory it is handed — an explicit path argument overrides `include` rather than being filtered by it. A walk that ends up reading no files at all is reported, not silently passed ([§FS-check.2.2](FS-check.md#22-empty-scan)). `exclude` is the set of directory names skipped at any depth. `extensions` filters which files are read. `comment_prefixes` are the markers recognized when looking for inline declarations and citations in source files. `docstring_python` enables Python triple-quoted-string scanning in addition to `#` comments.
 
 The default `comment_prefixes` set is broader than the languages tabulated in [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments): it also covers `;` (Lisp / Scheme / Clojure), `--` (SQL / Haskell / Lua / Ada), and `*` / `/*` (block-comment continuation and opener). Any line whose first non-whitespace run is a configured prefix is eligible to host a declaration heading or a citation; the [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) table documents the doc-comment *conventions* for the major languages, not the full set of recognized prefixes.
 
@@ -216,7 +222,7 @@ color          = "auto"   # auto | always | never
 relative_paths = true     # show paths relative to config root in reports
 ```
 
-`relative_paths = true` (default) renders every `<path>` in a report relative to the config root (§1). `relative_paths = false` renders them relative to the path argument passed on the command line — or to the current working directory when no path is given — i.e. the same base `grund` uses when no `.agents/grund.toml` is discovered. Either way `grund` **never** emits an absolute path or a path that escapes above the chosen base; this is what keeps the report deterministic per [§FS-errors.4](FS-errors.md#4-determinism). `color` controls ANSI styling once the colored-output feature lands ([§FS-errors.3](FS-errors.md#3-message-text)); until then output is plain bytes regardless of this value, and a change to that default goes through the [§GOAL-no-silent-breakage](../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) path.
+`relative_paths = true` (default) renders every `<path>` in a report relative to the config root (§1). `relative_paths = false` renders them relative to the path argument passed on the command line — or to the current working directory when no path is given — i.e. the same base `grund` uses when no config is discovered. Either way `grund` **never** emits an absolute path or a path that escapes above the chosen base; this is what keeps the report deterministic per [§FS-errors.4](FS-errors.md#4-determinism). `color` controls ANSI styling once the colored-output feature lands ([§FS-errors.3](FS-errors.md#3-message-text)); until then output is plain bytes regardless of this value, and a change to that default goes through the [§GOAL-no-silent-breakage](../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) path.
 
 ### 3.7 `[fmt.cross_refs]` — cross-reference emission
 
@@ -226,7 +232,7 @@ enabled       = true       # default; false opts out of generated Markdown links
 anchor_format = "github"   # default; one of github | gitlab | mkdocs | pandoc | none
 ```
 
-The full contract for this block — what `enabled` does, the named `anchor_format` profiles, and when the cross-reference pass runs — lives in [§FS-fmt.6.7](FS-fmt.md#67-configurability), [§DF-md-link-default-on](../decisions/functional/DF-md-link-default-on.md#df-md-link-default-on-markdown-cross-reference-links-default-on-for-github-review-and-discovery), and [§DF-md-link-anchor-strategy](../decisions/functional/DF-md-link-anchor-strategy.md#df-md-link-anchor-strategy-heading-text-slugs-re-derived-on-every-fmt-pass). It is part of the schema here because the generated `.agents/grund.toml` ([§FS-init.2.4](FS-init.md#24-generated-agentsgrundtoml)) writes every key in this section explicitly, including `enabled = true`, so the default generated file teaches that `grund fmt --write` emits Markdown inline links in `.md` files. `[fmt.cross_refs]` is the home for cross-reference settings; today `grund fmt --cross-refs` only emits the Markdown inline-link form ([§FS-fmt.6](FS-fmt.md#6-cross-reference-emission)), so `anchor_format` is the only knob — a future markup family adds its settings under this same block ([§FS-fmt.6.7](FS-fmt.md#67-configurability)), additively, with no `grund_config_version` bump (§5).
+The full contract for this block — what `enabled` does, the named `anchor_format` profiles, and when the cross-reference pass runs — lives in [§FS-fmt.6.7](FS-fmt.md#67-configurability), [§DF-md-link-default-on](../decisions/functional/DF-md-link-default-on.md#df-md-link-default-on-markdown-cross-reference-links-default-on-for-github-review-and-discovery), and [§DF-md-link-anchor-strategy](../decisions/functional/DF-md-link-anchor-strategy.md#df-md-link-anchor-strategy-heading-text-slugs-re-derived-on-every-fmt-pass). It is part of the schema here because the generated `grund.toml` ([§FS-init.2.4](FS-init.md#24-generated-grundtoml)) writes every key in this section explicitly, including `enabled = true`, so the default generated file teaches that `grund fmt --write` emits Markdown inline links in `.md` files. `[fmt.cross_refs]` is the home for cross-reference settings; today `grund fmt --cross-refs` only emits the Markdown inline-link form ([§FS-fmt.6](FS-fmt.md#6-cross-reference-emission)), so `anchor_format` is the only knob — a future markup family adds its settings under this same block ([§FS-fmt.6.7](FS-fmt.md#67-configurability)), additively, with no `grund_config_version` bump (§5).
 
 ### 3.8 `[workspace]` — sub-project namespaces
 
@@ -295,11 +301,11 @@ Adding `[citations]` does **not** bump `grund_config_version` (§5): it is addit
 
 ### 4.1 `grund config validate [path]`
 
-Loads the config discovered by walking up from `path` (or `.` when omitted), checks the schema, and reports problems. Exits 0 on success, 1 on validation errors — the error in the same `error: <path>:<line>: <message>` shape §4.3 defines. No tree scan is performed.
+Loads the config discovered by walking up from `path` (or `.` when omitted), checks the schema, and reports problems. Exits 0 on success, 1 on validation errors — the error in the same `error: <path>:<line>: <message>` shape §4.3 defines. No tree scan is performed. A redundant config pair at the config root is reported as a `warning:` here too (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)); it is a warning, so it does not change the exit code.
 
 ### 4.2 `grund config show [path]`
 
-Prints the **effective** configuration — defaults merged with the config discovered by walking up from `path` (or `.` when omitted), plus CLI flags — as TOML. Useful for debugging "why did grund recognize this citation" or "what does my config actually evaluate to."
+Prints the **effective** configuration — defaults merged with the config discovered by walking up from `path` (or `.` when omitted), plus CLI flags — as TOML. Useful for debugging "why did grund recognize this citation" or "what does my config actually evaluate to." A redundant config pair at the config root is reported as a `warning:` on stderr before the TOML (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)), so the answer to "why is this key not taking effect" is on screen next to the effective value.
 
 ### 4.3 Invalid config behavior
 

@@ -89,11 +89,12 @@ impl std::error::Error for InitError {}
 
 /// `grund init [path] [--name N] [--docs] [--force] [--dry-run] [agent flags]` —
 /// scaffold a repo for `grund` (§FS-init.1): write or update the selected agent
-/// entrypoint(s) and `.agents/grund.toml` (and, with `--docs`, the `docs/`+`e2e/`
+/// entrypoint(s) and `grund.toml` (and, with `--docs`, the `docs/`+`e2e/`
 /// tree, §FS-init.2.1), preserve an existing repo's agent-entrypoint choice by
 /// default (§FS-init.2.1), refuse to clobber edited scaffold files without
-/// `--force` — and never overwrite an existing `.agents/grund.toml` even with
-/// `--force`, since that file is the user's config (§FS-init.3) — print a `next:`
+/// `--force` — and never overwrite an existing `grund.toml`, in either discovery
+/// location (§FS-config.1), even with `--force`, since that file is the user's
+/// config (§FS-init.3) — print a `next:`
 /// block (suppressed when every reported path is `exists `, §FS-init.2.2), and
 /// exit `2` on a missing target / CLI error / unsupported block version
 /// (§FS-init.4). Non-interactive — every choice is a flag (§FS-non-goals.10).
@@ -225,7 +226,7 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     };
 
     // §FS-init.2.3: render agent instructions against the config `init` leaves in
-    // place, so the ID-shape / kind / marker prose matches `.agents/grund.toml`.
+    // place, so the ID-shape / kind / marker prose matches `grund.toml`.
     let init_config = init_pending_effective_config(&target, &resolved_name, description.as_deref())
         .map_err(|err| InitError::new(err.to_string()))?;
 
@@ -342,26 +343,30 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         }
     }
 
-    // `.agents/grund.toml` is the project's configuration — the surface a repo
-    // customizes (kinds, marker, scan scope, …, §GOAL-configurable). `init` writes
-    // the canonical template only when it is **absent**; an existing config is never
-    // overwritten, not even with `--force`. `--force` targets the things `init`
-    // owns end to end — the managed agent-instructions block and the `--docs` scaffold
-    // stubs — not the user's settings (§FS-init.3).
-    let config_rel = ".agents/grund.toml";
-    let config_dest = target.join(config_rel);
-    if config_dest.exists() {
-        events.push(InitEvent { verb: "exists", path: config_rel.to_string() });
+    // `grund.toml` is the project's configuration — the surface a repo customizes
+    // (kinds, marker, scan scope, …, §GOAL-configurable). `init` writes the
+    // canonical template only when the target has **no** config under either
+    // discovery name (§FS-config.1); an existing one is never overwritten, not even
+    // with `--force`, and is reported under the name it was found at so a repo on
+    // the `.agents/` form never grows the redundant pair (§FS-init.2.4,
+    // §FS-check.4.3). `--force` targets the things `init` owns end to end — the
+    // managed agent-instructions block and the `--docs` scaffold stubs — not the
+    // user's settings (§FS-init.3).
+    if let Some(existing) = config_file_in(&target) {
+        let rel = existing
+            .strip_prefix(&target)
+            .unwrap_or(&existing)
+            .to_string_lossy()
+            .replace('\\', "/");
+        events.push(InitEvent { verb: "exists", path: rel });
     } else {
-        if !dry_run
-            && let Some(parent) = config_dest.parent()
-            && let Err(err) = fs::create_dir_all(parent)
-        {
-            return Err(InitError::with_events(
-                events,
-                format!("create {}: {err}", parent.display()),
-            ));
-        }
+        // §DF-config-file-location.2.3: the bare, root-visible form is the one
+        // `init` generates, so the default a new project meets is the one the
+        // rest of the ecosystem uses.
+        let config_rel = "grund.toml";
+        // No `create_dir_all`: the destination's parent is `target`, already
+        // verified to be an existing directory above.
+        let config_dest = target.join(config_rel);
         if !dry_run
             && let Err(err) = fs::write(
                 &config_dest,

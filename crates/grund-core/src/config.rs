@@ -1,76 +1,4 @@
-/// Discover and load the effective config: walk upward from `start` for the
-/// nearest `.agents/grund.toml` (§FS-config.1), parse it over the defaults
-/// (§FS-config.2), or fall back to the pure defaults if none is found
-/// (§GOAL-zero-config).
-fn load_config(start: &Path) -> Result<Config> {
-    let start_dir = if start.is_file() {
-        start.parent().unwrap_or(Path::new(".")).to_path_buf()
-    } else {
-        start.to_path_buf()
-    };
-    // Resolve to an absolute path before walking up, mirroring how `cargo` finds
-    // `Cargo.toml` (§FS-config.1): a relative `.` or `subdir/` must still discover
-    // a `.agents/grund.toml` in an ancestor directory.
-    let walk_start = fs::canonicalize(&start_dir).unwrap_or(start_dir);
-    let mut cursor = Some(walk_start.as_path());
-    while let Some(dir) = cursor {
-        let candidate = dir.join(".agents").join("grund.toml");
-        if candidate.exists() {
-            return load_config_at(dir, &walk_start);
-        }
-        cursor = dir.parent();
-    }
-    // Zero-config (§GOAL-zero-config): the "project root" is the current working
-    // directory, never the path that happened to be passed on the command line —
-    // so `[scan] include` resolves against the repo and `grund check src/` scopes
-    // *into* it instead of looking for `src/docs`, `src/e2e`, `src/src`. Reports
-    // stay relative to `cli_base` (the resolved path arg) when
-    // `[output] relative_paths = false` (§FS-config.3.6).
-    let root = std::env::current_dir()
-        .ok()
-        .and_then(|cwd| fs::canonicalize(&cwd).ok())
-        .unwrap_or_else(|| walk_start.clone());
-    let mut config = Config::default_for(root);
-    config.cli_base = walk_start;
-    Ok(config)
-}
-
-/// Load the config rooted at `root` (no upward walk), using `cli_base` for
-/// path rendering. The one shared loader both upward discovery (`load_config`)
-/// and direct workspace-member loading funnel through (§AR-workspace.5.1).
-fn load_config_at(root: &Path, cli_base: &Path) -> Result<Config> {
-    load_config_at_with_report_base(root, cli_base, None)
-}
-
-fn load_config_at_with_report_base(
-    root: &Path,
-    cli_base: &Path,
-    report_base: Option<&Path>,
-) -> Result<Config> {
-    let root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
-    let candidate = root.join(".agents").join("grund.toml");
-    let mut config = if candidate.exists() {
-        Config::default_for_existing_config(root.clone())
-    } else {
-        Config::default_for(root.clone())
-    };
-    config.cli_base = cli_base.to_path_buf();
-    if candidate.exists() {
-        // Report config errors against a stable relative path, never the
-        // absolute discovered path (§FS-errors.4: deterministic, no absolute
-        // paths outside the configured root).
-        let base = report_base.unwrap_or(&root);
-        let report_path = candidate
-            .strip_prefix(base)
-            .map(Path::to_path_buf)
-            .or_else(|_| candidate.strip_prefix(&root).map(Path::to_path_buf))
-            .unwrap_or_else(|_| candidate.clone());
-        parse_config_file(&candidate, &report_path, &mut config)?;
-    }
-    Ok(config)
-}
-
-/// Parse one `.agents/grund.toml` over `config` — the schema of §FS-config.3 and its
+/// Parse one `grund.toml` over `config` — the schema of §FS-config.3 and its
 /// subsections (`[reference]` 3.1, `[id]` 3.2/3.3, `[[kinds]]` 3.4, `[scan]` 3.5,
 /// `[output]` 3.6, `[fmt.cross_refs]` 3.7). Any unknown section/key or malformed
 /// value is a hard error reported as `path:line:` (§FS-config.4.3, §FS-errors.2.1).
@@ -525,7 +453,7 @@ fn is_valid_project_alias(alias: &str) -> bool {
         && chars.all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
 }
 
-/// Drop a trailing `#`-comment from a `.agents/grund.toml` line (§FS-config.3).
+/// Drop a trailing `#`-comment from a `grund.toml` line (§FS-config.3).
 fn strip_comment(line: &str) -> &str {
     // A `#` inside a quoted string is not a comment marker. Walk the line and stop at the
     // first unquoted `#`; otherwise return the line unchanged.
@@ -554,7 +482,7 @@ fn is_escaped(bytes: &[u8], pos: usize) -> bool {
 }
 
 /// Fail config parsing with a `path:line: message` error — the located-finding
-/// shape applied to a malformed `.agents/grund.toml` (§FS-config.4.3, §FS-errors.2.1).
+/// shape applied to a malformed `grund.toml` (§FS-config.4.3, §FS-errors.2.1).
 fn bail_config<T>(path: &Path, line: usize, message: String) -> Result<T> {
     Err(anyhow!("{}:{}: {}", format_path(path), line, message))
 }

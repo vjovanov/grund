@@ -13,6 +13,14 @@ fn render_citation_disjunction(disjunction: &CitationDisjunction) -> String {
         .join("|")
 }
 
+/// §FS-config.4.1 / §FS-config.4.2: the config surfaces report a redundant
+/// discovery pair on stderr, without touching the exit code.
+fn print_config_warnings(config: &Config) {
+    for warning in config_warnings(config) {
+        eprintln!("warning: {warning}");
+    }
+}
+
 fn citation_level_str(level: CitationLevel) -> &'static str {
     match level {
         CitationLevel::Must => "must",
@@ -54,7 +62,10 @@ fn command_config(args: &[String]) -> ExitCode {
 
     match action {
         "validate" => match load_config(&path) {
-            Ok(_) => ExitCode::SUCCESS,
+            Ok(config) => {
+                print_config_warnings(&config);
+                ExitCode::SUCCESS
+            }
             Err(err) => {
                 eprintln!("error: {err:#}");
                 ExitCode::FAILURE
@@ -62,6 +73,7 @@ fn command_config(args: &[String]) -> ExitCode {
         },
         "show" => match load_config(&path) {
             Ok(config) => {
+                print_config_warnings(&config);
                 println!("grund_config_version = 1");
                 if let Some(name) = &config.project_name {
                     println!("project_name = \"{}\"", escape_toml_basic(name));

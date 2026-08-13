@@ -8,7 +8,7 @@ Citations live wherever they are useful — including inside Java doc-comments, 
 
 ## 1. What grund does about it
 
-`grund` owns the scheme end to end. It defines the IDs and citation grammar, ships the config in `.agents/grund.toml`, and scans every `.md` file and every source file in the repo ([§AR-scanner.4](architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)) to guarantee three things:
+`grund` owns the scheme end to end. It defines the IDs and citation grammar, ships the config in `grund.toml`, and scans every `.md` file and every source file in the repo ([§AR-scanner.4](architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)) to guarantee three things:
 
 1. **No dangling reference ships.** Every cited ID is checked across prose and code alike — Javadoc, Rustdoc, Python docstrings, Go blocks, JSDoc. Dangling refs, broken section coordinates, duplicate declarations, and broken stub links all fail the build.
 2. **Citations survive refactors.** IDs are location-independent: `§FS-<user-login>.3.1` keeps resolving when files move or headings reword. Markdown anchors break; grund citations don't.
