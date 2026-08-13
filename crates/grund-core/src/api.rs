@@ -477,11 +477,14 @@ pub fn effective_config(path: &Path) -> Result<Config> {
     load_config(path)
 }
 
-/// Validate config discovery/parsing for a path without printing CLI output.
-/// Returns the loaded config so a caller can also report the non-fatal findings
-/// [`config_warnings`] carries (§FS-config.4.1).
+/// Validate config discovery/parsing for a path without printing CLI output
+/// (§FS-config.4.1). Discovery *is* the validation — a config that loads is a
+/// config that is valid — so this is [`effective_config`] under the name of the
+/// question `grund config validate` asks, and delegates rather than repeating
+/// it. Returns the loaded config so a caller can also report the non-fatal
+/// findings [`config_warnings`] carries.
 pub fn validate_config(path: &Path) -> Result<Config> {
-    load_config(path)
+    effective_config(path)
 }
 
 /// The CLI-level `warning:` texts a loaded config carries — today only the

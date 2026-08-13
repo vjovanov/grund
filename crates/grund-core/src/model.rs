@@ -254,13 +254,21 @@ pub struct Config {
     /// `[output] relative_paths = false`, i.e. the base `grund` would use if no
     /// config were discovered (§FS-config.3.6).
     pub cli_base: PathBuf,
-    /// The config file that was actually read, relative to `root` — either
-    /// `.agents/grund.toml` or the bare `grund.toml` (§FS-config.1). `None` in a
-    /// zero-config tree, where the defaults come from no file at all.
+    /// The config file that was actually read — either `.agents/grund.toml` or
+    /// the bare `grund.toml` (§FS-config.1). `None` in a zero-config tree, where
+    /// the defaults come from no file at all.
+    ///
+    /// A **report path**, not a filesystem handle: relative to `root` for a
+    /// standalone project, but to the *workspace* root for a member loaded as
+    /// part of one (§FS-errors.4 — a workspace report names members from the
+    /// root the run was launched at, so `packages/beta/grund.toml` reads the
+    /// same in the diagnostic as it does in `[workspace] members`). Join it
+    /// against the base the report uses, never unconditionally against `root`.
     pub config_file: Option<PathBuf>,
-    /// The config file at `root` that the discovered one outranks, relative to
-    /// `root` (§FS-config.1.1). `Some` only for the redundant pair `check` and
-    /// `config` warn about (§FS-check.4.3); read by nothing else.
+    /// The config file at `root` that the discovered one outranks (§FS-config.1.1).
+    /// `Some` only for the redundant pair `check` and `config` warn about
+    /// (§FS-check.4.3); read by nothing else. Same report-path base as
+    /// [`Config::config_file`].
     pub redundant_config_file: Option<PathBuf>,
     pub project_name: Option<String>,
     pub project_name_source: Option<ConfigLocation>,

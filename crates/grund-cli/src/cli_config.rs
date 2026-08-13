@@ -55,15 +55,6 @@ fn command_config(args: &[String]) -> ExitCode {
     }
 }
 
-/// §FS-config.4.1 / §FS-config.4.2: the config surfaces report the same
-/// non-fatal findings `grund check` does, on stderr, without touching the exit
-/// code — a redundant discovery pair is why a key a user edited is inert.
-fn print_config_warnings(config: &Config) {
-    for warning in config_warnings(config) {
-        eprintln!("warning: {warning}");
-    }
-}
-
 fn print_effective_config(config: &Config) {
     // §FS-config.4.2
     println!("grund_config_version = 1");

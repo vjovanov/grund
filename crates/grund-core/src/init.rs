@@ -353,12 +353,8 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     // managed agent-instructions block and the `--docs` scaffold stubs — not the
     // user's settings (§FS-init.3).
     if let Some(existing) = config_file_in(&target) {
-        let rel = existing
-            .strip_prefix(&target)
-            .unwrap_or(&existing)
-            .to_string_lossy()
-            .replace('\\', "/");
-        events.push(InitEvent { verb: "exists", path: rel });
+        let rel = existing.strip_prefix(&target).unwrap_or(&existing).to_path_buf();
+        events.push(InitEvent { verb: "exists", path: format_path(&rel) });
     } else {
         // §DF-config-file-location.2.3: the bare, root-visible form is the one
         // `init` generates, so the default a new project meets is the one the

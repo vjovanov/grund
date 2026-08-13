@@ -26,10 +26,12 @@ from within the config, because it is what has to be found before any key can be
 
 ### 2.1 Symmetric dual discovery
 
-At **every** directory of the upward walk, `grund` probes two names in order — `.agents/grund.toml`
-first, then a bare `grund.toml` — and the first that exists is the config. The directory holding it
-is the config root, exactly as before: relative paths inside the config resolve against it, never
-against `.agents/`.
+At **every** directory of the upward walk, `grund` probes two names in order — the bare `grund.toml`
+first, then `.agents/grund.toml` — and the first that exists is the config. §2.2 is why the order
+runs that way; here what matters is only that it is fixed rather than searched, so the answer to
+"which file governs this directory" never depends on filesystem iteration order. The directory
+holding the file is the config root, exactly as before: relative paths inside the config resolve
+against it, never against `.agents/`.
 
 ```
 repo/
@@ -135,11 +137,17 @@ step earlier, to finding out there is a config at all).
   and `project_description` ([§FS-workspace.2](../../functional-spec/FS-workspace.md#2-workspace-configuration), [§FS-workspace.3](../../functional-spec/FS-workspace.md#3-aliases)) — now asks whether the directory has
   *either* name. Where the answer feeds a diagnostic, the diagnostic names the file that was
   actually read.
-- **Generated agent instructions stop naming a layout.** The entrypoint and global-instruction texts
-  that scoped themselves to "repositories with a `.agents/grund.toml`" would exclude a bare-config
-  repository on a literal reading, so they name `grund.toml` and let the reader's tree answer where
-  it sits ([§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)). That is a managed-block text change and carries the block version
-  bump the marked-block contract requires.
+- **Generated agent instructions stop naming a layout, and both managed blocks bump.** The
+  user-global guidance texts scoped themselves to "repositories with a `.agents/grund.toml`", which
+  excludes a bare-config repository on a literal reading, so they name `grund.toml` and let the
+  reader's tree answer where it sits — agent-guidance block v3 → **v4**
+  ([§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)). The repository entrypoint block changes for a different reason: its
+  namespace rule tells an agent to give a new subproject its own config, and that instruction now
+  names the bare form §2.3 generates — agent-entrypoint block v6 → **v7**
+  ([§FS-init.2.3](../../functional-spec/FS-init.md#23-generated-agent-entrypoints)). Both are taught-workflow changes rather than wording, so each carries the
+  version bump its marked-block contract requires ([§GOAL-no-silent-breakage](../../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path)) instead of
+  propagating silently at the next write: an agent reading a stale v6 block would keep creating
+  configs in the form the tool no longer generates, and nothing would say so.
 - **Two names to search for.** Anyone grepping a machine for grund configs, and any future tool that
   wants to read one, has two paths to consider instead of one. This is the standing cost of the
   decision, paid once per such consumer, and the reason §2.1 fixes the probe order rather than

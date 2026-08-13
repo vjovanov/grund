@@ -12,6 +12,14 @@
 const CONFIG_NAMES: [&[&str]; 2] = [&["grund.toml"], &[".agents", "grund.toml"]];
 
 /// Every config name `dir` actually carries, in precedence order (§FS-config.1).
+///
+/// `is_file()` rather than `exists()`, because with two names the test decides
+/// *precedence*, not merely presence: a directory named `grund.toml` must not
+/// outrank a real `.agents/grund.toml` beside it, which is what a bare
+/// existence test would do. The one case that changes is such a directory,
+/// which is now climbed past instead of reaching the parser as an unreadable
+/// file — a dangling symlink at either name was already a miss under both
+/// tests, since `exists()` follows symlinks too.
 fn config_files_in(dir: &Path) -> impl Iterator<Item = PathBuf> + use<'_> {
     CONFIG_NAMES
         .iter()
