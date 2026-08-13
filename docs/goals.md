@@ -156,7 +156,7 @@ Defaults fit canonical `grund`; config makes different project conventions first
 
 ### 1. What is configurable
 
-Kinds, ID format, marker/trigger, strictness, scan scope, comment prefixes, and output defaults per [FS-config](functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-under-agents).
+Kinds, ID format, marker/trigger, strictness, scan scope, comment prefixes, and output defaults per [FS-config](functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up).
 
 ### 2. What is NOT configurable
 
