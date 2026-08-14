@@ -1,0 +1,11 @@
+grund_config_version = 1
+
+[reference]
+marker = "§"
+strict = true
+
+[id]
+format = "{kind}-{number}-{slug}"
+
+[scan]
+include = ["docs"]

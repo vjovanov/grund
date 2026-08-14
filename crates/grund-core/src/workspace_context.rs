@@ -269,10 +269,12 @@ fn load_workspace_projects_with_overlays(
             .collect::<Vec<_>>()
     };
     indexed.sort_by_key(|(index, _)| *index);
-    indexed
+    let mut projects = indexed
         .into_iter()
         .map(|(_, project)| project)
-        .collect::<Result<Vec<_>>>()
+        .collect::<Result<Vec<_>>>()?;
+    resolve_qualified_shorthand_citations(&mut projects);
+    Ok(projects)
 }
 
 fn load_workspace_project(

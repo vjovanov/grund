@@ -91,6 +91,14 @@ pub struct Citation {
     pub line: usize,
     pub column: usize,
     pub has_marker: bool,
+    /// Written in the number-only shorthand (§FS-check.1.2). The scanner's
+    /// resolution pass has already rewritten `id` to the canonical declaration
+    /// when exactly one matched (§AR-scanner.2.6), so this flag is what
+    /// distinguishes a resolved shorthand from a full citation — and the only
+    /// thing that has to: every graph consumer deliberately ignores it and reads
+    /// `id`. When `id.slug` is still `None` the shorthand resolved to zero or
+    /// several declarations.
+    pub shorthand: bool,
     pub text: String,
     pub inline_site: Option<InlineCitationSite>,
     /// The resolved *citing* kind for this site (§AR-scanner.2.4): the kind of

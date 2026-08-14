@@ -113,6 +113,21 @@
 /// or error, so it is withheld unless `--suggestions` is passed and never moves
 /// the exit code; illustrating a real ID is legitimate.
 ///
+/// ### 2.12 Number-only shorthand citations (§FS-check.3.13, §DF-number-only-citation-shorthand)
+///
+/// The scanner flags every citation written in the number-only shorthand and, in
+/// the same walk, rewrites the uniquely-resolving ones to their canonical `Id`
+/// (§AR-scanner.2.6). So by the time the checker runs, a resolved shorthand is
+/// indistinguishable from a full citation to every rule above — which is the
+/// point: `refs`, `cover`, the unused warning (§2.6), and the direction passes
+/// (§2.9, §2.10) all count it without knowing it exists.
+///
+/// This pass adds the one thing that does differ: an error per shorthand site,
+/// naming the canonical form to write. It re-derives the candidate set (the
+/// declarations sharing the citation's kind and number) so the three outcomes —
+/// unique, ambiguous, unknown — pick the message, and the dangling check (§2.3)
+/// skips shorthand sites so a site never carries two findings for one cause.
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and
@@ -259,6 +274,18 @@ fn check_with_workspace(
             });
             continue;
         };
+        // §FS-check.3.13 / §AR-checker.2.12: a number-only shorthand site gets
+        // exactly one finding, and it is this one — so when the shorthand did
+        // not resolve, the dangling check below is skipped rather than adding
+        // `unknown reference FS-042` for a token that is not a full ID.
+        if cite.shorthand {
+            report
+                .errors
+                .push(shorthand_diagnostic(config, cite, &target));
+            if cite.id.slug.is_none() {
+                continue;
+            }
+        }
         // §FS-check.3.1 / §FS-workspace.4: a citation whose ID is declared
         // nowhere in its target namespace is dangling.
         let Some(decls) = target.findings.declarations.get(&cite.id) else {

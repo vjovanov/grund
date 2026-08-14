@@ -132,6 +132,16 @@ pub struct Grammar {
     /// match; this regex never has two modes.
     citation_re: Regex,
     id_input_re: Regex,
+    /// The number-only shorthand patterns (§FS-check.1.2, §AR-scanner.2.6),
+    /// present only when `[id] format` carries both `{number}` and `{slug}`.
+    /// `None` is the whole opt-out: every shorthand pass downstream is gated on
+    /// this being `Some`, so a `{kind}-{slug}` repo like `grund` itself compiles
+    /// nothing extra and pays nothing (§FS-id.4.1).
+    shorthand: Option<ShorthandGrammar>,
+    /// The parsed `[id] format`. Kept so `render_id` reduces a partial `Id` by
+    /// the same rule the shorthand pattern was derived from, rather than a
+    /// second interpretation of the template (§AR-scanner.2.6).
+    elements: Vec<IdElement>,
 }
 
 impl Grammar {
@@ -162,75 +172,16 @@ impl Grammar {
         let num_group = format!("(?P<num>{})", number_pattern);
         let slug_group = format!("(?P<slug>{})", slug_pattern);
 
-        let mut id_pat = String::new();
-        let mut literals: Vec<String> = Vec::new();
-        let mut has_kind = false;
-        let mut has_number = false;
-        let mut has_slug = false;
-        let mut cursor = 0;
-        let bytes = format.as_bytes();
-        while cursor < bytes.len() {
-            if let Some(end) = format[cursor..].find('}') {
-                let abs_end = cursor + end;
-                if let Some(start_rel) = format[cursor..].find('{') {
-                    let abs_start = cursor + start_rel;
-                    if abs_start < abs_end {
-                        // Append literal between cursor and abs_start (escaped).
-                        if abs_start > cursor {
-                            literals.push(format[cursor..abs_start].to_string());
-                        }
-                        id_pat.push_str(&regex::escape(&format[cursor..abs_start]));
-                        let placeholder = &format[abs_start + 1..abs_end];
-                        match placeholder {
-                            "kind" => {
-                                if has_kind {
-                                    return Err(anyhow!("[id].format: {{kind}} appears twice"));
-                                }
-                                has_kind = true;
-                                id_pat.push_str(&kind_group);
-                            }
-                            "number" => {
-                                if has_number {
-                                    return Err(anyhow!("[id].format: {{number}} appears twice"));
-                                }
-                                has_number = true;
-                                id_pat.push_str(&num_group);
-                            }
-                            "slug" => {
-                                if has_slug {
-                                    return Err(anyhow!("[id].format: {{slug}} appears twice"));
-                                }
-                                has_slug = true;
-                                id_pat.push_str(&slug_group);
-                            }
-                            other => {
-                                return Err(anyhow!(
-                                    "[id].format: unknown placeholder `{{{other}}}`"
-                                ));
-                            }
-                        }
-                        cursor = abs_end + 1;
-                        continue;
-                    }
-                }
-                return Err(anyhow!("[id].format: stray `}}` in template"));
-            }
-            // No more placeholders — append the rest as literal.
-            if cursor < format.len() {
-                literals.push(format[cursor..].to_string());
-            }
-            id_pat.push_str(&regex::escape(&format[cursor..]));
-            break;
-        }
-
-        if !has_kind {
-            return Err(anyhow!("[id].format must contain {{kind}}"));
-        }
-        if !has_number && !has_slug {
-            return Err(anyhow!(
-                "[id].format must contain at least one of {{number}} or {{slug}}"
-            ));
-        }
+        let elements = parse_id_format(format)?;
+        let id_pat = id_pattern(&elements, &kind_group, &num_group, &slug_group);
+        let literals: Vec<&String> = elements
+            .iter()
+            .filter_map(|element| match element {
+                IdElement::Literal(text) => Some(text),
+                _ => None,
+            })
+            .collect();
+        let has_number = elements.contains(&IdElement::Number);
 
         // §FS-config.3.2: the section separator must be lexically distinguishable
         // from the ID grammar — otherwise a citation like `FS-foo<sep>bar` could
@@ -289,12 +240,35 @@ impl Grammar {
             Regex::new(&format!(r"\b{}{}{}", namespace_prefix, id_pat, sec_suffix))?;
         let id_input_re = Regex::new(&format!(r"^{}{}$", id_pat, sec_suffix))?;
 
+        // §FS-check.1.2: the same two shapes over the slug-less element list.
+        // Compiled only where the format has a shorthand at all, so `has_shorthand`
+        // is the single gate the scanner, checker, `fmt`, and the LSP all read.
+        let shorthand = shorthand_elements(&elements)
+            .map(|short| {
+                let short_pat = id_pattern(&short, &kind_group, &num_group, &slug_group);
+                Ok::<_, anyhow::Error>(ShorthandGrammar {
+                    full_prefix_pattern: format!(
+                        r"\A{}{}{}",
+                        namespace_prefix, id_pat, sec_suffix
+                    ),
+                    prefix_pattern: format!(
+                        r"\A{}{}{}",
+                        namespace_prefix, short_pat, sec_suffix
+                    ),
+                    full_prefix_re: once_cell::sync::OnceCell::new(),
+                    prefix_re: once_cell::sync::OnceCell::new(),
+                })
+            })
+            .transpose()?;
+
         Ok(Self {
             decl_re,
             docstring_decl_re,
             section_re,
             citation_re,
             id_input_re,
+            shorthand,
+            elements,
         })
     }
 }

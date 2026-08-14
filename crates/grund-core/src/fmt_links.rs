@@ -151,17 +151,15 @@ fn collect_workspace_markdown_link_citations(
         let Some(id_rest) = line.get(id_start..) else {
             continue;
         };
-        let Some((id, section, id_len)) =
-            parse_longest_id_prefix(id_rest, &target_project.config.grammar)
-        else {
+        let Some(parsed) = parse_longest_id_prefix(id_rest, &target_project.config.grammar) else {
             continue;
         };
         out.push(MarkdownLineCitation {
             marker_start,
-            token_end: id_start + id_len,
+            token_end: id_start + parsed.len,
             namespace: Some(alias.to_string()),
-            id,
-            section,
+            id: parsed.id,
+            section: parsed.section,
         });
     }
 }

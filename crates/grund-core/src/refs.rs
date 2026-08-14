@@ -121,7 +121,8 @@ fn command_refs(args: &[String]) -> ExitCode {
     // §FS-workspace.1: a qualified query's alias decides which grammar parses
     // the ID tail. This keeps `refs api/FS-001-session` aligned with the same
     // target namespace that `check` uses for `§api/FS-001-session`.
-    let (id, inline_section) = match parse_id_arg(raw_id, &render_config.grammar) {
+    let (id, inline_section) = match resolve_id_arg(raw_id, render_config, &target_project.findings)
+    {
         Ok(parsed) => parsed,
         Err(err) => {
             eprintln!("error: {err:#}");

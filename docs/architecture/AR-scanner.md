@@ -72,12 +72,26 @@ The enclosing declaration is also recorded on the citation, so the obligation pa
 
 The `<§>`-escape ([§AR-workspace.3.1](AR-workspace.md#31-the-rule)) writes a citation's *shape* without it being live: the literal `<§>alias/ID` puts a `>` between the marker and the ID, so the citation pass (§2.3) never matches it. That silent inertness is the whole point in prose, but it also hides a slip — a real citation with the marker accidentally bracketed looks identical and raises no dangling error. A dedicated pass therefore records these escapes into a separate, check-inert `escaped_citations` list so the checker can flag one that resolves ([§FS-check.2.3.1](../functional-spec/FS-check.md#231-escaped-citation-resolves)); nothing else reads the list, so it never affects an existing check. The pass is cheap — a line that lacks the literal `<§>` needle short-circuits before any parsing — and runs uniformly in Markdown and source, since the escaped form is inert in both. Both unqualified `<§>ID` and qualified `<§>alias/ID` shapes are collected; the trailing ID is parsed with the citing project's grammar ([§FS-workspace.5](../functional-spec/FS-workspace.md#5-command-scope)'s loose parser is the cross-namespace fallback), so an exotic target grammar can miss a match — only ever costing a suggestion, never a false error. Escapes inside a fenced code block are skipped along with everything else there (§1).
 
+### 2.6 Number-only shorthand citations
+
+Where the configured `[id] format` carries both `{number}` and `{slug}`, a second citation pattern is compiled beside the full one: the format with the `{slug}` placeholder and one adjacent literal separator removed, so `{kind}-{number}-{slug}` yields `{kind}-{number}` and `§FS-042` is recognized ([§FS-check.1.2](../functional-spec/FS-check.md#12-the-number-only-shorthand)). A format missing either placeholder compiles no such pattern and pays nothing anywhere below.
+
+Three properties make the pass safe to add to a grammar that already matches:
+
+- **It runs after the full pass and skips its spans.** The full-ID pass records the byte range of every citation it claimed on the line; the shorthand pass only considers marker positions outside those ranges. A configured grammar under which some full ID is also shorthand-shaped therefore resolves as the full ID ([§DF-number-only-citation-shorthand.2.6](../decisions/functional/DF-number-only-citation-shorthand.md#26-the-full-id-always-wins)).
+- **It is marker-gated unconditionally.** Unlike the full-ID pass it has no bare branch, so `[reference] strict = false` does not widen it (§2.3). `KIND-NNN` is too common in the wild to recognize unmarked ([§DF-number-only-citation-shorthand.2.4](../decisions/functional/DF-number-only-citation-shorthand.md#24-the-marker-is-required-a-bare-shorthand-is-text)).
+- **It emits an ordinary `Citation`,** flagged `shorthand`, carrying an `Id` whose `slug` is `None` and the written token as its text.
+
+A whole-file post-pass then resolves each flagged citation against the declaration set: the declarations sharing its kind and number. Exactly one match rewrites the citation's `Id` to that declaration's, so every downstream consumer — checker, `refs`, `cover`, the unused-declaration warning, the LSP snapshot — reads a canonical `Id` and needs no shorthand awareness at all. Zero or several matches leave the slug `None`, which is the state [§AR-checker.2.12](../../crates/grund-core/src/checker.rs) reports on. The resolution runs against the *project's* declarations, so it lands in the same merge step as the other whole-file post-passes (§2.4) rather than in the per-line loop.
+
+An `Id` with a `None` component whose placeholder appears in the format renders as the shorthand — `render_id` drops the placeholder and one adjacent literal, the same reduction the pattern is built from — so the one code path prints both forms and no caller has to special-case a partial ID.
+
 ## 3. Output
 
 The scanner produces a `Findings` struct containing:
 
 - `declarations: BTreeMap<Id, Vec<Declaration>>` — keyed by ID, with file/line, stub-info, the recorded sections (each section path paired with its heading text — §2.2) per declaration, and the body line range (§2.4). An `E2E` declaration (§6) carries its case-directory path, fixture list, invocation, and expected exit code instead.
-- `citations: Vec<Citation>` — each with the referenced ID, optional section, file, line, and start column, whether it was written marker-prefixed or bare, and the resolved source kind plus enclosing declaration (§2.4).
+- `citations: Vec<Citation>` — each with the referenced ID, optional section, file, line, and start column, whether it was written marker-prefixed or bare, whether it was written in the number-only shorthand (§2.6), and the resolved source kind plus enclosing declaration (§2.4).
 
 This is the only structured output the scanner produces. Everything downstream (checking, showing, IDE diagnostics) operates on this data structure.
 

@@ -226,15 +226,7 @@ fn slugify_title(title: &str, slug_pattern: &str) -> String {
 /// number to `width` (§FS-config.3.2, §FS-id.2 — the form `grund id` prints and
 /// every report uses).
 fn format_id(id: &Id, config: &Config, width: usize) -> String {
-    let mut rendered = config.id_format.clone();
-    rendered = rendered.replace("{kind}", &id.kind);
-    if let Some(number) = id.num {
-        rendered = rendered.replace("{number}", &format!("{number:0width$}"));
-    }
-    if let Some(slug) = &id.slug {
-        rendered = rendered.replace("{slug}", slug);
-    }
-    rendered
+    config.grammar.render(id, width)
 }
 
 /// Render an `Id` at the default 3-digit number width — the form used everywhere

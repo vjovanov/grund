@@ -21,6 +21,20 @@ In default mode (`[reference] strict = true`), only marker-prefixed citations ar
 
 Citations may appear in markdown prose, in source-file line/block comments, and in language doc-comments (Javadoc, JSDoc, Rustdoc, Python docstrings, etc.) — see [AR-scanner.2.3](../architecture/AR-scanner.md#23-citation-detection) and [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) for the exact contexts. In source files, a **bare** ID-shaped token whose start column falls inside a string literal is not treated as a citation (the same deterministic quote-tracking rule `grund fmt` uses — [§FS-fmt.2.3.1](FS-fmt.md#231-string-literal-exclusion-rule), [AR-scanner.2.3](../architecture/AR-scanner.md#23-citation-detection)), so an ID-shaped substring inside a runtime string does not raise a false dangling-ref. A marker-prefixed citation is recognized everywhere, string or not — the marker is the signal of intent. Markdown files have no string literals and the carve-out does not apply there. `E2E` citations (`§E2E-<name>`) resolve against case directories under `e2e/cases/` per [AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations).
 
+### 1.2 The number-only shorthand
+
+When `[id] format` carries **both** `{number}` and `{slug}` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) — the default `{kind}-{number}-{slug}` that `grund init` writes — the number alone already identifies a declaration within its kind, so `§FS-042` is an abbreviation of `§FS-042-user-login` rather than a different ID. `check` **recognizes** that shape, resolves it, and reports it as an error to be rewritten (§3.13). It is never silently ignored, which is what [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) means by "false negatives are bugs".
+
+The shorthand shape is the configured `format` with the `{slug}` placeholder and one adjacent literal separator removed. A repo whose format has no `{number}` (`{kind}-{slug}`, the form `grund` itself uses) or no `{slug}` (`{kind}-{number}`) has no shorthand and is untouched by this clause ([§FS-id.4.1](FS-id.md#41-number-less-id-formats)).
+
+Three rules bound the recognition, decided in [§DF-number-only-citation-shorthand](../decisions/functional/DF-number-only-citation-shorthand.md#df-number-only-citation-shorthand-the-number-only-shorthand-is-authoring-sugar-and-a-persisted-one-is-a-check-error):
+
+- **The marker is required.** A bare `FS-042` is plain text even under `strict = false`, where a bare *full* ID would count (§1.1). `KIND-NNN` occurs constantly in the wild as issue keys, part numbers, and standards references, and unlike a full ID it carries no slug to make an accidental match unlikely — so the marker is what supplies the intent ([§DF-number-only-citation-shorthand.2.4](../decisions/functional/DF-number-only-citation-shorthand.md#24-the-marker-is-required-a-bare-shorthand-is-text)).
+- **The full ID always wins.** The full-ID pass claims its tokens first; the shorthand pass only sees what is left.
+- **A resolved shorthand is a real edge.** When it matches exactly one declaration, the citation participates in the graph like any other: [§FS-refs](FS-refs.md#fs-refs-grund-lists-every-citation-of-an-id) lists it, [§FS-cover](FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file) groups it, the declaration stops being reported as unused (§4.1), it grounds its file under `require_grounding` (§3.6), and it counts for citation directions ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)). The `.<section>` suffix works as it does on any citation, and the section check (§3.2) still applies — so the canonical form the error names is known-good before anyone writes it.
+
+The same shape is accepted as a **CLI ID argument** — `grund FS-042`, `grund FS-042.1`, `grund refs FS-042` — where nothing is persisted and the caller gets the declaration ([§FS-show.1](FS-show.md#1-inputs), [§FS-refs.1](FS-refs.md#1-inputs)). That is also what makes a clicked `§FS-042` open in a terminal or editor, since those clients hand the token straight to `grund` ([§FS-integrations.3.1](FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2)).
+
 ## 2. Outputs
 
 A report on **stdout** — `check` is a linter and its findings are its output ([§FS-errors.1](FS-errors.md#1-streams)) — plus an exit code:
@@ -112,6 +126,10 @@ escaping. This is the live-citation counterpart to §2.3.1's escaped-citation
 suggestion: there an escape resolves and might be live; here a live citation
 dangles and might be an escape.
 
+A number-only shorthand citation (§1.2) is exempt from this rule and reported by
+§3.13 instead — one finding per site, never two, and `unknown reference FS-042`
+would name a token that is not a full ID under the repo's own grammar.
+
 ### 3.2 Missing section
 
 A citation with a section suffix (`§FS-<user-login>.3.1`) where the declaration exists but the requested section heading does not.
@@ -190,11 +208,29 @@ docs/functional-spec/FS-login.md:42: FS must not cite AR (citation direction)
 
 The citing kind is the site's resolved `source_kind` ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the cited kind and namespace come from the citation token, matched against the rule's namespace grammar ([§FS-config.3.9.3](FS-config.md#393-namespace-matching)). The prohibition pass is [AR-checker.2.10](../../crates/grund-core/src/checker.rs). The parallel `should-not` prohibition is not an error; it is a suggestion (§2.3). The sanctioned way to keep a discouraged downward pointer is a plain Markdown link, which is not a citation under `strict = true` and so is exempt from this rule.
 
+### 3.13 Number-only shorthand citation
+
+A recognized shorthand citation (§1.2) persisted in a scanned file. The shorthand is authoring sugar, not a stored citation grammar, so every site is reported and the report carries the replacement text — the fix is mechanical, and `grund fmt --write` applies it in bulk ([§FS-fmt.2.4](FS-fmt.md#24-shorthand-to-canonical)).
+
+Exactly one finding per site, in one of three forms:
+
+```
+docs/notes.md:5: shorthand citation §FS-042; write §FS-042-user-login
+docs/notes.md:6: shorthand citation §FS-999 matches no declaration
+docs/notes.md:7: shorthand citation §FS-042 is ambiguous: FS-042-user-login, FS-042-user-logout
+```
+
+The candidate list in the ambiguous form is sorted and complete — `grund` names every match and resolves none, because choosing one would be a guess and `check` reports facts about the tree (§5, [§GOAL-agent-grounding.3](../goals.md#3-what-this-rules-out)). Duplicate *numbers* are not otherwise an error: §3.3 catches duplicate full IDs, and a repo may legitimately hold `FS-042-user-login` alongside `FS-042-user-logout` as long as nothing abbreviates them. The marker rendered in the message is the configured one ([§FS-config.3.1](FS-config.md#31-reference--citation-form)), and the qualified form names its namespace (`<§>api/FS-042`, escaped here because this repo has no `api` member) so the replacement can be pasted as written.
+
+An error rather than a warning or a suggestion: a warning leaves the exit code alone, so a repo could accumulate shorthand citations forever while CI stayed green, which is the state this rule exists to end ([§DF-number-only-citation-shorthand.2.3](../decisions/functional/DF-number-only-citation-shorthand.md#23-it-is-an-error-not-a-warning-or-a-suggestion)). Repos whose `[id] format` has no `{number}` or no `{slug}` never see this finding (§1.2).
+
 ## 4. Warnings
 
 ### 4.1 Unused declaration
 
 An ID that is declared but never cited. Reported as a warning, not an error — newly declared IDs may not yet have citations. Warnings never affect the exit code (§2).
+
+A number-only shorthand citation that resolves counts here like any other citation (§1.2): a declaration abbreviated as `§FS-042` everywhere is cited, and reporting it as unused would state the opposite of the truth.
 
 `E2E` declarations ([AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations)) are exempt: an end-to-end case is exercised by being run, not by being cited, so a `§E2E-<name>` that nothing references is not a warning. Every other kind is subject to this rule. `grund list --unused` ([§FS-list](FS-list.md#fs-list-grund-lists-every-declared-id)) uses the same default signal and suppresses uncited `E2E` cases unless `E2E` is explicitly selected with `--kind` (including a multi-kind filter such as `--kind FS,E2E`).
 
@@ -218,7 +254,7 @@ The same warning is emitted by `grund config validate` and `grund config show` (
 
 See [§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) — in particular [§FS-non-goals.1](FS-non-goals.md#1-markdown-link-validation) (markdown links / URLs), [§FS-non-goals.2](FS-non-goals.md#2-spelling-grammar-prose-quality) (spelling/grammar), and the convention that ID numbers are stable handles, not ordinal positions.
 
-One near-miss `check` does not flag *today*: a heading shaped like `# <KIND>-…: <title>` whose ID does not match the configured `[id] format` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) is simply not a declaration — invisible to `check`, to `grund list`, and to citation resolution, with no warning that something heading-shaped was ignored (the classic stumble: `# FS-login: …` under the default `{kind}-{number}-{slug}`). A non-heuristic "looks like a declaration" warning for it is tracked under [§RM-declaration-near-miss](../roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format) — it would surface the mismatch, never guess the corrected ID (`check` reports facts about the tree, §3 vs §4).
+One near-miss `check` does not flag *today*: a heading shaped like `# <KIND>-…: <title>` whose ID does not match the configured `[id] format` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) is simply not a declaration — invisible to `check`, to `grund list`, and to citation resolution, with no warning that something heading-shaped was ignored (the classic stumble: `# FS-login: …` under the default `{kind}-{number}-{slug}`). A non-heuristic "looks like a declaration" warning for it is tracked under [§RM-declaration-near-miss](../roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format) — it would surface the mismatch, never guess the corrected ID (`check` reports facts about the tree, §3 vs §4). That is the *declaration*-side near miss; the citation-side one — a `§`-marked token in the shorthand shape — is no longer in this section, because §1.2 and §3.13 now recognize and report it.
 
 ## 6. Watch mode (`--watch`)
 
