@@ -176,16 +176,25 @@ fn scan_file_text(
 
         let workspace_mode = !workspace_targets.is_empty();
         let mut qualified_marker_starts = BTreeSet::new();
+        // §AR-scanner.2.6: every marker the full-ID pattern matched at, whether
+        // or not this pass went on to emit a citation there. The shorthand pass
+        // (§DF-number-only-citation-shorthand.2.6) skips these, so the full ID
+        // always wins and the shorthand pattern is never run on a line whose
+        // markers are all accounted for.
+        let mut claimed_markers: Vec<usize> = Vec::new();
         for caps in config.grammar.citation_re.captures_iter(scan_line) {
             let Some(full) = caps.get(0) else { continue };
             let namespace = caps.name("namespace").map(|m| m.as_str().to_string());
+            let has_marker = scan_line[..full.start()].ends_with(&config.marker);
+            if has_marker {
+                claimed_markers.push(full.start() - config.marker.len());
+            }
             // In workspace mode, the qualified branch is parsed below with the
             // target's grammar — let that pass own every `§<alias>/...` hit so
             // we never emit one with the citing project's grammar.
             if workspace_mode && namespace.is_some() {
                 continue;
             }
-            let has_marker = scan_line[..full.start()].ends_with(&config.marker);
             // §FS-workspace.1, §AR-workspace.3.1: an unmarked `alias/ID` is text,
             // not a citation. The slash is part of the visual token; we do not
             // fall back to recognising the trailing ID as a bare citation.
@@ -228,6 +237,7 @@ fn scan_file_text(
                 line: lineno,
                 column: scan.column_offset + start + 1,
                 has_marker,
+                shorthand: false,
                 text,
                 inline_site: inline_sites.get(&lineno).cloned(),
                 // §AR-scanner.2.4: classified in the post-pass below.
@@ -257,6 +267,7 @@ fn scan_file_text(
                 findings,
             );
         }
+        scan_shorthand_citations(&citation_line, workspace_mode, &claimed_markers, findings);
         scan_escaped_citations(&citation_line, findings);
     }
 
@@ -714,7 +725,7 @@ fn citation_token_ranges(
                     .iter()
                     .find_map(|target| parse_longest_id_prefix(id_rest, &target.config.grammar)),
             }
-            .map(|(_, _, len)| len)
+            .map(|parsed| parsed.len)
         };
         let Some(id_len) = parsed else {
             continue;
@@ -818,6 +829,9 @@ fn scan_fallback_qualified_citations(
             line: line.lineno,
             column: line.column_offset + marker_start + 1,
             has_marker: true,
+            // The loose parser has no target grammar to derive a shorthand from,
+            // so a fallback-parsed qualified citation is never one (§AR-scanner.2.6).
+            shorthand: false,
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
             // §AR-scanner.2.4: classified in the post-pass in `scan_file`.
@@ -933,18 +947,19 @@ fn scan_workspace_qualified_pass(
                 .iter()
                 .find_map(|target| parse_longest_id_prefix(id_rest, &target.config.grammar)),
         };
-        let Some((id, section, id_len)) = parsed else {
+        let Some(parsed) = parsed else {
             continue;
         };
-        let token_end = id_start + id_len;
+        let token_end = id_start + parsed.len;
         findings.citations.push(Citation {
             namespace: Some(alias.to_string()),
-            id,
-            section,
+            id: parsed.id,
+            section: parsed.section,
             file: line.path.to_path_buf(),
             line: line.lineno,
             column: line.column_offset + marker_start + 1,
             has_marker: true,
+            shorthand: parsed.shorthand,
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
             // §AR-scanner.2.4: classified in the post-pass in `scan_file`.
@@ -988,19 +1003,19 @@ fn scan_escaped_citations(line: &CitationLine<'_>, findings: &mut Findings) {
             }
             None => (None, rest, 0),
         };
-        let Some((id, section, id_len)) = parse_longest_id_prefix(id_rest, &line.config.grammar)
-        else {
+        let Some(parsed) = parse_longest_id_prefix(id_rest, &line.config.grammar) else {
             continue;
         };
-        let token_end = token_start + alias_len + id_len;
+        let token_end = token_start + alias_len + parsed.len;
         findings.escaped_citations.push(Citation {
             namespace,
-            id,
-            section,
+            id: parsed.id,
+            section: parsed.section,
             file: line.path.to_path_buf(),
             line: line.lineno,
             column: line.column_offset + escape_start + 1,
             has_marker: false,
+            shorthand: parsed.shorthand,
             text: line.scan_line[escape_start..token_end].to_string(),
             inline_site: None,
             source_kind: String::new(),
@@ -1009,7 +1024,12 @@ fn scan_escaped_citations(line: &CitationLine<'_>, findings: &mut Findings) {
     }
 }
 
-fn parse_longest_id_prefix(raw: &str, grammar: &Grammar) -> Option<(Id, Option<String>, usize)> {
+/// The longest prefix of `raw` that parses as an ID under `grammar`, with the
+/// byte length consumed. Accepts the number-only shorthand (§FS-check.1.2) at
+/// each candidate length, so a qualified `§api/FS-042` is recognized with the
+/// *target* project's shorthand shape rather than the citing project's — the
+/// longest-first walk keeps a full ID winning over a shorthand prefix of it.
+fn parse_longest_id_prefix(raw: &str, grammar: &Grammar) -> Option<ParsedIdPrefix> {
     let search_end = raw
         .char_indices()
         .find(|(_, ch)| ch.is_whitespace())
@@ -1025,11 +1045,25 @@ fn parse_longest_id_prefix(raw: &str, grammar: &Grammar) -> Option<(Id, Option<S
         .filter(|end| *end > 0)
         .collect::<Vec<_>>();
     for end in ends.into_iter().rev() {
-        if let Ok((id, section)) = parse_id_arg(&raw[..end], grammar) {
-            return Some((id, section, end));
+        if let Ok(parsed) = parse_id_arg_with_shorthand(&raw[..end], grammar) {
+            return Some(ParsedIdPrefix {
+                id: parsed.id,
+                section: parsed.section,
+                len: end,
+                shorthand: parsed.shorthand,
+            });
         }
     }
     None
+}
+
+/// `parse_longest_id_prefix`'s result: the parsed ID and section, how many bytes
+/// of the input it consumed, and whether it came from the shorthand branch.
+struct ParsedIdPrefix {
+    id: Id,
+    section: Option<String>,
+    len: usize,
+    shorthand: bool,
 }
 
 /// Discover `e2e/cases/<name>/` directories and register each as an `E2E-<name>`
@@ -1538,6 +1572,10 @@ fn scan_tree_with_workspace_threshold(
             ))
         });
     }
+    // §AR-scanner.2.6: shorthand citations name a declaration that may live in
+    // any file, so they can only be resolved once the whole walk (including the
+    // E2E cases above) has produced the declaration set.
+    resolve_shorthand_citations(&mut findings);
     Ok((findings, errors))
 }
 

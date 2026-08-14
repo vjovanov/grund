@@ -200,7 +200,7 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
     // target project's grammar. Mixed-format workspaces rely on this; the root
     // may use `{kind}-{slug}` while `api/FS-001-session` belongs to a numbered
     // member namespace.
-    let (id, inline_section) = match parse_id_arg(raw_id, &config.grammar) {
+    let (id, inline_section) = match resolve_id_arg(raw_id, config, &project.findings) {
         Ok(parsed) => parsed,
         Err(err) => {
             let message = format!("{err:#}");

@@ -631,7 +631,18 @@ impl Server {
         let Some(path) = uri.to_file_path().ok() else {
             return Ok(Some(Vec::new()));
         };
-        on_type_replacement_for_line(&path, &line, position)
+        on_type_replacement_for_line(&path, &line, position, &self.declared_ids())
+    }
+
+    /// The bare declaration IDs in the session snapshot, for shorthand expansion
+    /// in the live trigger transform (§FS-lsp.1.4). Section titles are excluded —
+    /// only whole-ID declarations can be what a shorthand names.
+    fn declared_ids(&self) -> Vec<String> {
+        self.snapshot
+            .declarations
+            .iter()
+            .map(|decl| decl.query_id.clone())
+            .collect()
     }
 
     fn publish_diagnostics(&mut self) -> Result<()> {
@@ -1130,28 +1141,41 @@ fn on_type_replacement_for_line(
     path: &Path,
     line: &str,
     position: Position,
+    declared_ids: &[String],
 ) -> Result<Option<Vec<TextEdit>>> {
     let cursor = utf16_to_byte(line, position.character);
     // One config resolution per keystroke: the core helper resolves the edited
     // file's marker/trigger and the fmt-context exclusions together (§FS-lsp.1.4).
-    let Some(replacement) = on_type_trigger_replacement(path, line, cursor)? else {
+    let Some(replacement) = on_type_trigger_replacement(path, line, cursor, declared_ids)? else {
         return Ok(Some(Vec::new()));
     };
-    let start = byte_to_utf16(line, replacement.trigger_start);
-    let end = byte_to_utf16(line, replacement.trigger_start + replacement.trigger_len);
-    Ok(Some(vec![TextEdit {
+    let edit = |start: usize, end: usize, new_text: String| TextEdit {
         range: Range {
             start: Position {
                 line: position.line,
-                character: start,
+                character: byte_to_utf16(line, start),
             },
             end: Position {
                 line: position.line,
-                character: end,
+                character: byte_to_utf16(line, end),
             },
         },
-        new_text: replacement.marker,
-    }]))
+        new_text,
+    };
+    let mut edits = vec![edit(
+        replacement.trigger_start,
+        replacement.trigger_start + replacement.trigger_len,
+        replacement.marker,
+    )];
+    // §FS-lsp.1.4: a typed shorthand is expanded in the same edit set as the
+    // trigger conversion, so `$$FS-042` lands as `§FS-042-user-login` rather
+    // than as a `§FS-042` that immediately fails `check`. The two ranges are
+    // disjoint and given in ascending order, which is what the LSP spec requires
+    // of a multi-edit response.
+    if let Some(expansion) = replacement.token_expansion {
+        edits.push(edit(expansion.start, expansion.end, expansion.text));
+    }
+    Ok(Some(edits))
 }
 
 #[cfg(test)]
@@ -1290,6 +1314,7 @@ mod tests {
                 line: 0,
                 character: "//! $$FS:login".len() as u32,
             },
+            &[],
         )
         .expect("formatting check");
         assert_eq!(
@@ -1322,6 +1347,7 @@ mod tests {
                 line: 0,
                 character: "//! %%FS-001-login".len() as u32,
             },
+            &[],
         )
         .expect("formatting check");
         assert_eq!(
@@ -1339,6 +1365,7 @@ mod tests {
                 line: 0,
                 character: "//! $$FS-001-login".len() as u32,
             },
+            &[],
         )
         .expect("formatting check");
         assert!(

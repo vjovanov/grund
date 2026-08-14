@@ -244,7 +244,7 @@ fn show_with_scope_and_overlays(
         ));
     }
     let config = &project.config;
-    let (id, inline_section) = parse_id_arg(raw_id, &config.grammar)?;
+    let (id, inline_section) = resolve_id_arg(raw_id, config, &project.findings)?;
     if opts.section.is_some() && inline_section.is_some() {
         return Err(anyhow!("--section cannot be combined with an inline section"));
     }
@@ -543,12 +543,10 @@ fn can_replace_trigger_with_config(
 ) -> bool {
     let after = trigger_start + config.trigger.len();
     let token_end = after + token.len();
-    if !config
-        .grammar
-        .citation_re
-        .find_at(line, after)
-        .is_some_and(|found| found.start() == after && found.end() == token_end)
-    {
+    // §FS-lsp.1.4: the same "is a real ID here" test `grund fmt` uses, so the
+    // live transform and the bulk pass consume the same triggers — including the
+    // number-only shorthand where the repo has one (§FS-check.1.2).
+    if id_token_end_at(line, after, &config.grammar) != Some(token_end) {
         return false;
     }
     let is_md = path.extension().and_then(|ext| ext.to_str()) == Some("md");
@@ -569,6 +567,20 @@ pub struct TriggerReplacement {
     pub trigger_len: usize,
     /// The marker to write in the trigger's place.
     pub marker: String,
+    /// The number-only shorthand expansion, when the typed token is one and it
+    /// names exactly one declared ID (§FS-lsp.1.4, §FS-check.1.2). `None` covers
+    /// both "not a shorthand" and "a shorthand that does not uniquely resolve" —
+    /// the latter still converts the trigger, so typing never stalls and the
+    /// §FS-check.3.13 diagnostic explains what to do next.
+    pub token_expansion: Option<TokenExpansion>,
+}
+
+/// A canonical rewrite of the token following the trigger: the token's byte span
+/// on the line and the text to put there (§FS-lsp.1.4).
+pub struct TokenExpansion {
+    pub start: usize,
+    pub end: usize,
+    pub text: String,
 }
 
 /// Resolve the on-type trigger rewrite for `line` with the cursor at
@@ -576,25 +588,39 @@ pub struct TriggerReplacement {
 /// per-keystroke path does a single config walk rather than one per check
 /// (§FS-lsp.1.4). Returns `None` when there is no rewritable trigger before the
 /// cursor.
+///
+/// `declared_ids` are the IDs already known to the caller's session snapshot —
+/// the LSP passes `LspSnapshot::declarations`, so shorthand expansion costs a
+/// list scan and never a fresh tree walk (§GOAL-fast-feedback). Pass an empty
+/// slice to get trigger conversion alone.
 pub fn on_type_trigger_replacement(
     path: &Path,
     line: &str,
     cursor_byte: usize,
+    declared_ids: &[String],
 ) -> Result<Option<TriggerReplacement>> {
     let config = resolve_workspace_config(path)?;
     let cursor = cursor_byte.min(line.len());
     let Some(trigger_start) = line[..cursor].rfind(&config.trigger) else {
         return Ok(None);
     };
-    let token = &line[trigger_start + config.trigger.len()..cursor];
+    let token_start = trigger_start + config.trigger.len();
+    let token = &line[token_start..cursor];
     if token.is_empty() || !can_replace_trigger_with_config(&config, path, line, trigger_start, token)
     {
         return Ok(None);
     }
+    let token_expansion =
+        shorthand_token_expansion(&config, token, declared_ids).map(|text| TokenExpansion {
+            start: token_start,
+            end: cursor,
+            text,
+        });
     Ok(Some(TriggerReplacement {
         trigger_start,
         trigger_len: config.trigger.len(),
         marker: config.marker,
+        token_expansion,
     }))
 }
 
@@ -1688,12 +1714,13 @@ pub fn refs(opts: RefsOpts) -> Result<RefsOutput> {
     };
     let target_alias = target_project.alias.as_str();
     let render_config = &target_project.config;
-    let (id, inline_section) = parse_id_arg(raw_id, &render_config.grammar).map_err(|err| {
-        anyhow!(
-            "{err:#}\nhint: this repo's [id] format is `{}` (run `grund config show`); `grund list` shows the IDs that exist",
-            render_config.id_format
-        )
-    })?;
+    let (id, inline_section) = resolve_id_arg(raw_id, render_config, &target_project.findings)
+        .map_err(|err| {
+            anyhow!(
+                "{err:#}\nhint: this repo's [id] format is `{}` (run `grund config show`); `grund list` shows the IDs that exist",
+                render_config.id_format
+            )
+        })?;
     if opts.section.is_some() && inline_section.is_some() {
         return Err(anyhow!(
             "--section cannot be combined with an inline section"

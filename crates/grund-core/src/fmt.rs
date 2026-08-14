@@ -222,54 +222,57 @@ fn fmt_tree(
     // §FS-fmt.6.2 for `grund fmt --cross-refs path/to/file.md`, where the
     // caller's findings are scope-narrow and a cross-file home would
     // otherwise be invisible.
+    //
+    // §FS-fmt.6.3 needs the whole-project findings up front, because a wrap's
+    // URL depends on a declaration that may live outside the rewrite scope.
+    // §FS-fmt.2.4 needs the same declaration set, but only if the tree actually
+    // contains a shorthand — so it is *not* scheduled here. `fmt --check` has no
+    // other reason to scan, and paying for one on every run of every numbered
+    // repo to serve a rewrite most of them never need is the wrong trade
+    // (§GOAL-fast-feedback). Instead the walk below starts without findings and
+    // scans on the first candidate it meets.
     let owned_findings = if cross_refs && precomputed_findings.is_none() {
         Some(scan_tree_strict(config, None, false)?)
     } else {
         None
     };
-    let findings_for_wrap: Option<&Findings> = if cross_refs {
+    let mut findings: Option<&Findings> = if cross_refs {
         precomputed_findings.or(owned_findings.as_ref())
     } else {
-        None
+        precomputed_findings
     };
+    // Holds the scan the shorthand pass triggers, so the borrow in `findings`
+    // outlives the file that asked for it.
+    #[allow(unused_assignments)]
+    let mut shorthand_findings: Option<Findings> = None;
     for path in walk_scannable_files(config, scope, explicit_scope)? {
         let original =
             fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
         let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
-        let mut in_fence = false;
-        let mut changed_lines = Vec::new();
-        let mut changed = false;
-        for (idx, line) in original.lines().enumerate() {
-            let trimmed = line.trim_start();
-            if is_md && (trimmed.starts_with("```") || trimmed.starts_with("~~~")) {
-                in_fence = !in_fence;
-                changed_lines.push(line.to_string());
-                continue;
-            }
-            if in_fence || declaration_captures(&config.grammar, line, false, is_md).is_some() {
-                changed_lines.push(line.to_string());
-                continue;
-            }
-            let (new_line, label) = fmt_line(
-                line,
-                &path,
-                config,
-                is_md,
-                &FmtLineOpts {
-                    add_marker,
-                    cross_refs,
-                    findings: findings_for_wrap,
-                    workspace,
-                },
-            );
-            if new_line != line {
-                changes.push((path.clone(), idx + 1, label));
-                changed = true;
-            }
-            changed_lines.push(new_line);
+        let file_changes_start = changes.len();
+        let mut rewritten = rewrite_file(&original, &path, config, is_md, &FmtLineOpts {
+            add_marker,
+            cross_refs,
+            findings,
+            workspace,
+        }, &mut changes);
+        // §FS-fmt.2.4: this file wants a shorthand expanded and we have no
+        // declarations yet. Scan once, then redo *this* file — every file
+        // already walked is final, because having no candidate is exactly why
+        // the scan had not happened by then.
+        if rewritten.saw_shorthand_candidate && findings.is_none() {
+            shorthand_findings = Some(scan_tree_strict(config, None, false)?);
+            findings = shorthand_findings.as_ref();
+            changes.truncate(file_changes_start);
+            rewritten = rewrite_file(&original, &path, config, is_md, &FmtLineOpts {
+                add_marker,
+                cross_refs,
+                findings,
+                workspace,
+            }, &mut changes);
         }
-        if write && changed {
-            let mut output = changed_lines.join("\n");
+        if write && rewritten.changed {
+            let mut output = rewritten.lines.join("\n");
             if original.ends_with('\n') {
                 output.push('\n');
             }
@@ -277,6 +280,56 @@ fn fmt_tree(
         }
     }
     Ok(changes)
+}
+
+
+/// One file's rewritten lines plus what the walk needs to decide afterwards:
+/// whether anything changed, and whether a shorthand expansion was wanted but
+/// could not be performed for lack of the declaration set (§FS-fmt.2.4).
+struct RewrittenFile {
+    lines: Vec<String>,
+    changed: bool,
+    saw_shorthand_candidate: bool,
+}
+
+/// Apply `fmt_line` to every rewritable line of one file, appending each changed
+/// line to `changes`. Fenced blocks and declaration headings are passed through
+/// untouched (§FS-fmt.2.3).
+fn rewrite_file(
+    original: &str,
+    path: &Path,
+    config: &Config,
+    is_md: bool,
+    opts: &FmtLineOpts<'_>,
+    changes: &mut Vec<(PathBuf, usize, &'static str)>,
+) -> RewrittenFile {
+    let mut in_fence = false;
+    let mut lines = Vec::new();
+    let mut changed = false;
+    let mut saw_shorthand_candidate = false;
+    for (idx, line) in original.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if is_md && (trimmed.starts_with("```") || trimmed.starts_with("~~~")) {
+            in_fence = !in_fence;
+            lines.push(line.to_string());
+            continue;
+        }
+        if in_fence || declaration_captures(&config.grammar, line, false, is_md).is_some() {
+            lines.push(line.to_string());
+            continue;
+        }
+        let (new_line, label) = fmt_line(line, path, config, is_md, opts, &mut saw_shorthand_candidate);
+        if new_line != line {
+            changes.push((path.to_path_buf(), idx + 1, label));
+            changed = true;
+        }
+        lines.push(new_line);
+    }
+    RewrittenFile {
+        lines,
+        changed,
+        saw_shorthand_candidate,
+    }
 }
 
 /// The rewrites `fmt_line` runs and their inputs — grouped so `fmt_line` has
@@ -290,15 +343,22 @@ struct FmtLineOpts<'a> {
 }
 
 /// Apply the `fmt` rewrites to one line, in order: trigger→marker (§FS-fmt.2.1),
-/// then optionally bare→marker (§FS-fmt.2.2), then optionally Markdown-link wrapping
-/// (§FS-fmt.6) — returning the new line plus a label naming the most significant
-/// rewrite that fired.
+/// then optionally bare→marker (§FS-fmt.2.2), then shorthand→canonical
+/// (§FS-fmt.2.4), then optionally Markdown-link wrapping (§FS-fmt.6) —
+/// returning the new line plus a label naming the most significant rewrite that
+/// fired.
+///
+/// The shorthand pass runs after the trigger pass and reads its output, so a
+/// typed `$$FS-042` is marked and then expanded within the one call — which is
+/// how §FS-fmt.2.4's "in one step" holds without the trigger pass needing to
+/// know about declarations.
 fn fmt_line(
     line: &str,
     path: &Path,
     config: &Config,
     is_md: bool,
     opts: &FmtLineOpts<'_>,
+    saw_shorthand_candidate: &mut bool,
 ) -> (String, &'static str) {
     let triggered = replace_trigger(line, config, is_md);
     let trigger_changed = triggered != line;
@@ -308,19 +368,35 @@ fn fmt_line(
         triggered.clone()
     };
     let marker_changed = marked != triggered;
-    let final_line = if opts.cross_refs && is_md {
-        match opts.findings {
-            Some(findings) => wrap_markdown_links(&marked, path, config, findings, opts.workspace),
-            None => marked.clone(),
-        }
-    } else {
-        marked.clone()
-    };
-    let link_changed = final_line != marked;
+    // Each stage below takes ownership of the previous stage's line rather than
+    // cloning it: `fmt` touches every line of every scanned file, so one avoidable
+    // allocation per line is a measurable share of the command (§GOAL-fast-feedback).
+    // `expand_shorthand_citations` returns `None` for "unchanged" exactly so the
+    // common line can be moved through untouched.
+    let expansion = expand_shorthand_citations(
+        &marked,
+        config,
+        is_md,
+        opts.findings,
+        saw_shorthand_candidate,
+    );
+    let shorthand_changed = expansion.is_some();
+    let mut final_line = expansion.unwrap_or(marked);
+    let mut link_changed = false;
+    if opts.cross_refs
+        && is_md
+        && let Some(findings) = opts.findings
+    {
+        let wrapped = wrap_markdown_links(&final_line, path, config, findings, opts.workspace);
+        link_changed = wrapped != final_line;
+        final_line = wrapped;
+    }
     let label = if trigger_changed {
         "trigger \u{2192} marker"
     } else if marker_changed {
         "bare \u{2192} marker"
+    } else if shorthand_changed {
+        "shorthand \u{2192} canonical"
     } else if link_changed {
         "markdown link"
     } else {
@@ -339,8 +415,7 @@ fn replace_trigger(line: &str, config: &Config, is_md: bool) -> String {
     while let Some(relative) = line[cursor..].find(&config.trigger) {
         let start = cursor + relative;
         let after = start + config.trigger.len();
-        if let Some(found) = config.grammar.citation_re.find_at(line, after)
-            && found.start() == after
+        if id_token_end_at(line, after, &config.grammar).is_some()
             && (is_md || !is_inside_string_literal(line, start))
             && (!is_md || !is_inside_inline_code(line, start))
             && (!is_md || !is_inside_markdown_link_destination(line, start))

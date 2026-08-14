@@ -92,6 +92,8 @@ If the scan fails (I/O, malformed file), `id` exits 2 with the underlying error 
 
 When the repo's `[id] format` has no `{number}` placeholder — `{kind}-{slug}` (the form `grund` itself uses) — there is nothing to derive: the proposed ID is `format` with `{kind}` and `{slug}` substituted, e.g. `FS-<user-can-log-in-with-email>`. The `--width` flag is accepted but has no effect (it pads a number that does not exist), and the `--format json` `number` field is `null`. The collision check (§5) still runs, and it carries more weight here: with no number to disambiguate, two declarations sharing a kind and slug collide on the same ID, so a clash is far more likely than under a numbered format. Conversely, when `format` has no `{slug}` placeholder (`{kind}-{number}`), the title is still required — it is used only to render a helpful collision message and is otherwise discarded; the proposed ID is `{kind}-{number}` with the next number, and the `slug` field in JSON output is the derived slug even though it does not appear in the ID.
 
+Either of these one-component formats also puts the repo outside the number-only citation shorthand ([§FS-check.1.2](FS-check.md#12-the-number-only-shorthand)): that shape is the format with `{slug}` dropped, so it exists only where the format carries both `{number}` and `{slug}`. A `{kind}-{slug}` repo has no number standing in for the ID and a `{kind}-{number}` repo has no slug to omit, so neither can produce a [§FS-check.3.13](FS-check.md#313-number-only-shorthand-citation) finding.
+
 ## 5. Collision check
 
 After deriving slug and number, `id` verifies the full proposed ID does not already appear as a declaration in the scanned tree. This is belt-and-suspenders against:
