@@ -1,11 +1,11 @@
 //! Lifecycle, navigation, and diagnostics cases driven against a real server
-//! process over stdio (§FS-lsp.1, §FS-lsp.2.2).
+//! process over stdio (§FS-lsp.1, §FS-lsp.2.2). `textDocument/hover` has its
+//! own suite in `tests/hover.rs`.
 
 mod support;
 
 use serde_json::{Value, json};
 use std::fs;
-use std::process::{Command, Stdio};
 use support::*;
 
 #[test]
@@ -13,38 +13,7 @@ fn shutdown_exit_terminates_stdio_server() {
     // The editor owns the lifecycle and talks to grund-lsp over stdio only.
     // §FS-lsp.2.2 §AR-lsp.4
     let root = test_root("shutdown");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
-    let mut stdin = child.stdin.take().expect("child stdin");
-    let receiver = read_messages(child.stdout.take().expect("child stdout"));
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(&root),
-                "capabilities": {}
-            }
-        }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 1);
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "method": "initialized",
-            "params": {}
-        }),
-    );
+    let (mut child, mut stdin, receiver) = start_server(&root);
 
     send_message(
         &mut stdin,
@@ -72,8 +41,8 @@ fn shutdown_exit_terminates_stdio_server() {
 #[test]
 fn navigation_covers_source_comment_citations_and_stub_titles() {
     // Stub-title definition follows the inline source home (§FS-lsp.1.3);
-    // declaration-side titles hover with their usage counts and expose the sites
-    // themselves through definition/references (§FS-lsp.1.2 §FS-lsp.1.3.1),
+    // declaration-side titles expose the citation sites through definition and
+    // references, section headings the section-scoped set (§FS-lsp.1.3.1),
     // while citations expose document links (§FS-lsp.1.3.2).
     let root = test_root("navigation");
     fs::write(
@@ -102,38 +71,7 @@ fn navigation_covers_source_comment_citations_and_stub_titles() {
     )
     .expect("write source");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
-    let mut stdin = child.stdin.take().expect("child stdin");
-    let receiver = read_messages(child.stdout.take().expect("child stdout"));
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(&root),
-                "capabilities": {}
-            }
-        }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 1);
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "method": "initialized",
-            "params": {}
-        }),
-    );
+    let (mut child, mut stdin, receiver) = start_server(&root);
 
     send_message(
         &mut stdin,
@@ -239,28 +177,6 @@ fn navigation_covers_source_comment_citations_and_stub_titles() {
                     .is_some_and(|target| target.contains("FS-001-alpha.md#L5"))
         }),
         "source-comment citation should be a document link: {links:?}"
-    );
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 6,
-            "method": "textDocument/hover",
-            "params": {
-                "textDocument": { "uri": file_uri(&spec) },
-                "position": { "line": 0, "character": 17 }
-            }
-        }),
-    );
-    let declaration_hover_response = recv_response_or_panic(&receiver, &mut child, 6);
-    assert!(
-        declaration_hover_response["result"]["range"]["start"]["character"].as_i64() == Some(2)
-            && declaration_hover_response["result"]["range"]["end"]["character"].as_i64()
-                == Some(spec_heading.len() as i64)
-            && declaration_hover_response["result"]["contents"]["value"].as_str()
-                == Some("`FS-001-alpha: Alpha` — cited at 1 site across 1 file"),
-        "declaration-title hover should carry the whole title range and its usage counts (§FS-lsp.1.2): {declaration_hover_response:?}"
     );
 
     send_message(
@@ -380,47 +296,6 @@ fn navigation_covers_source_comment_citations_and_stub_titles() {
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
-            "id": 13,
-            "method": "textDocument/hover",
-            "params": {
-                "textDocument": { "uri": file_uri(&spec) },
-                "position": { "line": 4, "character": 6 }
-            }
-        }),
-    );
-    let section_hover_response = recv_response_or_panic(&receiver, &mut child, 13);
-    assert!(
-        section_hover_response["result"]["range"]["start"]["line"].as_i64() == Some(4)
-            && section_hover_response["result"]["range"]["start"]["character"].as_i64() == Some(3)
-            && section_hover_response["result"]["range"]["end"]["character"].as_i64()
-                == Some("## 1. Detail".len() as i64),
-        "section-heading hover should carry the whole section title range: {section_hover_response:?}"
-    );
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 14,
-            "method": "textDocument/hover",
-            "params": {
-                "textDocument": { "uri": file_uri(&stub) },
-                "position": { "line": 0, "character": 22 }
-            }
-        }),
-    );
-    let stub_hover_response = recv_response_or_panic(&receiver, &mut child, 14);
-    assert!(
-        stub_hover_response["result"]["range"]["start"]["character"].as_i64() == Some(2)
-            && stub_hover_response["result"]["range"]["end"]["character"].as_i64()
-                == Some(stub_heading.len() as i64),
-        "stub-title hover should carry the whole stub title range: {stub_hover_response:?}"
-    );
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
             "id": 12,
             "method": "textDocument/references",
             "params": {
@@ -489,34 +364,7 @@ fn diagnostic_anchors_on_offending_citation_token() {
     let uses = root.join("docs/uses.md");
     fs::write(&uses, format!("{line}\n")).expect("write uses");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
-    let mut stdin = child.stdin.take().expect("child stdin");
-    let receiver = read_messages(child.stdout.take().expect("child stdout"));
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(&root),
-                "capabilities": {}
-            }
-        }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 1);
-    send_message(
-        &mut stdin,
-        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
-    );
+    let (mut child, mut stdin, receiver) = start_server(&root);
 
     let diagnostics = recv_diagnostics(&receiver, &mut child, "uses.md");
 
@@ -595,34 +443,7 @@ fn line_anchored_diagnostic_does_not_overlap_dangling_citation() {
     let source = root.join("src/lib.rs");
     fs::write(&source, format!("{line}\n")).expect("write source");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
-    let mut stdin = child.stdin.take().expect("child stdin");
-    let receiver = read_messages(child.stdout.take().expect("child stdout"));
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(&root),
-                "capabilities": {}
-            }
-        }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 1);
-    send_message(
-        &mut stdin,
-        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
-    );
+    let (mut child, mut stdin, receiver) = start_server(&root);
 
     let diagnostics = recv_diagnostics(&receiver, &mut child, "src/lib.rs");
     let dangling = diagnostics
@@ -667,90 +488,6 @@ fn line_anchored_diagnostic_does_not_overlap_dangling_citation() {
 }
 
 #[test]
-fn hover_on_dangling_citation_defers_to_diagnostic() {
-    // A citation that cannot resolve has no hover body. Its diagnostic already
-    // carries the nearest-ID hint, so returning it from hover too would double
-    // the text in editors that render diagnostics in the hover popup; hover
-    // returns nothing and the diagnostic stands alone (§FS-lsp.1.2).
-    let root = test_root("hover-dangling-defers");
-    fs::write(
-        root.join(".agents/grund.toml"),
-        "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n\
-         [id]\nformat = \"{kind}-{slug}\"\nslug_pattern = \"[a-z][a-z0-9-]*\"\n",
-    )
-    .expect("write config");
-    fs::create_dir_all(root.join("docs/functional-spec")).expect("create specs");
-    fs::write(
-        root.join("docs/functional-spec/FS-check.md"),
-        "# FS-check: Check\n\nLead.\n",
-    )
-    .expect("write spec");
-    let marker = '§';
-    let line = format!("Uses {marker}FS-chek.");
-    let uses = root.join("docs/uses.md");
-    fs::write(&uses, format!("{line}\n")).expect("write uses");
-
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
-    let mut stdin = child.stdin.take().expect("child stdin");
-    let receiver = read_messages(child.stdout.take().expect("child stdout"));
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(&root),
-                "capabilities": {}
-            }
-        }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 1);
-    send_message(
-        &mut stdin,
-        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
-    );
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "textDocument/hover",
-            "params": {
-                "textDocument": { "uri": file_uri(&uses) },
-                "position": { "line": 0, "character": 8 }
-            }
-        }),
-    );
-    let hover = recv_response_or_panic(&receiver, &mut child, 2);
-    assert!(
-        hover["result"].is_null(),
-        "hover on a dangling citation returns nothing so the diagnostic is not \
-         echoed a second time in the hover popup (§FS-lsp.1.2): {hover:?}"
-    );
-
-    send_message(
-        &mut stdin,
-        json!({ "jsonrpc": "2.0", "id": 3, "method": "shutdown", "params": null }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 3);
-    send_message(&mut stdin, json!({ "jsonrpc": "2.0", "method": "exit" }));
-    drop(stdin);
-
-    wait_for_exit(&mut child);
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
 fn document_links_cover_python_docstring_citation_columns() {
     // Python docstring content is normalized for scanning, but LSP links must
     // still cover the original editor columns (§AR-scanner.4 §FS-lsp.1.3.2).
@@ -776,34 +513,7 @@ fn document_links_cover_python_docstring_citation_columns() {
     )
     .expect("write source");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
-    let mut stdin = child.stdin.take().expect("child stdin");
-    let receiver = read_messages(child.stdout.take().expect("child stdout"));
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(&root),
-                "capabilities": {}
-            }
-        }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 1);
-    send_message(
-        &mut stdin,
-        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
-    );
+    let (mut child, mut stdin, receiver) = start_server(&root);
 
     send_message(
         &mut stdin,
@@ -873,35 +583,9 @@ fn definition_links_carry_whole_token_origin_span() {
     let citation_line = "Uses §FS-001-alpha.";
     fs::write(&user, format!("# AR-002-user: User\n\n{citation_line}\n")).expect("write user");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
-    let mut stdin = child.stdin.take().expect("child stdin");
-    let receiver = read_messages(child.stdout.take().expect("child stdout"));
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(&root),
-                "capabilities": {
-                    "textDocument": { "definition": { "linkSupport": true } }
-                }
-            }
-        }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 1);
-    send_message(
-        &mut stdin,
-        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
+    let (mut child, mut stdin, receiver) = start_server_with_capabilities(
+        &root,
+        json!({ "textDocument": { "definition": { "linkSupport": true } } }),
     );
 
     // Definition on the Markdown declaration title returns its usages as links
@@ -998,34 +682,7 @@ fn document_highlight_marks_whole_citation_token() {
     let citation_line = "Uses §FS-001-alpha and again §FS-001-alpha.";
     fs::write(&user, format!("# AR-002-user: User\n\n{citation_line}\n")).expect("write user");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
-    let mut stdin = child.stdin.take().expect("child stdin");
-    let receiver = read_messages(child.stdout.take().expect("child stdout"));
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(&root),
-                "capabilities": {}
-            }
-        }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 1);
-    send_message(
-        &mut stdin,
-        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
-    );
+    let (mut child, mut stdin, receiver) = start_server(&root);
 
     // Byte and UTF-16 offsets of the first citation, then a cursor parked on a
     // sub-word inside it (a few units past the marker).
@@ -1116,34 +773,7 @@ fn forbidden_citation_surfaces_as_diagnostic() {
     )
     .expect("write spec");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
-    let mut stdin = child.stdin.take().expect("child stdin");
-    let receiver = read_messages(child.stdout.take().expect("child stdout"));
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(&root),
-                "capabilities": {}
-            }
-        }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 1);
-    send_message(
-        &mut stdin,
-        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
-    );
+    let (mut child, mut stdin, receiver) = start_server(&root);
 
     let diagnostics = recv_diagnostics(&receiver, &mut child, "FS-001-alpha.md");
     let forbidden: Vec<&Value> = diagnostics
@@ -1188,34 +818,7 @@ fn malformed_message_does_not_crash_server() {
     )
     .expect("write spec");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
-    let mut stdin = child.stdin.take().expect("child stdin");
-    let receiver = read_messages(child.stdout.take().expect("child stdout"));
-
-    send_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(&root),
-                "capabilities": {}
-            }
-        }),
-    );
-    recv_response_or_panic(&receiver, &mut child, 1);
-    send_message(
-        &mut stdin,
-        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
-    );
+    let (mut child, mut stdin, receiver) = start_server(&root);
 
     // A `didChange` whose params are missing the required fields fails to
     // deserialize inside the notification handler.
