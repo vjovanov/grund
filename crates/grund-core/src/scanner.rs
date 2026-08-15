@@ -1380,6 +1380,11 @@ fn walk_scannable_files(
         }
     }
     files.sort_by_key(|path| sort_path_key(path));
+    // One file, one read: the roots may overlap — `include = ["docs", "docs/api"]`
+    // names one subtree twice, and under `--full` every `include` root is walked
+    // beside the config root that already contains it (§FS-check.1.3). Scanning a
+    // file twice would report its declaration as a duplicate of itself.
+    files.dedup();
     Ok(files)
 }
 
@@ -1425,20 +1430,38 @@ fn scan_roots_for(
         if scope.is_file() {
             return Ok(vec![scope]);
         }
-        if scope == config.root
-            && !full
-            && let Some(include) = &config.include
-        {
-            return Ok(include.iter().map(|path| config.root.join(path)).collect());
+        if scope == config.root {
+            return Ok(root_scope_roots(config, full));
         }
         return Ok(vec![scope]);
     }
-    if !full
-        && let Some(include) = &config.include
-    {
-        Ok(include.iter().map(|path| config.root.join(path)).collect())
-    } else {
-        Ok(vec![config.root.clone()])
+    Ok(root_scope_roots(config, full))
+}
+
+/// The roots a walk of the whole config root starts from (§FS-config.3.5).
+///
+/// Without `--full` that is `[scan] include`, or the root itself when the key is
+/// unset. With `--full` it is the root **and** every `include` root, not the root
+/// alone: a walk root is never pruned by `.gitignore`, `[scan] exclude`, or the
+/// hidden-directory rule, while the same directory reached as a *descendant* of
+/// the config root is. Starting only at the root would therefore read *fewer*
+/// files than the plain walk whenever an `include` entry is gitignored, excluded,
+/// or hidden — and `--full` would turn a red run green, which is exactly what
+/// §FS-check.1.3 promises it can never do. `walk_scannable_files` deduplicates
+/// the file list, so an `include` root the root walk already covers is read once.
+/// Collecting each root through `components()` folds away the `./` and trailing
+/// separator an entry may be written with, so two roots naming one directory
+/// yield byte-identical descendant paths and the dedup can recognize the reread.
+fn root_scope_roots(config: &Config, full: bool) -> Vec<PathBuf> {
+    let include = config
+        .include
+        .iter()
+        .flatten()
+        .map(|entry| config.root.join(entry).components().collect::<PathBuf>());
+    match (full, config.include.is_some()) {
+        (true, _) => std::iter::once(config.root.clone()).chain(include).collect(),
+        (false, true) => include.collect(),
+        (false, false) => vec![config.root.clone()],
     }
 }
 

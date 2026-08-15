@@ -253,6 +253,38 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
     }
 }
 
+/// §FS-check.1.3: the caution a `--full` run earns when the caller also typed a
+/// path that is not the config root. `--full` cancels `[scan] include`, and an
+/// explicit path already bypasses that key, so the flag has nothing left to
+/// cancel and the run is the ordinary one. A warning rather than a rejection:
+/// the invocation is valid, and a script that passes `--full` uniformly must not
+/// fail on the one call where it is redundant. Like every warning it leaves the
+/// exit code alone and, per §FS-check.2.1, stands in place of the `success`
+/// marker on an otherwise clean run.
+fn full_scope_ignored_warning(
+    config: &Config,
+    path: &Path,
+    path_provided: bool,
+    full: bool,
+) -> Option<Diagnostic> {
+    if !full || scope_is_config_root(config, path, path_provided) {
+        return None;
+    }
+    let resolved = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    Some(Diagnostic {
+        code: "full-scope-ignored",
+        path: None,
+        line: None,
+        column: None,
+        message: format!(
+            "--full has no effect with an explicit PATH — it cancels [scan] include, and {} \
+             already bypasses it",
+            display_path(config, &resolved)
+        ),
+        sites: Vec::new(),
+    })
+}
+
 /// Print [`config_warnings`] in the CLI-level shape (§FS-errors.2.2): one
 /// `warning: ` line each, on stderr, exit code untouched. Rendering, so it
 /// lives with the other report printers rather than in `api.rs`, which is the

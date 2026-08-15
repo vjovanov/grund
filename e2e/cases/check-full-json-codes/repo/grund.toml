@@ -1,0 +1,4 @@
+grund_config_version = 1
+
+[scan]
+include = ["docs", "src"]

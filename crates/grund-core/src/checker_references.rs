@@ -81,26 +81,12 @@ fn retain_findings_in_scope(findings: &mut Findings, scope: Option<&ScanScope>) 
         .escaped_citations
         .retain(|cite| scope.contains(&cite.file));
     findings.scanned_files.retain(|file| scope.contains(file));
-    // §AR-scanner.2.6 resolved every number-only shorthand against the whole
-    // walk, which under `--full` includes declarations the retains above have
-    // just dropped. Undo exactly those, so a shorthand whose only declaration
-    // lives outside the configured scope is the *unresolved* one a run without
-    // the flag sees: §FS-check.3.13 reports it once, and the dangling check
-    // stays skipped rather than adding a second finding for the same cause. The
-    // `namespace` guard mirrors that pass — a qualified shorthand is resolved
-    // against its own project, not this one.
-    for cite in findings
-        .citations
-        .iter_mut()
-        .chain(findings.escaped_citations.iter_mut())
-    {
-        if cite.shorthand
-            && cite.namespace.is_none()
-            && !findings.declarations.contains_key(&cite.id)
-        {
-            cite.id.slug = None;
-        }
-    }
+    // The shorthand resolutions §AR-scanner.2.6 performed against the whole walk
+    // are deliberately left standing. A site whose declaration the retains above
+    // just dropped is judged by the candidate set the *narrowed* declarations
+    // yield, in `report_shorthand_citation` — one predicate covering the
+    // unqualified and the cross-member qualified form alike, rather than an undo
+    // pass here that could only reach the unqualified one (§FS-check.3.13).
 }
 
 /// §FS-check.3.14: the out-of-scope tier — the reference-resolution family run
@@ -164,13 +150,28 @@ fn workspace_out_of_scope_references(
     diagnostics
 }
 
-/// §FS-check.3.14: one code for the whole tier, so `--format=json` separates it
-/// on the `code` field the report shape already carries (§FS-errors.5), and the
-/// `[scan] include` key named at the end of the message, because putting the
-/// directory in scope — not living here — is the fix.
+/// §FS-check.3.14: the tier's own code and message shape.
+///
+/// The code is the in-scope one under an `out-of-scope-` prefix, so a
+/// `--format=json` consumer filters the tier by prefix and the rule by exact
+/// match on the `code` field the report shape already carries (§FS-errors.5) —
+/// one code for all four would leave the rule readable only in the prose.
+///
+/// The tier leads the message rather than trailing it: out here the fix is
+/// usually to widen `[scan] include`, so a rule's own fix-it hint ("did you
+/// mean …?") is the fact most likely to be wrong and least deserving of being
+/// read first.
 fn tag_out_of_scope(mut diagnostic: Diagnostic) -> Diagnostic {
-    diagnostic.code = "out-of-scope-reference";
-    diagnostic.message = format!("{} (outside [scan] include)", diagnostic.message);
+    diagnostic.code = match diagnostic.code {
+        "dangling" => "out-of-scope-dangling",
+        "missing-section" => "out-of-scope-missing-section",
+        "unknown-project" => "out-of-scope-unknown-project",
+        "shorthand-citation" => "out-of-scope-shorthand-citation",
+        // `check_citation_resolution` emits exactly the four above; anything
+        // else would be a new rule joining the family without a tier code.
+        other => other,
+    };
+    diagnostic.message = format!("outside [scan] include: {}", diagnostic.message);
     diagnostic
 }
 

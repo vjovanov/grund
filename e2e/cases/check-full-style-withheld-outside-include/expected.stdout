@@ -1,1 +1,1 @@
-sim/broken.py:1: unknown reference FS-999-missing (outside [scan] include)
+sim/broken.py:1: outside [scan] include: unknown reference FS-999-missing

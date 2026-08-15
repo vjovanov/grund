@@ -95,7 +95,7 @@ fn run_check(
     if force_require_grounding {
         config.require_grounding = true;
     }
-    if config.workspace_declared && is_workspace_root_scope(&config, path, path_provided) {
+    if config.workspace_declared && scope_is_config_root(&config, path, path_provided) {
         return run_workspace_check(config, force_require_grounding, full);
     }
 
@@ -124,6 +124,13 @@ fn run_check(
     // independent, and a repository mid-migration must not lose the scope
     // diagnostic just because it also has a config pair.
     report.warnings.extend(redundant_config_warning(&config));
+    // §FS-check.1.3, also after the empty-scan test: `--full` cancels
+    // `[scan] include`, and an explicit path other than the config root already
+    // bypasses that key — so the flag changed nothing and the caller who typed it
+    // wanted a wider search. Say so instead of accepting it silently.
+    report
+        .warnings
+        .extend(full_scope_ignored_warning(&config, path, path_provided, full));
     // §FS-check.3.14, after the empty-scan test above: a `--full` run whose
     // *configured* scope read nothing still earns that caution — the tier says
     // where the citations are, the caution says the config has not been told.
@@ -245,7 +252,12 @@ fn append_scan_errors(
     had_scan_errors
 }
 
-fn is_workspace_root_scope(config: &Config, path: &Path, path_provided: bool) -> bool {
+/// Whether the requested scope *is* the config root — the scope `[scan] include`
+/// governs, and therefore the only one `grund check --full` can widen
+/// (§FS-check.1.3). It is also what decides a workspace-wide run
+/// (§FS-workspace.5): both questions are "did the caller ask for the whole
+/// project, however they spelled it?".
+fn scope_is_config_root(config: &Config, path: &Path, path_provided: bool) -> bool {
     !path_provided
         || fs::canonicalize(path)
             .map(|path| path == config.root)

@@ -1,0 +1,1 @@
+warning: --full has no effect with an explicit PATH — it cancels [scan] include, and sim already bypasses it
