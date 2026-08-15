@@ -148,7 +148,10 @@
 /// findings are then narrowed in place to the configured scope, so every rule
 /// above sees exactly the tree a run without the flag sees. That ordering is
 /// what makes `--full` purely additive: it can only add findings, never withdraw
-/// one the ordinary run would have made.
+/// one the ordinary run would have made. The narrowing also undoes the shorthand
+/// resolution the wider walk enabled (§AR-scanner.2.6) where the declaration it
+/// resolved against has just been dropped, so such a site is the unresolved
+/// shorthand a plain run reports — one cause, one finding (§FS-check.3.13).
 ///
 /// ## 3. Error format
 ///

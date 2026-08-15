@@ -81,6 +81,26 @@ fn retain_findings_in_scope(findings: &mut Findings, scope: Option<&ScanScope>) 
         .escaped_citations
         .retain(|cite| scope.contains(&cite.file));
     findings.scanned_files.retain(|file| scope.contains(file));
+    // §AR-scanner.2.6 resolved every number-only shorthand against the whole
+    // walk, which under `--full` includes declarations the retains above have
+    // just dropped. Undo exactly those, so a shorthand whose only declaration
+    // lives outside the configured scope is the *unresolved* one a run without
+    // the flag sees: §FS-check.3.13 reports it once, and the dangling check
+    // stays skipped rather than adding a second finding for the same cause. The
+    // `namespace` guard mirrors that pass — a qualified shorthand is resolved
+    // against its own project, not this one.
+    for cite in findings
+        .citations
+        .iter_mut()
+        .chain(findings.escaped_citations.iter_mut())
+    {
+        if cite.shorthand
+            && cite.namespace.is_none()
+            && !findings.declarations.contains_key(&cite.id)
+        {
+            cite.id.slug = None;
+        }
+    }
 }
 
 /// §FS-check.3.14: the out-of-scope tier — the reference-resolution family run
