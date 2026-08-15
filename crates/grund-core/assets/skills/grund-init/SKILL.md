@@ -522,9 +522,9 @@ docstring_python = true
 ```
 
 Pros: broad coverage for adoption across teams.
-Cons: can be noisy; recommend narrowing after the first `grund check`.
+Cons: can be noisy; recommend narrowing after the first `grund check`, then `grund check --full .` to see what the narrowing left out.
 
-When multiple language examples apply, merge them conservatively: union the real include dirs, union the extensions actually present, and union generated/cache excludes. Prefer a narrower first config that passes cleanly over an over-broad config that floods the user with findings.
+When multiple language examples apply, merge them conservatively: union the real include dirs, union the extensions actually present, and union generated/cache excludes. Prefer a narrower first config that passes cleanly over an over-broad config that floods the user with findings — and then run `grund check --full .`, which reports the citations that resolve to nothing in the directories `include` left out. A narrow `include` is a good starting point precisely because that check exists; without it, the citations the first config forgot are invisible rather than merely unchecked (§FS-check.1.3).
 
 ## Validation
 
@@ -534,7 +534,10 @@ After writing config, run:
 grund config validate .
 grund init .
 grund check .
+grund check --full .
 ```
+
+The last line checks the config itself: `grund check .` reads only what `[scan] include` names, so `grund check --full .` walks the whole root past that key and reports the references resolving to nothing out there (§FS-check.1.3) — each one names a directory that belongs in `include`.
 
 If custom config affects `AGENTS.md`, ensure `grund.toml` exists before `grund init` so the generated managed block reflects the selected ID grammar, marker, strict mode, kinds, and existing artifact layout.
 

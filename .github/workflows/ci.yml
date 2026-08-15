@@ -78,6 +78,12 @@ jobs:
       - name: grund self-check
         shell: bash
         run: |
+          # `--full` (§FS-check.1.3) walks past `[scan] include` as well, so a citation
+          # this repository's own config forgot to cover — README.md and examples/ are
+          # both outside it — fails CI instead of accumulating unseen. The flag is
+          # purely additive, so this step still asserts exactly what it did before plus
+          # the wider reference search.
+          #
           # `timeout 30` is the catastrophic-regression guard (§AR-ci.4 / §GOAL-fast-feedback):
           # `grund .` on this repo runs in tens of milliseconds, so a 30s ceiling never
           # flakes but still trips on a quadratic walk or a second read pass. The precise
@@ -90,7 +96,7 @@ jobs:
 
           try:
               result = subprocess.run(
-                  ["cargo", "run", "--locked", "--", "check", ".", "--format", "json"],
+                  ["cargo", "run", "--locked", "--", "check", ".", "--format", "json", "--full"],
                   stdout=subprocess.PIPE,
                   timeout=30,
               )
