@@ -14,7 +14,7 @@
 2. **Re-read before you edit.** `grund <ID>.<section>` pulls just that subsection into context — no full-file reads, no token bloat.
 3. **No dangling pointers.** `grund check` validates that every cited ID resolves — in `.md`, Rust `///`, Java doc-comments, Python docstrings, Go `//`, JSDoc, every doc-comment form `grund` knows about.
 
-Off-the-shelf Markdown link checkers (`lychee`, `markdown-link-check`) only handle `.md` and only validate `[text](url)`. A `<§>FS-events.4` cited from `src/bus.rs` is invisible to them. That gap is what `grund` exists to close: Lychee checks whether Markdown links still open; `grund` checks whether your code still knows why it exists. Lychee is the link checker; `grund` is the intent checker. Both belong in CI; they guard different failure modes. [§GRUND-grund.1](docs/grund.md#1-what-grund-does-about-it)
+Off-the-shelf Markdown link checkers (`lychee`, `markdown-link-check`) only handle `.md` and only validate `[text](url)`. A `§`-marked citation of `FS-events.4` in `src/bus.rs` is invisible to them. That gap is what `grund` exists to close: Lychee checks whether Markdown links still open; `grund` checks whether your code still knows why it exists. Lychee is the link checker; `grund` is the intent checker. Both belong in CI; they guard different failure modes. [§GRUND-grund.1](docs/grund.md#1-what-grund-does-about-it)
 
 `grund` measures CI performance by instruction count, not stopwatch time: the current snapshot is 299,672,739 Callgrind `Ir` for `grund check .` and 1,055,099,244 `Ir` for the generated 10k-file fixture, with pull requests gated at 5% growth.
 
@@ -128,8 +128,9 @@ a `grund.toml` of their own use the canonical defaults, and a member that declar
 own `[workspace]` block is rejected in v1. Each project can also set a one-line
 `project_description` next to `project_name`; `grund init` renders it beside
 the alias in the generated workspace member list (see
-[§FS-config](docs/functional-spec/FS-config.md)). Cross-repository aliases (e.g.
-`<§>payments/FS-refunds` resolving to a neighboring repo) are not yet supported.
+[§FS-config](docs/functional-spec/FS-config.md)). Cross-repository aliases — an
+alias like `payments/FS-refunds` resolving to a neighboring repo — are not yet
+supported.
 See [§FS-workspace](docs/functional-spec/FS-workspace.md).
 
 ## 4. The structure that gets cited
@@ -172,9 +173,16 @@ Three schemes are supported. Pick one per repo and keep it stable — mixing is 
 
 Rule of thumb: pick `{kind}-{slug}` until rename churn or ID count starts to hurt; switch to `{kind}-{number}-{slug}` when it does.
 
-Citations use the marker `§`, e.g. `<§>FS-user-login.3.1`; in a workspace, `<§>api/FS-user-login.3.1` targets the `api` project. Type `$$` in a `grund`-aware editor and it's rewritten to `§` automatically. Both marker and trigger are configurable in `grund.toml`.
+A citation is the marker `§`, the ID, and an optional `.<section>` — with the target project's alias in front when the repo is a workspace:
 
-The marker is the whole signal: a `§`-prefixed token is a live, checked citation wherever it appears — including inside Markdown backticks — so to show an *example* ID that shouldn't resolve, write it without the marker (`FS-user-login`), inside a fenced code block, or with the marker bracketed (`<§>FS-user-login`) — the escape this page's own examples use, and the one `grund check --full` expects when it meets a live-looking citation in a file `[scan] include` never covered.
+```
+§FS-user-login.3.1        # section 3.1 of FS-user-login
+§api/FS-user-login.3.1    # the same section, in the `api` project of a workspace
+```
+
+Type `$$` in a `grund`-aware editor and it's rewritten to `§` automatically. Both marker and trigger are configurable in `grund.toml`.
+
+The marker is the whole signal: a `§`-prefixed token is a live, checked citation wherever it appears — including inside Markdown backticks — so to show an *example* ID that shouldn't resolve, write it without the marker (`FS-user-login`), inside a fenced code block (which is how the two citations above are written), or with the marker bracketed (`<§>FS-user-login`) — the escape `grund check` names in its own hint when a citation resolves to nothing.
 
 **Specs can live inline in source.** Drop a one-line stub in `docs/architecture/AR-foo.md` whose H1 is `# AR-foo: [src/foo.rs](src/foo.rs)`, then declare the spec in the class doc-comment:
 
