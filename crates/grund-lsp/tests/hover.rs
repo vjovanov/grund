@@ -1,10 +1,11 @@
 //! `textDocument/hover` cases driven against a real server process: the usage
-//! counts a declaration-side title carries, and the citation preview they must
-//! leave alone (§FS-lsp.1.2).
+//! counts a declaration-side title carries, the citation preview they must
+//! leave alone, and the citation that resolves to nothing and defers to its
+//! diagnostic (§FS-lsp.1.2).
 
 mod support;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::fs;
 use support::*;
 
@@ -89,13 +90,25 @@ fn title_hover_reports_usage_counts_for_every_title_kind() {
         hover_body(&section),
         "`1. Detail` — cited at 1 site across 1 file"
     );
+    assert!(
+        section["range"]["start"]["line"].as_i64() == Some(4)
+            && section["range"]["start"]["character"].as_i64() == Some(3)
+            && section["range"]["end"]["character"].as_i64() == Some("## 1. Detail".len() as i64),
+        "a section heading hovers with its whole title range (§FS-lsp.1.2): {section:?}"
+    );
 
     // A stub title is a whole-ID title: it counts the citations of the
     // declaration it points at, in the file that cites it.
     let stub_hover = hover_result(&mut stdin, &receiver, &mut child, 4, &file_uri(&stub), 0, 5);
+    let stub_heading = "# AR-001-router: [src/router.rs](../../src/router.rs)";
     assert_eq!(
         hover_body(&stub_hover),
         "`AR-001-router: [src/router.rs](../../src/router.rs)` — cited at 1 site across 1 file"
+    );
+    assert!(
+        stub_hover["range"]["start"]["character"].as_i64() == Some(2)
+            && stub_hover["range"]["end"]["character"].as_i64() == Some(stub_heading.len() as i64),
+        "a stub title hovers with its whole title range (§FS-lsp.1.2): {stub_hover:?}"
     );
 
     // And the inline source declaration the stub points at answers the same.
@@ -124,12 +137,12 @@ fn title_hover_reports_usage_counts_for_every_title_kind() {
 
     send_message(
         &mut stdin,
-        serde_json::json!({"jsonrpc": "2.0", "id": 8, "method": "shutdown", "params": null}),
+        json!({"jsonrpc": "2.0", "id": 8, "method": "shutdown", "params": null}),
     );
     recv_response_or_panic(&receiver, &mut child, 8);
     send_message(
         &mut stdin,
-        serde_json::json!({"jsonrpc": "2.0", "method": "exit", "params": null}),
+        json!({"jsonrpc": "2.0", "method": "exit", "params": null}),
     );
     wait_for_exit(&mut child);
 }
@@ -164,12 +177,69 @@ fn citation_hover_still_previews_the_declaration_body() {
 
     send_message(
         &mut stdin,
-        serde_json::json!({"jsonrpc": "2.0", "id": 3, "method": "shutdown", "params": null}),
+        json!({"jsonrpc": "2.0", "id": 3, "method": "shutdown", "params": null}),
     );
     recv_response_or_panic(&receiver, &mut child, 3);
     send_message(
         &mut stdin,
-        serde_json::json!({"jsonrpc": "2.0", "method": "exit", "params": null}),
+        json!({"jsonrpc": "2.0", "method": "exit", "params": null}),
     );
     wait_for_exit(&mut child);
+}
+
+#[test]
+fn hover_on_dangling_citation_defers_to_diagnostic() {
+    // A citation that cannot resolve has no hover body. Its diagnostic already
+    // carries the nearest-ID hint, so returning it from hover too would double
+    // the text in editors that render diagnostics in the hover popup; hover
+    // returns nothing and the diagnostic stands alone (§FS-lsp.1.2).
+    let root = test_root("hover-dangling-defers");
+    fs::write(
+        root.join(".agents/grund.toml"),
+        "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n\
+         [id]\nformat = \"{kind}-{slug}\"\nslug_pattern = \"[a-z][a-z0-9-]*\"\n",
+    )
+    .expect("write config");
+    fs::create_dir_all(root.join("docs/functional-spec")).expect("create specs");
+    fs::write(
+        root.join("docs/functional-spec/FS-check.md"),
+        "# FS-check: Check\n\nLead.\n",
+    )
+    .expect("write spec");
+    let marker = '§';
+    let line = format!("Uses {marker}FS-chek.");
+    let uses = root.join("docs/uses.md");
+    fs::write(&uses, format!("{line}\n")).expect("write uses");
+
+    let (mut child, mut stdin, receiver) = start_server(&root);
+
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": file_uri(&uses) },
+                "position": { "line": 0, "character": 8 }
+            }
+        }),
+    );
+    let hover = recv_response_or_panic(&receiver, &mut child, 2);
+    assert!(
+        hover["result"].is_null(),
+        "hover on a dangling citation returns nothing so the diagnostic is not \
+         echoed a second time in the hover popup (§FS-lsp.1.2): {hover:?}"
+    );
+
+    send_message(
+        &mut stdin,
+        json!({ "jsonrpc": "2.0", "id": 3, "method": "shutdown", "params": null }),
+    );
+    recv_response_or_panic(&receiver, &mut child, 3);
+    send_message(&mut stdin, json!({ "jsonrpc": "2.0", "method": "exit" }));
+    drop(stdin);
+
+    wait_for_exit(&mut child);
+    let _ = fs::remove_dir_all(root);
 }

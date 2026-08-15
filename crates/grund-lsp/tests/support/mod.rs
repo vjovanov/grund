@@ -185,9 +185,19 @@ pub fn wait_for_exit(child: &mut Child) {
 }
 
 /// Spawn a server rooted at `root` and complete the `initialize` /
-/// `initialized` handshake (§FS-lsp.2.2), leaving request id `1` spent — a
-/// case starts its own requests at `2`.
+/// `initialized` handshake (§FS-lsp.2.2) as a client that advertises nothing,
+/// leaving request id `1` spent — a case starts its own requests at `2`.
 pub fn start_server(root: &Path) -> (Child, ChildStdin, mpsc::Receiver<Value>) {
+    start_server_with_capabilities(root, json!({}))
+}
+
+/// The same handshake for a case whose subject is what the server does with a
+/// declared client capability (`textDocument.definition.linkSupport`, say):
+/// `capabilities` is sent verbatim as the `initialize` client capabilities.
+pub fn start_server_with_capabilities(
+    root: &Path,
+    capabilities: Value,
+) -> (Child, ChildStdin, mpsc::Receiver<Value>) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
         .current_dir(root)
         .stdin(Stdio::piped())
@@ -206,7 +216,7 @@ pub fn start_server(root: &Path) -> (Child, ChildStdin, mpsc::Receiver<Value>) {
             "params": {
                 "processId": std::process::id(),
                 "rootUri": file_uri(root),
-                "capabilities": {}
+                "capabilities": capabilities
             }
         }),
     );
