@@ -5,7 +5,7 @@
 
 ## 1. Context
 
-`[scan] include` ([§FS-config.3.5](../../functional-spec/FS-config.md#35-scan--what-gets-walked)) names the roots `grund check` walks. Everything else in the repository is not merely unchecked — it is **invisible**. A `§`-citation there does not resolve, does not dangle, appears in no report, and is counted by nothing; the declaration it points at is simultaneously reported as never cited ([§FS-check.4.1](../../functional-spec/FS-check.md#41-unused-declaration)).
+`[scan] include` ([§FS-config.3.5](../../functional-spec/FS-config.md#35-scan--what-gets-walked)) names the roots `grund check` walks. Everything else in the repository is not merely unchecked — it is **invisible**. A `§`-citation there does not resolve, does not dangle, appears in no report, and is counted by nothing: the edge is missing from the graph in both directions, so the declaration it points at is reported `declared but never cited` ([§FS-check.4.1](../../functional-spec/FS-check.md#41-unused-declaration)) as if nothing referred to it.
 
 The failure mode is invisible by construction. `include` is written once, early, when the tree is small; code then moves, a simulation layer lands in `sim/`, a prompt set in `render/`, and nothing in the tool ever says that half the citations in the repository stopped being read. `check` prints `success` — which means "clean *within* `include`" and is read as "clean". A field report on this ([issue #55](https://github.com/vjovanov/grund/issues/55)) found three genuine defects sitting unreported behind exactly that gap: a citation a formatter had wrapped across a line break, a cited section that did not exist, and a citation missing its workspace namespace so it resolved against the wrong project.
 
@@ -18,6 +18,8 @@ The same report showed why "just scan everything" is not the answer either: scan
 ### 2.1 A flag that cancels `include` and nothing else
 
 Add `grund check --full` ([§FS-check.1.3](../../functional-spec/FS-check.md#13-the-full-tree-scope---full)): the walk covers the whole config root. `[scan] exclude`, the ignore files, hidden directories, workspace member boundaries, and `[scan] extensions` apply unchanged. One flag, one meaning — "ignore `include`" — so a reader can answer "what did this run read?" from the flag alone.
+
+"Cancels `include`" is a statement about *rules*, not about walk roots, and the difference is load-bearing: none of `exclude`, the ignore files, or the hidden-directory rule can prune the directory a walk *starts* at, only its descendants. A walk that started at the config root alone would therefore lose a gitignored, excluded, or hidden `include` root that the ordinary run reads as a root of its own — `--full` would read *fewer* files than `grund check` and could turn a red run green, which §2.4 forbids in the strongest terms available. So the `--full` walk starts at the config root **and** at every `include` root, and reads each file once.
 
 `[scan] extensions` deliberately stays out of it. Which file *types* carry citations is a project fact that belongs in the config; which *directories* were forgotten is the accident this flag exists to expose. Folding both into one flag would make `--full` mean "read more kinds of file too", and the set of files a run touched would stop being derivable from the config.
 
@@ -37,6 +39,8 @@ A `--full` finding is an error like any other reference failure. A warning would
 
 That is also why the wider walk does **not** feed the in-scope rules: an inline declaration living outside `include` would otherwise make an in-scope dangling citation resolve under `--full` and dangle without it — a citation that `grund <ID>` still cannot open, reported green by the mode meant to find more, not less.
 
+The price is paid in one place and is worth naming: an in-scope declaration cited *only* from outside `include` still gets its [§FS-check.4.1](../../functional-spec/FS-check.md#41-unused-declaration) `declared but never cited` warning under `--full`, even though the wider walk has just read the citation and resolved it. Counting that edge would *retire* an in-scope finding — the one direction additivity does not allow — and would make a warning mean different things under different flags. `--full` reports what points at nothing; it does not re-score the governed graph. The remedy is the one every finding in the tier already names: widen `include`, and the citing file joins the graph with the whole rule set behind it.
+
 ### 2.5 No `grund.toml` key
 
 `--full` is a flag and never a config setting. A project that wants its whole tree governed widens `include` and gets the whole rule set; the flag is for the tree whose config has drifted from where its code went. A key that made `--full` the default would be a second, weaker `include` — two knobs describing one scope, which is how two correctly-configured installs come to disagree ([§FS-non-goals.13](../../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
@@ -55,10 +59,10 @@ An advisory tier that never touched the exit code would still be wrong here, for
 ## 3. Consequences
 
 - `grund check` gains `--full`; `CheckOpts` gains `full: bool` ([§FS-distribution.3.1](../../functional-spec/FS-distribution.md#31-rust-grund-core-crate)) — a documented, additive break in the library surface, like `include_suggestions` before it.
-- One new diagnostic code, `out-of-scope-reference`. The `{ severity, path, line, code, message, sites }` JSON shape ([§FS-errors.5](../../functional-spec/FS-errors.md#5-json-format)) is unchanged: the tier rides on the `code` field the shape already carries, so no consumer has to learn a new field to keep working.
+- Four new diagnostic codes — `out-of-scope-dangling`, `out-of-scope-missing-section`, `out-of-scope-unknown-project`, `out-of-scope-shorthand-citation` — one per rule in the tier, each the in-scope code under an `out-of-scope-` prefix. The `{ severity, path, line, code, message, sites }` JSON shape ([§FS-errors.5](../../functional-spec/FS-errors.md#5-json-format)) is unchanged: the tier rides on the `code` field the shape already carries, filterable by prefix, while the rule stays exact-matchable. One code for all four would have made a consumer regex the prose to learn which rule fired.
 - No `grund_config_version` bump and no new config key (§2.5).
 - `grund fmt`, `list`, `refs`, `cover`, and `show` keep the configured scope. That asymmetry is deliberate — `check` answers "is anything broken?", which is a question about the repository; the others answer questions about the governed graph — and it is why [§FS-check.3.14](../../functional-spec/FS-check.md#314-out-of-scope-unresolvable-citation---full-only) withholds the one finding whose fix is a `fmt` rewrite.
-- The durable fix stays `include`. Every out-of-scope finding names the key in its message, so the tier reads as "put this directory in scope", not as a place to live.
+- The durable fix stays `include`. Every out-of-scope finding leads with the key, so the tier reads as "put this directory in scope", not as a place to live.
 
 ## 4. Alternatives considered
 
