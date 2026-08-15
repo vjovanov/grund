@@ -144,7 +144,10 @@ fn title_hover_reports_usage_counts_for_every_title_kind() {
         &mut stdin,
         json!({"jsonrpc": "2.0", "method": "exit", "params": null}),
     );
+    drop(stdin);
+
     wait_for_exit(&mut child);
+    let _ = fs::remove_dir_all(root);
 }
 
 /// §FS-lsp.1.2: hovering a *citation* is unchanged — it still previews the
@@ -184,7 +187,10 @@ fn citation_hover_still_previews_the_declaration_body() {
         &mut stdin,
         json!({"jsonrpc": "2.0", "method": "exit", "params": null}),
     );
+    drop(stdin);
+
     wait_for_exit(&mut child);
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
