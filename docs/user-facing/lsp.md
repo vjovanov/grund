@@ -188,7 +188,8 @@ Adjust the selector to match the syntaxes you scan in `.agents/grund.toml`.
 Open a file containing a resolving citation such as `§FS-check`.
 
 - Hover should show the same body as `grund FS-check --toc` ([§FS-lsp.1.2](../functional-spec/FS-lsp.md#12-hover-preview)).
-- Hover the declaration heading itself — the `# FS-check: …` line, a numbered section heading, or an inline-spec stub title — and the popup reads `` `FS-check: …` — cited at 12 sites across 5 files ``, the count `grund refs FS-check` prints; an uncited title reads `not cited` ([§FS-lsp.1.2](../functional-spec/FS-lsp.md#12-hover-preview)).
+- Hover a whole-ID title — the `# FS-check: …` heading, the same declaration written inline in a doc-comment, or the stub that points at it — and the popup reads `` `FS-check: …` — cited at 12 sites across 5 files ``, byte for byte the count `grund refs FS-check` prints; an uncited title reads `not cited` ([§FS-lsp.1.2](../functional-spec/FS-lsp.md#12-hover-preview)).
+- Hover a numbered section heading and the count is that section **and everything under it** — the same set the heading's own references return, and one no `grund refs` invocation prints, since `--section` keeps only citations whose coordinate is exactly the one asked for. The divergence is deliberate and stated in [§FS-lsp.1.2](../functional-spec/FS-lsp.md#12-hover-preview).
 - Go-to-definition should jump to the declaration ([§FS-lsp.1.3](../functional-spec/FS-lsp.md#13-go-to-definition)).
 - Find references from a declaration title should list citation sites ([§FS-lsp.1.3.1](../functional-spec/FS-lsp.md#131-references-from-declarations)).
 - Clickable citation links target the declaration line; editors that ignore file URI `#L<n>` fragments should still use go-to-definition for the exact jump ([§FS-lsp.1.3.2](../functional-spec/FS-lsp.md#132-document-links)).

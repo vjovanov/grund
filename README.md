@@ -236,7 +236,7 @@ Supported clients are `codium`, `iterm2`, `kitty`, `tmux`, `vscode`, and `wezter
 
 ## 🧑‍💻 Editor Support via [LSP](https://microsoft.github.io/language-server-protocol/)
 
-Install the optional language server separately when you want editor diagnostics, hover previews, definition jumps, document links, references, and live `$$` → `§` formatting:
+Install the optional language server separately when you want editor diagnostics, hover previews, usage counts on declaration titles, definition jumps, document links, references, and live `$$` → `§` formatting:
 
 ```bash
 cargo install grund-lsp
