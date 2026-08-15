@@ -307,7 +307,9 @@ impl Server {
             // already in it — so the hover carries what is not on screen: how
             // many sites cite this title, across how many files (§FS-lsp.1.2).
             Token::Declaration(decl) => {
-                let usage = self.title_usage(&decl.query_id, &decl.section_separator);
+                let usage = self
+                    .snapshot
+                    .title_usage(&decl.query_id, &decl.section_separator);
                 return Ok(Some(title_hover(
                     declaration_range(decl, self),
                     &decl.text,
@@ -315,7 +317,9 @@ impl Server {
                 )));
             }
             Token::Stub(stub) => {
-                let usage = self.title_usage(&stub.query_id, &stub.section_separator);
+                let usage = self
+                    .snapshot
+                    .title_usage(&stub.query_id, &stub.section_separator);
                 return Ok(Some(title_hover(stub_range(stub, self), &stub.text, usage)));
             }
         };
@@ -473,13 +477,6 @@ impl Server {
                 })
             })
             .collect()
-    }
-
-    /// The usage counts a declaration-side title hovers with (§FS-lsp.1.2),
-    /// counted off the session snapshot — the same scan diagnostics and
-    /// navigation answer from, never a fresh `refs` query (§AR-lsp.5).
-    fn title_usage(&self, query_id: &str, section_separator: &str) -> LspUsage {
-        self.snapshot.title_usage(query_id, section_separator)
     }
 
     /// Mark the citation, declaration, section, or stub token under the cursor
