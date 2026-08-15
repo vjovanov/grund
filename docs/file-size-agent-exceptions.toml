@@ -47,7 +47,7 @@ path = "crates/grund-lsp/tests/shutdown.rs"
 match = "exact"
 rules = ["tests"]
 kind = "deferred"
-max_accepted = { value = 1141, unit = "lines" }
+max_accepted = { value = 765, unit = "lines" }
 until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
 Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
@@ -57,7 +57,7 @@ path = "crates/grund-lsp/src/lib.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 1247, unit = "lines" }
+max_accepted = { value = 1208, unit = "lines" }
 until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
 Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
