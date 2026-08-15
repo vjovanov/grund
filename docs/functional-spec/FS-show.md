@@ -70,7 +70,15 @@ If an ID has more than one home — the duplicate-declaration error from [§FS-c
 ambiguous ID: <ID> (declared at <path>:<line>, <path>:<line>[, ...])
 ```
 
-Sites are listed in lexicographic `path:line` order so the message is stable across runs. The repo must be fixed (run `grund check` first) before `show` will return a body. This shape matches the bare-message form used for `ID not found` and `section not found` ([§FS-show.3](FS-show.md#3-outputs)): all three are queries that found something other than exactly one body.
+Sites are listed in lexicographic `path:line` order so the message is stable across runs. The repo must be fixed (run `grund check` first) before `show` will return a body.
+
+A number-only shorthand argument ([§FS-check.1.2](FS-check.md#12-the-number-only-shorthand)) fails the same way for a different reason — not one ID with two homes, but one abbreviation naming two IDs — so it names the **candidates** rather than the sites:
+
+```
+ambiguous ID: FS-042 (matches FS-042-user-login, FS-042-user-logout)
+```
+
+Candidates are listed in ID order, and the repo needs no fixing: the caller does, by passing one of the full IDs. Nothing is guessed at ([§DF-number-only-citation-shorthand.2.7](../decisions/functional/DF-number-only-citation-shorthand.md#27-ambiguity-is-reported-never-guessed)). This shape matches the bare-message form used for `ID not found` and `section not found` ([§FS-show.3](FS-show.md#3-outputs)): all three are queries that found something other than exactly one body.
 
 ### 2.3 Inline declarations in code and doc-comments
 

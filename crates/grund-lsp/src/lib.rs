@@ -2,8 +2,8 @@
 
 use anyhow::{Context, Result, anyhow};
 use grund_core::{
-    Finding, LspCitation, LspDeclaration, LspSnapshot, LspSnapshotOpts, LspStub, ShowFormat,
-    ShowMode, ShowOpts, canonical_snapshot_path, lsp_snapshot, on_type_trigger_replacement,
+    DeclaredId, Finding, LspCitation, LspDeclaration, LspSnapshot, LspSnapshotOpts, LspStub,
+    ShowFormat, ShowMode, ShowOpts, canonical_snapshot_path, lsp_snapshot, on_type_line_edits,
     show_with_overlays,
 };
 use lsp_server::{Connection, Message, Notification, Request, Response};
@@ -81,6 +81,10 @@ fn on_type_trigger_characters(trigger: &str) -> Vec<String> {
     for ch in '!'..='~' {
         chars.insert(ch.to_string());
     }
+    // §FS-lsp.1.4: the shorthand expands on the keystroke that *ends* the token,
+    // and a space is the commonest way to end one. The printable range above
+    // starts at `!`, so without this the ordinary `see §FS-042 and …` never fires.
+    chars.insert(" ".to_string());
     for ch in trigger.chars() {
         chars.insert(ch.to_string());
     }
@@ -625,23 +629,47 @@ impl Server {
         let params: DocumentOnTypeFormattingParams = serde_json::from_value(params)?;
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
-        let Some(line) = self.line_text(&uri, position.line) else {
+        // The whole document, not just the edited line: the shorthand rewrite has
+        // to know whether the line sits inside a fenced block, exactly as
+        // `grund fmt` does (§FS-lsp.1.4).
+        let Some(text) = self.document_text(&uri) else {
             return Ok(Some(Vec::new()));
         };
         let Some(path) = uri.to_file_path().ok() else {
             return Ok(Some(Vec::new()));
         };
-        on_type_replacement_for_line(&path, &line, position, &self.declared_ids())
+        on_type_replacement_for_line(&path, &text, position, &self.declared_ids())
     }
 
-    /// The bare declaration IDs in the session snapshot, for shorthand expansion
-    /// in the live trigger transform (§FS-lsp.1.4). Section titles are excluded —
-    /// only whole-ID declarations can be what a shorthand names.
-    fn declared_ids(&self) -> Vec<String> {
+    /// The edited document's full text — the open-buffer copy when the client has
+    /// one, else the file on disk, the same fallback `line_text` uses.
+    fn document_text(&self, uri: &Url) -> Option<String> {
+        if let Some(text) = self.open_docs.get(uri) {
+            return Some(text.clone());
+        }
+        fs::read_to_string(uri.to_file_path().ok()?).ok()
+    }
+
+    /// The declarations in the session snapshot, for shorthand expansion in the
+    /// live transform (§FS-lsp.1.4). Section titles are excluded — only whole-ID
+    /// declarations can be what a shorthand names.
+    ///
+    /// `query_id` carries an `<alias>/` prefix in workspace mode, which no `[id]
+    /// format` can parse; the bare ID is what a shorthand is matched against, and
+    /// the declaration's path is what scopes it to the edited file's own member.
+    /// Borrowed, not cloned: this runs on every keystroke.
+    fn declared_ids(&self) -> Vec<DeclaredId<'_>> {
         self.snapshot
             .declarations
             .iter()
-            .map(|decl| decl.query_id.clone())
+            .map(|decl| DeclaredId {
+                path: decl.path.as_path(),
+                id: decl
+                    .project
+                    .as_deref()
+                    .and_then(|alias| decl.query_id.strip_prefix(alias)?.strip_prefix('/'))
+                    .unwrap_or(&decl.query_id),
+            })
             .collect()
     }
 
@@ -853,21 +881,6 @@ impl Server {
 
     fn linkify_hover_body(&self, body: &str) -> String {
         linkify_hover_body(body, &self.snapshot.citations)
-    }
-
-    fn line_text(&self, uri: &Url, zero_based_line: u32) -> Option<String> {
-        if let Some(text) = self.open_docs.get(uri) {
-            return text
-                .lines()
-                .nth(zero_based_line as usize)
-                .map(str::to_string);
-        }
-        let path = uri.to_file_path().ok()?;
-        fs::read_to_string(path)
-            .ok()?
-            .lines()
-            .nth(zero_based_line as usize)
-            .map(str::to_string)
     }
 
     fn open_document_overlays(&self) -> BTreeMap<PathBuf, String> {
@@ -1139,43 +1152,35 @@ fn query_matches_declaration(
 
 fn on_type_replacement_for_line(
     path: &Path,
-    line: &str,
+    text: &str,
     position: Position,
-    declared_ids: &[String],
+    declarations: &[DeclaredId<'_>],
 ) -> Result<Option<Vec<TextEdit>>> {
+    let line_index = position.line as usize;
+    let Some(line) = text.lines().nth(line_index) else {
+        return Ok(Some(Vec::new()));
+    };
     let cursor = utf16_to_byte(line, position.character);
     // One config resolution per keystroke: the core helper resolves the edited
     // file's marker/trigger and the fmt-context exclusions together (§FS-lsp.1.4).
-    let Some(replacement) = on_type_trigger_replacement(path, line, cursor, declared_ids)? else {
-        return Ok(Some(Vec::new()));
+    // It returns the whole edit set already ordered, so the two rewrites it can
+    // produce — trigger→marker and shorthand→canonical — need no reconciling here.
+    let at = |offset| Position {
+        line: position.line,
+        character: byte_to_utf16(line, offset),
     };
-    let edit = |start: usize, end: usize, new_text: String| TextEdit {
-        range: Range {
-            start: Position {
-                line: position.line,
-                character: byte_to_utf16(line, start),
-            },
-            end: Position {
-                line: position.line,
-                character: byte_to_utf16(line, end),
-            },
-        },
-        new_text,
-    };
-    let mut edits = vec![edit(
-        replacement.trigger_start,
-        replacement.trigger_start + replacement.trigger_len,
-        replacement.marker,
-    )];
-    // §FS-lsp.1.4: a typed shorthand is expanded in the same edit set as the
-    // trigger conversion, so `$$FS-042` lands as `§FS-042-user-login` rather
-    // than as a `§FS-042` that immediately fails `check`. The two ranges are
-    // disjoint and given in ascending order, which is what the LSP spec requires
-    // of a multi-edit response.
-    if let Some(expansion) = replacement.token_expansion {
-        edits.push(edit(expansion.start, expansion.end, expansion.text));
-    }
-    Ok(Some(edits))
+    Ok(Some(
+        on_type_line_edits(path, text, line_index, cursor, declarations)?
+            .into_iter()
+            .map(|edit| TextEdit {
+                range: Range {
+                    start: at(edit.start),
+                    end: at(edit.end),
+                },
+                new_text: edit.text,
+            })
+            .collect(),
+    ))
 }
 
 #[cfg(test)]

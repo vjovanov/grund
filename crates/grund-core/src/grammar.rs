@@ -194,22 +194,30 @@ impl Grammar {
                 "[id].section_separator `{section_separator}` collides with a literal in [id].format"
             ));
         }
-        if Regex::new(slug_pattern)
-            .map(|re| re.is_match(section_separator))
-            .unwrap_or(false)
-        {
+        // §FS-config.3.2: each component pattern must be a valid regex *on its
+        // own*, not merely valid once spliced into `id_pat`. Two patterns whose
+        // parentheses balance only against each other — `number_pattern = "("`
+        // with `slug_pattern = "a)"` — compile fine as one ID pattern and then
+        // fall apart the moment a pass builds a pattern from a subset of the
+        // elements, which is exactly what the number-only shorthand does
+        // (§FS-check.1.2, `shorthand_elements`). Rejecting them here is what
+        // lets every derived pattern be built by string surgery and still be
+        // guaranteed to compile.
+        let slug_re = Regex::new(slug_pattern)
+            .map_err(|err| anyhow!("[id].slug_pattern is not a valid regex: {err}"))?;
+        if slug_re.is_match(section_separator) {
             return Err(anyhow!(
                 "[id].section_separator `{section_separator}` is matched by [id].slug_pattern"
             ));
         }
-        if has_number
-            && Regex::new(number_pattern)
-                .map(|re| re.is_match(section_separator))
-                .unwrap_or(false)
-        {
-            return Err(anyhow!(
-                "[id].section_separator `{section_separator}` is matched by [id].number_pattern"
-            ));
+        if has_number {
+            let number_re = Regex::new(number_pattern)
+                .map_err(|err| anyhow!("[id].number_pattern is not a valid regex: {err}"))?;
+            if number_re.is_match(section_separator) {
+                return Err(anyhow!(
+                    "[id].section_separator `{section_separator}` is matched by [id].number_pattern"
+                ));
+            }
         }
 
         let sep_quoted = regex::escape(section_separator);
@@ -243,23 +251,15 @@ impl Grammar {
         // §FS-check.1.2: the same two shapes over the slug-less element list.
         // Compiled only where the format has a shorthand at all, so `has_shorthand`
         // is the single gate the scanner, checker, `fmt`, and the LSP all read.
-        let shorthand = shorthand_elements(&elements)
-            .map(|short| {
-                let short_pat = id_pattern(&short, &kind_group, &num_group, &slug_group);
-                Ok::<_, anyhow::Error>(ShorthandGrammar {
-                    full_prefix_pattern: format!(
-                        r"\A{}{}{}",
-                        namespace_prefix, id_pat, sec_suffix
-                    ),
-                    prefix_pattern: format!(
-                        r"\A{}{}{}",
-                        namespace_prefix, short_pat, sec_suffix
-                    ),
-                    full_prefix_re: once_cell::sync::OnceCell::new(),
-                    prefix_re: once_cell::sync::OnceCell::new(),
-                })
-            })
-            .transpose()?;
+        let shorthand = shorthand_elements(&elements).map(|short| {
+            let short_pat = id_pattern(&short, &kind_group, &num_group, &slug_group);
+            ShorthandGrammar {
+                full_prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, id_pat, sec_suffix),
+                prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, short_pat, sec_suffix),
+                full_prefix_re: once_cell::sync::OnceCell::new(),
+                prefix_re: once_cell::sync::OnceCell::new(),
+            }
+        });
 
         Ok(Self {
             decl_re,

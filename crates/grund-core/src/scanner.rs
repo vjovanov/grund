@@ -20,6 +20,12 @@ fn is_scannable(path: &Path, config: &Config) -> bool {
 
 struct CitationLine<'a> {
     scan_line: &'a str,
+    /// The untransformed source line. `scan_line` may be a *slice* of it — a
+    /// Python docstring's interior with the quotes stripped (§AR-scanner.4) — and
+    /// the two answer differently when asked whether a position sits inside a
+    /// string literal. Anything deciding what `grund fmt` would do must ask the
+    /// raw line, because that is the text `fmt` sees (§FS-fmt.2.3).
+    raw_line: &'a str,
     column_offset: usize,
     lineno: usize,
     path: &'a Path,
@@ -238,6 +244,7 @@ fn scan_file_text(
                 column: scan.column_offset + start + 1,
                 has_marker,
                 shorthand: false,
+                shorthand_rewritable: true,
                 text,
                 inline_site: inline_sites.get(&lineno).cloned(),
                 // §AR-scanner.2.4: classified in the post-pass below.
@@ -247,6 +254,7 @@ fn scan_file_text(
         }
         let citation_line = CitationLine {
             scan_line,
+            raw_line: line,
             column_offset: scan.column_offset,
             lineno,
             path,
@@ -832,6 +840,7 @@ fn scan_fallback_qualified_citations(
             // The loose parser has no target grammar to derive a shorthand from,
             // so a fallback-parsed qualified citation is never one (§AR-scanner.2.6).
             shorthand: false,
+            shorthand_rewritable: true,
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
             // §AR-scanner.2.4: classified in the post-pass in `scan_file`.
@@ -959,6 +968,15 @@ fn scan_workspace_qualified_pass(
             line: line.lineno,
             column: line.column_offset + marker_start + 1,
             has_marker: true,
+            // §FS-fmt.2.3 / §FS-check.3.13: a qualified shorthand is rewritable
+            // wherever an unqualified one is — the workspace pass reaches the
+            // aliased project's declarations, so `fmt` can name the canonical
+            // form here too.
+            shorthand_rewritable: !never_rewrite_context(
+                line.raw_line,
+                line.is_md,
+                line.column_offset + marker_start,
+            ),
             shorthand: parsed.shorthand,
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
@@ -1016,54 +1034,14 @@ fn scan_escaped_citations(line: &CitationLine<'_>, findings: &mut Findings) {
             column: line.column_offset + escape_start + 1,
             has_marker: false,
             shorthand: parsed.shorthand,
+            // An escape is check-inert; nothing rewrites it (§AR-scanner.2.5).
+            shorthand_rewritable: false,
             text: line.scan_line[escape_start..token_end].to_string(),
             inline_site: None,
             source_kind: String::new(),
             enclosing_declaration: None,
         });
     }
-}
-
-/// The longest prefix of `raw` that parses as an ID under `grammar`, with the
-/// byte length consumed. Accepts the number-only shorthand (§FS-check.1.2) at
-/// each candidate length, so a qualified `§api/FS-042` is recognized with the
-/// *target* project's shorthand shape rather than the citing project's — the
-/// longest-first walk keeps a full ID winning over a shorthand prefix of it.
-fn parse_longest_id_prefix(raw: &str, grammar: &Grammar) -> Option<ParsedIdPrefix> {
-    let search_end = raw
-        .char_indices()
-        .find(|(_, ch)| ch.is_whitespace())
-        .map(|(idx, _)| idx)
-        .unwrap_or(raw.len());
-    // `char_indices` already yields strictly increasing, unique byte offsets,
-    // and `search_end` is strictly greater than the last char-start it can
-    // emit — so the chained list is sorted and unique without further work.
-    let ends = raw[..search_end]
-        .char_indices()
-        .map(|(idx, _)| idx)
-        .chain(std::iter::once(search_end))
-        .filter(|end| *end > 0)
-        .collect::<Vec<_>>();
-    for end in ends.into_iter().rev() {
-        if let Ok(parsed) = parse_id_arg_with_shorthand(&raw[..end], grammar) {
-            return Some(ParsedIdPrefix {
-                id: parsed.id,
-                section: parsed.section,
-                len: end,
-                shorthand: parsed.shorthand,
-            });
-        }
-    }
-    None
-}
-
-/// `parse_longest_id_prefix`'s result: the parsed ID and section, how many bytes
-/// of the input it consumed, and whether it came from the shorthand branch.
-struct ParsedIdPrefix {
-    id: Id,
-    section: Option<String>,
-    len: usize,
-    shorthand: bool,
 }
 
 /// Discover `e2e/cases/<name>/` directories and register each as an `E2E-<name>`

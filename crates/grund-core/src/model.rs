@@ -99,6 +99,14 @@ pub struct Citation {
     /// `id`. When `id.slug` is still `None` the shorthand resolved to zero or
     /// several declarations.
     pub shorthand: bool,
+    /// Whether `grund fmt` is allowed to canonicalize this shorthand in place —
+    /// `false` inside inline code, a Markdown link destination, or a runtime
+    /// string literal, the contexts §FS-fmt.2.3 forbids every rewrite from
+    /// touching. The site is still a citation in every other sense; the flag only
+    /// withholds the §FS-check.3.13 error that names `grund fmt --write` as its
+    /// fix, so `check` never demands an edit the formatter refuses to make.
+    /// Always `true` when `shorthand` is `false`.
+    pub shorthand_rewritable: bool,
     pub text: String,
     pub inline_site: Option<InlineCitationSite>,
     /// The resolved *citing* kind for this site (§AR-scanner.2.4): the kind of

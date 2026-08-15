@@ -209,6 +209,147 @@ mod tests_shorthand {
         assert!(!slug_less.grammar.has_shorthand());
     }
 
+    // §FS-config.3.2: the shorthand pattern is the ID pattern with one capture
+    // group cut out, which is only sound when each component pattern is a valid
+    // regex on its own. Two that balance only against each other compile as one ID
+    // pattern and then fail the moment a group is removed — a config `grund` had
+    // accepted turning into a panic on the first citation scanned.
+    #[test]
+    fn component_patterns_must_be_valid_regexes_on_their_own() {
+        let root = test_root("component_patterns_must_be_valid_regexes_on_their_own");
+        let mut config = numbered_config(root);
+        config.number_pattern = "(".into();
+        config.slug_pattern = "a)".into();
+        let err = config.rebuild_grammar().expect_err("rejected at build");
+        assert!(
+            format!("{err:#}").contains("[id].slug_pattern is not a valid regex"),
+            "{err:#}"
+        );
+    }
+
+    // §FS-check.3.13 / §FS-fmt.2.3: a shorthand `fmt` is forbidden to rewrite —
+    // inline code, a link destination, a runtime string — is still a citation that
+    // resolves and counts, but earns no "write the canonical form" error. An error
+    // whose only named fix is one the formatter refuses to apply is an error the
+    // repository can never clear.
+    #[test]
+    fn a_shorthand_fmt_cannot_rewrite_is_counted_but_not_reported() {
+        let root = test_root("a_shorthand_fmt_cannot_rewrite_is_counted_but_not_reported");
+        write(
+            &root.join("docs/functional-spec/FS-042-user-login.md"),
+            "# FS-042-user-login: User login\n\nLead.\n",
+        );
+        write(
+            &root.join("docs/notes.md"),
+            "Illustration: `§FS-042`\n\nLink: [t](§FS-042)\n\nUnknown here: `§FS-999`\n",
+        );
+        write(&root.join("src/login.rs"), "fn f() { let s = \"§FS-042\"; }\n");
+        let config = numbered_config(root.clone());
+        let (findings, report) = check_tree(&config, &root);
+
+        // Three resolving shorthands, none of them reported…
+        assert_eq!(
+            messages(&report),
+            vec!["shorthand citation §FS-999 matches no declaration"],
+            "only the genuinely dangling one is reported"
+        );
+        // …but all of them are real citations, so the declaration is not unused.
+        assert_eq!(
+            findings
+                .citations
+                .iter()
+                .filter(|cite| cite.shorthand && cite.id.slug.is_some())
+                .count(),
+            3
+        );
+        assert!(
+            findings
+                .citations
+                .iter()
+                .filter(|cite| cite.id.slug.is_some())
+                .all(|cite| !cite.shorthand_rewritable)
+        );
+    }
+
+    // §FS-check.3.13 / §FS-fmt.2.3: the "may `fmt` rewrite this?" question has to
+    // be asked of the text `fmt` will see. A Python docstring's opening line is
+    // where the two texts differ — the scanner works on the interior with the
+    // quotes stripped, `fmt` on the raw line where `"""` opens a string literal —
+    // so asking the scanner's view reports an error `fmt --write` never clears.
+    #[test]
+    fn rewritability_is_judged_on_the_raw_line_not_the_scanned_one() {
+        let root = test_root("rewritability_is_judged_on_the_raw_line_not_the_scanned_one");
+        write(
+            &root.join("docs/functional-spec/FS-042-user-login.md"),
+            "# FS-042-user-login: User login\n\nLead.\n",
+        );
+        write(
+            &root.join("src/opening.py"),
+            "def f():\n    \"\"\"§FS-042 on the opening line.\"\"\"\n    return 1\n",
+        );
+        write(
+            &root.join("src/interior.py"),
+            "def g():\n    \"\"\"\n    §FS-042 on an interior line.\n    \"\"\"\n    return 2\n",
+        );
+        let mut config = numbered_config(root.clone());
+        config.docstring_python = true;
+        let (findings, report) = check_tree(&config, &root);
+
+        // Both are citations; only the interior one is a site `fmt` can rewrite.
+        let mut sites: Vec<(String, bool)> = findings
+            .citations
+            .iter()
+            .filter(|cite| cite.shorthand)
+            .map(|cite| {
+                (
+                    cite.file.file_name().unwrap().to_string_lossy().into_owned(),
+                    cite.shorthand_rewritable,
+                )
+            })
+            .collect();
+        sites.sort();
+        assert_eq!(
+            sites,
+            vec![
+                ("interior.py".to_string(), true),
+                ("opening.py".to_string(), false),
+            ]
+        );
+        // …so exactly the rewritable one is reported.
+        assert_eq!(
+            messages(&report),
+            vec!["shorthand citation §FS-042; write §FS-042-user-login"]
+        );
+    }
+
+    // §FS-check.2.3.1: an escape only earns its "this resolves" suggestion by
+    // carrying an `Id` that is declared, so the shorthand form has to be resolved
+    // like any other — otherwise `<§>FS-042` is silently exempt from a check that
+    // catches `<§>FS-042-user-login`.
+    #[test]
+    fn an_escaped_shorthand_that_resolves_is_suggested() {
+        let root = test_root("an_escaped_shorthand_that_resolves_is_suggested");
+        write(
+            &root.join("docs/functional-spec/FS-042-user-login.md"),
+            "# FS-042-user-login: User login\n\nLead.\n",
+        );
+        write(&root.join("docs/notes.md"), "Escaped: <§>FS-042\n");
+        let config = numbered_config(root.clone());
+        let (findings, _) = check_tree(&config, &root);
+
+        let escaped = findings
+            .escaped_citations
+            .iter()
+            .find(|cite| cite.shorthand)
+            .expect("escaped shorthand recorded");
+        assert_eq!(escaped.text, "<§>FS-042");
+        assert_eq!(
+            render_id(&config, &escaped.id),
+            "FS-042-user-login",
+            "resolved, so the escape check can see that it would be live"
+        );
+    }
+
     // §AR-scanner.2.6: `render_id` reduces a partial `Id` by the same rule the
     // shorthand pattern is derived from, so an unresolved shorthand prints as
     // `FS-042` rather than leaking the raw `{slug}` placeholder into a report.
@@ -307,126 +448,46 @@ mod tests_shorthand {
         );
     }
 
-    // §FS-fmt.2.4: `fmt` expands what resolves and leaves what does not, and the
-    // §FS-fmt.2.3 exclusions still hold — an illustration in inline code and an
-    // ID inside a runtime string are not citations to normalize.
+    // §FS-check.3.13: the same boundary in the scanner — a site the rewrite will
+    // not touch must not be reported either, and reporting it would name a token
+    // (`§FS-042`) that does not appear in the file.
     #[test]
-    fn fmt_expands_resolvable_shorthands_only() {
-        let root = test_root("fmt_expands_resolvable_shorthands_only");
-        write(
-            &root.join("docs/functional-spec/FS-042-user-login.md"),
-            "# FS-042-user-login: User login\n\nLead.\n\n## 1. Inputs\n\nStuff.\n",
-        );
-        let config = numbered_config(root.clone());
-        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
-
-        let expand = |line: &str, is_md: bool| {
-            let mut saw_candidate = false;
-            expand_shorthand_citations(line, &config, is_md, Some(&findings), &mut saw_candidate)
-                .unwrap_or_else(|| line.to_string())
-        };
-        assert_eq!(expand("See §FS-042.", true), "See §FS-042-user-login.");
-        assert_eq!(expand("See §FS-042.1.", true), "See §FS-042-user-login.1.");
-        assert_eq!(expand("Missing §FS-999.", true), "Missing §FS-999.");
-        assert_eq!(expand("Already §FS-042-user-login.", true), "Already §FS-042-user-login.");
-        assert_eq!(expand("Shown as `§FS-042`.", true), "Shown as `§FS-042`.");
-        assert_eq!(
-            expand("let s = \"§FS-042\";", false),
-            "let s = \"§FS-042\";"
-        );
-        // Idempotent: a second pass over the expanded line changes nothing.
-        assert_eq!(
-            expand(&expand("See §FS-042.", true), true),
-            "See §FS-042-user-login."
-        );
-    }
-
-    // §FS-fmt.2.4 / §FS-lsp.1.4: a typed trigger lands on the canonical form in
-    // one pass — the trigger rewrite runs first and the shorthand pass reads its
-    // output, so the author never sees an intermediate `§FS-042`.
-    #[test]
-    fn fmt_expands_a_typed_trigger_shorthand_in_one_pass() {
-        let root = test_root("fmt_expands_a_typed_trigger_shorthand_in_one_pass");
+    fn a_shorthand_prefix_of_a_longer_token_is_never_reported() {
+        let root = test_root("a_shorthand_prefix_of_a_longer_token_is_never_reported");
         write(
             &root.join("docs/functional-spec/FS-042-user-login.md"),
             "# FS-042-user-login: User login\n\nLead.\n",
         );
-        let config = numbered_config(root.clone());
-        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
-
-        let (line, label) = fmt_line(
-            "Typed $$FS-042 here.",
-            &root.join("docs/notes.md"),
-            &config,
-            true,
-            &FmtLineOpts {
-                add_marker: false,
-                cross_refs: false,
-                findings: Some(&findings),
-                workspace: None,
-            },
-            &mut false,
-        );
-        assert_eq!(line, "Typed §FS-042-user-login here.");
-        assert_eq!(label, "trigger \u{2192} marker");
-
-        let (line, label) = fmt_line(
-            "Persisted §FS-042 here.",
-            &root.join("docs/notes.md"),
-            &config,
-            true,
-            &FmtLineOpts {
-                add_marker: false,
-                cross_refs: false,
-                findings: Some(&findings),
-                workspace: None,
-            },
-            &mut false,
-        );
-        assert_eq!(line, "Persisted §FS-042-user-login here.");
-        assert_eq!(label, "shorthand \u{2192} canonical");
-    }
-
-    // §FS-lsp.1.4: the live transform expands a typed shorthand in the same edit
-    // set as the trigger conversion, and falls back to trigger-only when the
-    // shorthand does not uniquely resolve — typing never stalls.
-    #[test]
-    fn on_type_trigger_expands_a_unique_shorthand() {
-        let root = test_root("on_type_trigger_expands_a_unique_shorthand");
         write(
-            &root.join(".agents/grund.toml"),
-            "grund_config_version = 1\n[id]\nformat = \"{kind}-{number}-{slug}\"\n",
+            &root.join("docs/notes.md"),
+            "Typo: §FS-042-User-Login\n\nGlued: §FS-042abc\n\nReal: §FS-042\n",
         );
-        let path = root.join("docs/notes.md");
-        write(&path, "Typed $$FS-042\n");
-        let declared = vec!["FS-042-user-login".to_string()];
+        let config = numbered_config(root.clone());
+        let (findings, report) = check_tree(&config, &root);
 
-        let line = "Typed $$FS-042";
-        let replacement = on_type_trigger_replacement(&path, line, line.len(), &declared)
-            .expect("trigger check")
-            .expect("a rewritable trigger");
-        assert_eq!(replacement.marker, "\u{a7}");
-        let expansion = replacement.token_expansion.expect("shorthand expansion");
-        assert_eq!(&line[expansion.start..expansion.end], "FS-042");
-        assert_eq!(expansion.text, "FS-042-user-login");
-
-        // Ambiguous: two declarations share the number, so the trigger still
-        // converts and nothing is guessed.
-        let ambiguous = vec![
-            "FS-042-user-login".to_string(),
-            "FS-042-user-logout".to_string(),
-        ];
-        let replacement = on_type_trigger_replacement(&path, line, line.len(), &ambiguous)
-            .expect("trigger check")
-            .expect("a rewritable trigger");
-        assert!(replacement.token_expansion.is_none());
-
-        // A full ID is not a shorthand and is never rewritten.
-        let full = "Typed $$FS-042-user-login";
-        let replacement = on_type_trigger_replacement(&path, full, full.len(), &declared)
-            .expect("trigger check")
-            .expect("a rewritable trigger");
-        assert!(replacement.token_expansion.is_none());
+        assert_eq!(
+            report
+                .errors
+                .iter()
+                .filter(|finding| finding.code == "shorthand-citation")
+                .count(),
+            1,
+            "{:?}",
+            messages(&report)
+        );
+        assert!(
+            messages(&report)
+                .contains(&"shorthand citation §FS-042; write §FS-042-user-login".to_string()),
+            "{:?}",
+            messages(&report)
+        );
+        let shorthands: Vec<&str> = findings
+            .citations
+            .iter()
+            .filter(|cite| cite.shorthand)
+            .map(|cite| cite.text.as_str())
+            .collect();
+        assert_eq!(shorthands, vec!["§FS-042"]);
     }
 
     // §FS-check.1.2: a resolved shorthand grounds its file under

@@ -30,8 +30,8 @@ The shorthand shape is the configured `format` with the `{slug}` placeholder and
 Three rules bound the recognition, decided in [§DF-number-only-citation-shorthand](../decisions/functional/DF-number-only-citation-shorthand.md#df-number-only-citation-shorthand-the-number-only-shorthand-is-authoring-sugar-and-a-persisted-one-is-a-check-error):
 
 - **The marker is required.** A bare `FS-042` is plain text even under `strict = false`, where a bare *full* ID would count (§1.1). `KIND-NNN` occurs constantly in the wild as issue keys, part numbers, and standards references, and unlike a full ID it carries no slug to make an accidental match unlikely — so the marker is what supplies the intent ([§DF-number-only-citation-shorthand.2.4](../decisions/functional/DF-number-only-citation-shorthand.md#24-the-marker-is-required-a-bare-shorthand-is-text)).
-- **The full ID always wins.** The full-ID pass claims its tokens first; the shorthand pass only sees what is left.
-- **A resolved shorthand is a real edge.** When it matches exactly one declaration, the citation participates in the graph like any other: [§FS-refs](FS-refs.md#fs-refs-grund-lists-every-citation-of-an-id) lists it, [§FS-cover](FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file) groups it, the declaration stops being reported as unused (§4.1), it grounds its file under `require_grounding` (§3.6), and it counts for citation directions ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)). The `.<section>` suffix works as it does on any citation, and the section check (§3.2) still applies — so the canonical form the error names is known-good before anyone writes it.
+- **The full ID always wins,** and the token must end where the shorthand does. The full-ID pass claims its tokens first; the shorthand pass only sees what is left, and it claims a token only when the character after the match cannot continue an ID — an alphanumeric, `_`, or a literal from `format` that itself has a component after it. Without that trailing boundary the shorthand is a *prefix* of every longer ID-shaped token, so a full ID whose slug the grammar rejects (`§FS-042-User-Login`, `§FS-042_user_login`) would be read as `§FS-042` with a tail hanging off it. Such a token is not a citation at all: it is reported by nothing here and rewritten by nothing in [§FS-fmt.2.4](FS-fmt.md#24-shorthand-to-canonical). The separator has to be *followed* by a component to count, or a citation ending a sentence would be lost in any repo whose `format` uses `.` as a literal. And `/` never counts: it can only precede a kind, so `§FS-042/x` is a citation of `FS-042` exactly as `§FS-042-user-login/x` is one of the full ID — the shorthand and the canonical form must never disagree about the same boundary.
+- **A resolved shorthand is a real edge.** When it matches exactly one declaration, the citation participates in the graph like any other: [§FS-refs](FS-refs.md#fs-refs-grund-lists-every-citation-of-an-id) lists it, [§FS-cover](FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file) groups it, the declaration stops being reported as unused (§4.1), it grounds its file under `require_grounding` (§3.6), and it counts for citation directions ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)). The `.<section>` suffix works as it does on any citation, which means the section check (§3.2) applies to it independently and on its own terms: a shorthand carrying a section that does not exist earns *both* findings, because the canonical form §3.13 names is the right ID and still the wrong section.
 
 The same shape is accepted as a **CLI ID argument** — `grund FS-042`, `grund FS-042.1`, `grund refs FS-042` — where nothing is persisted and the caller gets the declaration ([§FS-show.1](FS-show.md#1-inputs), [§FS-refs.1](FS-refs.md#1-inputs)). That is also what makes a clicked `§FS-042` open in a terminal or editor, since those clients hand the token straight to `grund` ([§FS-integrations.3.1](FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2)).
 
@@ -127,8 +127,8 @@ suggestion: there an escape resolves and might be live; here a live citation
 dangles and might be an escape.
 
 A number-only shorthand citation (§1.2) is exempt from this rule and reported by
-§3.13 instead — one finding per site, never two, and `unknown reference FS-042`
-would name a token that is not a full ID under the repo's own grammar.
+§3.13 instead — never both, because `unknown reference FS-042` would name a token
+that is not a full ID under the repo's own grammar.
 
 ### 3.2 Missing section
 
@@ -210,9 +210,11 @@ The citing kind is the site's resolved `source_kind` ([AR-scanner.2.4](../archit
 
 ### 3.13 Number-only shorthand citation
 
-A recognized shorthand citation (§1.2) persisted in a scanned file. The shorthand is authoring sugar, not a stored citation grammar, so every site is reported and the report carries the replacement text — the fix is mechanical, and `grund fmt --write` applies it in bulk ([§FS-fmt.2.4](FS-fmt.md#24-shorthand-to-canonical)).
+A recognized shorthand citation (§1.2) persisted in a scanned file. The shorthand is authoring sugar, not a stored citation grammar, so the site is reported and the report carries the replacement text — the fix is mechanical, and `grund fmt --write` applies it in bulk ([§FS-fmt.2.4](FS-fmt.md#24-shorthand-to-canonical)).
 
-Exactly one finding per site, in one of three forms:
+**Where `fmt` may not rewrite, this rule does not fire.** A shorthand inside inline code, a Markdown link destination, or a source string literal is exempt from the resolving form of this error, because [§FS-fmt.2.3](FS-fmt.md#23-what-is-never-rewritten) forbids the rewrite there and an error whose only named fix the tool declines to perform is one a repository can never clear. The citation is untouched in every other respect — it resolves, `refs` lists it, and it keeps its declaration from being reported unused (§1.2). The exemption is for the *mechanical* form only: a shorthand matching zero or several declarations is still reported in those contexts, because that is a dangling reference rather than a formatting nit.
+
+At most one *shorthand* finding per site, in one of three forms. Other rules judge the site on their own terms — a bad section (§3.2) or a forbidden direction (§3.12) is a separate fact about the same citation and is reported separately:
 
 ```
 docs/notes.md:5: shorthand citation §FS-042; write §FS-042-user-login
