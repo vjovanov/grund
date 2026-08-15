@@ -31,10 +31,10 @@ The platform-level coordinator is §root/FS-platform.
   `packages/web` declare `FS-session` independently; neither is a duplicate.
   Local citations stay short — inside `api`, `<§>FS-session` resolves to the
   api project; inside `web`, the same form resolves to the web project.
-  (Every citation on this page is written `<§>…`: the fixture it describes
-  lives under `[scan] exclude`, so these IDs resolve nowhere from *this*
-  repository and a live marker would be a dangling citation under
-  `grund check --full`.)
+  (Every citation outside the fenced blocks above is written `<§>…`: the
+  fixture this page describes lives under `[scan] exclude`, so these IDs
+  resolve nowhere from *this* repository and a live marker would be a
+  dangling citation under `grund check --full`.)
 - **Cross-project citations are explicit.** Every reference that crosses a
   project boundary names the target's alias: `<§>api/FS-session`,
   `<§>root/FS-platform`. There is no `<§>../FS-platform` or implicit
