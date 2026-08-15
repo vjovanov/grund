@@ -1286,6 +1286,9 @@ fn walk_scannable_files(
     explicit_scope: bool,
 ) -> Result<Vec<PathBuf>> {
     let roots = scan_roots(config, scope, explicit_scope)?;
+    // §FS-check.1.3: only an aliased root can hand the same file to two walks
+    // under two spellings, so the ordinary walk never pays for the identity pass.
+    let roots_alias = config.scan_full && roots_can_alias(&roots);
     let mut files = Vec::new();
     for scan_root in roots {
         if !scan_root.exists() {
@@ -1379,13 +1382,42 @@ fn walk_scannable_files(
             files.push(entry.path().to_path_buf());
         }
     }
+    // One file, one read (§FS-check.1.3). Two spellings first, while the list is
+    // still in walk order and first-seen wins; then the byte-identical ones,
+    // which the sort has just brought together.
+    if roots_alias {
+        dedup_by_file_identity(&mut files);
+    }
     files.sort_by_key(|path| sort_path_key(path));
-    // One file, one read: the roots may overlap — `include = ["docs", "docs/api"]`
-    // names one subtree twice, and under `--full` every `include` root is walked
-    // beside the config root that already contains it (§FS-check.1.3). Scanning a
-    // file twice would report its declaration as a duplicate of itself.
+    // The roots may overlap — `include = ["docs", "docs/api"]` names one subtree
+    // twice, and under `--full` every `include` root is walked beside the config
+    // root that already contains it (§FS-check.1.3). Scanning a file twice would
+    // report its declaration as a duplicate of itself.
     files.dedup();
     Ok(files)
+}
+
+/// Whether two of these walk roots can reach one file under two *different*
+/// spellings (§FS-check.1.3). Only a root whose canonical form differs from the
+/// path the walk starts at can: a symlink to a directory inside the config root,
+/// or a case alias of one on a case-insensitive filesystem. Every other pair of
+/// overlapping roots yields byte-identical descendant paths, which the exact-path
+/// `dedup()` after the sort already collapses — so this predicate is what keeps
+/// the ordinary walk from canonicalizing a file at a time.
+fn roots_can_alias(roots: &[PathBuf]) -> bool {
+    roots
+        .iter()
+        .any(|root| fs::canonicalize(root).is_ok_and(|canonical| canonical != *root))
+}
+
+/// Collapse the files two aliased roots reached under two spellings, keeping the
+/// **first** (§FS-check.1.3). `root_scope_roots` walks the `include` roots before
+/// the config root `--full` adds, so the surviving spelling is the one the plain
+/// run reports, and `--full` stays purely additive: it appends out-of-scope lines
+/// and never restates an in-scope one under a second name.
+fn dedup_by_file_identity(files: &mut Vec<PathBuf>) {
+    let mut seen = BTreeSet::new();
+    files.retain(|file| seen.insert(physical_path_key(file)));
 }
 
 /// Direct `e2e/cases/<name>/` directories are E2E manifest declarations
@@ -1452,6 +1484,13 @@ fn scan_roots_for(
 /// Collecting each root through `components()` folds away the `./` and trailing
 /// separator an entry may be written with, so two roots naming one directory
 /// yield byte-identical descendant paths and the dedup can recognize the reread.
+///
+/// The `include` roots come **first** under `--full`, ahead of the config root.
+/// An `include` root that is a symlink to a directory inside the root, or a case
+/// alias of one, reaches its files under a spelling the root walk does not
+/// reproduce, so the dedup has to choose between two names for one file; walking
+/// `include` first makes the first-seen winner the spelling `grund check` prints
+/// without the flag, which is what keeps `--full` purely additive.
 fn root_scope_roots(config: &Config, full: bool) -> Vec<PathBuf> {
     let include = config
         .include
@@ -1459,7 +1498,7 @@ fn root_scope_roots(config: &Config, full: bool) -> Vec<PathBuf> {
         .flatten()
         .map(|entry| config.root.join(entry).components().collect::<PathBuf>());
     match (full, config.include.is_some()) {
-        (true, _) => std::iter::once(config.root.clone()).chain(include).collect(),
+        (true, _) => include.chain(std::iter::once(config.root.clone())).collect(),
         (false, true) => include.collect(),
         (false, false) => vec![config.root.clone()],
     }
