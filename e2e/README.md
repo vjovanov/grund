@@ -77,5 +77,10 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - unsupported extension ignored
 - deterministic multiple-error output
 - `check --full` reporting a dangling citation outside `[scan] include`, the same tree staying silent without the flag, and style / grounding findings withheld out there
+- `check --full` keeping an `[scan] include` root that `[scan] exclude` names, and one whose name is hidden, inside the ordinary scope
+- `check --full` resolving an out-of-scope citation against an out-of-scope declaration
+- `check --full` compound out-of-scope diagnostic codes in `--format json`
+- `check --full` cautioning on stderr when an explicit path leaves it nothing to widen
+- `check --full` reporting a cross-member number-only shorthand once in a workspace
 
 Warnings are intentionally not covered here yet. They are lower priority than the error, retrieval, formatting, and configuration contracts.

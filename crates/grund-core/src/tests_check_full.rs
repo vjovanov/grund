@@ -63,10 +63,13 @@ mod tests_check_full {
         let full = check(&root, true);
         assert_eq!(
             located(&full.config, &full.report.errors),
-            vec!["sim/world.py:1: unknown reference FS-999-missing (outside [scan] include)"],
+            vec!["sim/world.py:1: outside [scan] include: unknown reference FS-999-missing"],
             "§FS-check.3.14: --full reports it, naming the key that hid it"
         );
-        assert_eq!(full.report.errors[0].code, "out-of-scope-reference");
+        assert_eq!(
+            full.report.errors[0].code, "out-of-scope-dangling",
+            "§FS-check.3.14: the tier code is the in-scope rule's code under an `out-of-scope-` prefix"
+        );
     }
 
     #[test]
@@ -119,7 +122,7 @@ mod tests_check_full {
                 full.report
                     .errors
                     .iter()
-                    .filter(|diagnostic| diagnostic.code != "out-of-scope-reference")
+                    .filter(|diagnostic| !diagnostic.code.starts_with("out-of-scope-"))
             ),
             located(&scoped.config, &scoped.report.errors),
             "§DF-check-full-scope.2.4: --full is purely additive — the wider walk never makes an in-scope citation resolve"
@@ -184,7 +187,7 @@ mod tests_check_full {
             full.report
                 .errors
                 .iter()
-                .all(|diagnostic| diagnostic.code != "out-of-scope-reference"),
+                .all(|diagnostic| !diagnostic.code.starts_with("out-of-scope-")),
             "an explicit scope has no out-of-scope tier"
         );
     }
@@ -209,7 +212,7 @@ mod tests_check_full {
         assert_eq!(
             located(&full.config, &full.report.errors),
             vec![
-                "sim/world.py:2: shorthand citation §FS-777 matches no declaration (outside [scan] include)"
+                "sim/world.py:2: outside [scan] include: shorthand citation §FS-777 matches no declaration"
             ],
             "§FS-check.3.14: the mechanical rewrite is withheld because `fmt` scopes by `include` too; a shorthand matching nothing is still a resolution failure"
         );
@@ -273,8 +276,252 @@ mod tests_check_full {
         let full = check(&root, true);
         assert_eq!(
             located(&full.config, &full.report.errors),
-            vec!["api/sim/model.py:1: unknown reference FS-404-nope (outside [scan] include)"],
+            vec!["api/sim/model.py:1: outside [scan] include: unknown reference FS-404-nope"],
             "§FS-check.1.3: `include` is a per-project statement, so every member widens past its own"
         );
+    }
+
+    /// §FS-check.1.3: `.gitignore` prunes descendants, never the directory a
+    /// walk starts at — so an `[scan] include` root the ignore files hide is read
+    /// by the ordinary run and must be read by the wider one too. Without the
+    /// exemption `--full` reads *fewer* files than `grund check` and the finding
+    /// in `generated/` disappears under the flag meant to find more.
+    #[test]
+    fn full_scope_still_reads_a_gitignored_include_root() {
+        let root = test_root("full_scope_still_reads_a_gitignored_include_root");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n[scan]\ninclude = [\"generated\", \"docs\"]\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: A user can log in\n\nCites §AR-002-gen.\n",
+        );
+        write(&root.join("generated/notes.md"), "# Notes\n\nCites §FS-999-missing.\n");
+        write(
+            &root.join("generated/AR-002-gen.md"),
+            "# AR-002-gen: Generated architecture\n\nBody.\n",
+        );
+        write(&root.join(".gitignore"), "generated/\n");
+        // The `ignore` crate only consults ignore files inside a git repository;
+        // an empty `.git` directory is what makes this fixture one.
+        std::fs::create_dir_all(root.join(".git")).expect("create .git");
+
+        let scoped = check(&root, false);
+        let full = check(&root, true);
+        assert_eq!(
+            located(&full.config, &full.report.errors),
+            located(&scoped.config, &scoped.report.errors),
+            "§FS-check.1.3: the wider walk reads a superset — a gitignored `include` root is still an `include` root"
+        );
+        assert_eq!(
+            located(&scoped.config, &scoped.report.errors),
+            vec!["generated/notes.md:3: unknown reference FS-999-missing"]
+        );
+    }
+
+    /// The same shape for the other two prune rules: a `[scan] include` root that
+    /// `[scan] exclude` names, and one whose name makes it hidden (§FS-check.1.3).
+    #[test]
+    fn full_scope_still_reads_an_excluded_or_hidden_include_root() {
+        for (name, include, exclude, dir) in [
+            ("excluded", "[\"vendor\", \"docs\"]", "\nexclude = [\"vendor\"]", "vendor"),
+            ("hidden", "[\".specs\", \"docs\"]", "", ".specs"),
+        ] {
+            let root = test_root(&format!(
+                "full_scope_still_reads_an_excluded_or_hidden_include_root_{name}"
+            ));
+            write(
+                &root.join("grund.toml"),
+                &format!("grund_config_version = 1\n\n[scan]\ninclude = {include}{exclude}\n"),
+            );
+            write(
+                &root.join("docs/functional-spec/FS-001-login.md"),
+                "# FS-001-login: A user can log in\n\nBody.\n",
+            );
+            write(&root.join(dir).join("notes.md"), "# Notes\n\nCites §FS-999-missing.\n");
+
+            let scoped = check(&root, false);
+            let full = check(&root, true);
+            assert_eq!(
+                located(&full.config, &full.report.errors),
+                located(&scoped.config, &scoped.report.errors),
+                "§FS-check.1.3: `--full` must not lose the {name} `include` root"
+            );
+            assert!(
+                located(&scoped.config, &scoped.report.errors)
+                    .iter()
+                    .any(|line| line.starts_with(&format!("{dir}/notes.md:3:"))),
+                "the plain run reads it, so the wider one must"
+            );
+        }
+    }
+
+    /// The exemption is for the roots `[scan] include` names, not for the rules:
+    /// a directory those same three rules prune *below* a scanned root stays
+    /// unread under `--full` (§FS-check.1.3).
+    #[test]
+    fn full_scope_still_prunes_excluded_hidden_and_ignored_descendants() {
+        let root = test_root("full_scope_still_prunes_excluded_hidden_and_ignored_descendants");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n[scan]\ninclude = [\"docs\"]\nexclude = [\"vendor\"]\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: A user can log in\n\nBody.\n",
+        );
+        write(&root.join("sim/vendor/a.py"), "# Cites §FS-901-nope\n");
+        write(&root.join("sim/.cache/b.py"), "# Cites §FS-902-nope\n");
+        write(&root.join("sim/build/c.py"), "# Cites §FS-903-nope\n");
+        write(&root.join("sim/world.py"), "# Cites §FS-904-nope\n");
+        write(&root.join(".gitignore"), "build/\n");
+        std::fs::create_dir_all(root.join(".git")).expect("create .git");
+
+        let full = check(&root, true);
+        assert_eq!(
+            located(&full.config, &full.report.errors),
+            vec!["sim/world.py:1: outside [scan] include: unknown reference FS-904-nope"],
+            "§FS-check.1.3: `--full` cancels `include` and nothing else — exclude, hidden dirs, and the ignore files still prune"
+        );
+    }
+
+    /// §FS-check.1.3: overlapping roots name one file once. `include` may already
+    /// nest one root inside another, and under `--full` every root is walked
+    /// beside the config root that contains them all — a second read would report
+    /// each declaration as a duplicate of itself (§FS-check.3.3).
+    #[test]
+    fn full_scope_reads_each_file_once_across_overlapping_roots() {
+        let root = test_root("full_scope_reads_each_file_once_across_overlapping_roots");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n[scan]\ninclude = [\"docs\", \"docs/functional-spec\", \".\"]\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: A user can log in\n\nCited by §FS-001-login.\n",
+        );
+
+        for full in [false, true] {
+            let run = check(&root, full);
+            assert!(
+                run.report
+                    .errors
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "duplicate"),
+                "one file read twice would duplicate its own declaration (full = {full}) — got {:?}",
+                located(&run.config, &run.report.errors)
+            );
+        }
+    }
+
+    /// §FS-check.3.8 through the tier: an unknown namespace alias out of scope is
+    /// a resolution failure like any other, and carries the alias's own code.
+    #[test]
+    fn full_scope_reports_an_unknown_alias_outside_include() {
+        let root = drifted_repo("full_scope_reports_an_unknown_alias_outside_include");
+        write(&root.join("sim/world.py"), "# Cites §nope/FS-001-login\n");
+
+        let full = check(&root, true);
+        assert_eq!(
+            located(&full.config, &full.report.errors),
+            vec!["sim/world.py:1: outside [scan] include: unknown project alias nope"]
+        );
+        assert_eq!(full.report.errors[0].code, "out-of-scope-unknown-project");
+    }
+
+    /// §FS-check.3.13: the qualified cross-member shorthand. The workspace pass
+    /// resolves `§api/AR-900` against `api`'s *whole* walk, which under `--full`
+    /// includes a declaration `api`'s own `include` excludes; narrowing then drops
+    /// it. One cause must still be one finding.
+    #[test]
+    fn full_scope_reports_a_qualified_shorthand_once() {
+        let root = test_root("full_scope_reports_a_qualified_shorthand_once");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\nproject_name = \"root\"\n\n[workspace]\nmembers = [\"api\", \"web\"]\ninclude_root = false\n",
+        );
+        let member = "grund_config_version = 1\nproject_name = \"{alias}\"\n\n[id]\nformat = \"{kind}-{number}-{slug}\"\n\n[scan]\ninclude = [\"docs\"]\n";
+        write(&root.join("api/grund.toml"), &member.replace("{alias}", "api"));
+        write(&root.join("web/grund.toml"), &member.replace("{alias}", "web"));
+        write(&root.join("api/docs/FS-042-session.md"), "# FS-042-session: Session\n\nLead.\n");
+        write(&root.join("api/internal/AR-900-hidden.md"), "# AR-900-hidden: Hidden\n\nLead.\n");
+        write(&root.join("web/docs/notes.md"), "Qualified shorthand: §api/AR-900\n");
+
+        let scoped = check(&root, false);
+        let full = check(&root, true);
+        assert_eq!(
+            located(&full.config, &full.report.errors),
+            located(&scoped.config, &scoped.report.errors),
+            "§FS-check.3.13: at most one shorthand finding per site, and never a dangling one beside it"
+        );
+        assert!(
+            located(&scoped.config, &scoped.report.errors)
+                .iter()
+                .any(|line| line.contains("shorthand citation §api/AR-900 matches no declaration"))
+        );
+    }
+
+    /// §FS-check.1.3: `--full` with an explicit path that is not the config root
+    /// has nothing left to cancel. The run is the ordinary one and says so.
+    #[test]
+    fn full_scope_warns_when_an_explicit_path_leaves_it_nothing_to_cancel() {
+        let root = drifted_repo("full_scope_warns_when_an_explicit_path_leaves_it_nothing_to_cancel");
+        write(&root.join("sim/world.py"), "# Cites §FS-999-missing\n");
+
+        let full = check(&root.join("sim"), true);
+        let caution = full
+            .report
+            .warnings
+            .iter()
+            .find(|diagnostic| diagnostic.code == "full-scope-ignored")
+            .expect("§FS-check.1.3: the redundant flag earns a caution");
+        assert_eq!(
+            caution.message,
+            "--full has no effect with an explicit PATH — it cancels [scan] include, and sim already bypasses it"
+        );
+        assert!(caution.line.is_none(), "a run-level caution goes to stderr, not the findings");
+        // The root scope is where the flag does apply, so it stays silent there.
+        assert!(
+            check(&root, true)
+                .report
+                .warnings
+                .iter()
+                .all(|diagnostic| diagnostic.code != "full-scope-ignored")
+        );
+    }
+
+    /// §FS-check.3.14: the wider walk reaches files the configured scope never
+    /// touched, so one it cannot read is the §FS-check.2 scan failure and exit 2 —
+    /// on a tree whose plain `check` exits 0.
+    #[cfg(unix)]
+    #[test]
+    fn full_scope_exits_two_on_an_unreadable_file_outside_include() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = drifted_repo("full_scope_exits_two_on_an_unreadable_file_outside_include");
+        let unreadable = root.join("sim/world.py");
+        write(&unreadable, "# Cites §FS-001-login\n");
+        std::fs::set_permissions(&unreadable, std::fs::Permissions::from_mode(0o000))
+            .expect("chmod the fixture");
+        if std::fs::read_to_string(&unreadable).is_ok() {
+            // Running as root: the mode bits say nothing about readability.
+            return;
+        }
+
+        assert!(!check(&root, false).had_scan_errors);
+        let full = check(&root, true);
+        assert!(
+            full.had_scan_errors,
+            "§FS-check.3.14: a file the wider walk cannot read is a scan failure, and the run exits 2"
+        );
+        assert!(
+            full.report
+                .errors
+                .iter()
+                .any(|diagnostic| diagnostic.code == "io"),
+            "reported in the CLI-level `error: <path>: <reason>` shape"
+        );
+        let _ = std::fs::set_permissions(&unreadable, std::fs::Permissions::from_mode(0o644));
     }
 }

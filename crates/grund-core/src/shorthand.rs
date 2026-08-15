@@ -547,6 +547,16 @@ type ShorthandIndexes<'a> = BTreeMap<Option<String>, ShorthandIndex<'a>>;
 /// caller should skip its remaining rules — §3.1 in particular, which would
 /// otherwise name a token that is not a full ID.
 ///
+/// "Resolved" is read off the candidate set this check can see, not off the
+/// scanner's rewrite: under `--full` the scan resolved every shorthand against
+/// the whole walk and the findings were then narrowed back to `[scan] include`
+/// (§FS-check.1.3), so a site can arrive here holding a canonical ID whose
+/// declaration is no longer in the target's set. Judging it by the rewrite alone
+/// would earn that site a shorthand error *and* a dangling error for one cause,
+/// which §FS-check.3.13 says never happens. The qualified cross-member form is
+/// resolved in a workspace pass of its own, so this is the only place both forms
+/// meet.
+///
 /// The index is built per target namespace rather than per site: re-deriving the
 /// candidate set by walking every declaration each time is quadratic on a tree
 /// mid-migration, which is precisely the tree this rule asks people to run
@@ -562,12 +572,12 @@ fn report_shorthand_citation<'a>(
     let index = indexes
         .entry(cite.namespace.clone())
         .or_insert_with(|| ShorthandIndex::build(target.findings.declarations.keys()));
-    if let Some(diagnostic) =
-        shorthand_diagnostic(config, cite, target.config, tier, index.candidates(&cite.id))
-    {
+    let candidates = index.candidates(&cite.id);
+    let resolved = cite.id.slug.is_some() && candidates.len() == 1;
+    if let Some(diagnostic) = shorthand_diagnostic(config, cite, target.config, tier, candidates) {
         report.errors.push(diagnostic);
     }
-    cite.id.slug.is_none()
+    !resolved
 }
 
 /// §FS-fmt.2.4: expand every number-only shorthand citation on the line that

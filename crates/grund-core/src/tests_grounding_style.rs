@@ -399,10 +399,10 @@ mod tests_grounding_style {
         std::fs::create_dir_all(&subdir).expect("create subdir");
         let config = Config::default_for(root.clone());
 
-        assert!(is_workspace_root_scope(&config, Path::new("."), false));
-        assert!(is_workspace_root_scope(&config, &root, true));
+        assert!(scope_is_config_root(&config, Path::new("."), false));
+        assert!(scope_is_config_root(&config, &root, true));
         assert!(
-            !is_workspace_root_scope(&config, &subdir, true),
+            !scope_is_config_root(&config, &subdir, true),
             "an explicit subdirectory scope must not be promoted to workspace root"
         );
     }
