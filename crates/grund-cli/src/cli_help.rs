@@ -67,7 +67,9 @@ fn print_subcommand_help(cmd: &str) {
                 "grund check — validate every ID citation across the repo."
             );
             println!();
-            println!("Usage:  grund check [PATH] [--require-grounding] [--suggestions] [--format text|json]");
+            println!(
+                "Usage:  grund check [PATH] [--full] [--require-grounding] [--suggestions] [--format text|json]"
+            );
             println!();
             println!(
                 "PATH defaults to `.`; config (`grund.toml`, root or `.agents/`) is discovered by walking up from it."
@@ -83,6 +85,9 @@ fn print_subcommand_help(cmd: &str) {
             println!("Options:");
             println!(
                 "  --format text|json   text (default) prints `success` or `path:line: message`; json emits NDJSON."
+            );
+            println!(
+                "  --full               also walk past [scan] include and report the references that resolve to nothing out there."
             );
             println!(
                 "  --require-grounding  also require every source file to cite a declared ID ([reference] require_grounding)."
@@ -108,6 +113,7 @@ fn print_subcommand_help(cmd: &str) {
             println!("Examples:");
             println!("  grund check              # check the whole repo");
             println!("  grund check docs/        # check one subtree");
+            println!("  grund check --full       # plus dangling citations outside [scan] include");
             println!("  grund check --format json | jq # machine-readable diagnostics for CI");
         }
         "show" => {

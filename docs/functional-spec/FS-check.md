@@ -11,6 +11,7 @@ The `check` command walks a repo and reports every violation of the grund refere
 - `--watch` is reserved for the planned resident checker (§6) and is not accepted by the current CLI.
 - `--require-grounding` — turn the grounding check (§3.6) on for this run regardless of `[reference] require_grounding` in `grund.toml` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). It only ever *adds* the check; it cannot switch off a config that already sets it.
 - `--suggestions` — emit the `should`-level citation-direction findings ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) on the suggestions channel (§2.3) for this run. The same config-plus-flag pattern as `--require-grounding`: the flag never adds an error or changes the exit code, it only surfaces the advisory `suggested-citation` / `discouraged-citation` records that the default run withholds.
+- `--full` — walk the whole config root, past `[scan] include`, and report the references that resolve to nothing out there on their own tier (§1.3, §3.14). It only ever *adds* findings; the in-scope report is unchanged.
 - `--format text|json` — output shape, per [§FS-errors.5](FS-errors.md#5-json-format). The global flags `--version` and `--help` are handled before any scan ([§FS-cli](FS-cli.md#fs-cli-grunds-command-line-surface-conventions)).
 
 ### 1.1 Recognized citations
@@ -34,6 +35,21 @@ Three rules bound the recognition, decided in [§DF-number-only-citation-shortha
 - **A resolved shorthand is a real edge.** When it matches exactly one declaration, the citation participates in the graph like any other: [§FS-refs](FS-refs.md#fs-refs-grund-lists-every-citation-of-an-id) lists it, [§FS-cover](FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file) groups it, the declaration stops being reported as unused (§4.1), it grounds its file under `require_grounding` (§3.6), and it counts for citation directions ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)). The `.<section>` suffix works as it does on any citation, which means the section check (§3.2) applies to it independently and on its own terms: a shorthand carrying a section that does not exist earns *both* findings, because the canonical form §3.13 names is the right ID and still the wrong section.
 
 The same shape is accepted as a **CLI ID argument** — `grund FS-042`, `grund FS-042.1`, `grund refs FS-042` — where nothing is persisted and the caller gets the declaration ([§FS-show.1](FS-show.md#1-inputs), [§FS-refs.1](FS-refs.md#1-inputs)). That is also what makes a clicked `§FS-042` open in a terminal or editor, since those clients hand the token straight to `grund` ([§FS-integrations.3.1](FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2)).
+
+### 1.3 The full-tree scope (`--full`)
+
+`[scan] include` ([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)) is the list of roots the walk starts from, so a citation in a file outside it is not merely unchecked — it is invisible. It does not resolve, it does not dangle, it appears in no report, and dangling IDs accumulate there for as long as nobody notices. `check` returning clean means "clean *within* `include`" and reads as "clean": a false negative in the one command the workflow trusts, and one that is invisible by construction, because the citations that most need checking are the ones somebody forgot to bring into scope. That is the class [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) calls a bug, so it needs a way to be *seen* without first editing the config to guess where to look.
+
+`grund check --full` is that way. It cancels `[scan] include` for the walk — and nothing else:
+
+- **The walk covers the whole config root.** `[scan] exclude`, `.gitignore` and every other ignore file, hidden directories, workspace member boundaries ([§FS-workspace.6](FS-workspace.md#6-nested-project-boundary)), and `[scan] extensions` all still apply exactly as they do without the flag. A file type `grund` does not scan stays unscanned; widening `extensions` is a config decision, and one flag that widened both would make "what did this run read" unanswerable.
+- **Two scopes, two rule sets.** Inside the configured scope, the report is the ordinary one. Outside it, the only findings are the reference-resolution errors of §3.14 — no style, no grounding, no unused declarations, no citation directions. A `--full` that failed on inline-note budgets in directories that never opted into them would be run once and never again.
+- **Purely additive.** The findings inside the configured scope are exactly the ones `grund check` reports on the same tree, so `--full` can only ever turn a green run red, never the reverse. It is the ordinary check plus a wider search for references that point at nothing.
+- **An explicit path still narrows.** `--full` cancels `include`, never a path the caller typed: `grund check <path> --full` scans exactly `<path>` ([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)), which is already outside `include`'s reach, and has no out-of-scope tier. Only `grund check --full` and `grund check . --full` widen anything.
+- **Workspaces widen per project.** Run at a workspace root, `--full` applies to the root project and to every member ([§FS-workspace.5](FS-workspace.md#5-command-scope)): each walks its own tree past its own `[scan] include` and tiers its findings against its own configured scope, because `include` is a per-project statement.
+- **An empty configured scope is still reported.** A `--full` run whose *configured* scope read no files gets the §2.2 caution as well as its out-of-scope findings: the tier says where the citations actually are, the caution says the config has not been told.
+
+It is a flag, never a `grund.toml` key. A project that wants its whole tree governed widens `include` and gets the whole rule set; `--full` exists for the tree whose config has drifted from where the code moved, and a config key for it would be a second, weaker `include` that two installs could read differently ([§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)). Decided in [§DF-check-full-scope](../decisions/functional/DF-check-full-scope.md#df-check-full-scope-check---full-walks-past-scan-include-and-reports-only-unresolvable-references-out-there).
 
 ## 2. Outputs
 
@@ -225,6 +241,21 @@ docs/notes.md:7: shorthand citation §FS-042 is ambiguous: FS-042-user-login, FS
 The candidate list in the ambiguous form is sorted and complete — `grund` names every match and resolves none, because choosing one would be a guess and `check` reports facts about the tree (§5, [§GOAL-agent-grounding.3](../goals.md#3-what-this-rules-out)). Duplicate *numbers* are not otherwise an error: §3.3 catches duplicate full IDs, and a repo may legitimately hold `FS-042-user-login` alongside `FS-042-user-logout` as long as nothing abbreviates them. The marker rendered in the message is the configured one ([§FS-config.3.1](FS-config.md#31-reference--citation-form)), and the qualified form names its namespace (`<§>api/FS-042`, escaped here because this repo has no `api` member) so the replacement can be pasted as written.
 
 An error rather than a warning or a suggestion: a warning leaves the exit code alone, so a repo could accumulate shorthand citations forever while CI stayed green, which is the state this rule exists to end ([§DF-number-only-citation-shorthand.2.3](../decisions/functional/DF-number-only-citation-shorthand.md#23-it-is-an-error-not-a-warning-or-a-suggestion)). Repos whose `[id] format` has no `{number}` or no `{slug}` never see this finding (§1.2).
+
+### 3.14 Out-of-scope unresolvable citation *(`--full` only)*
+
+Under `--full` (§1.3), a citation in a file outside the configured scope whose reference resolves to nothing: the ID is declared nowhere (§3.1), the declaration exists but the cited section does not (§3.2), the namespace alias is unknown (§3.8), or a number-only shorthand matches zero or several declarations (§3.13). The site is reported in the ordinary located-finding shape with the tier named at the end of the message:
+
+```
+sim/world.py:12: unknown reference RES-061-world-arable-basin-screen (outside [scan] include)
+render/prompts.md:4: missing section DA-002-general-field-service-scope.1.4 (outside [scan] include)
+```
+
+- **An error, not a warning.** It moves the exit code to `1` like every other reference failure. A warning would leave `--full` exit-code-neutral, and a finding no CI run can fail on is one a repository accumulates behind forever — the argument §3.13 already makes. Nothing turns red without being asked: the flag is opt-in.
+- **Only resolution is judged.** The style, placement, grounding, direction, and unused rules say how a project organizes the files it has chosen to govern, and `[scan] include` is exactly that choice; a directory nobody configured has agreed to none of them, so reporting them there would bury the findings that matter under a pile that does not.
+- **Resolution sees the whole walk.** An out-of-scope citation whose declaration is also out of scope resolves normally. The tier reports references that point at *nothing*, not references that point outside the configured scope.
+- **The mechanical shorthand rewrite is withheld** (§3.13). Its named fix is `grund fmt --write`, and `fmt` scopes by `[scan] include`, so out there the error would name a fix the formatter declines to apply — the same reason §3.13 withholds it at an unrewritable site. A shorthand that matches zero or several declarations is a resolution failure, not a formatting nit, and is reported.
+- **One code for the tier.** Every finding here carries the code `out-of-scope-reference`, so `--format=json` ([§FS-errors.5](FS-errors.md#5-json-format)) separates the two tiers by a field it already has; the specific rule stays readable in the message. The suffix is the configured `[scan] include` key by name, because the durable fix is to put the directory in scope and get the whole rule set.
 
 ## 4. Warnings
 

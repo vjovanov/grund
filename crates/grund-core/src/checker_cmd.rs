@@ -7,6 +7,7 @@ fn command_check(args: &[String]) -> ExitCode {
     let mut format_override = None;
     let mut require_grounding = false;
     let mut include_suggestions = false;
+    let mut full = false;
     let mut idx = 0;
     while idx < args.len() {
         match args[idx].as_str() {
@@ -22,6 +23,7 @@ fn command_check(args: &[String]) -> ExitCode {
                 format_override = Some(args[idx].clone());
             }
             "--require-grounding" => require_grounding = true,
+            "--full" => full = true,
             "--suggestions" => include_suggestions = true,
             other if other.starts_with('-') => {
                 eprintln!("error: unknown flag `{other}`");
@@ -46,7 +48,7 @@ fn command_check(args: &[String]) -> ExitCode {
         eprintln!("error: unsupported check format `{format}`");
         return ExitCode::from(2);
     }
-    let run = match run_check(&path, path_provided, require_grounding) {
+    let run = match run_check(&path, path_provided, require_grounding, full) {
         Ok(run) => run,
         Err(err) => {
             eprintln!("error: {err:#}");
@@ -78,21 +80,35 @@ struct CheckRun {
     had_scan_errors: bool,
 }
 
-fn run_check(path: &Path, path_provided: bool, force_require_grounding: bool) -> Result<CheckRun> {
+fn run_check(
+    path: &Path,
+    path_provided: bool,
+    force_require_grounding: bool,
+    full: bool,
+) -> Result<CheckRun> {
     let mut config = resolve_workspace_config(path)?;
+    // §FS-check.1.3: `--full` cancels `[scan] include` for the walk. It is a
+    // per-run flag, never a config key (§DF-check-full-scope.2.5).
+    config.scan_full = full;
     // `--require-grounding` only ever turns the check on for this run; it never
     // turns off a `[reference] require_grounding = true` set in the config.
     if force_require_grounding {
         config.require_grounding = true;
     }
     if config.workspace_declared && is_workspace_root_scope(&config, path, path_provided) {
-        return run_workspace_check(config, force_require_grounding);
+        return run_workspace_check(config, force_require_grounding, full);
     }
 
-    let (findings, scan_errors) = scan_tree(&config, Some(path), path_provided)?;
+    let (mut findings, scan_errors) = scan_tree(&config, Some(path), path_provided)?;
+    // §FS-check.1.3 / §FS-check.3.14: read the out-of-scope tier off the whole
+    // `--full` walk first, then narrow the findings back to the configured scope
+    // so every other rule reports exactly what a run without the flag reports.
+    let scope = configured_scope(&config, path, path_provided, full)?;
+    let out_of_scope =
+        out_of_scope_references(&findings, &config, &BTreeMap::new(), scope.as_ref());
+    retain_findings_in_scope(&mut findings, scope.as_ref());
     let mut report = check_findings(&findings, &config);
     let had_scan_errors = append_scan_errors(&mut report, scan_errors);
-    sort_diagnostics(&mut report.errors);
     // §FS-check.2.2: a walk that read no files and turned up nothing to report is
     // almost always a misconfigured scope, not a clean repo — say so on stderr
     // instead of printing nothing and exiting 0. This is a warning: it never
@@ -108,6 +124,11 @@ fn run_check(path: &Path, path_provided: bool, force_require_grounding: bool) ->
     // independent, and a repository mid-migration must not lose the scope
     // diagnostic just because it also has a config pair.
     report.warnings.extend(redundant_config_warning(&config));
+    // §FS-check.3.14, after the empty-scan test above: a `--full` run whose
+    // *configured* scope read nothing still earns that caution — the tier says
+    // where the citations are, the caution says the config has not been told.
+    report.errors.extend(out_of_scope);
+    sort_diagnostics(&mut report.errors);
 
     Ok(CheckRun {
         config,
@@ -119,6 +140,7 @@ fn run_check(path: &Path, path_provided: bool, force_require_grounding: bool) ->
 fn run_workspace_check(
     mut root_config: Config,
     force_require_grounding: bool,
+    full: bool,
 ) -> Result<CheckRun> {
     let mut projects = load_workspace_projects(&mut root_config)?;
     // §FS-check.3.5: `--require-grounding` propagates to every member's
@@ -128,6 +150,16 @@ fn run_workspace_check(
         for project in &mut projects {
             project.config.require_grounding = true;
         }
+    }
+    // §FS-check.1.3: `include` is a per-project statement, so each project's
+    // walk is widened past its own and tiered against its own configured scope.
+    let scopes = projects
+        .iter()
+        .map(|project| configured_scope(&project.config, &project.config.root, true, full))
+        .collect::<Result<Vec<_>>>()?;
+    let out_of_scope = workspace_out_of_scope_references(&projects, &scopes);
+    for (project, scope) in projects.iter_mut().zip(&scopes) {
+        retain_findings_in_scope(&mut project.findings, scope.as_ref());
     }
 
     let workspace = projects
@@ -179,6 +211,7 @@ fn run_workspace_check(
             report.warnings.extend(redundant_config_warning(&project.config));
         }
     }
+    report.errors.extend(out_of_scope);
     sort_diagnostics(&mut report.errors);
     sort_diagnostics(&mut report.warnings);
     sort_diagnostics(&mut report.suggestions);

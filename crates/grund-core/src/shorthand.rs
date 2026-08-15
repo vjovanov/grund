@@ -488,18 +488,23 @@ fn resolve_shorthand_citations(findings: &mut Findings) {
 /// this error knows how to name is one the formatter declines to apply, so
 /// reporting it would leave a repository permanently red with nothing to run.
 /// A shorthand that resolves to zero or several declarations is still reported
-/// there — that is a dangling reference, not a formatting nit.
+/// there — that is a dangling reference, not a formatting nit. The out-of-scope
+/// tier of `check --full` withholds it for the same reason: `fmt` scopes by
+/// `[scan] include` too (§FS-check.3.14).
 fn shorthand_diagnostic(
     config: &Config,
     cite: &Citation,
     target_config: &Config,
+    tier: ReferenceTier,
     candidates: &[&Id],
 ) -> Option<Diagnostic> {
     let written = cite.text.trim();
     let message = match candidates {
         [] => format!("shorthand citation {written} matches no declaration"),
         [unique] => {
-            if !cite.shorthand_rewritable {
+            // §FS-check.3.14: outside the configured scope `fmt` will not rewrite
+            // the site either, so the same withholding applies for the same reason.
+            if !cite.shorthand_rewritable || tier == ReferenceTier::OutOfScope {
                 return None;
             }
             let section = cite
@@ -550,6 +555,7 @@ fn report_shorthand_citation<'a>(
     cite: &Citation,
     config: &Config,
     target: &WorkspaceCheckTarget<'a>,
+    tier: ReferenceTier,
     indexes: &mut ShorthandIndexes<'a>,
     report: &mut CheckReport,
 ) -> bool {
@@ -557,7 +563,7 @@ fn report_shorthand_citation<'a>(
         .entry(cite.namespace.clone())
         .or_insert_with(|| ShorthandIndex::build(target.findings.declarations.keys()));
     if let Some(diagnostic) =
-        shorthand_diagnostic(config, cite, target.config, index.candidates(&cite.id))
+        shorthand_diagnostic(config, cite, target.config, tier, index.candidates(&cite.id))
     {
         report.errors.push(diagnostic);
     }

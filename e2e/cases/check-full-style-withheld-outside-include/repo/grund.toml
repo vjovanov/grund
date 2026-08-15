@@ -1,0 +1,7 @@
+grund_config_version = 1
+
+[reference]
+require_grounding = true
+
+[scan]
+include = ["docs", "src"]

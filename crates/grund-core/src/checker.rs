@@ -137,6 +137,19 @@
 /// keeps `check` from naming `grund fmt --write` as the fix for a site the formatter
 /// declines to touch, which would leave the repository permanently red.
 ///
+/// ### 2.13 Scope tiering — `--full` (§FS-check.1.3, §FS-check.3.14, §DF-check-full-scope)
+///
+/// `[scan] include` decides which roots the walk starts from, so a citation
+/// outside it is invisible rather than merely unchecked. `grund check --full`
+/// widens the walk to the whole config root and the run then has two scopes.
+/// `checker_references.rs` owns both halves of that: the tier is read off the
+/// *whole* walk first — resolution failures only, so a directory nobody
+/// configured is never judged against conventions it never adopted — and the
+/// findings are then narrowed in place to the configured scope, so every rule
+/// above sees exactly the tree a run without the flag sees. That ordering is
+/// what makes `--full` purely additive: it can only add findings, never withdraw
+/// one the ordinary run would have made.
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and
@@ -264,76 +277,18 @@ fn check_with_workspace(
         }
     }
 
-    let mut shorthand_indexes = ShorthandIndexes::default();
-    for cite in &findings.citations {
-        let Some(target) = target_for_citation(cite, findings, config, workspace) else {
-            // `target_for_citation` only returns `None` when the
-            // namespace is present and unknown — so the namespace is always
-            // Some here (§AR-workspace.4).
-            let namespace = cite
-                .namespace
-                .as_deref()
-                .expect("resolver only returns None for qualified citations");
-            report.errors.push(Diagnostic {
-                code: "unknown-project",
-                path: Some(cite.file.clone()),
-                line: Some(cite.line),
-                column: Some(cite.column),
-                message: format!("unknown project alias {namespace}"),
-                sites: Vec::new(),
-            });
-            continue;
-        };
-        // §FS-check.3.13 / §AR-checker.2.12: the shorthand pass, and the one rule
-        // that can end this citation early — an unresolved shorthand skips the
-        // dangling check below rather than adding `unknown reference FS-042` for a
-        // token that is not a full ID.
-        if cite.shorthand
-            && report_shorthand_citation(cite, config, &target, &mut shorthand_indexes, &mut report)
-        {
-            continue;
-        }
-        // §FS-check.3.1 / §FS-workspace.4: a citation whose ID is declared
-        // nowhere in its target namespace is dangling.
-        let Some(decls) = target.findings.declarations.get(&cite.id) else {
-            let message = dangling_message(
-                target.config,
-                cite.namespace.as_deref(),
-                target.findings,
-                &cite.id,
-                citation_in_markdown_inline_code(cite),
-            );
-            report.errors.push(Diagnostic {
-                code: "dangling",
-                path: Some(cite.file.clone()),
-                line: Some(cite.line),
-                column: Some(cite.column),
-                message,
-                sites: Vec::new(),
-            });
-            continue;
-        };
-        // §FS-check.3.2: the ID resolves but no declaration has a heading at the
-        // cited section path.
-        if let Some(sec) = &cite.section {
-            let any_match = decls.iter().any(|d| d.sections.contains_key(sec));
-            if !any_match {
-                report.errors.push(Diagnostic {
-                    code: "missing-section",
-                    path: Some(cite.file.clone()),
-                    line: Some(cite.line),
-                    column: Some(cite.column),
-                    message: format!(
-                        "missing section {}{}{}",
-                        render_qualified_id(target.config, cite.namespace.as_deref(), &cite.id),
-                        target.config.section_separator,
-                        sec
-                    ),
-                    sites: Vec::new(),
-                });
-            }
-        }
-    }
+    // §FS-check.3.1 / §FS-check.3.2 / §FS-check.3.8 / §FS-check.3.13: the
+    // reference-resolution family, in `checker_references.rs` because
+    // `check --full` runs it a second time over the tree outside `[scan]
+    // include` (§AR-checker.2.13, §FS-check.3.14).
+    check_citation_resolution(
+        findings,
+        config,
+        workspace,
+        ReferenceTier::Configured,
+        None,
+        &mut report,
+    );
 
     // §FS-check.2.3.1 / §AR-checker.2.11: a `<§>`-escaped illustration whose ID
     // resolves to a real declaration is likely a live citation someone bracketed

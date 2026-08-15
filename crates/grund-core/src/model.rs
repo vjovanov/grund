@@ -311,6 +311,12 @@ pub struct Config {
     pub inline_note_max_columns: usize,
     pub warn_on_suggested: bool,
     pub include: Option<Vec<String>>,
+    /// §FS-check.1.3: `grund check --full` for this run — walk the whole config
+    /// root and ignore `include`. Not a `grund.toml` key and never read from one
+    /// (§DF-check-full-scope.2.5): a project that wants its whole tree governed
+    /// widens `include`, and a second knob describing one scope is how two
+    /// installs come to disagree (§FS-non-goals.13).
+    pub scan_full: bool,
     pub exclude: Vec<String>,
     pub extensions: Vec<String>,
     pub comment_prefixes: Vec<String>,
@@ -405,6 +411,7 @@ impl Config {
                     .map(|path| path.to_string())
                     .collect(),
             ),
+            scan_full: false,
             exclude: vec![
                 "target".into(),
                 "node_modules".into(),

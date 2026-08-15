@@ -1,6 +1,6 @@
 grund check — validate every ID citation across the repo.
 
-Usage:  grund check [PATH] [--require-grounding] [--suggestions] [--format text|json]
+Usage:  grund check [PATH] [--full] [--require-grounding] [--suggestions] [--format text|json]
 
 PATH defaults to `.`; config (`grund.toml`, root or `.agents/`) is discovered by walking up from it.
 With no config, grund scans `docs/`, `e2e/`, and `src/`; set `[scan] include` to widen it.
@@ -9,6 +9,7 @@ Path validation is explicit; `grund PATH` is parsed as an ID query.
 
 Options:
   --format text|json   text (default) prints `success` or `path:line: message`; json emits NDJSON.
+  --full               also walk past [scan] include and report the references that resolve to nothing out there.
   --require-grounding  also require every source file to cite a declared ID ([reference] require_grounding).
   --suggestions        also surface should/should-not citation-direction findings ([citations]).
 
@@ -21,4 +22,5 @@ Exit:  0 clean · 1 dangling / duplicate / unknown-section / ungrounded findings
 Examples:
   grund check              # check the whole repo
   grund check docs/        # check one subtree
+  grund check --full       # plus dangling citations outside [scan] include
   grund check --format json | jq # machine-readable diagnostics for CI
