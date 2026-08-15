@@ -73,7 +73,29 @@ impl LspSnapshot {
 /// snapshot — the wording lives here rather than in the transport so a second
 /// frontend cannot re-word it (§FS-lsp.4).
 pub fn lsp_title_hover_body(title: &str, usage: LspUsage) -> String {
-    format!("`{}` — {}", title.replace('`', "\\`"), usage_clause(usage))
+    format!("{} — {}", markdown_code_span(title), usage_clause(usage))
+}
+
+/// `text` as a CommonMark code span, verbatim (§FS-lsp.1.2). A backslash does
+/// not escape a backtick inside a code span, so a title carrying one — plenty
+/// of section headings do, `2.1.2 Section map (--toc)` among them — is fenced
+/// with a run one longer than the longest run inside it, and padded with one
+/// space at each end when it starts or ends with a backtick (CommonMark strips
+/// exactly one leading and one trailing space when both are present).
+fn markdown_code_span(text: &str) -> String {
+    let mut longest_run = 0usize;
+    let mut run = 0usize;
+    for ch in text.chars() {
+        run = if ch == '`' { run + 1 } else { 0 };
+        longest_run = longest_run.max(run);
+    }
+    let fence = "`".repeat(longest_run + 1);
+    let pad = if text.starts_with('`') || text.ends_with('`') {
+        " "
+    } else {
+        ""
+    };
+    format!("{fence}{pad}{text}{pad}{fence}")
 }
 
 /// `cited at <n> site(s) across <m> file(s)`, or `not cited` at zero

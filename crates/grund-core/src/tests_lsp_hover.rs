@@ -153,6 +153,62 @@ mod tests_lsp_hover {
         );
     }
 
+    /// §FS-lsp.1.2: the title goes into the code span verbatim, so a title
+    /// carrying backticks is fenced with a run one longer than the longest run
+    /// inside it — a backslash does not escape a backtick inside a code span,
+    /// and the raw one would close the span early — and padded with one space
+    /// at each end when it starts or ends with a backtick.
+    #[test]
+    fn title_hover_body_fences_a_title_that_carries_backticks() {
+        let usage = LspUsage { sites: 1, files: 1 };
+        let clause = "cited at 1 site across 1 file";
+
+        // No backtick in the title: the plain single-backtick span, unchanged.
+        assert_eq!(
+            lsp_title_hover_body("FS-001-alpha: Alpha", usage),
+            format!("`FS-001-alpha: Alpha` — {clause}")
+        );
+        // One run of one, as most section headings that name a flag carry.
+        assert_eq!(
+            lsp_title_hover_body("2.1.2 Section map (`--toc`)", usage),
+            format!("``2.1.2 Section map (`--toc`)`` — {clause}")
+        );
+        // A run of two needs three, not two: the fence must not appear inside.
+        assert_eq!(
+            lsp_title_hover_body("1. Spans written ``like this``", usage),
+            format!("``` 1. Spans written ``like this`` ``` — {clause}")
+        );
+        // Starting and ending with a backtick: one space at each end, which
+        // CommonMark strips back off when it renders the span.
+        assert_eq!(
+            lsp_title_hover_body("`--toc` and `--full`", usage),
+            format!("`` `--toc` and `--full` `` — {clause}")
+        );
+    }
+
+    /// §FS-lsp.1.2: the same rule end to end — a declaration heading and a
+    /// section heading whose titles carry backticks hover with the title intact.
+    #[test]
+    fn title_hover_fences_backticks_read_off_a_real_tree() {
+        let root = test_root("title_hover_fences_backticks_read_off_a_real_tree");
+        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(
+            &root.join("docs/functional-spec/FS-004-delta.md"),
+            "# FS-004-delta: The `--toc` flag\n\nLead.\n\n## 1. Section map (`--toc`)\nMore.\n",
+        );
+        write(&root.join("src/user.rs"), "//! §FS-004-delta.1\n");
+        let snapshot = snapshot_of(&root);
+
+        assert_eq!(
+            title_hover_body(&snapshot, "FS-004-delta"),
+            "``FS-004-delta: The `--toc` flag`` — cited at 1 site across 1 file"
+        );
+        assert_eq!(
+            title_hover_body(&snapshot, "FS-004-delta.1"),
+            "``1. Section map (`--toc`)`` — cited at 1 site across 1 file"
+        );
+    }
+
     /// §FS-lsp.1.2: a numbered section heading counts the section-scoped set
     /// §FS-lsp.1.3.1 defines — `§<ID>.<section>` and deeper — which is wider
     /// than the exact-coordinate filter `grund refs <ID> --section <s>` applies.
