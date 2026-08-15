@@ -537,7 +537,7 @@ grund check .
 grund check --full .
 ```
 
-The last line checks the config itself: `grund check .` reads only what `[scan] include` names, so `grund check --full .` walks the whole root past that key and reports the references resolving to nothing out there (§FS-check.1.3) — each one names a directory that belongs in `include`.
+The last line checks the config itself: `grund check .` reads only what `[scan] include` names, so `grund check --full .` walks the whole root past that key and reports the references resolving to nothing out there (§FS-check.1.3) — each one names a directory that belongs in `include`. The wider walk stops only at *declared* workspace members, not at any nested `grund.toml`, so a vendored or example project inside the tree is read under this project's grammar; list it in `[scan] exclude`, or in `[workspace] members` if it is one of ours.
 
 If custom config affects `AGENTS.md`, ensure `grund.toml` exists before `grund init` so the generated managed block reflects the selected ID grammar, marker, strict mode, kinds, and existing artifact layout.
 
