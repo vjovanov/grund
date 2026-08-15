@@ -232,8 +232,11 @@ fn load_workspace_projects_with_overlays(
     // §AR-scanner.2.4: members inherit the root's classification intent, so a
     // read-only command (root off) skips the post-pass for every member and
     // `grund check` (root on) classifies the whole workspace.
+    // §FS-check.1.3: `grund check --full` is a property of the run, not of one
+    // project's config, so every member walks past its own `[scan] include` too.
     for (_, config) in &mut entries {
         config.classify_citation_sources = root_config.classify_citation_sources;
+        config.scan_full = root_config.scan_full;
     }
 
     // Stage 2: build the target list up-front so each project's scan can

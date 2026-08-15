@@ -76,5 +76,6 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - nested e2e fixture repos ignored during ordinary scans
 - unsupported extension ignored
 - deterministic multiple-error output
+- `check --full` reporting a dangling citation outside `[scan] include`, the same tree staying silent without the flag, and style / grounding findings withheld out there
 
 Warnings are intentionally not covered here yet. They are lower priority than the error, retrieval, formatting, and configuration contracts.

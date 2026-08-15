@@ -4,6 +4,7 @@ fn command_check(args: &[String]) -> ExitCode {
     let mut format_override = None;
     let mut require_grounding = false;
     let mut include_suggestions = false;
+    let mut full = false;
     let mut idx = 0;
     while idx < args.len() {
         match args[idx].as_str() {
@@ -20,6 +21,8 @@ fn command_check(args: &[String]) -> ExitCode {
             }
             "--require-grounding" => require_grounding = true,
             "--suggestions" => include_suggestions = true,
+            // §FS-check.1.3: widen the walk past `[scan] include` for this run.
+            "--full" => full = true,
             other if other.starts_with('-') => {
                 eprintln!("error: unknown flag `{other}`");
                 return ExitCode::from(2);
@@ -46,6 +49,7 @@ fn command_check(args: &[String]) -> ExitCode {
         path_provided,
         require_grounding,
         include_suggestions,
+        full,
     }) {
         Ok(output) => output,
         Err(err) => {

@@ -83,6 +83,11 @@ pub struct CheckOpts {
     /// Surface the citation-direction suggestions channel (§FS-check.2.3) —
     /// the `grund check --suggestions` flag at the library level.
     pub include_suggestions: bool,
+    /// Walk the whole config root, past `[scan] include`, and add the
+    /// out-of-scope reference tier (§FS-check.1.3, §FS-check.3.14) — the
+    /// `grund check --full` flag at the library level. Purely additive: the
+    /// findings inside the configured scope are unchanged by it.
+    pub full: bool,
 }
 
 impl Default for CheckOpts {
@@ -92,6 +97,7 @@ impl Default for CheckOpts {
             path_provided: false,
             require_grounding: false,
             include_suggestions: false,
+            full: false,
         }
     }
 }
@@ -119,6 +125,7 @@ pub fn check(path: &Path) -> Result<Report> {
         path_provided: true,
         require_grounding: false,
         include_suggestions: false,
+        full: false,
     })?
     .report)
 }
@@ -126,7 +133,7 @@ pub fn check(path: &Path) -> Result<Report> {
 /// Programmatic `check` with the same scope and grounding options as the CLI,
 /// returning data instead of printing a report or mapping a process exit.
 pub fn check_with_opts(opts: CheckOpts) -> Result<CheckOutput> {
-    let run = run_check(&opts.path, opts.path_provided, opts.require_grounding)?;
+    let run = run_check(&opts.path, opts.path_provided, opts.require_grounding, opts.full)?;
     Ok(CheckOutput {
         output_format: run.config.output_format.clone(),
         report: public_report(&run.config, run.report, opts.include_suggestions),

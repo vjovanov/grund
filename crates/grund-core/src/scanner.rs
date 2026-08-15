@@ -1077,7 +1077,11 @@ fn scan_e2e_cases(
         } else if !cases_root.starts_with(&scope) {
             return Ok(());
         }
-    } else if let Some(include) = &config.include {
+    } else if !config.scan_full
+        && let Some(include) = &config.include
+    {
+        // §FS-check.1.3: `--full` cancels `include`, so the e2e cases are in the
+        // walk whether or not `include` happens to name their folder.
         let covered = include.iter().any(|path| {
             let root = config.root.join(path);
             cases_root.starts_with(&root) || root.starts_with(&cases_root)
@@ -1398,6 +1402,20 @@ fn is_direct_e2e_case_dir(path: &Path, cases_root: Option<&Path>, config: &Confi
 /// given (narrowing the default scope), otherwise `[scan] include` resolved against
 /// the repo root, otherwise the whole root (§FS-config.3.5, §AR-scanner.1).
 fn scan_roots(config: &Config, scope: Option<&Path>, explicit_scope: bool) -> Result<Vec<PathBuf>> {
+    scan_roots_for(config, scope, explicit_scope, config.scan_full)
+}
+
+/// §FS-check.1.3: `full` cancels `[scan] include` for this walk and nothing else
+/// — an explicit path argument still narrows, and `exclude`, the ignore files,
+/// and `extensions` are untouched. `check --full` asks both ways: once with
+/// `true` to walk the whole root, and once with `false` to learn which of what it
+/// read was inside the configured scope (§FS-check.3.14).
+fn scan_roots_for(
+    config: &Config,
+    scope: Option<&Path>,
+    explicit_scope: bool,
+    full: bool,
+) -> Result<Vec<PathBuf>> {
     if explicit_scope {
         let scope = scope.unwrap_or(Path::new("."));
         if !scope.exists() {
@@ -1408,13 +1426,16 @@ fn scan_roots(config: &Config, scope: Option<&Path>, explicit_scope: bool) -> Re
             return Ok(vec![scope]);
         }
         if scope == config.root
+            && !full
             && let Some(include) = &config.include
         {
             return Ok(include.iter().map(|path| config.root.join(path)).collect());
         }
         return Ok(vec![scope]);
     }
-    if let Some(include) = &config.include {
+    if !full
+        && let Some(include) = &config.include
+    {
         Ok(include.iter().map(|path| config.root.join(path)).collect())
     } else {
         Ok(vec![config.root.clone()])
