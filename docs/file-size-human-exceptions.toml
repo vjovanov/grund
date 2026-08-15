@@ -42,17 +42,17 @@ path = "crates/grund-lsp/tests/shutdown.rs"
 match = "exact"
 rules = ["tests"]
 kind = "deferred"
-max_accepted = { value = 1141, unit = "lines" }
-until = "the remaining cases are grouped into suites named for the request they drive"
+max_accepted = { value = 765, unit = "lines" }
+until = "the remaining cases are grouped into suites named for the request they drive, in one move"
 reason = """
-The harness half of this entry is spent: the stdio harness — spawn, initialize handshake, framed send/receive, teardown — now lives in `crates/grund-lsp/tests/support/mod.rs`, and the hover cases moved out to `tests/hover.rs` against it, which is what dropped the ceiling from 1301. What is left is a file still named after the first case written against it, holding lifecycle, diagnostics, definition, references, document-link, and highlight cases that no longer share anything but this file. Missing boundary: the grouping itself — which request families are one suite — decided once for the whole file and moved with the assertions untouched, rather than a case at a time behind whichever feature happens to be landing.
+Nine cases that share a process, not a subject: each builds its own fixture tree and asserts over the JSON-RPC answers of one request family — lifecycle, diagnostics, definition, references, document links, highlight — and they sit together only because this file was the first one written against a real server. Both things that used to hold them here are gone: the stdio harness (spawn, initialize handshake, framed send/receive, teardown) is `crates/grund-lsp/tests/support/mod.rs` and every case in this file now starts from it, and `textDocument/hover` moved out whole to `tests/hover.rs`, which is what dropped the ceiling from 1301 to 765. Missing boundary: the grouping itself — which request families make one suite — decided once for the whole file and applied in a single move with the assertions untouched, rather than a case at a time behind whichever feature happens to be landing.
 """
 [[exceptions]]
 path = "crates/grund-lsp/src/lib.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 1247, unit = "lines" }
+max_accepted = { value = 1208, unit = "lines" }
 until = "state the snapshot/line-cache contract, then split handlers by request family"
 reason = """
 The handlers behind the 12 dispatch arms (6 requests, 6 notifications) share &mut self on one impl Server whose snapshot, open_docs, and line_cache carry an invariant: the per-snapshot line cache is valid only between refreshes (§AR-lsp.5). That invariant is why they read as one unit, but Rust allows several impl Server blocks across include!d files, so it does not require one file — it requires the contract to be written down before they move. Missing boundary: that contract stated explicitly, after which handlers split by request family and transport stays in lib.rs.
