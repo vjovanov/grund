@@ -147,6 +147,35 @@ pub struct DeclaredId<'a> {
     pub id: &'a str,
 }
 
+/// The IDs of the declarations that live under `root` (§FS-lsp.1.4).
+///
+/// A plain prefix test is not enough, because the two sides can reach the same
+/// directory by different spellings: the editor's URI and the discovered config
+/// root need not normalize alike, and on macOS `/var` and `/private/var` name one
+/// directory while Windows adds `\\?\` verbatim prefixes. Getting this wrong is
+/// silent — every candidate is filtered out and the expansion simply never fires.
+///
+/// So the raw comparison runs first, and only if it finds nothing does the
+/// normalized one run, through the same `canonical_snapshot_path` the LSP snapshot
+/// itself is built with (§AR-lsp.5) rather than a second, drift-prone rule about
+/// path shapes. On a tree whose paths already agree that costs no I/O at all.
+fn declarations_under_root<'a>(declarations: &[DeclaredId<'a>], root: &Path) -> Vec<&'a str> {
+    let direct: Vec<&str> = declarations
+        .iter()
+        .filter(|declared| declared.path.starts_with(root))
+        .map(|declared| declared.id)
+        .collect();
+    if !direct.is_empty() || declarations.is_empty() {
+        return direct;
+    }
+    let canonical_root = canonical_snapshot_path(root);
+    declarations
+        .iter()
+        .filter(|declared| canonical_snapshot_path(declared.path).starts_with(&canonical_root))
+        .map(|declared| declared.id)
+        .collect()
+}
+
 /// The `$$` → `§` conversion for the trigger immediately before `cursor`, when the
 /// text between it and the cursor is a whole ID-shaped token (§FS-fmt.2.1).
 fn trigger_marker_edit(
@@ -209,11 +238,7 @@ fn shorthand_expansion_edit(
     // Scoped to the edited file's own project — see `DeclaredId`. Collected only
     // now, after every cheap gate above has passed, so an ordinary keystroke never
     // walks the declaration list at all (§GOAL-fast-feedback).
-    let in_project: Vec<&str> = declarations
-        .iter()
-        .filter(|declared| declared.path.starts_with(&config.root))
-        .map(|declared| declared.id)
-        .collect();
+    let in_project = declarations_under_root(declarations, &config.root);
     let text = shorthand_token_expansion(config, &line[token_start..token_end], &in_project)?;
     Some(LineEdit {
         start: token_start,

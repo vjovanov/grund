@@ -377,6 +377,45 @@ mod tests_shorthand_rewrite {
         );
     }
 
+    // §FS-lsp.1.4: scoping the expansion to the edited file's project compares
+    // paths, and two spellings can name one directory — a symlinked root here,
+    // `/var` vs `/private/var` on macOS, a `\\?\` prefix on Windows. A raw prefix
+    // test silently filters every candidate out and the expansion just never
+    // fires, which is the shape this failed in on two platforms while Linux
+    // passed. Unix-only because it needs a symlink to build the mismatch.
+    #[cfg(unix)]
+    #[test]
+    fn expansion_survives_a_root_reached_by_another_path() {
+        let root = test_root("expansion_survives_a_root_reached_by_another_path");
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n[id]\nformat = \"{kind}-{number}-{slug}\"\n",
+        );
+        let home = root.join("docs/functional-spec/FS-042-user-login.md");
+        write(&home, "# FS-042-user-login: User login\n\nLead.\n");
+
+        // A second spelling of the very same directory.
+        let link = root.with_file_name(format!(
+            "{}-link",
+            root.file_name().expect("test root name").to_string_lossy()
+        ));
+        let _ = std::fs::remove_file(&link);
+        std::os::unix::fs::symlink(&root, &link).expect("symlink the test root");
+
+        // Both the document and the declarations are reached through the link,
+        // while config discovery resolves the root to its real path — exactly the
+        // mismatch an editor URI and a discovered config root can carry.
+        let path = link.join("docs/notes.md");
+        let declared = vec![(
+            link.join("docs/functional-spec/FS-042-user-login.md"),
+            "FS-042-user-login",
+        )];
+        assert_eq!(
+            type_line_in(&path, "See ", "$$FS-042 x", &declared, "Intro.\n"),
+            "See §FS-042-user-login x"
+        );
+    }
+
     // §FS-lsp.1.4: an ambiguous shorthand is never guessed at, and an expansion
     // is scoped to the edited file's own project — a sibling workspace member's
     // declarations must neither supply the answer nor suppress it.
