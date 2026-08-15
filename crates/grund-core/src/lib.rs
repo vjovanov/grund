@@ -13,6 +13,7 @@ use unicode_normalization::UnicodeNormalization;
 // published `grund` CLI and, next, the optional LSP server. The category files
 // are still included flat to keep this first package split behavior-preserving.
 include!("grammar.rs");
+include!("id_format.rs");
 include!("shorthand.rs");
 include!("model.rs");
 include!("config_discovery.rs");
@@ -36,6 +37,7 @@ include!("integrations.rs");
 include!("init_templates.rs");
 include!("init.rs");
 include!("api.rs");
+include!("on_type.rs");
 include!("compat_cli.rs");
 // Tests, one module per category (§AR-core-module-layout.1). `tests_support`
 // holds the fixtures they share and must come first.
@@ -45,6 +47,7 @@ include!("tests_config_scan.rs");
 include!("tests_grounding_style.rs");
 include!("tests_scanner.rs");
 include!("tests_shorthand.rs");
+include!("tests_shorthand_rewrite.rs");
 include!("tests_citation_directions.rs");
 include!("tests_managed_block_drift.rs");
 include!("tests_workspace.rs");

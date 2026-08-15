@@ -1,0 +1,6 @@
+grund_config_version = 1
+project_name = "root"
+
+[workspace]
+members = ["api", "web"]
+include_root = false

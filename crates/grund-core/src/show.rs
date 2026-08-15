@@ -203,7 +203,7 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
     let (id, inline_section) = match resolve_id_arg(raw_id, config, &project.findings) {
         Ok(parsed) => parsed,
         Err(err) => {
-            let message = format!("{err:#}");
+            let message = format!("{err}");
             if format == "json" {
                 print_bare_query_json(config, show_query_error_code(&message), &message);
             } else {

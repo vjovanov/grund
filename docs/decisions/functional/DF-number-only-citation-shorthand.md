@@ -48,6 +48,8 @@ Two properties pay for it:
 | Persisted in a scanned file (`§FS-042`) | **`grund check` error**, with the canonical form named | The graph must have one form. |
 | `grund fmt --write` | **Rewrites** to the canonical form | The bulk fix-it for the error above. |
 
+The last two rows are one commitment, not two: the error is worth having *because* a single command clears it. So the two must agree about scope. Where §2.3's never-rewrite rules ([§FS-fmt.2.3](../../functional-spec/FS-fmt.md#23-what-is-never-rewritten)) stop the rewrite — inline code, a link destination, a runtime string — the error does not fire either. A finding whose named fix the tool refuses to perform is one a repository can never clear, and shipping that would put CI permanently red over a citation that already resolves. The citation is untouched in every other respect: it counts as an edge (§2.8), so the choice costs nothing but the demand to rewrite it.
+
 The error carries the answer, so the fix is mechanical:
 
 ```
@@ -75,9 +77,13 @@ The shorthand shape is the configured `[id] format` with the `{slug}` placeholde
 
 A repository on the number-less form is entirely unaffected by this decision, which is why `grund`'s own tree gains no new findings from it ([§FS-id.4.1](../../functional-spec/FS-id.md#41-number-less-id-formats)).
 
-### 2.6 The full ID always wins
+### 2.6 The full ID always wins, and only a whole token is a shorthand
 
 The full-ID pass claims a token first; the shorthand pass only considers what is left. A configured grammar exotic enough that some full ID is also shorthand-shaped therefore resolves as the full ID, and no repository can be pushed into ambiguity by adopting this rule.
+
+That ordering is necessary but not sufficient, because the shorthand is a **prefix** of every longer ID-shaped token. `§FS-042-User-Login` is not a full ID under the default grammar — the slug pattern rejects the capitals — so the full-ID pass claims nothing, and a shorthand pass that stopped at `FS-042` would report a token the file does not contain and, worse, let `grund fmt` rewrite the prefix and leave `-User-Login` glued to the canonical slug. A shorthand therefore counts only when the character after it cannot continue an ID. Typos, `snake_case` slips, and version suffixes are left exactly as written: they were never citations, and the tool's job at a token it does not understand is to say nothing and change nothing.
+
+The boundary is drawn to match the *full* form exactly, because any gap between them is a shorthand that resolves in one place and not the other — the defect this record exists to close, reintroduced from the other side. So a separator counts only when a component follows it (`see §FS.042.` at the end of a sentence is a citation; `§FS.042.User-Login` is not), and `/` never counts, since `§FS-042-user-login/x` is already a citation of the full ID.
 
 ### 2.7 Ambiguity is reported, never guessed
 
@@ -99,9 +105,10 @@ The decisive point is that the two options are not symmetric in cost of error. U
 
 ## 4. Consequences
 
-- A new `shorthand-citation` error class ([§FS-check.3.13](../../functional-spec/FS-check.md#313-number-only-shorthand-citation)) and a new recognized-citation clause ([§FS-check.1.2](../../functional-spec/FS-check.md#12-the-number-only-shorthand)). The dangling check (§3.1) is suppressed at a shorthand site, since the shorthand finding already reports it and `unknown reference FS-042` would name a token that is not a full ID.
-- `Citation` gains a `shorthand` flag and the scanner gains a resolution post-pass; every existing consumer keeps reading a canonical `Id`.
-- `grund fmt` gains a third rewrite label, `shorthand → canonical` ([§FS-fmt.2.4](../../functional-spec/FS-fmt.md#24-shorthand-to-canonical)), and the LSP's live transform expands the trigger form in one step ([§FS-lsp.1.4](../../functional-spec/FS-lsp.md#14-live-trigger-transform)).
+- A new `shorthand-citation` error class ([§FS-check.3.13](../../functional-spec/FS-check.md#313-number-only-shorthand-citation)) and a new recognized-citation clause ([§FS-check.1.2](../../functional-spec/FS-check.md#12-the-number-only-shorthand)). The dangling check (§3.1) is suppressed at a shorthand site, since the shorthand finding already reports it and `unknown reference FS-042` would name a token that is not a full ID. Rules that judge a *different* fact about the same site — a section that does not exist, a forbidden citation direction — are unaffected and report alongside it.
+- `Citation` gains a `shorthand` flag and a `shorthand_rewritable` flag, and the scanner gains a resolution post-pass; every existing consumer keeps reading a canonical `Id`.
+- `grund fmt` gains a third rewrite label, `shorthand → canonical` ([§FS-fmt.2.4](../../functional-spec/FS-fmt.md#24-shorthand-to-canonical)), and the LSP's live transform expands a typed shorthand on the keystroke that ends it ([§FS-lsp.1.4](../../functional-spec/FS-lsp.md#14-live-trigger-transform)). The trigger→marker conversion stays eager and the expansion does not, because the trigger becomes rewritable at the first digit of the number — long before the author has finished typing it.
+- `[id] number_pattern` and `[id] slug_pattern` must each be a valid regex standalone ([§FS-config.3.2](../../functional-spec/FS-config.md#32-id--id-grammar)). The shorthand pattern is the ID pattern with one capture group removed, which is only sound if each group is self-contained.
 - No `grund_config_version` bump and no `[id]` key: the shorthand is derived from `format`, not configured beside it. A second knob would let two installs disagree about what a citation *is* ([§FS-non-goals.13](../../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
 - No managed-block version bump ([§FS-init.2.3](../../functional-spec/FS-init.md#23-generated-agent-entrypoints)). The block tells an agent to write canonical citations, which is still exactly right; the shorthand rule only fires when one is written anyway, and the finding names its own fix. Bumping the block would hand every repository on the previous version an `agents-init` error for a rule that changes nothing about what they should write.
 - The terminal and editor clients need no new matcher. Their shared citation shape ([§FS-integrations.3.1](../../functional-spec/FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2)) already matches `§FS-042`, so a clicked shorthand resolves the moment `grund <ID>` accepts one — which is why §2.2 puts the shorthand at the CLI input boundary and not only in the editor.

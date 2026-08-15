@@ -62,7 +62,7 @@ The shape is `<path>: <count> (lines <l1>, <l2>, …)` — the count is the numb
 ## 4. Exit codes
 
 - `0` — scan succeeded; the listed citations (possibly none) are the result.
-- `2` — scan / I/O error ([§FS-check.2](FS-check.md#2-outputs) partial-scan semantics apply: an incomplete scan exits `2` and the lookup is not trustworthy as complete), an `<ID>` argument that does not match the configured `[id] format` (§1), an unsupported `--format`, or any other CLI-level error ([§FS-cli.4](FS-cli.md#4-errors-with-no-source-location)).
+- `2` — scan / I/O error ([§FS-check.2](FS-check.md#2-outputs) partial-scan semantics apply: an incomplete scan exits `2` and the lookup is not trustworthy as complete), an `<ID>` argument that does not match the configured `[id] format` (§1), a number-only shorthand naming more than one declaration ([§FS-check.1.2](FS-check.md#12-the-number-only-shorthand)), an unsupported `--format`, or any other CLI-level error ([§FS-cli.4](FS-cli.md#4-errors-with-no-source-location)). The `[id] format` hint accompanies only the first of those: an ambiguous shorthand *did* match the format and already named every candidate, so repeating the format there would send the reader to `grund config show` for a config that is not the problem.
 
 There is no `1`: `refs` is a query that always returns *its* answer (a possibly-empty list), never "found something other than one body" — unlike `show`, it has no single-result expectation to violate.
 

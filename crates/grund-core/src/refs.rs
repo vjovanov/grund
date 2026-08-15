@@ -125,11 +125,17 @@ fn command_refs(args: &[String]) -> ExitCode {
     {
         Ok(parsed) => parsed,
         Err(err) => {
-            eprintln!("error: {err:#}");
-            eprintln!(
-                "hint: this repo's [id] format is `{}` (run `grund config show`); `grund list` shows the IDs that exist",
-                render_config.id_format
-            );
+            eprintln!("error: {err}");
+            // §FS-refs.4: the format hint belongs to an argument that does not
+            // match `[id] format`. An ambiguous shorthand matched it fine and
+            // already printed every candidate — repeating the format there sends
+            // the reader to `grund config show` for a config that is not wrong.
+            if err.wants_format_hint() {
+                eprintln!(
+                    "hint: this repo's [id] format is `{}` (run `grund config show`); `grund list` shows the IDs that exist",
+                    render_config.id_format
+                );
+            }
             return ExitCode::from(2);
         }
     };

@@ -122,11 +122,20 @@
 /// point: `refs`, `cover`, the unused warning (§2.6), and the direction passes
 /// (§2.9, §2.10) all count it without knowing it exists.
 ///
-/// This pass adds the one thing that does differ: an error per shorthand site,
-/// naming the canonical form to write. It re-derives the candidate set (the
-/// declarations sharing the citation's kind and number) so the three outcomes —
-/// unique, ambiguous, unknown — pick the message, and the dangling check (§2.3)
-/// skips shorthand sites so a site never carries two findings for one cause.
+/// This pass adds the one thing that does differ: a finding naming the canonical
+/// form to write. It looks the candidate set up in a per-namespace `(kind,
+/// number)` index — built on first use, because deriving it per site is quadratic
+/// on the tree this rule asks people to migrate — so the three outcomes (unique,
+/// ambiguous, unknown) pick the message. The dangling check (§2.3) skips shorthand
+/// sites, so one *cause* never yields two findings; rules judging a different fact
+/// about the same site, such as a missing section (§2.4) or a forbidden direction
+/// (§2.10), are untouched and report alongside it.
+///
+/// A resolving shorthand at a site `grund fmt` may not rewrite (§FS-fmt.2.3 — inline
+/// code, a link destination, a runtime string) is not reported at all. The citation
+/// still resolves and still counts everywhere above; withholding the finding is what
+/// keeps `check` from naming `grund fmt --write` as the fix for a site the formatter
+/// declines to touch, which would leave the repository permanently red.
 ///
 /// ## 3. Error format
 ///
@@ -255,6 +264,7 @@ fn check_with_workspace(
         }
     }
 
+    let mut shorthand_indexes = ShorthandIndexes::default();
     for cite in &findings.citations {
         let Some(target) = target_for_citation(cite, findings, config, workspace) else {
             // `target_for_citation` only returns `None` when the
@@ -274,17 +284,14 @@ fn check_with_workspace(
             });
             continue;
         };
-        // §FS-check.3.13 / §AR-checker.2.12: a number-only shorthand site gets
-        // exactly one finding, and it is this one — so when the shorthand did
-        // not resolve, the dangling check below is skipped rather than adding
-        // `unknown reference FS-042` for a token that is not a full ID.
-        if cite.shorthand {
-            report
-                .errors
-                .push(shorthand_diagnostic(config, cite, &target));
-            if cite.id.slug.is_none() {
-                continue;
-            }
+        // §FS-check.3.13 / §AR-checker.2.12: the shorthand pass, and the one rule
+        // that can end this citation early — an unresolved shorthand skips the
+        // dangling check below rather than adding `unknown reference FS-042` for a
+        // token that is not a full ID.
+        if cite.shorthand
+            && report_shorthand_citation(cite, config, &target, &mut shorthand_indexes, &mut report)
+        {
+            continue;
         }
         // §FS-check.3.1 / §FS-workspace.4: a citation whose ID is declared
         // nowhere in its target namespace is dangling.

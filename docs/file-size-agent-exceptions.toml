@@ -187,7 +187,7 @@ path = "crates/grund-core/src/model.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "structural"
-max_accepted = { value = 421, unit = "lines" }
+max_accepted = { value = 422, unit = "lines" }
 until = "indefinite"
 reason = """
 `Model` is the shared vocabulary layer of §AR-core-module-layout.1: 25 type definitions against 9 free functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if such a sub-domain appears.
@@ -208,9 +208,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 until = "a mode stops sharing the traversal"
-max_accepted = { value = 424, unit = "lines" }
+max_accepted = { value = 437, unit = "lines" }
 reason = """
-Citation normalization as a single pass over a document, 34 lines over budget. The modes are one traversal with per-mode decisions inside it, so the only split available today duplicates the walk — two files that must stay in step, to save 34 lines. The seam appears the day a mode needs its own traversal, and not from growth alone.
+Citation normalization as a single pass over a document, 79 lines over budget. The modes are one traversal with per-mode decisions inside it, so the only split available today duplicates the walk — two files that must stay in step. The seam appears the day a mode needs its own traversal, and not from growth alone.
 """
 [[exceptions]]
 path = "crates/grund-core/src/list.rs"
@@ -247,8 +247,18 @@ path = "crates/grund-core/src/shorthand.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "structural"
-max_accepted = { value = 464, unit = "lines" }
+max_accepted = { value = 496, unit = "lines" }
 until = "indefinite"
 reason = """
-One rule that has to hold identically at four stages: the shape recognized in a file (scanner), accepted as a CLI argument (show/refs), reported (checker), and rewritten (fmt). A divergence between any two of them is precisely the defect DF-number-only-citation-shorthand exists to fix, so the file's cohesion is the invariant, not a stage. The available split is by stage — which is what the categories in AR-core-module-layout.1 already cut by — and it would put the four halves of one contract back in four files with nothing naming the contract, recreating the drift the feature module prevents. No sub-part is reachable without the derivation above it.
+One rule that has to hold identically at four stages: the shape recognized in a file (scanner), accepted as a CLI argument (show/refs), reported (checker), and rewritten (fmt). A divergence between any two of them is precisely the defect DF-number-only-citation-shorthand exists to fix, so the file's cohesion is the invariant, not a stage. The available split is by stage — which is what the categories in AR-core-module-layout.1 already cut by — and it would put the four halves of one contract back in four files with nothing naming the contract, recreating the drift the feature module prevents. What was separable has been separated: the `[id] format` template parser and the ID renderer are grammar rather than shorthand and now live in id_format.rs, and the live on-type transform is in on_type.rs. What is left is the rule and nothing else, and no sub-part of it is reachable without the derivation above it.
+"""
+[[exceptions]]
+path = "crates/grund-core/src/tests_shorthand.rs"
+match = "exact"
+rules = ["tests"]
+kind = "deferred"
+max_accepted = { value = 475, unit = "lines" }
+until = "a third shorthand behaviour area earns its own module, the way the rewrite cases already did"
+reason = """
+The rewrite cases already left, to tests_shorthand_rewrite.rs — that was the seam, and it is spent. What remains is one area: what `check` reports about a shorthand, plus the two surfaces that must agree with it (the CLI argument resolver and the LSP snapshot). These fail together — a change to the recognition boundary or the candidate rule breaks the report, the query, and the editor in one move — so a reader chasing one is chasing all three. A second cut here would be by fixture shape rather than by behaviour, which is the split the tests rule exists to prevent.
 """

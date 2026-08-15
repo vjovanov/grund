@@ -245,6 +245,9 @@ fn fmt_tree(
     // outlives the file that asked for it.
     #[allow(unused_assignments)]
     let mut shorthand_findings: Option<Findings> = None;
+    // §FS-fmt.2.4: built once for the whole walk, not once per line — see
+    // `ShorthandTargets`. Rebuilt at most once, when the deferred scan lands.
+    let mut shorthand_targets = ShorthandTargets::new(findings, workspace);
     for path in walk_scannable_files(config, scope, explicit_scope)? {
         let original =
             fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
@@ -255,6 +258,7 @@ fn fmt_tree(
             cross_refs,
             findings,
             workspace,
+            shorthand_targets: &shorthand_targets,
         }, &mut changes);
         // §FS-fmt.2.4: this file wants a shorthand expanded and we have no
         // declarations yet. Scan once, then redo *this* file — every file
@@ -263,12 +267,14 @@ fn fmt_tree(
         if rewritten.saw_shorthand_candidate && findings.is_none() {
             shorthand_findings = Some(scan_tree_strict(config, None, false)?);
             findings = shorthand_findings.as_ref();
+            shorthand_targets = ShorthandTargets::new(findings, workspace);
             changes.truncate(file_changes_start);
             rewritten = rewrite_file(&original, &path, config, is_md, &FmtLineOpts {
                 add_marker,
                 cross_refs,
                 findings,
                 workspace,
+                shorthand_targets: &shorthand_targets,
             }, &mut changes);
         }
         if write && rewritten.changed {
@@ -340,6 +346,10 @@ struct FmtLineOpts<'a> {
     cross_refs: bool,
     findings: Option<&'a Findings>,
     workspace: Option<&'a WorkspaceContext>,
+    /// The declaration indexes the shorthand rewrite resolves against, built once
+    /// per walk (§FS-fmt.2.4). Separate from `findings` because a qualified
+    /// shorthand reads another project's declarations entirely.
+    shorthand_targets: &'a ShorthandTargets<'a>,
 }
 
 /// Apply the `fmt` rewrites to one line, in order: trigger→marker (§FS-fmt.2.1),
@@ -377,7 +387,7 @@ fn fmt_line(
         &marked,
         config,
         is_md,
-        opts.findings,
+        opts.shorthand_targets,
         saw_shorthand_candidate,
     );
     let shorthand_changed = expansion.is_some();
@@ -468,6 +478,23 @@ fn add_markers(line: &str, config: &Config, is_md: bool) -> String {
 
 /// Whether byte offset `pos` falls inside a `'…'`, `"…"`, or `` `…` `` literal on
 /// this line — the source-code exclusion that keeps an ID printed in a string from
+/// Whether a citation at `marker_start` sits in one of the contexts `grund fmt`
+/// must never rewrite (§FS-fmt.2.3): an illustration in inline code, a Markdown
+/// link destination, or a runtime string literal.
+///
+/// One predicate, read by both the rewrite and the scanner, because the two have
+/// to agree: `fmt` is forbidden to canonicalize a shorthand here, so
+/// §FS-check.3.13 must not demand it here either — an error whose named fix the
+/// tool refuses to perform is an error a repository can never clear.
+fn never_rewrite_context(line: &str, is_md: bool, marker_start: usize) -> bool {
+    if is_md {
+        is_inside_inline_code(line, marker_start)
+            || is_inside_markdown_link_destination(line, marker_start)
+    } else {
+        is_inside_string_literal(line, marker_start)
+    }
+}
+
 /// being treated as a citation by the scanner or rewritten by `fmt` (§FS-fmt.2.3.1).
 fn is_inside_string_literal(line: &str, pos: usize) -> bool {
     let bytes = line.as_bytes();
