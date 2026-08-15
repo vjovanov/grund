@@ -227,4 +227,47 @@ mod tests_support {
         (opened.replace(&format!("{}/", root.display()), ""), argv)
     }
 
+    /// A repo whose code moved out from under `[scan] include`: specs and `src/`
+    /// are configured, `sim/` is not — the shape the issue behind
+    /// §DF-check-full-scope reports.
+    pub(crate) fn drifted_include_repo(name: &str) -> PathBuf {
+        let root = test_root(name);
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n[scan]\ninclude = [\"docs\", \"src\"]\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: A user can log in\n\n## 1. Rules\n\nThe login behavior.\n",
+        );
+        write(&root.join("src/auth.rs"), "// Implements §FS-001-login.1\n");
+        root
+    }
+
+    /// Every diagnostic in the `path:line: message` shape the text report
+    /// prints (§FS-check.2.1), so a test can compare two runs as text.
+    pub(crate) fn located_diagnostics<'a>(
+        config: &Config,
+        diagnostics: impl IntoIterator<Item = &'a Diagnostic>,
+    ) -> Vec<String> {
+        diagnostics
+            .into_iter()
+            .map(|diagnostic| {
+                format!(
+                    "{}:{}: {}",
+                    diagnostic
+                        .path
+                        .as_ref()
+                        .map(|path| display_path(config, path))
+                        .unwrap_or_default(),
+                    diagnostic.line.unwrap_or(0),
+                    diagnostic.message
+                )
+            })
+            .collect()
+    }
+
+    pub(crate) fn check_run(root: &Path, full: bool) -> CheckRun {
+        run_check(root, true, false, full).expect("check run")
+    }
 }
