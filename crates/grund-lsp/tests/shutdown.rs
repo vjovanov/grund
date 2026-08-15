@@ -72,9 +72,9 @@ fn shutdown_exit_terminates_stdio_server() {
 #[test]
 fn navigation_covers_source_comment_citations_and_stub_titles() {
     // Stub-title definition follows the inline source home (§FS-lsp.1.3);
-    // declaration-side titles have no hover and expose usages through
-    // definition/references (§FS-lsp.1.2 §FS-lsp.1.3.1), while citations expose
-    // document links (§FS-lsp.1.3.2).
+    // declaration-side titles hover with their usage counts and expose the sites
+    // themselves through definition/references (§FS-lsp.1.2 §FS-lsp.1.3.1),
+    // while citations expose document links (§FS-lsp.1.3.2).
     let root = test_root("navigation");
     fs::write(
         root.join(".agents/grund.toml"),
@@ -258,10 +258,9 @@ fn navigation_covers_source_comment_citations_and_stub_titles() {
         declaration_hover_response["result"]["range"]["start"]["character"].as_i64() == Some(2)
             && declaration_hover_response["result"]["range"]["end"]["character"].as_i64()
                 == Some(spec_heading.len() as i64)
-            && declaration_hover_response["result"]["contents"]["value"]
-                .as_str()
-                .is_some_and(|value| value.contains("FS-001-alpha")),
-        "declaration-title hover should carry the whole title range for editor hover affordances (§FS-lsp.1.2): {declaration_hover_response:?}"
+            && declaration_hover_response["result"]["contents"]["value"].as_str()
+                == Some("`FS-001-alpha: Alpha` — cited at 1 site across 1 file"),
+        "declaration-title hover should carry the whole title range and its usage counts (§FS-lsp.1.2): {declaration_hover_response:?}"
     );
 
     send_message(

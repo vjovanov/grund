@@ -7,11 +7,11 @@
 //! own test binary, so helpers one suite does not reach for are not dead code.
 #![allow(dead_code)]
 
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Child;
+use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
@@ -182,4 +182,67 @@ pub fn wait_for_exit(child: &mut Child) {
         }
         std::thread::sleep(Duration::from_millis(25));
     }
+}
+
+/// Spawn a server rooted at `root` and complete the `initialize` /
+/// `initialized` handshake (§FS-lsp.2.2), leaving request id `1` spent — a
+/// case starts its own requests at `2`.
+pub fn start_server(root: &Path) -> (Child, ChildStdin, mpsc::Receiver<Value>) {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
+        .current_dir(root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn grund-lsp");
+    let mut stdin = child.stdin.take().expect("child stdin");
+    let receiver = read_messages(child.stdout.take().expect("child stdout"));
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "processId": std::process::id(),
+                "rootUri": file_uri(root),
+                "capabilities": {}
+            }
+        }),
+    );
+    recv_response_or_panic(&receiver, &mut child, 1);
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "initialized",
+            "params": {}
+        }),
+    );
+    (child, stdin, receiver)
+}
+
+/// The `textDocument/hover` result for one position, as the server returns it.
+pub fn hover_result(
+    stdin: &mut ChildStdin,
+    receiver: &mpsc::Receiver<Value>,
+    child: &mut Child,
+    id: i64,
+    uri: &str,
+    line: i64,
+    character: i64,
+) -> Value {
+    send_message(
+        stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character }
+            }
+        }),
+    );
+    recv_response_or_panic(receiver, child, id)["result"].clone()
 }
