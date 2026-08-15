@@ -67,7 +67,7 @@ path = "crates/grund-core/src/checker.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 1136, unit = "lines" }
+max_accepted = { value = 1083, unit = "lines" }
 until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
 Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
@@ -197,7 +197,7 @@ path = "skills/grund-init/SKILL.md"
 match = "exact"
 rules = ["docs"]
 kind = "structural"
-max_accepted = { value = 385, unit = "lines" }
+max_accepted = { value = 387, unit = "lines" }
 until = "indefinite"
 reason = """
 This file cannot be split. It is a shipped artifact, not source: init_templates.rs embeds it verbatim via include_str! as AGENT_SETUP_INSTRUCTIONS, `grund agent-setup-instructions` prints exactly those bytes, and a test asserts it is byte-identical to the mirror under crates/grund-core/assets/ (§FS-init.5). Any split either changes the emitted document or makes the command reassemble it at runtime, which moves document structure into code. Its length is the length of the instructions grund promises to emit; the only honest way to shrink it is to promise less.
@@ -228,9 +228,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 until = "it gains logic beyond argument translation and report dispatch"
-max_accepted = { value = 391, unit = "lines" }
+max_accepted = { value = 394, unit = "lines" }
 reason = """
-The check command adapter. It is already the thin layer between CLI arguments and checker.rs and checker_references.rs, so the category boundary a split would cut along is the one this file already sits on — the result would be two halves of one adapter. It stops being an adapter, and becomes splittable, only if checking logic starts landing here.
+The check command adapter. It is already the thin layer between CLI arguments and checker.rs and checker_references.rs, so the category boundary a split would cut along is the one this file already sits on — the result would be two halves of one adapter. The `--full` work grew it without tripping the trigger below: the scope layer it added (which files are in `[scan] include`, what the out-of-scope tier reports) is in checker_references.rs and the caution's text and predicate are in output.rs, so what landed here is the same two jobs it already did — translate the flag, sequence the passes, dispatch the report. It stops being an adapter, and becomes splittable, only if checking logic starts landing here.
 """
 [[exceptions]]
 path = "docs/functional-spec/FS-workspace.md"
