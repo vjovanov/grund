@@ -62,10 +62,10 @@ path = "crates/grund-core/src/checker.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 1136, unit = "lines" }
-until = "separate workspace resolution from check_with_workspace, then split the rule families"
+max_accepted = { value = 1083, unit = "lines" }
+until = "the seven rule bodies still inline in check_with_workspace become named functions"
 reason = """
-The rule families share only an accumulator (&mut CheckReport), which is a weak coupling rather than an architectural one, so this file has no unifying invariant to protect. The obstacle is check_with_workspace: 363 lines that inline workspace resolution, per-project scanning, and diagnostic assembly in one body, so no rule can be lifted until those are separated. Missing boundary: workspace resolution as its own step, after which each rule family moves independently.
+The reference-resolution family has already left, to checker_references.rs, and it took the obstacle the previous version of this reason named with it: check_with_workspace no longer resolves the workspace or scans it, and workspace resolution now lives in checker_cmd.rs and workspace_context.rs. What remains is blocked for a different reason. Seven rules — duplicate homes, configured kind homes, the escaped-citation suggestion, heading-level strictness, broken stub links, unused declarations, and the grounding floor — are written as inline blocks inside one 315-line body, sharing a KindHomeIndex, repeated passes over findings.declarations, and one &mut CheckReport. They are statements, not functions, so there is nothing to move yet. Missing boundary: each of them named, after which the declaration-placement rules leave as one family and this file keeps the citation-side rules and the shared diagnostic helpers.
 """
 [[exceptions]]
 path = "crates/grund-cli/tests/init.rs"
