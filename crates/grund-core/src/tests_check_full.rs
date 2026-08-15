@@ -216,6 +216,37 @@ mod tests_check_full {
     }
 
     #[test]
+    fn full_scope_does_not_resolve_an_in_scope_shorthand_against_the_wider_walk() {
+        let root = test_root("full_scope_does_not_resolve_an_in_scope_shorthand_against_the_wider_walk");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n[id]\nformat = \"{kind}-{number}-{slug}\"\n\n[scan]\ninclude = [\"docs\"]\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n\nCites the shorthand §FS-042.\n",
+        );
+        // The only declaration the shorthand could name lives outside `include`.
+        write(
+            &root.join("sim/login.py"),
+            "# FS-042-user-login: A user can log in\n",
+        );
+
+        let scoped = check(&root, false);
+        let full = check(&root, true);
+        assert_eq!(
+            located(&full.config, &full.report.errors),
+            located(&scoped.config, &scoped.report.errors),
+            "§FS-check.3.13: the wider walk must not leave the site holding a canonical ID whose declaration was narrowed away — one cause, one finding"
+        );
+        assert!(
+            located(&scoped.config, &scoped.report.errors)
+                .iter()
+                .any(|line| line.contains("shorthand citation §FS-042 matches no declaration"))
+        );
+    }
+
+    #[test]
     fn full_scope_widens_every_workspace_member() {
         let root = test_root("full_scope_widens_every_workspace_member");
         write(
