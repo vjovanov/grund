@@ -42,10 +42,10 @@ path = "crates/grund-lsp/tests/shutdown.rs"
 match = "exact"
 rules = ["tests"]
 kind = "deferred"
-max_accepted = { value = 1301, unit = "lines" }
-until = "extract the stdio harness as shared test support, then split by LSP request"
+max_accepted = { value = 1141, unit = "lines" }
+until = "the remaining cases are grouped into suites named for the request they drive"
 reason = """
-Every case drives a real LSP server over stdio through one harness that spawns the process, performs the initialize handshake, and tears it down; that harness is the file's actual cohesion, and the file name is an accident of the first case written against it. Missing boundary: the harness as a shared test-support module, after which cases group by the request under test.
+The harness half of this entry is spent: the stdio harness — spawn, initialize handshake, framed send/receive, teardown — now lives in `crates/grund-lsp/tests/support/mod.rs`, and the hover cases moved out to `tests/hover.rs` against it, which is what dropped the ceiling from 1301. What is left is a file still named after the first case written against it, holding lifecycle, diagnostics, definition, references, document-link, and highlight cases that no longer share anything but this file. Missing boundary: the grouping itself — which request families are one suite — decided once for the whole file and moved with the assertions untouched, rather than a case at a time behind whichever feature happens to be landing.
 """
 [[exceptions]]
 path = "crates/grund-lsp/src/lib.rs"

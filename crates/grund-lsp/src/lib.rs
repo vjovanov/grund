@@ -3,8 +3,8 @@
 use anyhow::{Context, Result, anyhow};
 use grund_core::{
     DeclaredId, Finding, LspCitation, LspDeclaration, LspSnapshot, LspSnapshotOpts, LspStub,
-    ShowFormat, ShowMode, ShowOpts, canonical_snapshot_path, lsp_snapshot, on_type_line_edits,
-    show_with_overlays,
+    LspUsage, ShowFormat, ShowMode, ShowOpts, canonical_snapshot_path, citation_under_title,
+    lsp_snapshot, lsp_title_hover_body, on_type_line_edits, show_with_overlays,
 };
 use lsp_server::{Connection, Message, Notification, Request, Response};
 use lsp_types::{
@@ -303,11 +303,20 @@ impl Server {
         };
         let citation = match token {
             Token::Citation(citation) => citation,
+            // A declaration-side title has no body to preview — the cursor is
+            // already in it — so the hover carries what is not on screen: how
+            // many sites cite this title, across how many files (§FS-lsp.1.2).
             Token::Declaration(decl) => {
-                return Ok(Some(title_hover(declaration_range(decl, self), &decl.text)));
+                let usage = self.title_usage(&decl.query_id, &decl.section_separator);
+                return Ok(Some(title_hover(
+                    declaration_range(decl, self),
+                    &decl.text,
+                    usage,
+                )));
             }
             Token::Stub(stub) => {
-                return Ok(Some(title_hover(stub_range(stub, self), &stub.text)));
+                let usage = self.title_usage(&stub.query_id, &stub.section_separator);
+                return Ok(Some(title_hover(stub_range(stub, self), &stub.text, usage)));
             }
         };
         // A citation that does not resolve has no preview body. Its diagnostic
@@ -405,21 +414,7 @@ impl Server {
                 if include_decl && let Some(location) = self.declaration_location(decl) {
                     locations.push(location);
                 }
-                for citation in &self.snapshot.citations {
-                    if (citation.query_id == decl.query_id
-                        || query_matches_declaration(
-                            &decl.query_id,
-                            &citation.query_id,
-                            &decl.section_separator,
-                        ))
-                        && let Some(uri) = path_uri(&citation.path)
-                    {
-                        locations.push(Location {
-                            uri,
-                            range: citation_range(citation, self),
-                        });
-                    }
-                }
+                locations.extend(self.citation_locations_for_declaration(decl));
             }
             Token::Citation(source) => {
                 if include_decl {
@@ -432,13 +427,11 @@ impl Server {
                     }
                 }
                 for citation in &self.snapshot.citations {
-                    if (citation.declaration_query_id == source.declaration_query_id
-                        || query_matches_declaration(
-                            &source.declaration_query_id,
-                            &citation.query_id,
-                            &source.section_separator,
-                        ))
-                        && let Some(uri) = path_uri(&citation.path)
+                    if citation_under_title(
+                        &source.declaration_query_id,
+                        &citation.query_id,
+                        &source.section_separator,
+                    ) && let Some(uri) = path_uri(&citation.path)
                     {
                         locations.push(Location {
                             uri,
@@ -452,13 +445,11 @@ impl Server {
                     locations.push(location);
                 }
                 for citation in &self.snapshot.citations {
-                    if (citation.declaration_query_id == stub.query_id
-                        || query_matches_declaration(
-                            &stub.query_id,
-                            &citation.query_id,
-                            &stub.section_separator,
-                        ))
-                        && let Some(uri) = path_uri(&citation.path)
+                    if citation_under_title(
+                        &stub.query_id,
+                        &citation.query_id,
+                        &stub.section_separator,
+                    ) && let Some(uri) = path_uri(&citation.path)
                     {
                         locations.push(Location {
                             uri,
@@ -473,16 +464,8 @@ impl Server {
 
     fn citation_locations_for_declaration(&self, decl: &LspDeclaration) -> Vec<Location> {
         self.snapshot
-            .citations
-            .iter()
-            .filter(|citation| {
-                citation.query_id == decl.query_id
-                    || query_matches_declaration(
-                        &decl.query_id,
-                        &citation.query_id,
-                        &decl.section_separator,
-                    )
-            })
+            .title_citations(&decl.query_id, &decl.section_separator)
+            .into_iter()
             .filter_map(|citation| {
                 Some(Location {
                     uri: path_uri(&citation.path)?,
@@ -490,6 +473,13 @@ impl Server {
                 })
             })
             .collect()
+    }
+
+    /// The usage counts a declaration-side title hovers with (§FS-lsp.1.2),
+    /// counted off the session snapshot — the same scan diagnostics and
+    /// navigation answer from, never a fresh `refs` query (§AR-lsp.5).
+    fn title_usage(&self, query_id: &str, section_separator: &str) -> LspUsage {
+        self.snapshot.title_usage(query_id, section_separator)
     }
 
     /// Mark the citation, declaration, section, or stub token under the cursor
@@ -512,12 +502,11 @@ impl Server {
             Token::Citation(source) => {
                 for citation in &self.snapshot.citations {
                     if same_path(&citation.path, &path)
-                        && (citation.declaration_query_id == source.declaration_query_id
-                            || query_matches_declaration(
-                                &source.declaration_query_id,
-                                &citation.query_id,
-                                &source.section_separator,
-                            ))
+                        && citation_under_title(
+                            &source.declaration_query_id,
+                            &citation.query_id,
+                            &source.section_separator,
+                        )
                     {
                         ranges.push(citation_range(citation, self));
                     }
@@ -532,12 +521,11 @@ impl Server {
             Token::Declaration(decl) => {
                 for citation in &self.snapshot.citations {
                     if same_path(&citation.path, &path)
-                        && (citation.query_id == decl.query_id
-                            || query_matches_declaration(
-                                &decl.query_id,
-                                &citation.query_id,
-                                &decl.section_separator,
-                            ))
+                        && citation_under_title(
+                            &decl.query_id,
+                            &citation.query_id,
+                            &decl.section_separator,
+                        )
                     {
                         ranges.push(citation_range(citation, self));
                     }
@@ -546,12 +534,11 @@ impl Server {
             Token::Stub(stub) => {
                 for citation in &self.snapshot.citations {
                     if same_path(&citation.path, &path)
-                        && (citation.declaration_query_id == stub.query_id
-                            || query_matches_declaration(
-                                &stub.query_id,
-                                &citation.query_id,
-                                &stub.section_separator,
-                            ))
+                        && citation_under_title(
+                            &stub.query_id,
+                            &citation.query_id,
+                            &stub.section_separator,
+                        )
                     {
                         ranges.push(citation_range(citation, self));
                     }
@@ -954,11 +941,11 @@ fn location_link(origin: Range, location: Location) -> LocationLink {
     }
 }
 
-fn title_hover(range: Range, text: &str) -> Hover {
+fn title_hover(range: Range, text: &str, usage: LspUsage) -> Hover {
     Hover {
         contents: HoverContents::Markup(MarkupContent {
             kind: MarkupKind::Markdown,
-            value: format!("`{}`", text.replace('`', "\\`")),
+            value: lsp_title_hover_body(text, usage),
         }),
         range: Some(range),
     }
@@ -1140,16 +1127,6 @@ fn replace_unlinked_token(body: &str, token: &str, uri: &str) -> String {
     out
 }
 
-fn query_matches_declaration(
-    declaration_query: &str,
-    citation_query: &str,
-    section_separator: &str,
-) -> bool {
-    citation_query
-        .strip_prefix(declaration_query)
-        .is_some_and(|tail| tail.starts_with(section_separator))
-}
-
 fn on_type_replacement_for_line(
     path: &Path,
     text: &str,
@@ -1249,13 +1226,6 @@ mod tests {
             !linked.contains("§root/FS-002-b"),
             "workspace query IDs are not present in local hover prose: {linked}"
         );
-    }
-
-    #[test]
-    fn declaration_reference_match_includes_section_citations() {
-        assert!(query_matches_declaration("FS-lsp", "FS-lsp.1", "."));
-        assert!(query_matches_declaration("FS-lsp", "FS-lsp/1", "/"));
-        assert!(!query_matches_declaration("FS-lsp", "FS-lsp-extra.1", "."));
     }
 
     #[test]

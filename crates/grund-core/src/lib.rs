@@ -38,6 +38,7 @@ include!("init_templates.rs");
 include!("init.rs");
 include!("api.rs");
 include!("on_type.rs");
+include!("lsp_hover.rs");
 include!("compat_cli.rs");
 // Tests, one module per category (§AR-core-module-layout.1). `tests_support`
 // holds the fixtures they share and must come first.
@@ -58,3 +59,4 @@ include!("tests_integrations_config.rs");
 include!("tests_resolver.rs");
 include!("tests_clickable_citations.rs");
 include!("tests_api.rs");
+include!("tests_lsp_hover.rs");
