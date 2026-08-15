@@ -4,7 +4,9 @@
 /// What the wider walk then *reports* out there is in `tests_check_full.rs`.
 #[cfg(test)]
 mod tests_check_full_scope {
-    use super::*;
+    // Only the shared fixtures are needed here, and they carry their own
+    // imports: a `use super::*` would be unused wherever the `#[cfg(unix)]`
+    // cases below are compiled out.
     use super::tests_support::*;
 
     #[test]
@@ -280,7 +282,7 @@ mod tests_check_full_scope {
     /// a Windows runner that checks the repository out without them, so this
     /// case stays here rather than in `e2e/cases/` (§FS-check.1.3).
     #[cfg(unix)]
-    fn aliased_include_root_repo(name: &str, real: &str, link: &str) -> PathBuf {
+    fn aliased_include_root_repo(name: &str, real: &str, link: &str) -> std::path::PathBuf {
         let root = test_root(name);
         write(
             &root.join("grund.toml"),
