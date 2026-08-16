@@ -135,6 +135,82 @@ mod tests_inline_note_layout {
         );
     }
 
+    // §FS-inline-citation-style.1: what joins two citations of one run says
+    // nothing, so a chain stays a pure citation comment however it is spelled —
+    // including with the `, ` the layout itself mandates in front of a colon.
+    #[test]
+    fn a_citation_chain_carries_no_note() {
+        let config = layout_config(
+            test_root("a_citation_chain_carries_no_note"),
+            "citation-first-colon",
+        );
+        for line in [
+            "// §FS-001-login  §FS-002-logout",
+            "// §FS-001-login, §FS-002-logout",
+            "// §FS-001-login,§FS-002-logout",
+            "// §FS-001-login  ,  §FS-002-logout",
+            "/** §FS-001-login, §FS-002-logout */",
+            "// §FS-001-login, §FS-002-logout, §FS-003-reset",
+        ] {
+            let block = [line];
+            let has_note = block_has_inline_note(&block, &config, &[]);
+            assert!(!has_note, "`{line}` is a pure citation comment");
+            assert!(
+                inline_layout_violations(&block, 1, has_note, &config, &[]).is_empty(),
+                "`{line}` has no note, so it has no layout to deviate from"
+            );
+        }
+        for line in [
+            "// §FS-001-login + §FS-002-logout",
+            "// §FS-001-login and §FS-002-logout",
+            "// §FS-001-login,, §FS-002-logout",
+            "// §FS-001-login, §FS-002-logout: both branches",
+        ] {
+            let block = [line];
+            assert!(
+                block_has_inline_note(&block, &config, &[]),
+                "`{line}` says something between or after its citations"
+            );
+        }
+    }
+
+    // §FS-inline-citation-style.3.1: the same reading governs `citation-only`, so
+    // a chain the layout would mandate is never rejected as prose.
+    #[test]
+    fn citation_only_accepts_a_comma_joined_chain() {
+        let root = test_root("citation_only_accepts_a_comma_joined_chain");
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: Login\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-002-logout.md"),
+            "# FS-002-logout: Logout\n",
+        );
+        write(
+            &root.join("src/auth.rs"),
+            concat!(
+                "// §FS-001-login, §FS-002-logout\n",
+                "pub fn login() {}\n",
+                "\n",
+                "// §FS-001-login + §FS-002-logout\n",
+                "pub fn logout() {}\n",
+            ),
+        );
+        let mut config = legacy_fs_folder_config(root.clone());
+        config.inline_style = "citation-only".into();
+
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+        let report = check_findings(&findings, &config);
+        let lines = report
+            .errors
+            .iter()
+            .filter(|finding| finding.code == "inline-citation-style")
+            .filter_map(|finding| finding.line)
+            .collect::<Vec<_>>();
+        assert_eq!(lines, vec![4], "only the line that says something is prose");
+    }
+
     // §FS-inline-citation-style.3.3: no layout, no classification — the default
     // path never asks the classifier a question (§GOAL-fast-feedback).
     #[test]
