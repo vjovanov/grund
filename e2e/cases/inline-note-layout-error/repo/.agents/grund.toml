@@ -1,0 +1,5 @@
+grund_config_version = 1
+
+[reference]
+inline_note_layout = "citation-first-colon"
+inline_note_layout_check = "error"

@@ -1,0 +1,4 @@
+src/lib.rs:4: inline note must open with its citations and a colon (§<ID>: note)
+src/lib.rs:7: inline note must open with its citations and a colon (§<ID>: note)
+src/lib.rs:10: inline note must open with its citations and a colon (§<ID>: note)
+src/lib.rs:13: inline note must open with its citations and a colon (§<ID>: note)

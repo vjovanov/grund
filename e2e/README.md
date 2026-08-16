@@ -82,5 +82,8 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - `check --full` compound out-of-scope diagnostic codes in `--format json`
 - `check --full` cautioning on stderr when an explicit path leaves it nothing to widen
 - `check --full` reporting a cross-member number-only shorthand once in a workspace
+- inline citation style: a citation-only site carrying prose, and a soft-cap overrun surfacing as a warning
+- inline note layout (`citation-first-colon`): one error per nonconforming line under `inline_note_layout_check = "error"`, the same lines as warnings under `warn`, silence at the default `off`, and silence under `inline_note_layout = "any"` whatever the check level
+- config invalid-value failures for `inline_note_layout` and `inline_note_layout_check`, and for a soft cap above the hard cap
 
 Warnings are intentionally not covered here yet. They are lower priority than the error, retrieval, formatting, and configuration contracts.
