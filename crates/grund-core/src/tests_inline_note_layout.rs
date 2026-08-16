@@ -383,12 +383,12 @@ mod tests_inline_note_layout {
             (
                 "inline_note_layout",
                 "citation-first",
-                "unknown [reference] inline_note_layout",
+                "unknown [reference] inline_note_layout `citation-first` (expected any or citation-first-colon)",
             ),
             (
                 "inline_note_layout_check",
                 "errors",
-                "unknown [reference] inline_note_layout_check",
+                "unknown [reference] inline_note_layout_check `errors` (expected off, warn, or error)",
             ),
         ] {
             write(

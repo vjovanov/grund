@@ -169,7 +169,9 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                     bail_config(
                         path,
                         line_no,
-                        "unknown [reference] inline_note_layout".to_string(),
+                        format!(
+                            "unknown [reference] inline_note_layout `{layout}` (expected any or citation-first-colon)"
+                        ),
                     )?;
                 }
                 config.inline_note_layout = layout;
@@ -180,7 +182,9 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                     bail_config(
                         path,
                         line_no,
-                        "unknown [reference] inline_note_layout_check".to_string(),
+                        format!(
+                            "unknown [reference] inline_note_layout_check `{level}` (expected off, warn, or error)"
+                        ),
                     )?;
                 }
                 config.inline_note_layout_check = level;
