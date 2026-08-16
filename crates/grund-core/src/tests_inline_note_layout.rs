@@ -26,12 +26,11 @@ mod tests_inline_note_layout {
     }
 
     fn has_note(config: &Config, block: &[&str]) -> bool {
-        block_has_inline_note(block, &block_citation_ranges(block, config, &[]), config)
+        block_has_inline_note(&mut BlockCitations::new(block, config, &[]))
     }
 
     fn violations(config: &Config, block: &[&str], has_note: bool) -> Vec<usize> {
-        let ranges = block_citation_ranges(block, config, &[]);
-        inline_layout_violations(block, &ranges, 1, has_note, config)
+        inline_layout_violations(&mut BlockCitations::new(block, config, &[]), 1, has_note)
     }
 
     // §FS-inline-citation-style.2.1: the default imposes nothing, so every
