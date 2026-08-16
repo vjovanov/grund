@@ -11,6 +11,15 @@ mod tests_inline_note_layout {
         config
     }
 
+    /// A layout the check actually reads: the classifier records nothing while
+    /// `inline_note_layout_check` is `off` (§FS-inline-citation-style.4.4), so a
+    /// test that asks it a question has to turn the gate on.
+    fn checked_layout_config(root: PathBuf, layout: &str) -> Config {
+        let mut config = layout_config(root, layout);
+        config.inline_note_layout_check = "error".to_string();
+        config
+    }
+
     fn conforms(config: &Config, line: &str) -> bool {
         line_conforms(InlineNoteLayout::from_config(config), line, config, &[])
     }
@@ -152,7 +161,7 @@ mod tests_inline_note_layout {
     // nothing in it is classified — not even a line that would otherwise deviate.
     #[test]
     fn a_site_without_a_note_is_exempt() {
-        let config = layout_config(
+        let config = checked_layout_config(
             test_root("a_site_without_a_note_is_exempt"),
             "citation-first-colon",
         );
@@ -170,7 +179,7 @@ mod tests_inline_note_layout {
     // including with the `, ` the layout itself mandates in front of a colon.
     #[test]
     fn a_citation_chain_carries_no_note() {
-        let config = layout_config(
+        let config = checked_layout_config(
             test_root("a_citation_chain_carries_no_note"),
             "citation-first-colon",
         );
@@ -241,19 +250,28 @@ mod tests_inline_note_layout {
         assert_eq!(lines, vec![4], "only the line that says something is prose");
     }
 
-    // §FS-inline-citation-style.3.3: no layout, no classification — the default
-    // path never asks the classifier a question (§GOAL-fast-feedback).
+    // §FS-inline-citation-style.3.3, §FS-inline-citation-style.4.4: no layout, no
+    // note style, or no channel for the verdict to reach — no classification. Each
+    // short-circuit stands on its own, so neither the default nor a
+    // documented-only layout ever asks the classifier a question
+    // (§GOAL-fast-feedback).
     #[test]
     fn no_layout_records_no_violations() {
         let root = test_root("no_layout_records_no_violations");
         let block = ["// §FS-001-login reject an expired credential"];
 
-        let any = layout_config(root.clone(), "any");
+        let any = checked_layout_config(root.clone(), "any");
         assert!(inline_layout_violations(&block, 1, true, &any, &[]).is_empty());
 
-        let mut citation_only = layout_config(root, "citation-first-colon");
+        let mut citation_only = checked_layout_config(root.clone(), "citation-first-colon");
         citation_only.inline_style = "citation-only".into();
         assert!(inline_layout_violations(&block, 1, true, &citation_only, &[]).is_empty());
+
+        // A layout the project documents but does not gate: at `off` the verdicts
+        // have no consumer, so the deviating line is never classified.
+        let documented_only = layout_config(root, "citation-first-colon");
+        assert_eq!(documented_only.inline_note_layout_check, "off");
+        assert!(inline_layout_violations(&block, 1, true, &documented_only, &[]).is_empty());
     }
 
     fn layout_fixture(name: &str) -> PathBuf {
