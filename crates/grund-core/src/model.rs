@@ -137,8 +137,8 @@ pub struct InlineCitationSite {
     /// where no note is permitted and so none has a layout, and at
     /// `inline_note_layout_check = "off"`, where the verdicts would reach no
     /// channel (§FS-inline-citation-style.4.4). So the field costs a project only
-    /// what it asked for: nothing until it configures a layout and gates it
-    /// (§AR-scanner.3).
+    /// what it asked for: until it configures a layout and gates it, no line is
+    /// tokenized or classified on its account (§AR-scanner.3).
     pub layout_violations: Vec<usize>,
 }
 
