@@ -295,7 +295,7 @@ fn inline_citation_style_sentence(config: &Config) -> String {
     if config.inline_style == "citation-only" {
         return "Inline citations carry no prose — put rationale in the spec.".to_string();
     }
-    if config.inline_note_suggested_lines == config.inline_note_max_lines {
+    let budgets = if config.inline_note_suggested_lines == config.inline_note_max_lines {
         format!(
             "Inline notes: ≤ {} line{}, ≤ {} columns.",
             config.inline_note_max_lines,
@@ -310,7 +310,11 @@ fn inline_citation_style_sentence(config: &Config) -> String {
             config.inline_note_max_lines,
             config.inline_note_max_columns
         )
-    }
+    };
+    // §FS-inline-citation-style.5: the layout sentence appends to the budgets and
+    // is empty under `any`, so a project that configures no layout renders the
+    // byte-identical block it rendered before this key existed.
+    format!("{budgets}{}", inline_note_layout_sentence(config))
 }
 
 fn plural(value: usize) -> &'static str {

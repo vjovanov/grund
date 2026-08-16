@@ -341,3 +341,19 @@ fn layout_violation_message(config: &Config) -> String {
         config.marker
     )
 }
+
+/// §FS-inline-citation-style.5: the sentence the managed agent-entrypoint block
+/// appends when a layout is configured, written with the project's own marker and
+/// `<ID>` placeholders so the example is a shape rather than a live citation.
+/// Empty under `any`, and the same at every `inline_note_layout_check` — the
+/// house style is what the agent is asked to write, and the gate it is measured
+/// by is not an instruction (§DF-inline-note-layout.2.1).
+fn inline_note_layout_sentence(config: &Config) -> String {
+    let marker = &config.marker;
+    match config.inline_note_layout.as_str() {
+        "citation-first-colon" => format!(
+            " Lay each note out citation-first: `// {marker}<ID>: <note>` (several citations: `// {marker}<ID>, {marker}<ID>: <note>`)."
+        ),
+        _ => String::new(),
+    }
+}
