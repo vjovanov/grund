@@ -180,7 +180,7 @@ The default is `any` because a layout is a house style, not a correctness proper
 
 ## 4. Enforcement (`grund check`)
 
-Findings are reported using the located-finding shape of [§FS-errors.2.1](FS-errors.md#21-located-finding), anchored at the **first line** of the offending citation site (so a multi-line block with a budget violation lands one diagnostic at its opener, not at every constituent line). The one exception is the layout rule of §4.4, which judges a single line and therefore anchors at it. The rule is a pure transformation of `Findings` ([AR-checker.4](../../crates/grund-core/src/checker.rs)) — the checker does **not** re-read files; the scanner annotates each recorded citation with its enclosing site's span, max-column width, and note presence so the rule operates from `Findings` alone.
+Findings are reported using the located-finding shape of [§FS-errors.2.1](FS-errors.md#21-located-finding), anchored at the **first line** of the offending citation site (so a multi-line block with a budget violation lands one diagnostic at its opener, not at every constituent line). The one exception is the layout rule of §4.4, which judges a single line and therefore anchors at it. The rule is a pure transformation of `Findings` ([AR-checker.4](../../crates/grund-core/src/checker.rs)) — the checker does **not** re-read files; the scanner annotates each recorded citation with its enclosing site's span, max-column width, note presence, and the lines of that site that fail the configured layout (§3.3) so the rule operates from `Findings` alone. That last annotation is what lets §4.4 anchor at a single line without the checker ever re-reading it.
 
 ### 4.1 Errors — hard caps
 
