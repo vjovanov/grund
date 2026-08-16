@@ -51,10 +51,10 @@ const CITATION_RUN_SEPARATOR: &str = ", ";
 /// comparison per site (§GOAL-fast-feedback).
 fn inline_layout_violations(
     lines: &[&str],
+    ranges: &[Vec<(usize, usize)>],
     first_line: usize,
     has_note: bool,
     config: &Config,
-    workspace_targets: &[WorkspaceCitationTarget],
 ) -> Vec<usize> {
     let layout = InlineNoteLayout::from_config(config);
     if layout == InlineNoteLayout::Any
@@ -68,8 +68,9 @@ fn inline_layout_violations(
     }
     lines
         .iter()
+        .zip(ranges)
         .enumerate()
-        .filter(|(_, line)| !line_conforms(layout, line, config, workspace_targets))
+        .filter(|(_, (line, line_ranges))| !line_conforms(layout, line, line_ranges, config))
         .map(|(offset, _)| first_line + offset)
         .collect()
 }
@@ -82,14 +83,14 @@ fn inline_layout_violations(
 fn line_conforms(
     layout: InlineNoteLayout,
     line: &str,
+    ranges: &[(usize, usize)],
     config: &Config,
-    workspace_targets: &[WorkspaceCitationTarget],
 ) -> bool {
     let InlineNoteLayout::CitationFirst { delimiter } = layout else {
         return true;
     };
     let (start, end) = comment_content_range(line, config);
-    let tokens = content_citation_tokens(line, start, end, config, workspace_targets);
+    let tokens = content_citation_tokens(ranges, start, end);
     // §FS-inline-citation-style.3.3 rule 1: a line carrying no citation is unconstrained.
     if tokens.is_empty() {
         return true;
@@ -130,52 +131,84 @@ fn citation_run_end(content: &str, tokens: &[(usize, usize)]) -> Option<usize> {
     }
 }
 
-/// The citation tokens of `line` that fall inside its stripped content window,
+/// The line's citation tokens that fall inside its stripped content window,
 /// rebased onto that window. A token straddling the window's edge — one the
-/// closer cut in half — is dropped rather than reported at a shifted offset.
+/// closer cut in half — is dropped rather than reported at a shifted offset. The
+/// ranges arrive already sorted and deduplicated, so this is a translation, never
+/// a second reading of the line.
 fn content_citation_tokens(
-    line: &str,
+    ranges: &[(usize, usize)],
     start: usize,
     end: usize,
-    config: &Config,
-    workspace_targets: &[WorkspaceCitationTarget],
 ) -> Vec<(usize, usize)> {
-    let mut tokens = citation_token_ranges(line, config, workspace_targets);
-    tokens.sort_unstable();
-    tokens.dedup();
-    tokens.retain(|(token_start, token_end)| *token_start >= start && *token_end <= end);
-    tokens
-        .into_iter()
+    ranges
+        .iter()
+        .filter(|(token_start, token_end)| *token_start >= start && *token_end <= end)
         .map(|(token_start, token_end)| (token_start - start, token_end - start))
         .collect()
 }
 
-/// Whether any line of a comment block carries note text — non-whitespace that is
-/// neither a comment token nor part of a citation (§FS-inline-citation-style.2.3).
-fn block_has_inline_note(
+/// The two verdicts one comment block carries about its note: whether it says
+/// anything at all (§FS-inline-citation-style.2.3) and which of its citation
+/// lines say it in the wrong shape (§FS-inline-citation-style.3.3). Both answers
+/// are about where this block's citation tokens sit, so the block is tokenized
+/// once here and both passes read that one answer — a second reading could only
+/// agree with the first, at the price of scanning every note-bearing site twice
+/// (§GOAL-fast-feedback).
+fn inline_note_verdicts(
+    lines: &[&str],
+    first_line: usize,
+    config: &Config,
+    workspace_targets: &[WorkspaceCitationTarget],
+) -> (bool, Vec<usize>) {
+    let ranges = block_citation_ranges(lines, config, workspace_targets);
+    let has_note = block_has_inline_note(lines, &ranges, config);
+    (
+        has_note,
+        inline_layout_violations(lines, &ranges, first_line, has_note, config),
+    )
+}
+
+/// One entry per line of the block, in line order: that line's citation-token
+/// byte ranges, sorted and deduplicated once so every reader below sees the same
+/// tokenization.
+fn block_citation_ranges(
     lines: &[&str],
     config: &Config,
     workspace_targets: &[WorkspaceCitationTarget],
-) -> bool {
-    lines.iter().any(|line| {
-        let tokenless = remove_inline_citation_tokens(line, config, workspace_targets);
+) -> Vec<Vec<(usize, usize)>> {
+    lines
+        .iter()
+        .map(|line| line_citation_ranges(line, config, workspace_targets))
+        .collect()
+}
+
+fn line_citation_ranges(
+    line: &str,
+    config: &Config,
+    workspace_targets: &[WorkspaceCitationTarget],
+) -> Vec<(usize, usize)> {
+    let mut ranges = citation_token_ranges(line, config, workspace_targets);
+    ranges.sort_unstable();
+    ranges.dedup();
+    ranges
+}
+
+/// Whether any line of a comment block carries note text — non-whitespace that is
+/// neither a comment token nor part of a citation (§FS-inline-citation-style.2.3).
+fn block_has_inline_note(lines: &[&str], ranges: &[Vec<(usize, usize)>], config: &Config) -> bool {
+    lines.iter().zip(ranges).any(|(line, line_ranges)| {
+        let tokenless = remove_inline_citation_tokens(line, line_ranges);
         let clean = strip_comment_tokens(&tokenless, config);
         !clean.trim().is_empty()
     })
 }
 
-fn remove_inline_citation_tokens(
-    line: &str,
-    config: &Config,
-    workspace_targets: &[WorkspaceCitationTarget],
-) -> String {
-    let mut ranges = citation_token_ranges(line, config, workspace_targets);
-    ranges.sort_unstable();
-    ranges.dedup();
+fn remove_inline_citation_tokens(line: &str, ranges: &[(usize, usize)]) -> String {
     let mut out = String::with_capacity(line.len());
     let mut cursor = 0;
     let mut after_token = false;
-    for (start, end) in ranges {
+    for (start, end) in ranges.iter().copied() {
         if start < cursor {
             continue;
         }

@@ -554,22 +554,17 @@ fn inline_citation_sites(
         };
         if !block_declares_id(&lines[start..=end], matches!(kind, CommentBlockKind::PythonDocstring), config) {
             let block = &lines[start..=end];
-            let has_note = block_has_inline_note(block, config, workspace_targets);
+            // §FS-inline-citation-style.3.3: both verdicts are taken here, while
+            // the block's lines are in hand, so the checker never re-reads one
+            // (§AR-scanner.3).
+            let (has_note, layout_violations) =
+                inline_note_verdicts(block, start + 1, config, workspace_targets);
             let site = InlineCitationSite {
                 first_line: start + 1,
                 last_line: end + 1,
                 max_columns: block.iter().map(|line| line.len()).max().unwrap_or(0),
                 has_note,
-                // §FS-inline-citation-style.3.3: the layout verdicts are taken
-                // here, while the block's lines are in hand, so the checker never
-                // re-reads one (§AR-scanner.3).
-                layout_violations: inline_layout_violations(
-                    block,
-                    start + 1,
-                    has_note,
-                    config,
-                    workspace_targets,
-                ),
+                layout_violations,
             };
             for line in (start + 1)..=(end + 1) {
                 sites.insert(line, site.clone());
