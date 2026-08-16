@@ -50,6 +50,7 @@ include!("tests_config_scan.rs");
 include!("tests_check_full.rs");
 include!("tests_check_full_scope.rs");
 include!("tests_grounding_style.rs");
+include!("tests_inline_note_layout.rs");
 include!("tests_scanner.rs");
 include!("tests_shorthand.rs");
 include!("tests_shorthand_rewrite.rs");
