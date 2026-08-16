@@ -47,6 +47,10 @@ mod tests_inline_note_layout {
             "// §FS-001-login: the rule (see also §FS-002-logout)",
             "// §FS-001-login:",
             "// §FS-001-login:  two spaces still open a note",
+            "///   §FS-001-login: indented past the prefix",
+            "//\t§FS-001-login: a tab past the prefix",
+            " *   §FS-001-login: aligned under the block opener",
+            "#\t§FS-001-login: a tab after a hash",
             "/// Walks every recognized citation and resolves it.",
             "//",
         ] {

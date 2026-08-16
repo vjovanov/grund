@@ -137,7 +137,7 @@ Rejected — exceeds `inline_note_max_columns`:
 <cite>[, <cite>]*: <note>
 ```
 
-read on the line's content **after** the comment prefix (`//`, `///`, `//!`, `#`, `;`, `--`, ` * `, `/**`, a docstring quote, …) and any block closer (`*/`, a closing docstring quote) have been stripped — the same normalization §2.3 already applies to decide note presence.
+read on the line's content **after** the comment prefix (`//`, `///`, `//!`, `#`, `;`, `--`, ` * `, `/**`, a docstring quote, …) and any block closer (`*/`, a closing docstring quote) have been stripped — the same normalization §2.3 already applies to decide note presence. Whatever indents the content past the prefix is stripped with it: a wrapped Rustdoc list continuation (`///   §<ID>: …`), an aligned ` *   ` filler, a tab after `#`. Indentation is comment formatting, not layout, so the citation run is read from the first byte of content that says anything.
 
 Precisely: let `L` be a run of one or more recognized citation tokens joined by exactly `, ` (comma, one space), `W` one or more spaces, `T` any non-empty text, and `ε` the end of the content. A line **conforms** when its content matches
 
@@ -150,7 +150,7 @@ Seven rules complete the definition:
 1. **Per line, not per site.** Every line of the site that carries at least one recognized citation token must conform. A line with no citation is unconstrained, so a doc-comment may open with a summary sentence and carry its `/// §<ID>: …` lines below it — the shape Rustdoc, Javadoc, and JSDoc all encourage.
 2. **Only sites that carry a note.** A site whose note presence is false (§2.3) is exempt: pure citation comments have no note, and a layout is a relation between a citation and a note. Both spellings of a chain qualify — `// §FS-check.3.1  §FS-config.3.1` and the comma-joined `// §FS-check.3.1, §FS-config.3.1`, which is the very run this layout mandates in front of a colon; a project that adopts the layout must not be told its noteless pointers are now malformed for lacking one. The consequence is deliberate — a `// §<ID>` line followed by a prose-only line **in the same block** is one site *with* a note, so the citation line is judged and fails.
 3. **One edge only.** The rule constrains what *opens* the line. Citations later on the line are free, so a note may name a second spec point in passing (`// §<ID>: note (see also §<other>)`) and still conform.
-4. **Exact.** Whitespace and punctuation deviations are deviations. A space instead of `, ` between two citations, a comma with no space, a space before the colon, a missing colon, a citation written last inside the prose, and a dash used where the colon belongs all fail. A citation run followed by a colon and nothing else conforms — the colon may end the line.
+4. **Exact.** Inside the content, whitespace and punctuation deviations are deviations. A space instead of `, ` between two citations, a comma with no space, a space before the colon, a missing colon, a citation written last inside the prose, and a dash used where the colon belongs all fail. A citation run followed by a colon and nothing else conforms — the colon may end the line. Exactness governs the separators inside the run and the delimiter that ends it; the indentation before the content is not part of the content.
 5. **Recognized tokens only.** "Citation token" means exactly what the scanner already recognizes on that line ([§FS-check.1.1](FS-check.md#11-recognized-citations)): the configured marker, `[reference] strict`, workspace-qualified `§<alias>/<ID>` tokens ([§FS-workspace.1](FS-workspace.md#1-citation-syntax)), and the string-literal exclusion. Under `strict = false` a bare `// FS-x: note` line is claimed by the *declaration* recognizer before it reaches this rule ([AR-scanner.2.1](../architecture/AR-scanner.md#21-declaration-detection)) — an inline declaration heading is not a citation site at all (§1) — which is precisely the ambiguity the canonical form removes: with the marker written, `// <§>FS-x: note` reads as a citation carrying a rationale and can never be mistaken for a declaration of the same ID.
 6. **Same scope as the rest of this spec.** Markdown bodies have no inline citation sites and are untouched (§1), and a comment trailing code on the same line (`foo(); // §<ID>: note`) is not a site today and does not become one here.
 7. **The budgets still apply.** Layout and size are judged independently; a line may deviate from the layout, exceed the column cap, or both, and each is its own finding.
@@ -163,6 +163,7 @@ Conforming:
 // §FS-check.3.1: the rule (see also §FS-config.3.1).
 /// Walks every recognized citation and resolves it.
 /// §FS-check.3.1: one error per unresolved ID.
+///   §FS-check.3.1: indented past the prefix
 ```
 
 Nonconforming:

@@ -213,7 +213,11 @@ fn comment_content_range(line: &str, config: &Config) -> (usize, usize) {
     let mut rest = &line[body_start..];
     for prefix in comment_strip_prefixes(config) {
         if let Some(stripped) = rest.strip_prefix(prefix) {
-            let after = stripped.strip_prefix(' ').unwrap_or(stripped);
+            // §FS-inline-citation-style.3.3: whatever indents the content past the
+            // prefix goes with the prefix. A wrapped Rustdoc continuation, an
+            // aligned ` * ` filler, and a tab after `#` are comment formatting;
+            // the layout starts at the first byte that says something.
+            let after = stripped.trim_start_matches([' ', '\t']);
             offset += rest.len() - after.len();
             rest = after;
             break;
