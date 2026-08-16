@@ -17,3 +17,6 @@ pub fn epsilon() {}
 /// Walks the alpha table.
 /// §FS-001-alpha: one finding per unresolved entry.
 pub fn zeta() {}
+
+// §FS-001-alpha, §FS-002-beta
+pub fn eta() {}

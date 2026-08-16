@@ -167,15 +167,31 @@ fn remove_inline_citation_tokens(
     ranges.dedup();
     let mut out = String::with_capacity(line.len());
     let mut cursor = 0;
+    let mut after_token = false;
     for (start, end) in ranges {
         if start < cursor {
             continue;
         }
-        out.push_str(&line[cursor..start]);
+        let gap = &line[cursor..start];
+        // §FS-inline-citation-style.1: what joins two citations of one run is not
+        // note text, so it is swallowed with them rather than left behind as prose.
+        if !(after_token && is_citation_run_separator(gap)) {
+            out.push_str(gap);
+        }
         cursor = end;
+        after_token = true;
     }
     out.push_str(&line[cursor..]);
     out
+}
+
+/// Whether the bytes strictly between two consecutive citation tokens join them
+/// into one run rather than saying anything: whitespace, with at most one comma
+/// (§FS-inline-citation-style.1). A second comma, or any other character, is a
+/// note — `// §A + §B` says something `// §A, §B` does not.
+fn is_citation_run_separator(gap: &str) -> bool {
+    gap.chars().filter(|ch| *ch == ',').count() <= 1
+        && gap.chars().all(|ch| ch == ',' || ch.is_whitespace())
 }
 
 fn strip_comment_tokens(line: &str, config: &Config) -> String {

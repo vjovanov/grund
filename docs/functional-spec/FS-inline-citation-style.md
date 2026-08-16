@@ -20,7 +20,7 @@ This spec governs inline citation sites only. It does **not** govern:
 - Inline-spec stubs (`# <ID>: [<text>](<path>)`) — a `docs/` shape, not a code-comment shape.
 - Bare ID-shaped tokens that the scanner already excludes from citations: tokens inside string literals in source files ([AR-scanner.2.3](../architecture/AR-scanner.md#23-citation-detection)), and any bare token at all under `[reference] strict = true` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). If the scanner doesn't see a citation, no site exists.
 
-A *note* is any non-whitespace text inside an inline citation site that is not a comment-prefix character and not part of a `§<ID>[.<section>]` token (workspace-qualified `§<alias>/<ID>` tokens, [§FS-workspace.1](FS-workspace.md#1-citation-syntax), are citation tokens, not notes). Whitespace separating citation tokens is not a note — chained citations (e.g. `// §FS-check.3.1  §FS-config.3.1`) remain pure citation comments.
+A *note* is any non-whitespace text inside an inline citation site that is not a comment-prefix character and not part of a `§<ID>[.<section>]` token (workspace-qualified `§<alias>/<ID>` tokens, [§FS-workspace.1](FS-workspace.md#1-citation-syntax), are citation tokens, not notes). What separates two citation tokens of one chain is not a note either: whitespace, or a single comma with optional whitespace around it. So `// §FS-check.3.1  §FS-config.3.1` and `// §FS-check.3.1, §FS-config.3.1` are both pure citation comments — the second spells the chain the way §3.3 requires a note's citation run to be spelled, and writing it must not turn a pointer into prose. Anything else between two tokens is a note: a second comma, a ` + `, a ` / `, an `and`.
 
 ## 2. Configuration
 
@@ -70,19 +70,20 @@ The defaults preserve the convention this project already follows — a one-line
 
 - **Lines.** A site's line count is the physical extent of its comment block per §1 — `last_line - first_line + 1`. A single `// …` line counts as 1; a three-line `///` run, `/** … */`, or `""" … """` block counts as 3. Blank intra-block lines (a ` * ` filler inside `/* … */`, an empty `///` line) count toward the total — the rule measures the comment's physical size.
 - **Columns.** A site's column width is the byte-column position of the last character on its longest constituent line, counting from column 1 — the same indexing the scanner records on every citation ([AR-scanner.3](../architecture/AR-scanner.md#3-output)). Tabs are one column, not display-width: the cap matches what an editor's column indicator shows in a file, not the visual rendering on any particular tabstop setting.
-- **Note presence.** After stripping the line's comment-prefix tokens (`//`, `*`, the opening `/**`, the docstring `"""`, etc.) and every citation token, any non-whitespace character remaining on any line of the site is a note. This is the same line-normalization the scanner already does for declaration detection ([AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)) — applied to the whole block instead of one line.
+- **Note presence.** After stripping the line's comment-prefix tokens (`//`, `*`, the opening `/**`, the docstring `"""`, etc.), every citation token, and the separator joining two consecutive citation tokens where that separator is whitespace with at most one comma (§1), any non-whitespace character remaining on any line of the site is a note. This is the same line-normalization the scanner already does for declaration detection ([AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)) — applied to the whole block instead of one line.
 
 ## 3. Styles
 
 ### 3.1 `citation-only`
 
-A citation site may contain only its comment prefix(es) and one or more `§<ID>[.<section>]` tokens, separated by whitespace. Any non-citation, non-whitespace text in the site is an error.
+A citation site may contain only its comment prefix(es) and one or more `§<ID>[.<section>]` tokens, separated by whitespace or by a single comma (§1). Any non-citation, non-whitespace text in the site is an error.
 
 Allowed:
 
 ```rust
 // §FS-check.3.1
 // §FS-check.3.1  §FS-config.3.1
+// §FS-check.3.1, §FS-config.3.1
 ```
 
 Rejected:
@@ -147,7 +148,7 @@ L ":" ( W T | ε )
 Seven rules complete the definition:
 
 1. **Per line, not per site.** Every line of the site that carries at least one recognized citation token must conform. A line with no citation is unconstrained, so a doc-comment may open with a summary sentence and carry its `/// §<ID>: …` lines below it — the shape Rustdoc, Javadoc, and JSDoc all encourage.
-2. **Only sites that carry a note.** A site whose note presence is false (§2.3) is exempt: pure citation comments such as `// §FS-check.3.1  §FS-config.3.1` have no note, and a layout is a relation between a citation and a note. The consequence is deliberate — a `// §<ID>` line followed by a prose-only line **in the same block** is one site *with* a note, so the citation line is judged and fails.
+2. **Only sites that carry a note.** A site whose note presence is false (§2.3) is exempt: pure citation comments have no note, and a layout is a relation between a citation and a note. Both spellings of a chain qualify — `// §FS-check.3.1  §FS-config.3.1` and the comma-joined `// §FS-check.3.1, §FS-config.3.1`, which is the very run this layout mandates in front of a colon; a project that adopts the layout must not be told its noteless pointers are now malformed for lacking one. The consequence is deliberate — a `// §<ID>` line followed by a prose-only line **in the same block** is one site *with* a note, so the citation line is judged and fails.
 3. **One edge only.** The rule constrains what *opens* the line. Citations later on the line are free, so a note may name a second spec point in passing (`// §<ID>: note (see also §<other>)`) and still conform.
 4. **Exact.** Whitespace and punctuation deviations are deviations. A space instead of `, ` between two citations, a comma with no space, a space before the colon, a missing colon, a citation written last inside the prose, and a dash used where the colon belongs all fail. A citation run followed by a colon and nothing else conforms — the colon may end the line.
 5. **Recognized tokens only.** "Citation token" means exactly what the scanner already recognizes on that line ([§FS-check.1.1](FS-check.md#11-recognized-citations)): the configured marker, `[reference] strict`, workspace-qualified `§<alias>/<ID>` tokens ([§FS-workspace.1](FS-workspace.md#1-citation-syntax)), and the string-literal exclusion. Under `strict = false` a bare `// FS-x: note` line is claimed by the *declaration* recognizer before it reaches this rule ([AR-scanner.2.1](../architecture/AR-scanner.md#21-declaration-detection)) — an inline declaration heading is not a citation site at all (§1) — which is precisely the ambiguity the canonical form removes: with the marker written, `// <§>FS-x: note` reads as a citation carrying a rationale and can never be mistaken for a declaration of the same ID.
