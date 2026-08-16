@@ -11,6 +11,8 @@ inline_style = "citation-with-note" # citation-with-note | citation-only
 inline_note_suggested_lines = 1
 inline_note_max_lines = 3
 inline_note_max_columns = 100
+inline_note_layout = "any" # any | citation-first-colon
+inline_note_layout_check = "off" # off | warn | error
 warn_on_suggested = false
 
 [id]

@@ -276,6 +276,8 @@ fn init_generated_config_comments_list_constrained_values() {
     let grund_toml = fs::read_to_string(target.join("grund.toml")).expect("read grund.toml");
     for expected in [
         "inline_style = \"citation-with-note\" # citation-with-note | citation-only",
+        "inline_note_layout = \"any\" # any | citation-first-colon",
+        "inline_note_layout_check = \"off\" # off | warn | error",
         "section_heading_levels = \"strict\" # strict | warn | loose",
         "format = \"text\" # text | json",
         "anchor_format = \"github\" # github | gitlab | mkdocs | pandoc | none",
