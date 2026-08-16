@@ -55,6 +55,8 @@ inline_style                 = "citation-with-note"   # default; alt: "citation-
 inline_note_suggested_lines  = 1                       # soft cap; advisory unless warn_on_suggested = true
 inline_note_max_lines        = 3                       # hard cap (error)
 inline_note_max_columns      = 100                     # hard cap (error)
+inline_note_layout           = "any"                   # default; alt: "citation-first-colon"
+inline_note_layout_check     = "off"                   # off | warn | error — how `check` reports a layout deviation
 warn_on_suggested            = false                   # if true, soft-cap overruns surface as `check` warnings
 ```
 
@@ -88,6 +90,8 @@ The same spelling in both files is deliberate: one setting the user already know
 `require_grounding = true` adds the ungrounded-source-file error ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)): every scanned non-Markdown file must carry at least one resolving citation, or declare an ID inline. `grund check --require-grounding` forces it on for one run. Per [§DF-require-grounding](../decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec); off by default so adopting the discipline is a deliberate step, like `strict`.
 
 `inline_style`, `inline_note_*`, and `warn_on_suggested` govern the shape of inline citations in code comments — whether a `§<ID>` token may be accompanied by a short rationale, and how long that rationale may run. The full contract — modes, enforcement, agent-facing rendering — lives in [§FS-inline-citation-style](FS-inline-citation-style.md#fs-inline-citation-style-configurable-shape-of-inline-code-comment-citations). Load-time invariant: `inline_note_suggested_lines ≤ inline_note_max_lines`. Under `inline_style = "citation-only"` the `inline_note_*` keys are inert (no note is ever permitted), but they are still parsed and printed by `grund config show` — the file is the canonical machine-readable form.
+
+`inline_note_layout` adds the third axis of that shape — where the `§<ID>` tokens sit inside the note — and `inline_note_layout_check` selects whether `grund check` reports a deviation and through which channel. Both are closed enums: `any` (default, no constraint) or `citation-first-colon` for the layout, and `off` (default), `warn`, or `error` for the check; an unrecognized value is a load-time error (§4.3), and either set may be widened later without a `grund_config_version` bump (§5). The layout key is the house style and the check key is the gate, so a project can publish the style to its agents ([§FS-init.2.3](FS-init.md#23-generated-agent-entrypoints)) before it starts failing on it. `inline_note_layout_check` is inert under `inline_note_layout = "any"` and both are inert under `inline_style = "citation-only"` — still parsed, still printed, like the budgets above. The canonical form and the per-line rule live in [§FS-inline-citation-style.3.3](FS-inline-citation-style.md#33-inline_note_layout--where-the-citations-sit).
 
 ### 3.2 `[id]` — ID grammar
 
