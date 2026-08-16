@@ -153,10 +153,11 @@ fn content_citation_tokens(
 /// lines say it in the wrong shape (§FS-inline-citation-style.3.3). Both answers
 /// are about where this block's citation tokens sit, so both passes read one
 /// tokenization of each line rather than two that could only agree
-/// (§GOAL-fast-feedback). Shared, not eager: the sharing is a memo the passes
-/// fill as they reach a line, so neither of the two reasons a line goes unread —
-/// note presence stopping at the first line that says something, the layout pass
-/// not running at all — is paid for in advance.
+/// (§GOAL-fast-feedback). Shared, not eager: the sharing is one empty memo per
+/// block — its whole up-front cost, paid at every configuration — that the passes
+/// fill as they reach a line. So the two reasons a line goes unread, note
+/// presence stopping at the first line that says something and the layout pass
+/// not running at all, each cost an untouched slot and no tokenization.
 fn inline_note_verdicts(
     lines: &[&str],
     first_line: usize,
@@ -175,8 +176,8 @@ fn inline_note_verdicts(
 /// A line and its ranges are handed out by one accessor, so the two cannot be
 /// misaligned by a caller that pairs them itself; and no line is tokenized until
 /// a pass actually looks at it, so a block the note-presence walk leaves early —
-/// or that no layout pass revisits — costs only the lines that were read
-/// (§GOAL-fast-feedback).
+/// or that no layout pass revisits — tokenizes only the lines that were read and
+/// leaves the rest of the memo empty (§GOAL-fast-feedback).
 struct BlockCitations<'a> {
     lines: &'a [&'a str],
     config: &'a Config,
