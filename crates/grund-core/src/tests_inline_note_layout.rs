@@ -280,6 +280,61 @@ mod tests_inline_note_layout {
         assert!(violations(&documented_only, &block, true).is_empty());
     }
 
+    /// How many of a site's lines have been tokenized so far: the memo slots the
+    /// two passes have filled (§AR-scanner.3).
+    fn filled_slots(block: &BlockCitations<'_>) -> usize {
+        block.ranges.iter().filter(|slot| slot.is_some()).count()
+    }
+
+    // §GOAL-fast-feedback: the sharing between the two note verdicts is a memo
+    // filled as a pass reaches a line, never up front — the property the rest of
+    // this module cannot see, since an eager tokenization answers every question
+    // above identically and only costs more. Pinned here because it has already
+    // been regressed once and caught by hand.
+    #[test]
+    fn note_walk_tokenizes_only_the_lines_it_reads() {
+        let root = test_root("note_walk_tokenizes_only_the_lines_it_reads");
+        // The prose is on the block's first line, so the note walk has its answer
+        // there and the two citation lines below it are never read.
+        let block = [
+            "/// Walks the credential store.",
+            "/// §FS-001-login: one error per expired credential.",
+            "/// §FS-001-login — and one more, laid out wrong.",
+        ];
+
+        // Documented-only (§FS-inline-citation-style.4.4): the classifier returns
+        // on the `off` guard, before it looks at a line, so the memo does not grow.
+        let documented_only = layout_config(root.clone(), "citation-first-colon");
+        assert_eq!(documented_only.inline_note_layout_check, "off");
+        let mut site = BlockCitations::new(&block, &documented_only, &[]);
+        let has_note = block_has_inline_note(&mut site);
+        assert!(has_note);
+        assert_eq!(
+            filled_slots(&site),
+            1,
+            "the note walk stops at the first line that says something"
+        );
+        assert!(inline_layout_violations(&mut site, 1, has_note).is_empty());
+        assert_eq!(
+            filled_slots(&site),
+            1,
+            "at `off` no line is classified, so no further line is tokenized"
+        );
+
+        // Gated: the layout pass judges every line, so every line is tokenized —
+        // and the one the note walk already read is not tokenized twice.
+        let gated_config = checked_layout_config(root, "citation-first-colon");
+        let mut gated = BlockCitations::new(&block, &gated_config, &[]);
+        let has_note = block_has_inline_note(&mut gated);
+        assert_eq!(filled_slots(&gated), 1);
+        assert_eq!(inline_layout_violations(&mut gated, 1, has_note), vec![3]);
+        assert_eq!(
+            filled_slots(&gated),
+            block.len(),
+            "the layout pass reads every line of the site"
+        );
+    }
+
     fn layout_fixture(name: &str) -> PathBuf {
         let root = test_root(name);
         write(
