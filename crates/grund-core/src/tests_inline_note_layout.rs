@@ -21,7 +21,17 @@ mod tests_inline_note_layout {
     }
 
     fn conforms(config: &Config, line: &str) -> bool {
-        line_conforms(InlineNoteLayout::from_config(config), line, config, &[])
+        let ranges = line_citation_ranges(line, config, &[]);
+        line_conforms(InlineNoteLayout::from_config(config), line, &ranges, config)
+    }
+
+    fn has_note(config: &Config, block: &[&str]) -> bool {
+        block_has_inline_note(block, &block_citation_ranges(block, config, &[]), config)
+    }
+
+    fn violations(config: &Config, block: &[&str], has_note: bool) -> Vec<usize> {
+        let ranges = block_citation_ranges(block, config, &[]);
+        inline_layout_violations(block, &ranges, 1, has_note, config)
     }
 
     // §FS-inline-citation-style.2.1: the default imposes nothing, so every
@@ -142,7 +152,7 @@ mod tests_inline_note_layout {
 
         // A citation alone inside a block comment still carries no note.
         let block = ["/* §FS-001-login */"];
-        assert!(!block_has_inline_note(&block, &config, &[]));
+        assert!(!has_note(&config, &block));
     }
 
     // §FS-inline-citation-style.3.3, rule 5: a workspace-qualified token is one
@@ -166,12 +176,9 @@ mod tests_inline_note_layout {
             "citation-first-colon",
         );
         let block = ["// §FS-001-login  §FS-002-logout"];
-        assert!(inline_layout_violations(&block, 1, false, &config, &[]).is_empty());
+        assert!(violations(&config, &block, false).is_empty());
         // The same block, told it carries a note, is judged and fails.
-        assert_eq!(
-            inline_layout_violations(&block, 1, true, &config, &[]),
-            vec![1]
-        );
+        assert_eq!(violations(&config, &block, true), vec![1]);
     }
 
     // §FS-inline-citation-style.1: what joins two citations of one run says
@@ -192,10 +199,10 @@ mod tests_inline_note_layout {
             "// §FS-001-login, §FS-002-logout, §FS-003-reset",
         ] {
             let block = [line];
-            let has_note = block_has_inline_note(&block, &config, &[]);
-            assert!(!has_note, "`{line}` is a pure citation comment");
+            let carries_note = has_note(&config, &block);
+            assert!(!carries_note, "`{line}` is a pure citation comment");
             assert!(
-                inline_layout_violations(&block, 1, has_note, &config, &[]).is_empty(),
+                violations(&config, &block, carries_note).is_empty(),
                 "`{line}` has no note, so it has no layout to deviate from"
             );
         }
@@ -207,7 +214,7 @@ mod tests_inline_note_layout {
         ] {
             let block = [line];
             assert!(
-                block_has_inline_note(&block, &config, &[]),
+                has_note(&config, &block),
                 "`{line}` says something between or after its citations"
             );
         }
@@ -261,17 +268,17 @@ mod tests_inline_note_layout {
         let block = ["// §FS-001-login reject an expired credential"];
 
         let any = checked_layout_config(root.clone(), "any");
-        assert!(inline_layout_violations(&block, 1, true, &any, &[]).is_empty());
+        assert!(violations(&any, &block, true).is_empty());
 
         let mut citation_only = checked_layout_config(root.clone(), "citation-first-colon");
         citation_only.inline_style = "citation-only".into();
-        assert!(inline_layout_violations(&block, 1, true, &citation_only, &[]).is_empty());
+        assert!(violations(&citation_only, &block, true).is_empty());
 
         // A layout the project documents but does not gate: at `off` the verdicts
         // have no consumer, so the deviating line is never classified.
         let documented_only = layout_config(root, "citation-first-colon");
         assert_eq!(documented_only.inline_note_layout_check, "off");
-        assert!(inline_layout_violations(&block, 1, true, &documented_only, &[]).is_empty());
+        assert!(violations(&documented_only, &block, true).is_empty());
     }
 
     fn layout_fixture(name: &str) -> PathBuf {
