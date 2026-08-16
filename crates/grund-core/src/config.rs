@@ -161,6 +161,30 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             ("reference", "inline_note_max_columns") => {
                 config.inline_note_max_columns = parse_usize(path, line_no, value)?
             }
+            // §FS-inline-citation-style.2.2: two closed enums, rejected on load like
+            // `inline_style` above — a typo must not read as "no house style".
+            ("reference", "inline_note_layout") => {
+                let layout = parse_string(path, line_no, value)?;
+                if !matches!(layout.as_str(), "any" | "citation-first-colon") {
+                    bail_config(
+                        path,
+                        line_no,
+                        "unknown [reference] inline_note_layout".to_string(),
+                    )?;
+                }
+                config.inline_note_layout = layout;
+            }
+            ("reference", "inline_note_layout_check") => {
+                let level = parse_string(path, line_no, value)?;
+                if !matches!(level.as_str(), "off" | "warn" | "error") {
+                    bail_config(
+                        path,
+                        line_no,
+                        "unknown [reference] inline_note_layout_check".to_string(),
+                    )?;
+                }
+                config.inline_note_layout_check = level;
+            }
             ("reference", "warn_on_suggested") => {
                 config.warn_on_suggested = parse_bool(path, line_no, value)?
             }

@@ -97,7 +97,12 @@ fn command_config(args: &[String]) -> ExitCode {
                     "inline_note_max_columns = {}",
                     config.inline_note_max_columns
                 );
-                println!("warn_on_suggested = {}", config.warn_on_suggested);
+                println!("inline_note_layout = \"{}\"", config.inline_note_layout);
+    println!(
+        "inline_note_layout_check = \"{}\"",
+        config.inline_note_layout_check
+    );
+    println!("warn_on_suggested = {}", config.warn_on_suggested);
                 println!();
                 println!("[id]");
                 println!("format = \"{}\"", config.id_format);

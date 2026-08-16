@@ -553,15 +553,23 @@ fn inline_citation_sites(
             }
         };
         if !block_declares_id(&lines[start..=end], matches!(kind, CommentBlockKind::PythonDocstring), config) {
+            let block = &lines[start..=end];
+            let has_note = block_has_inline_note(block, config, workspace_targets);
             let site = InlineCitationSite {
                 first_line: start + 1,
                 last_line: end + 1,
-                max_columns: lines[start..=end]
-                    .iter()
-                    .map(|line| line.len())
-                    .max()
-                    .unwrap_or(0),
-                has_note: block_has_inline_note(&lines[start..=end], config, workspace_targets),
+                max_columns: block.iter().map(|line| line.len()).max().unwrap_or(0),
+                has_note,
+                // §FS-inline-citation-style.3.3: the layout verdicts are taken
+                // here, while the block's lines are in hand, so the checker never
+                // re-reads one (§AR-scanner.3).
+                layout_violations: inline_layout_violations(
+                    block,
+                    start + 1,
+                    has_note,
+                    config,
+                    workspace_targets,
+                ),
             };
             for line in (start + 1)..=(end + 1) {
                 sites.insert(line, site.clone());
@@ -633,39 +641,6 @@ fn block_declares_id(lines: &[&str], in_py_docstring: bool, config: &Config) -> 
             .and_then(|caps| parse_id(&caps))
             .is_some()
     })
-}
-
-fn block_has_inline_note(
-    lines: &[&str],
-    config: &Config,
-    workspace_targets: &[WorkspaceCitationTarget],
-) -> bool {
-    lines.iter().any(|line| {
-        let tokenless = remove_inline_citation_tokens(line, config, workspace_targets);
-        let clean = strip_comment_tokens(&tokenless, config);
-        !clean.trim().is_empty()
-    })
-}
-
-fn remove_inline_citation_tokens(
-    line: &str,
-    config: &Config,
-    workspace_targets: &[WorkspaceCitationTarget],
-) -> String {
-    let mut ranges = citation_token_ranges(line, config, workspace_targets);
-    ranges.sort_unstable();
-    ranges.dedup();
-    let mut out = String::with_capacity(line.len());
-    let mut cursor = 0;
-    for (start, end) in ranges {
-        if start < cursor {
-            continue;
-        }
-        out.push_str(&line[cursor..start]);
-        cursor = end;
-    }
-    out.push_str(&line[cursor..]);
-    out
 }
 
 fn citation_token_ranges(
@@ -741,44 +716,6 @@ fn citation_token_ranges(
         ranges.push((marker_start, id_start + id_len));
     }
     ranges
-}
-
-fn strip_comment_tokens(line: &str, config: &Config) -> String {
-    let marker_start = line
-        .char_indices()
-        .find_map(|(idx, ch)| (!ch.is_whitespace()).then_some(idx))
-        .unwrap_or(line.len());
-    let (_, body) = line.split_at(marker_start);
-    let mut rest = body;
-    for prefix in comment_strip_prefixes(config) {
-        if let Some(stripped) = rest.strip_prefix(prefix) {
-            rest = stripped.strip_prefix(' ').unwrap_or(stripped);
-            break;
-        }
-    }
-    let trimmed_end = rest.trim_end();
-    let rest = trimmed_end
-        .strip_suffix("*/")
-        .or_else(|| trimmed_end.strip_suffix("\"\"\""))
-        .or_else(|| trimmed_end.strip_suffix("'''"))
-        .unwrap_or(trimmed_end);
-    rest.to_string()
-}
-
-fn comment_strip_prefixes(config: &Config) -> Vec<&str> {
-    let mut prefixes = vec!["/**", "/*", "*/", "\"\"\"", "'''"];
-    for prefix in &config.comment_prefixes {
-        if prefix == "//" {
-            prefixes.extend(["///", "//!", "//"]);
-        } else if prefix == "/*" {
-            prefixes.extend(["/*", "*"]);
-        } else if !prefix.is_empty() {
-            prefixes.push(prefix.as_str());
-        }
-    }
-    prefixes.sort_by_key(|prefix| std::cmp::Reverse(prefix.len()));
-    prefixes.dedup();
-    prefixes
 }
 
 /// §FS-workspace.5: a member-local scan must still recognize marker-qualified
