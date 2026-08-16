@@ -43,9 +43,11 @@ const CITATION_RUN_SEPARATOR: &str = ", ";
 /// the configured layout, ascending (§FS-inline-citation-style.3.3).
 ///
 /// Empty — with no line classified at all — when no layout is configured, when
-/// `inline_style` forbids notes outright, or when the block carries no note, since
-/// a layout is a relation between a citation and a note
-/// (§FS-inline-citation-style.3.3, rule 2). The default `any` therefore costs one
+/// `inline_style` forbids notes outright, when the block carries no note, since a
+/// layout is a relation between a citation and a note
+/// (§FS-inline-citation-style.3.3, rule 2), or when `inline_note_layout_check` is
+/// `off` and the verdicts would reach no channel (§FS-inline-citation-style.4.4).
+/// The default `any` — and a documented-only layout — therefore costs one
 /// comparison per site (§GOAL-fast-feedback).
 fn inline_layout_violations(
     lines: &[&str],
@@ -55,7 +57,13 @@ fn inline_layout_violations(
     workspace_targets: &[WorkspaceCitationTarget],
 ) -> Vec<usize> {
     let layout = InlineNoteLayout::from_config(config);
-    if layout == InlineNoteLayout::Any || !has_note || config.inline_style == "citation-only" {
+    if layout == InlineNoteLayout::Any
+        || !has_note
+        || config.inline_style == "citation-only"
+        // §FS-inline-citation-style.4.4: at `off` the layout is documentation, so
+        // classifying a line would buy a verdict nothing reads.
+        || config.inline_note_layout_check == "off"
+    {
         return Vec::new();
     }
     lines
