@@ -223,11 +223,15 @@ fn comment_content_range(line: &str, config: &Config) -> (usize, usize) {
         }
     }
     let trimmed_end = rest.trim_end();
+    // Trimmed again after the closer: `/* §<ID>: */` must leave `§<ID>:`, so a
+    // colon that ends the content is the grammar's empty tail rather than a space
+    // the closer happened to sit behind (§FS-inline-citation-style.3.3).
     let rest = trimmed_end
         .strip_suffix("*/")
         .or_else(|| trimmed_end.strip_suffix("\"\"\""))
         .or_else(|| trimmed_end.strip_suffix("'''"))
-        .unwrap_or(trimmed_end);
+        .unwrap_or(trimmed_end)
+        .trim_end();
     (offset, offset + rest.len())
 }
 

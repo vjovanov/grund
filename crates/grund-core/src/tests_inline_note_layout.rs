@@ -112,6 +112,30 @@ mod tests_inline_note_layout {
         }
     }
 
+    // §FS-inline-citation-style.3.3: the block closer and the space in front of it
+    // are stripped together, so a colon that ends a `/* … */` line closes the
+    // grammar's empty tail rather than opening a note made of one space.
+    #[test]
+    fn a_block_closer_leaves_no_trailing_space() {
+        let config = layout_config(
+            test_root("a_block_closer_leaves_no_trailing_space"),
+            "citation-first-colon",
+        );
+        for (line, content) in [
+            ("/* §FS-001-login: */", "§FS-001-login:"),
+            ("/* §FS-001-login: reject it */", "§FS-001-login: reject it"),
+            ("\"\"\"§FS-001-login: \"\"\"", "§FS-001-login:"),
+        ] {
+            let (start, end) = comment_content_range(line, &config);
+            assert_eq!(&line[start..end], content, "content of `{line}`");
+            assert!(conforms(&config, line), "must accept `{line}`");
+        }
+
+        // A citation alone inside a block comment still carries no note.
+        let block = ["/* §FS-001-login */"];
+        assert!(!block_has_inline_note(&block, &config, &[]));
+    }
+
     // §FS-inline-citation-style.3.3, rule 5: a workspace-qualified token is one
     // citation token, so the run reads it as the line's opening citation.
     #[test]
