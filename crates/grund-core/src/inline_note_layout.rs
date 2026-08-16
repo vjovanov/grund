@@ -99,19 +99,18 @@ fn line_conforms(
 }
 
 /// The end of the opening citation run `L`: the tokens that start the content,
-/// joined by exactly `, `. `None` when the content does not open with a citation
-/// token at all — the run has to sit on the line's first content byte
-/// (§FS-inline-citation-style.3.3, rule 4).
+/// joined by exactly `, `. `None` when there is no such run — either the content
+/// does not open with a citation token (the run has to sit on the line's first
+/// content byte) or a `, ` inside it is followed by something that is not one
+/// (§FS-inline-citation-style.3.3, rule 4). Both are deviations, so neither needs
+/// an offset to report.
 fn citation_run_end(content: &str, tokens: &[(usize, usize)]) -> Option<usize> {
     let mut cursor = 0;
     let mut index = 0;
     loop {
         let (start, end) = *tokens.get(index)?;
         if start != cursor {
-            // A separator that is not followed by another token ends the run
-            // where the separator began, so the delimiter check below fails on
-            // the separator rather than on the text after it.
-            return (index > 0).then(|| cursor - CITATION_RUN_SEPARATOR.len());
+            return None;
         }
         cursor = end;
         index += 1;

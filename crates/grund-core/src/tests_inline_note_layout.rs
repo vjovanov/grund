@@ -77,6 +77,8 @@ mod tests_inline_note_layout {
             "// §FS-001-login::doubled",
             "// see §FS-001-login: reject an expired credential",
             "// §FS-001-login, reject an expired credential",
+            "// §FS-001-login, x §FS-002-logout: a word inside the run",
+            "// §FS-001-login, §FS-002-logout, prose the run does not close",
         ] {
             assert!(!conforms(&config, line), "must reject `{line}`");
         }
