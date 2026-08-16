@@ -133,8 +133,12 @@ pub struct InlineCitationSite {
     /// The site's citation-carrying lines that deviate from
     /// `[reference] inline_note_layout` (§FS-inline-citation-style.3.3), 1-based
     /// and ascending. Always empty — and never computed — under the default
-    /// `any`, so the field costs a configured-layout project only what it asked
-    /// for (§AR-scanner.3).
+    /// `inline_note_layout = "any"`, under `inline_style = "citation-only"`,
+    /// where no note is permitted and so none has a layout, and at
+    /// `inline_note_layout_check = "off"`, where the verdicts would reach no
+    /// channel (§FS-inline-citation-style.4.4). So the field costs a project only
+    /// what it asked for: nothing until it configures a layout and gates it
+    /// (§AR-scanner.3).
     pub layout_violations: Vec<usize>,
 }
 
