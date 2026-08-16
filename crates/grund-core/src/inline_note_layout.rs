@@ -48,14 +48,14 @@ const CITATION_RUN_SEPARATOR: &str = ", ";
 /// (§FS-inline-citation-style.3.3, rule 2), or when `inline_note_layout_check` is
 /// `off` and the verdicts would reach no channel (§FS-inline-citation-style.4.4).
 /// The default `any` — and a documented-only layout — therefore costs one
-/// comparison per site (§GOAL-fast-feedback).
+/// comparison per site (§GOAL-fast-feedback): the guard below is read before a
+/// single line is looked at, so no line is tokenized on its account.
 fn inline_layout_violations(
-    lines: &[&str],
-    ranges: &[Vec<(usize, usize)>],
+    block: &mut BlockCitations<'_>,
     first_line: usize,
     has_note: bool,
-    config: &Config,
 ) -> Vec<usize> {
+    let config = block.config;
     let layout = InlineNoteLayout::from_config(config);
     if layout == InlineNoteLayout::Any
         || !has_note
@@ -66,12 +66,12 @@ fn inline_layout_violations(
     {
         return Vec::new();
     }
-    lines
-        .iter()
-        .zip(ranges)
-        .enumerate()
-        .filter(|(_, (line, line_ranges))| !line_conforms(layout, line, line_ranges, config))
-        .map(|(offset, _)| first_line + offset)
+    (0..block.len())
+        .filter(|index| {
+            let (line, ranges) = block.line(*index);
+            !line_conforms(layout, line, ranges, config)
+        })
+        .map(|offset| first_line + offset)
         .collect()
 }
 
@@ -151,36 +151,66 @@ fn content_citation_tokens(
 /// The two verdicts one comment block carries about its note: whether it says
 /// anything at all (§FS-inline-citation-style.2.3) and which of its citation
 /// lines say it in the wrong shape (§FS-inline-citation-style.3.3). Both answers
-/// are about where this block's citation tokens sit, so the block is tokenized
-/// once here and both passes read that one answer — a second reading could only
-/// agree with the first, at the price of scanning every note-bearing site twice
-/// (§GOAL-fast-feedback).
+/// are about where this block's citation tokens sit, so both passes read one
+/// tokenization of each line rather than two that could only agree
+/// (§GOAL-fast-feedback). Shared, not eager: the sharing is a memo the passes
+/// fill as they reach a line, so neither of the two reasons a line goes unread —
+/// note presence stopping at the first line that says something, the layout pass
+/// not running at all — is paid for in advance.
 fn inline_note_verdicts(
     lines: &[&str],
     first_line: usize,
     config: &Config,
     workspace_targets: &[WorkspaceCitationTarget],
 ) -> (bool, Vec<usize>) {
-    let ranges = block_citation_ranges(lines, config, workspace_targets);
-    let has_note = block_has_inline_note(lines, &ranges, config);
-    (
-        has_note,
-        inline_layout_violations(lines, &ranges, first_line, has_note, config),
-    )
+    let mut block = BlockCitations::new(lines, config, workspace_targets);
+    let has_note = block_has_inline_note(&mut block);
+    let layout_violations = inline_layout_violations(&mut block, first_line, has_note);
+    (has_note, layout_violations)
 }
 
-/// One entry per line of the block, in line order: that line's citation-token
-/// byte ranges, sorted and deduplicated once so every reader below sees the same
-/// tokenization.
-fn block_citation_ranges(
-    lines: &[&str],
-    config: &Config,
-    workspace_targets: &[WorkspaceCitationTarget],
-) -> Vec<Vec<(usize, usize)>> {
-    lines
-        .iter()
-        .map(|line| line_citation_ranges(line, config, workspace_targets))
-        .collect()
+/// One comment block's lines together with their citation-token byte ranges, each
+/// line tokenized on the first ask and remembered for the second.
+///
+/// A line and its ranges are handed out by one accessor, so the two cannot be
+/// misaligned by a caller that pairs them itself; and no line is tokenized until
+/// a pass actually looks at it, so a block the note-presence walk leaves early —
+/// or that no layout pass revisits — costs only the lines that were read
+/// (§GOAL-fast-feedback).
+struct BlockCitations<'a> {
+    lines: &'a [&'a str],
+    config: &'a Config,
+    workspace_targets: &'a [WorkspaceCitationTarget],
+    ranges: Vec<Option<Vec<(usize, usize)>>>,
+}
+
+impl<'a> BlockCitations<'a> {
+    fn new(
+        lines: &'a [&'a str],
+        config: &'a Config,
+        workspace_targets: &'a [WorkspaceCitationTarget],
+    ) -> Self {
+        Self {
+            lines,
+            config,
+            workspace_targets,
+            ranges: vec![None; lines.len()],
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.lines.len()
+    }
+
+    /// Line `index` and its citation-token byte ranges, sorted and deduplicated,
+    /// so every reader of that line sees the same tokenization.
+    fn line(&mut self, index: usize) -> (&'a str, &[(usize, usize)]) {
+        let (line, config, workspace_targets) =
+            (self.lines[index], self.config, self.workspace_targets);
+        let ranges = self.ranges[index]
+            .get_or_insert_with(|| line_citation_ranges(line, config, workspace_targets));
+        (line, ranges)
+    }
 }
 
 fn line_citation_ranges(
@@ -196,9 +226,13 @@ fn line_citation_ranges(
 
 /// Whether any line of a comment block carries note text — non-whitespace that is
 /// neither a comment token nor part of a citation (§FS-inline-citation-style.2.3).
-fn block_has_inline_note(lines: &[&str], ranges: &[Vec<(usize, usize)>], config: &Config) -> bool {
-    lines.iter().zip(ranges).any(|(line, line_ranges)| {
-        let tokenless = remove_inline_citation_tokens(line, line_ranges);
+/// The walk stops at the first line that says something, so the block is read only
+/// as far as the answer needs it.
+fn block_has_inline_note(block: &mut BlockCitations<'_>) -> bool {
+    let config = block.config;
+    (0..block.len()).any(|index| {
+        let (line, ranges) = block.line(index);
+        let tokenless = remove_inline_citation_tokens(line, ranges);
         let clean = strip_comment_tokens(&tokenless, config);
         !clean.trim().is_empty()
     })
