@@ -190,7 +190,7 @@ kind = "structural"
 max_accepted = { value = 429, unit = "lines" }
 until = "indefinite"
 reason = """
-`Model` is the shared vocabulary layer of §AR-core-module-layout.1: 25 type definitions against 9 free functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if such a sub-domain appears.
+`Model` is the shared vocabulary layer of §AR-core-module-layout.1: 25 type definitions against 9 free functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. The ceiling therefore tracks that width and moves with it: adding a `Config` key or a field to a recorded type raises it (429 rather than 424 once the two `inline_note_layout` keys landed), which is the registry growing, not this file accreting logic. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if such a sub-domain appears.
 """
 [[exceptions]]
 path = "skills/grund-init/SKILL.md"
