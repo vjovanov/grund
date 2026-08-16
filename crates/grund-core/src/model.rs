@@ -130,6 +130,12 @@ pub struct InlineCitationSite {
     pub last_line: usize,
     pub max_columns: usize,
     pub has_note: bool,
+    /// The site's citation-carrying lines that deviate from
+    /// `[reference] inline_note_layout` (§FS-inline-citation-style.3.3), 1-based
+    /// and ascending. Always empty — and never computed — under the default
+    /// `any`, so the field costs a configured-layout project only what it asked
+    /// for (§AR-scanner.3).
+    pub layout_violations: Vec<usize>,
 }
 
 #[derive(Clone)]
@@ -309,6 +315,17 @@ pub struct Config {
     pub inline_note_suggested_lines: usize,
     pub inline_note_max_lines: usize,
     pub inline_note_max_columns: usize,
+    /// `[reference] inline_note_layout` (§FS-config.3.1,
+    /// §FS-inline-citation-style.3.3, §DF-inline-note-layout) — the project's
+    /// house style for where citations sit inside an inline note. Closed enum:
+    /// `any` (default, no constraint) or `citation-first-colon`.
+    pub inline_note_layout: String,
+    /// `[reference] inline_note_layout_check` (§FS-inline-citation-style.4.4) —
+    /// whether `check` reports a layout deviation, and through which channel.
+    /// Closed enum: `off` (default), `warn`, or `error`. Inert under
+    /// `inline_note_layout = "any"`, which is why it is a second key
+    /// (§DF-inline-note-layout.2.1).
+    pub inline_note_layout_check: String,
     pub warn_on_suggested: bool,
     pub include: Option<Vec<String>>,
     /// §FS-check.1.3: `grund check --full` for this run — walk the whole config
@@ -404,6 +421,8 @@ impl Config {
             inline_note_suggested_lines: 1,
             inline_note_max_lines: 3,
             inline_note_max_columns: 100,
+            inline_note_layout: "any".into(),
+            inline_note_layout_check: "off".into(),
             warn_on_suggested: false,
             include: Some(
                 DEFAULT_INCLUDE

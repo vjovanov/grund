@@ -250,7 +250,7 @@ The collapse rule is "if soft and hard are the same number, only mention the num
 - No display-width awareness. Tabs count as one column; widening tabstops in an editor does not change whether a comment passes the cap.
 - No `grund fmt` normalization of layout, in `--check` or in `--write` (§4.3). Layout is check-only.
 - No per-rule severity remap. `inline_note_layout_check` selects which channel *this* rule speaks through, from a fixed set; it does not let a project re-level any other rule, and it does not change what an error or a warning means ([§FS-non-goals.9](FS-non-goals.md#9-severity-exit-code-or-report-ordering-customization), [§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
-- No scope growth. Layout is judged on inline citation sites only — never in Markdown bodies, never on a comment trailing code, never on the code line below the comment (§3.3.6).
+- No scope growth. Layout is judged on inline citation sites only — never in Markdown bodies, never on a comment trailing code, never on the code line below the comment (§3.3, rule 6).
 
 ## 7. Architecture impact
 

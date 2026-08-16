@@ -153,6 +153,24 @@
 /// resolved against has just been dropped, so such a site is the unresolved
 /// shorthand a plain run reports — one cause, one finding (§FS-check.3.13).
 ///
+/// ### 2.14 Inline citation style (§FS-check.3.10, §FS-check.4.4, §FS-inline-citation-style.4)
+///
+/// One pass over `findings.citations`, deduplicated by enclosing comment block,
+/// judging each block against `[reference] inline_style`, the `inline_note_*`
+/// budgets, and `inline_note_layout`. Everything it compares — the block's span,
+/// its widest column, whether it carries a note, and which of its lines deviate
+/// from the configured layout — was recorded by the scanner (§AR-scanner.3), so
+/// like every rule above except §2.5 this one reads no file. A site that misses
+/// several caps yields one finding per cap; a block whose layout deviates yields
+/// one per offending *line*, anchored there rather than at the block's opener,
+/// because that is the line an author edits (§FS-inline-citation-style.4.4). Two
+/// of the three tiers are opt-in and silent by default: the soft cap under
+/// `warn_on_suggested`, the layout under `inline_note_layout_check`.
+///
+/// The rule lives in `inline_note_layout.rs` with the classifier the scanner
+/// annotates from, rather than here — one file per invariant, the arrangement
+/// §2.12's shorthand rule already uses for the same reason.
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and
@@ -907,77 +925,6 @@ fn section_depth(section_path: &str) -> usize {
 
 fn heading_marks(level: usize) -> String {
     "#".repeat(level)
-}
-
-fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mut CheckReport) {
-    let mut seen = BTreeSet::new();
-    for cite in &findings.citations {
-        let Some(site) = &cite.inline_site else {
-            continue;
-        };
-        if !seen.insert((cite.file.clone(), site.clone())) {
-            continue;
-        }
-        match config.inline_style.as_str() {
-            "citation-only" => {
-                if site.has_note {
-                    report.errors.push(Diagnostic {
-                        code: "inline-citation-style",
-                        path: Some(cite.file.clone()),
-                        line: Some(site.first_line),
-                        column: None,
-                        message: "inline citation must carry no prose".to_string(),
-                        sites: Vec::new(),
-                    });
-                }
-            }
-            _ => {
-                let lines = site.last_line - site.first_line + 1;
-                if lines > config.inline_note_max_lines {
-                    report.errors.push(Diagnostic {
-                        code: "inline-citation-style",
-                        path: Some(cite.file.clone()),
-                        line: Some(site.first_line),
-                        column: None,
-                        message: format!(
-                            "inline note exceeds {}-line maximum",
-                            config.inline_note_max_lines
-                        ),
-                        sites: Vec::new(),
-                    });
-                }
-                if site.max_columns > config.inline_note_max_columns {
-                    report.errors.push(Diagnostic {
-                        code: "inline-citation-style",
-                        path: Some(cite.file.clone()),
-                        line: Some(site.first_line),
-                        column: None,
-                        message: format!(
-                            "inline note exceeds {}-column maximum",
-                            config.inline_note_max_columns
-                        ),
-                        sites: Vec::new(),
-                    });
-                }
-                if config.warn_on_suggested
-                    && lines > config.inline_note_suggested_lines
-                    && lines <= config.inline_note_max_lines
-                {
-                    report.warnings.push(Diagnostic {
-                        code: "inline-citation-style",
-                        path: Some(cite.file.clone()),
-                        line: Some(site.first_line),
-                        column: None,
-                        message: format!(
-                            "inline note exceeds {}-line preferred limit",
-                            config.inline_note_suggested_lines
-                        ),
-                        sites: Vec::new(),
-                    });
-                }
-            }
-        }
-    }
 }
 
 fn target_for_citation<'a>(

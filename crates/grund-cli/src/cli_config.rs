@@ -80,6 +80,11 @@ fn print_effective_config(config: &Config) {
     );
     println!("inline_note_max_lines = {}", config.inline_note_max_lines);
     println!("inline_note_max_columns = {}", config.inline_note_max_columns);
+    println!("inline_note_layout = \"{}\"", config.inline_note_layout);
+    println!(
+        "inline_note_layout_check = \"{}\"",
+        config.inline_note_layout_check
+    );
     println!("warn_on_suggested = {}", config.warn_on_suggested);
     println!();
     println!("[id]");
