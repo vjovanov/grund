@@ -16,6 +16,8 @@ e2e/cases/<case-name>/
 
 `spec.refs` is required. Every non-empty line must cite a functional spec ID such as `FS-001-check.3.1`; the harness rejects cases that do not cite the behavior they exercise.
 
+An optional `symlinks` file adds links the fixture cannot carry in git: one `<link> -> <target>` per line, both relative to the fixture repo, created in the copied tree at run time. Such a case must run against `{repo_copy}`, and it is **skipped** where the platform cannot create a directory symlink — git on Windows checks a committed symlink out as a text file holding its target unless developer mode is on, so the fixture would be a different tree and the golden would fail for a reason the case is not about.
+
 `expected.exit` contains `0`, `1`, or `2`. `expected.stdout` and `expected.stderr` are compared byte-for-byte, except that a file containing only one newline is treated as empty so empty golden files can be represented cleanly in patches.
 
 Most cases run `grund check <repo>`. A case may override the command with `command.args`; use `{repo}` for the fixture repo path. For write-mode tests, use `{repo_copy}` so the harness copies the fixture under `target/e2e-work/` before running the command.
@@ -39,6 +41,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - config discovered as a bare root `grund.toml` from a subdirectory
 - config redundant pair (the bare `grund.toml` wins, the `.agents/` file is warned about)
 - workspace mixing both config discovery forms across its members
+- a `[workspace]` member that escapes the block listing it, both ways a symlink can do it: pointing back at the block's own root (`self -> .`) and out of its tree (`link -> ..`)
 - nested workspaces: whole-alias-path naming, per-level alias uniqueness, the grouping node as a project, subtree scope, the short-leaf-name hint, an enclosing workspace whose own member list fails to expand, one cross-branch citation checked at both scopes, and an empty nested block with no `members` key at all
 - `include_root = false` leaving the excluded root's own files scanned by nobody: a dangling citation there passes even `check --full`
 - `include_root = false` at the outermost root of a nested tree: no catalog row for the root, member paths still rendered from the workspace root, the root alias unknown to `show` and to `list --project`, and completions offering no `root/`

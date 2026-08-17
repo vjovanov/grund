@@ -52,7 +52,7 @@ fn discover_case_dirs(root: &Path, include: impl Fn(&Path) -> bool) -> Vec<PathB
 
 pub fn assert_case_is_deterministic(manifest_dir: &Path, case: &Path) {
     let name = case_name(case);
-    if is_mutating_case(case) {
+    if is_mutating_case(case) || !case_symlinks(case).is_empty() && !symlinks_supported() {
         return;
     }
     let args = command_args(manifest_dir, case, name);
@@ -77,6 +77,13 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) {
     let name = case_name(case);
     if kind.requires_spec_refs() {
         assert_spec_refs(case, name);
+    }
+    // A case whose fixture needs a symlink is skipped where the platform cannot
+    // make one: a committed symlink is checked out as a text file on Windows
+    // without developer mode, so the fixture is built at run time and the case
+    // reports nothing rather than a different tree's output (§FS-workspace.6.1).
+    if !case_symlinks(case).is_empty() && !symlinks_supported() {
+        return;
     }
 
     let args = command_args(manifest_dir, case, name);
@@ -161,6 +168,7 @@ fn command_args(manifest_dir: &Path, case: &Path, name: &str) -> Vec<String> {
                 .unwrap_or_else(|err| panic!("{name}: create {}: {err}", parent.display()));
         }
         copy_dir(&repo, &repo_copy);
+        create_case_symlinks(case, &repo_copy, name);
     }
 
     command
@@ -185,6 +193,61 @@ fn command_args(manifest_dir: &Path, case: &Path, name: &str) -> Vec<String> {
             }
         })
         .collect()
+}
+
+/// The `symlinks` manifest of a case: one `<link> -> <target>` per line, both
+/// relative to the fixture repo. Symlinks are built into the *copy* at run time
+/// rather than committed, because git on Windows checks a committed symlink out as
+/// a text file holding its target unless developer mode is on — the fixture would
+/// then be a different tree, and the golden would fail for a reason the case is not
+/// about. §FS-workspace.6.1's containment rule can only be reached through one, so
+/// the corpus needs the affordance.
+fn case_symlinks(case: &Path) -> Vec<(String, String)> {
+    let manifest = case.join("symlinks");
+    if !manifest.is_file() {
+        return Vec::new();
+    }
+    read_to_string(manifest)
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| {
+            let (link, target) = line.split_once("->").unwrap_or_else(|| {
+                panic!("symlinks manifest line is not `<link> -> <target>`: {line}")
+            });
+            (link.trim().to_string(), target.trim().to_string())
+        })
+        .collect()
+}
+
+/// Whether this platform lets the test process create a directory symlink at all.
+/// On Windows that needs developer mode or elevation, so the answer is a probe
+/// rather than a `cfg`.
+fn symlinks_supported() -> bool {
+    let probe =
+        std::env::temp_dir().join(format!("grund-e2e-symlink-probe-{}", std::process::id()));
+    let _ = fs::remove_file(&probe);
+    let made = symlink_dir(Path::new("."), &probe).is_ok();
+    let _ = fs::remove_file(&probe);
+    made
+}
+
+#[cfg(unix)]
+fn symlink_dir(target: &Path, link: &Path) -> std::io::Result<()> {
+    std::os::unix::fs::symlink(target, link)
+}
+
+#[cfg(windows)]
+fn symlink_dir(target: &Path, link: &Path) -> std::io::Result<()> {
+    std::os::windows::fs::symlink_dir(target, link)
+}
+
+fn create_case_symlinks(case: &Path, repo_copy: &Path, name: &str) {
+    for (link, target) in case_symlinks(case) {
+        let link_path = repo_copy.join(&link);
+        symlink_dir(Path::new(&target), &link_path).unwrap_or_else(|err| {
+            panic!("{name}: link {link} -> {target}: {err}");
+        });
+    }
 }
 
 fn copy_dir(from: &Path, to: &Path) {
