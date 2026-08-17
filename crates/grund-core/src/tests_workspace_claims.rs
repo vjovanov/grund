@@ -331,6 +331,172 @@ mod tests_workspace_claims {
         );
     }
 
+    /// §FS-workspace.6.1: a claiming ancestor whose config does not **load** owes
+    /// this run the same answer as one that cannot expand its members — its own
+    /// error, from its own `members` line. The claim is read from the `members`
+    /// entries on their own for exactly this reason, so it survives a file the
+    /// loader rejects. Read off a *loaded* config instead, two mistakes on one
+    /// `members` line behaved oppositely: `"missing"` failed the subtree run
+    /// (above), while `"/abs"` — which the shape rule rejects, so nothing loads —
+    /// read as "claims nothing", dropped the whole segment chain, and let the
+    /// subtree spell itself `alpha` where the root says `group/alpha`.
+    #[test]
+    fn an_enclosing_workspace_whose_config_does_not_load_fails_the_narrowed_run() {
+        let root = test_root("an_enclosing_workspace_whose_config_does_not_load_fails_the_narrowed_run");
+        for (dir, body) in [
+            (
+                "",
+                "project_name = \"root\"\n\n[workspace]\nmembers = [\"group\", \"/abs\"]\n",
+            ),
+            (
+                "group",
+                "project_name = \"group\"\n\n[workspace]\nmembers = [\"alpha\"]\n",
+            ),
+            ("group/alpha", "project_name = \"alpha\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        // The members-only read answers for a file the loader will not accept:
+        // that is what keeps the claim decidable here.
+        assert!(
+            load_config_at(&root, &root).is_err(),
+            "the fixture's enclosing config must be one that does not load"
+        );
+        assert_eq!(
+            ancestor_member_entries(&root.join("grund.toml")).expect("read the members entries"),
+            vec!["group".to_string(), "/abs".to_string()],
+            "the entries are read from the file text, shape rule and all other keys aside"
+        );
+
+        let mut config = load_config(&root.join("group")).expect("load the group config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("a claiming ancestor whose config does not load must fail the run");
+        };
+        assert_eq!(
+            format!("{err:#}"),
+            "../grund.toml:4: invalid [workspace] member `/abs` (expected relative path or trailing /* glob)",
+            "the ancestor's own load error, rendered against the root this run was launched at"
+        );
+    }
+
+    /// §FS-workspace.6.1, the half above must not cost: a config that does not load
+    /// and claims **nothing** here is still climbed past, whatever is wrong with it.
+    /// A stray `grund.toml` above a repository — in a workspace that never mentions
+    /// it — is not that repository's problem, at any depth up to `/`.
+    #[test]
+    fn an_ancestor_that_does_not_load_and_claims_nothing_here_is_climbed_past() {
+        let root = test_root("an_ancestor_that_does_not_load_and_claims_nothing_here_is_climbed_past");
+        for (dir, body) in [
+            (
+                "outer",
+                "project_name = \"outer\"\nthis is not a key\n\n[workspace]\nmembers = [\"other\"]\n",
+            ),
+            ("outer/other", "project_name = \"other\"\n"),
+            (
+                "outer/deep/a/b/repo",
+                "project_name = \"repo\"\n\n[workspace]\nmembers = [\"api\"]\n",
+            ),
+            ("outer/deep/a/b/repo/api", "project_name = \"api\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        assert!(
+            load_config_at(&root.join("outer"), &root).is_err(),
+            "the fixture's ancestor config must be one that does not load"
+        );
+        let mut config =
+            load_config(&root.join("outer/deep/a/b/repo")).expect("load the repository config");
+        let aliases = expand_workspace_tree(&mut config)
+            .expect("a config that does not load and claims nothing must not fail this run")
+            .into_iter()
+            .map(|entry| entry.alias)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            aliases,
+            vec!["repo", "api"],
+            "an unclaimed repository is named from itself, exactly as it was"
+        );
+    }
+
+    /// §FS-workspace.6.1: the residue of the members-only read — a config whose
+    /// `members` text cannot be obtained at all, so the claim is undecidable in
+    /// *both* directions. Failing would let one unreadable `grund.toml` above a
+    /// repository break every run inside it, so the run continues; staying silent
+    /// is what let a claiming ancestor re-spell the subtree, so it warns, naming
+    /// the file against this run's own root and what the reader stands to lose.
+    #[test]
+    fn an_ancestor_whose_members_text_cannot_be_read_warns_and_lets_the_run_through() {
+        let root = test_root("an_ancestor_whose_members_text_cannot_be_read_warns_and_lets_the_run_through");
+        for (dir, body) in [
+            (
+                "outer",
+                "project_name = \"outer\"\n\n[workspace]\nmembers = [\"repo\"\n",
+            ),
+            (
+                "outer/repo",
+                "project_name = \"repo\"\n\n[workspace]\nmembers = [\"api\"]\n",
+            ),
+            ("outer/repo/api", "project_name = \"api\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+        let ancestor_config = root.join("outer/grund.toml");
+
+        let reason = ancestor_member_entries(&ancestor_config)
+            .expect_err("a members value that is not a list cannot decide a claim");
+        assert_eq!(reason, "`members` is not a list of strings");
+        let repo = root.join("outer/repo");
+        assert_eq!(
+            undecidable_ancestor_claim_warning(&ancestor_config, &repo, &reason),
+            "../grund.toml: cannot read [workspace] members (`members` is not a list of strings); \
+             alias paths below it may be missing a segment",
+            "the file is named from the root this run was launched at, so it climbs out with `..`"
+        );
+
+        let mut config = load_config(&repo).expect("load the repository config");
+        let aliases = expand_workspace_tree(&mut config)
+            .expect("an undecidable claim above the run must not fail it")
+            .into_iter()
+            .map(|entry| entry.alias)
+            .collect::<Vec<_>>();
+        assert_eq!(aliases, vec!["repo", "api"]);
+    }
+
+    /// §FS-workspace.6.1: the other way the residue is reached — a config file that
+    /// cannot be read as text at all. Bytes that are not UTF-8 are the portable
+    /// case (a permission bit is not one: `root` can read anything), and they reach
+    /// the same warning, because the reason is whatever the read failure said.
+    #[test]
+    fn an_ancestor_config_that_is_not_text_is_reported_and_climbed_past() {
+        let root = test_root("an_ancestor_config_that_is_not_text_is_reported_and_climbed_past");
+        for (dir, body) in [
+            (
+                "outer/repo",
+                "project_name = \"repo\"\n\n[workspace]\nmembers = [\"api\"]\n",
+            ),
+            ("outer/repo/api", "project_name = \"api\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+        let ancestor_config = root.join("outer/grund.toml");
+        std::fs::write(&ancestor_config, [0x5b, 0x77, 0xff, 0x5d]).expect("write a non-text config");
+
+        assert!(
+            ancestor_member_entries(&ancestor_config).is_err(),
+            "a config that is not text cannot answer whether it claims anything"
+        );
+        let mut config = load_config(&root.join("outer/repo")).expect("load the repository config");
+        let aliases = expand_workspace_tree(&mut config)
+            .expect("an unreadable config above the run must not fail it")
+            .into_iter()
+            .map(|entry| entry.alias)
+            .collect::<Vec<_>>();
+        assert_eq!(aliases, vec!["repo", "api"]);
+    }
+
     /// §FS-workspace.6.1: a `members` entry may reach this directory through a
     /// symlink, and then the entry text names it only once resolved. The claim
     /// therefore compares canonical paths too — otherwise the prefix is dropped
