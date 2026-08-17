@@ -493,6 +493,45 @@ fn member_alias(
     })
 }
 
+/// §FS-workspace.6.1: resolve one `members` entry to the canonical project root
+/// it names, or the located error that entry earns. Both errors are reported at
+/// the block's `members` line and name the entry **as written**: a canonical root
+/// renders as nothing when it equals the render base and as an absolute path when
+/// it lies outside it, and neither is something an author can act on
+/// (§FS-errors.4).
+///
+/// The entry has to exist, and it has to resolve *strictly inside* the block that
+/// listed it. `..` is already rejected in the entry text (§FS-workspace.2), so
+/// escaping takes a symlink — and a member root outside its own block breaks what
+/// everything above it assumes. No lexical ancestor lists it, so its alias path is
+/// read from a different chain at every scope and no citation text passes both; a
+/// root that is an *ancestor* of its own block scans nothing at all, because every
+/// scan root lies under its own member boundary, so the project's declarations
+/// vanish and its dangling citations pass (§GOAL-no-dangling-refs).
+fn workspace_member_root(config: &Config, written: &str, lexical: &Path) -> Result<PathBuf> {
+    if !lexical.is_dir() {
+        return Err(workspace_members_error(
+            config,
+            format!("workspace member does not exist: {written}"),
+        ));
+    }
+    let root = fs::canonicalize(lexical).unwrap_or_else(|_| lexical.to_path_buf());
+    let block_root = canonical_workspace_path(&config.root);
+    if root == block_root {
+        return Err(workspace_members_error(
+            config,
+            format!("workspace member `{written}` resolves to the workspace root that lists it"),
+        ));
+    }
+    if !root.starts_with(&block_root) {
+        return Err(workspace_members_error(
+            config,
+            format!("workspace member `{written}` resolves outside the workspace root that lists it"),
+        ));
+    }
+    Ok(root)
+}
+
 /// §FS-workspace.6.1: every `[workspace]` block must put at least one project
 /// in scope — a block that contributes nothing would silently drop its whole
 /// subtree from the check.

@@ -168,15 +168,19 @@ mod tests_workspace_nested {
         );
     }
 
-    /// §FS-workspace.6.1 / §AR-workspace.6.1: a nested member that resolves to
-    /// a project root the workspace already holds is a located config error.
-    /// It has no e2e fixture because reaching it needs a symlink, and that is
-    /// also the contract that bounds the recursive walk — without it this test
-    /// would not fail, it would hang.
+    /// §FS-workspace.6.1: a member that resolves to an ancestor of the block that
+    /// lists it is a located config error naming the entry as written. It has no
+    /// e2e fixture because reaching it needs a symlink, and it is also what bounds
+    /// the recursive walk — without it this test would not fail, it would hang.
+    ///
+    /// The assertion is the whole message on purpose: the earlier
+    /// `contains("is already a project in this workspace")` passed while the
+    /// message named the member `` — `display_path` renders a canonical root that
+    /// equals the render base as the empty string.
     #[test]
     #[cfg(unix)]
-    fn nested_workspace_member_cycle_is_rejected() {
-        let root = test_root("nested_workspace_member_cycle_is_rejected");
+    fn nested_workspace_member_pointing_at_an_ancestor_is_rejected() {
+        let root = test_root("nested_workspace_member_pointing_at_an_ancestor_is_rejected");
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\nproject_name = \"root\"\n\n[workspace]\nmembers = [\"group\"]\n",
@@ -190,12 +194,103 @@ mod tests_workspace_nested {
 
         let mut config = load_config(&root).expect("load workspace root config");
         let Err(err) = expand_workspace_tree(&mut config) else {
-            panic!("a member cycle must fail expansion");
+            panic!("a member resolving outside its own block must fail expansion");
         };
 
-        assert!(
-            format!("{err:#}").contains("is already a project in this workspace"),
-            "a cycling member must be diagnosed, not walked: {err:#}"
+        assert_eq!(
+            format!("{err:#}"),
+            "group/grund.toml:5: workspace member `back` resolves outside the workspace root that lists it",
+            "the entry is named as written, at the line that listed it"
         );
+    }
+
+    /// §FS-workspace.6.1: the same rule outward. A member whose canonical root
+    /// leaves the tree has no lexical ancestor listing it, so the two scopes that
+    /// can see it demand opposite spellings — `grund check` at the root wanted
+    /// `real/leaf`, a run at the member wanted `leaf`, and no citation text passed
+    /// both. Resolving an external repository is out of contract until a cache
+    /// layer exists (§DF-subproject-namespaces.3.4), so this is an error, not a
+    /// second naming model.
+    #[test]
+    #[cfg(unix)]
+    fn workspace_member_resolving_out_of_the_tree_is_rejected() {
+        let root = test_root("workspace_member_resolving_out_of_the_tree_is_rejected");
+        write(
+            &root.join("repo/grund.toml"),
+            "grund_config_version = 1\nproject_name = \"root\"\n\n[workspace]\nmembers = [\"link\"]\n",
+        );
+        write(
+            &root.join("elsewhere/real/grund.toml"),
+            "grund_config_version = 1\nproject_name = \"real\"\n",
+        );
+        std::os::unix::fs::symlink(root.join("elsewhere/real"), root.join("repo/link"))
+            .expect("point a member out of the workspace tree");
+
+        let mut config = load_config(&root.join("repo")).expect("load workspace root config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("a member outside the tree must fail expansion");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "grund.toml:5: workspace member `link` resolves outside the workspace root that lists it",
+            "the entry is named as written, at the line that listed it"
+        );
+    }
+
+    /// §FS-workspace.6.1: a member that resolves *to* the block listing it — the
+    /// `self` symlink — is the boundary case of the same rule, and stays rejected.
+    #[test]
+    #[cfg(unix)]
+    fn workspace_member_resolving_to_its_own_block_is_rejected() {
+        let root = test_root("workspace_member_resolving_to_its_own_block_is_rejected");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\nproject_name = \"root\"\n\n[workspace]\nmembers = [\"self\"]\n",
+        );
+        std::os::unix::fs::symlink(&root, root.join("self"))
+            .expect("point a member at its own block");
+
+        let mut config = load_config(&root).expect("load workspace root config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("a member resolving to its own block must fail expansion");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "grund.toml:5: workspace member `self` resolves to the workspace root that lists it",
+            "the entry is named as written, at the line that listed it"
+        );
+    }
+
+    /// §FS-workspace.6.1: the rule above bites only on an escape — a member that
+    /// really is nested inside the block that lists it still loads, including the
+    /// multi-segment form (`grp/alpha`) whose canonical root is two levels down.
+    #[test]
+    fn nested_member_inside_the_block_that_lists_it_loads() {
+        let root = test_root("nested_member_inside_the_block_that_lists_it_loads");
+        for (dir, body) in [
+            (
+                "",
+                "project_name = \"root\"\n\n[workspace]\nmembers = [\"group\"]\n",
+            ),
+            (
+                "group",
+                "project_name = \"group\"\n\n[workspace]\nmembers = [\"alpha\", \"grp/beta\"]\n",
+            ),
+            ("group/alpha", "project_name = \"alpha\"\n"),
+            ("group/grp/beta", "project_name = \"beta\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        let mut config = load_config(&root).expect("load workspace root config");
+        let aliases = expand_workspace_tree(&mut config)
+            .expect("legitimate nesting must still expand")
+            .into_iter()
+            .map(|entry| entry.alias)
+            .collect::<Vec<_>>();
+
+        assert_eq!(aliases, vec!["root", "group", "group/alpha", "group/beta"]);
     }
 }

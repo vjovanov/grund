@@ -237,7 +237,7 @@ path = "docs/functional-spec/FS-workspace.md"
 match = "exact"
 rules = ["docs"]
 kind = "deferred"
-max_accepted = { value = 383, unit = "lines" }
+max_accepted = { value = 390, unit = "lines" }
 until = "split into child FS documents once a grund refs sweep can be landed with the move"
 reason = """
 A spec whose numbered sections are live citation targets, so splitting relocates IDs: `grund refs` must be swept and every citing site updated in the same change, or the repository fails its own grounding check. That coupling between document structure and the citation graph, not the prose, is what makes this heavier than a 78-line overage suggests.

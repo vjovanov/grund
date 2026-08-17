@@ -60,7 +60,10 @@ include_root = true
 to the config root. Member paths must be relative, must not use `.` or `..`, must
 not use platform-specific absolute forms or backslash separators, and must not
 overlap after glob expansion; one member root cannot contain another member
-root. Invalid member entries, missing member paths, and overlapping expanded
+root. Each must also resolve — through symlinks, which is the only way left to
+escape — to a directory *strictly inside* the config root that lists it: not that
+root itself, not an ancestor of it, not another tree. Invalid member entries,
+missing member paths, escaping member roots, and overlapping expanded
 roots are config errors reported at the `members` line per
 [§FS-config.4.3](FS-config.md#43-invalid-config-behavior). `packages/*` means
 every direct child directory under `packages/`; recursive `**` globs are not
@@ -196,7 +199,11 @@ may legitimately name a directory an explicit entry also names (`members =
 ["packages/*", "packages/api"]`); what §2 rejects there is one expanded root
 *containing* another. An entry that resolves to a project root **another** block
 already holds is a config error at the `members` line that introduced it, which
-is also what makes expansion terminate ([AR-workspace.6.1](../architecture/AR-workspace.md#61-nested-workspaces-are-one-recursion-not-a-second-namespace-model)).
+is also what makes expansion terminate ([AR-workspace.6.1](../architecture/AR-workspace.md#61-nested-workspaces-are-one-recursion-not-a-second-namespace-model)). So is one that escapes
+its own block (§2): no lexical ancestor lists such a root, so nothing gives it a
+stable alias path, and a root *above* its own block scans nothing at all — every
+scan root lies under its own member boundary, so the project's declarations
+vanish and its dangling citations pass.
 
 Scope follows §5 unchanged: discovery stops at the *nearest* config
 ([§FS-config.1](FS-config.md#1-file-location-and-discovery)), so a command invoked at an intermediate node runs that
