@@ -225,6 +225,10 @@ of a re-spelled set of its own. `enclosing_alias_prefix` recovers it by climbing
 takes the **outermost** claim: a multi-segment `members` entry may hop a block that lists the same child, and the top-down walk composes the path through the outer one.
 The climb is fallible — a claiming block that cannot expand its members or name the project below it raises that block's own error, since dropping it would silently
 re-spell the subtree, while an ancestor whose config does not even load is no claim at all and is climbed past.
+The blocks it reads are cached per directory for the length of one climb (`AncestorWorkspaces`), because every level re-walks the ancestors of the level below it: without
+the cache each ancestor's config is re-read and its grammar regex set rebuilt once per level, which is quadratic in depth and inverts the cost of narrowing — a `list`
+narrowed to two projects deep inside a 40-level chain measured 7.1 s against 0.4 s for the whole chain from its root, and 0.4 s against 0.4 s with it. One cache per climb
+is also why it needs no invalidation: nothing outlives the walk that built it.
 
 That chain of mutual claims is also the boundary of the guarantee: a `[workspace]` block no enclosing block lists is outside it — absorbed into the enclosing namespace at the outer scope, a root of its own from the inside, and diagnosed by no pass ([§FS-workspace.6.1](../functional-spec/FS-workspace.md#61-nested-workspaces)).
 

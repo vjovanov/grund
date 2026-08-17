@@ -133,3 +133,55 @@ fn workspace_member_root(config: &Config, written: &str, lexical: &Path) -> Resu
     }
     Ok(root)
 }
+
+/// The `[workspace]` blocks an ancestor climb has already looked at, keyed by
+/// directory (§AR-workspace.6.1). The climb asks the same ancestors about every
+/// level below them — level *n* re-walks all of level *n+1*'s ancestors — so
+/// without this each ancestor's config is re-read, and its grammar regex set
+/// rebuilt, once per level: quadratic in the depth of the chain, and measurably
+/// so, a run narrowed deep into a 40-level tree taking longer than checking the
+/// whole tree from its root. One cache belongs to one climb, which is also why it
+/// needs no invalidation.
+#[derive(Default)]
+struct AncestorWorkspaces {
+    blocks: BTreeMap<PathBuf, Option<(Config, Vec<PathBuf>)>>,
+}
+
+impl AncestorWorkspaces {
+    /// The `[workspace]` block `dir` declares together with the member roots it
+    /// claims, or `None` when `dir` holds no config, its config does not load, or
+    /// it declares no `[workspace]`. A block that declares one and cannot expand
+    /// its members is that block's own error (§FS-workspace.6.1) — it ends the
+    /// run, so it is never cached and never asked twice.
+    fn block_at(
+        &mut self,
+        dir: &Path,
+        cli_base: &Path,
+    ) -> Result<Option<&(Config, Vec<PathBuf>)>> {
+        if !self.blocks.contains_key(dir) {
+            let block = load_ancestor_workspace_block(dir, cli_base)?;
+            self.blocks.insert(dir.to_path_buf(), block);
+        }
+        Ok(self.blocks.get(dir).and_then(Option::as_ref))
+    }
+}
+
+fn load_ancestor_workspace_block(
+    dir: &Path,
+    cli_base: &Path,
+) -> Result<Option<(Config, Vec<PathBuf>)>> {
+    if config_file_in(dir).is_none() {
+        return Ok(None);
+    }
+    // A config that does not even load is no claim at all: this walk climbs to
+    // the filesystem root, and a stray unparseable `grund.toml` above the
+    // repository must not break every run beneath it (§AR-workspace.6.1).
+    let Ok(config) = load_config_at(dir, cli_base) else {
+        return Ok(None);
+    };
+    if !config.workspace_declared {
+        return Ok(None);
+    }
+    let members = expand_workspace_members(&config)?;
+    Ok(Some((config, members)))
+}
