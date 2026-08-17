@@ -937,29 +937,39 @@ fn find_init_workspace_context(
     Some(projects)
 }
 
-/// Walk up from `target` for the **outermost** ancestor (or `target` itself)
-/// whose config declares `[workspace]`. Unlike [`load_config`], this helper
-/// does **not** stop at the first config it finds — a member with its own
-/// config must still see the workspace root above it, and in a nested
-/// workspace (§FS-workspace.6.1) the section teaches the alias set the
-/// outermost root resolves, not the enclosing group's (§FS-init.2.3.4.15).
+/// The outermost workspace whose tree actually contains `target`: start at the
+/// config that governs it (§FS-config.1) and climb the *claimed chain* — the
+/// same walk `enclosing_alias_prefix` uses, so `init` teaches exactly the alias
+/// set a command run here resolves (§FS-init.2.3.4.15, §FS-workspace.6.1).
+///
+/// Unlike [`load_config`] the walk does not stop at the first config it finds — a
+/// member with its own config must still see the workspace root above it. It does
+/// stop where the claims stop: an ancestor `[workspace]` that does not list the
+/// directory below it describes a different workspace, whose aliases resolve
+/// nowhere here and whose members lie outside this repository.
 fn find_init_workspace_root(target: &Path) -> Option<Config> {
     // Without a canonical anchor we cannot reliably compare against the
     // canonicalized project roots `expand_workspace_tree` returns; bail
     // out so the section is suppressed (§FS-init.2.3.4.15).
     let canonical_target = fs::canonicalize(target).ok()?;
     let mut cursor: Option<&Path> = Some(&canonical_target);
-    let mut outermost = None;
-    while let Some(dir) = cursor {
-        if config_file_in(dir).is_some()
-            && let Ok(config) = load_config_at(dir, &canonical_target)
-            && config.workspace_declared
-        {
-            outermost = Some(config);
+    let mut config = loop {
+        let dir = cursor?;
+        if config_file_in(dir).is_some() {
+            break load_config_at(dir, &canonical_target).ok()?;
         }
         cursor = dir.parent();
+    };
+    loop {
+        match enclosing_workspace_of(&config.root, &canonical_target) {
+            Ok(Some(parent)) => config = parent,
+            Ok(None) => break,
+            // A broken block above us is `grund check`'s to report; `init` must
+            // not describe a tree it cannot see whole (§FS-init.2.3.4.15).
+            Err(_) => return None,
+        }
     }
-    outermost
+    config.workspace_declared.then_some(config)
 }
 
 /// Render the §FS-init.2.3.4.15 Workspace Members section, or the empty string

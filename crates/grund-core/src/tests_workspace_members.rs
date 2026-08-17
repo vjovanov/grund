@@ -343,6 +343,76 @@ mod tests_workspace_members {
         assert!(!section.contains("`group`]"), "grouping node must not be a row: {section}");
     }
 
+    /// §FS-init.2.3.4.15 + §FS-workspace.6.1: an ancestor `[workspace]` that does
+    /// not list the directory below it describes a different workspace, so the
+    /// section names the tree the target's own outermost *claiming* block
+    /// resolves. Reading the outermost *declarer* instead replaced both real
+    /// projects with two aliases that resolve nowhere here and two links outside
+    /// the repository — and left `grund check` green, so the wrong block shipped.
+    #[test]
+    fn workspace_members_ignores_an_ancestor_workspace_that_does_not_claim_the_target() {
+        let root = test_root("workspace_members_ignores_an_ancestor_workspace_that_does_not_claim_the_target");
+        write(
+            &root.join(".agents/grund.toml"),
+            "project_name = \"outer\"\n\n[workspace]\nmembers = [\"unrelated\"]\n",
+        );
+        std::fs::create_dir_all(root.join("unrelated")).expect("create unrelated");
+        write(
+            &root.join("repo/.agents/grund.toml"),
+            "project_name = \"root\"\n\n[workspace]\nmembers = [\"api\"]\n",
+        );
+        std::fs::create_dir_all(root.join("repo/api")).expect("create api");
+
+        let section = render_workspace_members_section(&root.join("repo"), None, None, "§", true);
+
+        assert!(
+            section.contains("- [`root`](AGENTS.md)"),
+            "the repository's own root is the self row: {section}"
+        );
+        assert!(
+            section.contains("- [`api`](api/) *(not yet initialized)*"),
+            "its member is listed relative to the entrypoint: {section}"
+        );
+        assert!(
+            !section.contains("outer") && !section.contains("unrelated"),
+            "an unrelated enclosing workspace contributes nothing: {section}"
+        );
+    }
+
+    /// §FS-init.2.3.4.15 + §FS-workspace.6.1: the same rule one level in — a
+    /// nested `[workspace]` its parent does not list is a workspace root in its
+    /// own right, so `init` inside it teaches its own aliases rather than the
+    /// enclosing tree's, which is what a command run there resolves.
+    #[test]
+    fn workspace_members_at_a_group_its_parent_does_not_list_names_its_own_tree() {
+        let root = test_root("workspace_members_at_a_group_its_parent_does_not_list_names_its_own_tree");
+        write(
+            &root.join(".agents/grund.toml"),
+            "project_name = \"root\"\n\n[workspace]\nmembers = [\"listed\"]\n",
+        );
+        std::fs::create_dir_all(root.join("listed")).expect("create listed");
+        write(
+            &root.join("stray/.agents/grund.toml"),
+            "project_name = \"stray\"\n\n[workspace]\nmembers = [\"leaf\"]\n",
+        );
+        std::fs::create_dir_all(root.join("stray/leaf")).expect("create leaf");
+
+        let section = render_workspace_members_section(&root.join("stray"), None, None, "§", true);
+
+        assert!(
+            section.contains("- [`stray`](AGENTS.md)"),
+            "the unlisted group is its own root: {section}"
+        );
+        assert!(
+            section.contains("- [`leaf`](leaf/) *(not yet initialized)*"),
+            "its member keeps the one segment its own scope gives it: {section}"
+        );
+        assert!(
+            !section.contains("`root`") && !section.contains("listed"),
+            "the enclosing tree is not what a run here resolves: {section}"
+        );
+    }
+
     /// §FS-init.2.4 + §DF-workspace-member-descriptions: the generated config
     /// teaches `project_description` with a commented line by default, and
     /// `--description` turns it into the real key.
