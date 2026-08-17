@@ -151,20 +151,73 @@ pub struct Grammar {
     elements: Vec<IdElement>,
 }
 
-/// §FS-config.3.2: no part of the ID grammar may admit a `/`. The character
+/// §FS-config.3.2: no ID the grammar can build may contain a `/`. The character
 /// belongs to the citation namespace (§FS-workspace.1) — a qualified citation and
 /// every `<alias>/<ID>` CLI argument split on the **last** one — so an ID that
 /// contained a `/` would declare and resolve and then be unqueryable, the alias
-/// boundary landing inside it. Returns the message body for a located config
-/// error, or `None` when `value` is clean. `label` names the key as the config
-/// wrote it, so the same rule reads correctly for an `[id]` key and for a
-/// `[[kinds]]` prefix (which lands in an ID just as directly).
-fn id_grammar_slash_error(label: &str, value: &str) -> Option<String> {
-    value.contains('/').then(|| {
-        format!(
-            "{label} must not contain `/` (an ID never contains `/` — it separates the alias path from the ID)"
-        )
-    })
+/// boundary landing inside it. Both functions return the message body for a
+/// located config error, or `None` when the key is clean. `label` names the key as
+/// the config wrote it.
+///
+/// The literal half: `[id] format` and a `[[kinds]]` prefix contribute
+/// `regex::escape`d text, so a `/` in the key is a `/` in every ID built from it
+/// and a substring test is exact.
+fn id_grammar_literal_slash_error(label: &str, value: &str) -> Option<String> {
+    value.contains('/').then(|| id_grammar_slash_message(label, "contain"))
+}
+
+/// The pattern half: `number_pattern` and `slug_pattern` are *regexes*, where the
+/// character's presence in the text answers neither direction. `[^/.]+` contains a
+/// `/` and can never produce one; `[^.[:space:]]+` and `.*` contain none and match
+/// one freely — that second case is the defect this rule exists to close, and a
+/// substring test left it wide open while rejecting configs that had always
+/// loaded. So ask what the pattern can *match*.
+fn id_grammar_pattern_slash_error(label: &str, pattern: &str) -> Option<String> {
+    pattern_admits_slash(pattern).then(|| id_grammar_slash_message(label, "match"))
+}
+
+fn id_grammar_slash_message(label: &str, verb: &str) -> String {
+    format!(
+        "{label} must not {verb} `/` (an ID never contains `/` — it separates the alias path from the ID)"
+    )
+}
+
+/// Whether any string this pattern matches can contain a `/`: walk the parsed
+/// syntax and ask whether any literal or character class in it admits the
+/// character. Matching against sample strings cannot answer this — `[a-z0-9-]*`
+/// matches the empty string at position 0, so `is_match("/")` says yes to a
+/// pattern that can never produce one, and no finite set of samples covers a
+/// pattern like `[a-z]{3}/[a-z]{3}` either.
+///
+/// A pattern that does not parse admits nothing here: the regex error is reported
+/// by the "valid regex on its own" validator (§FS-config.3.2), and naming it a `/`
+/// rejection would name the wrong defect.
+fn pattern_admits_slash(pattern: &str) -> bool {
+    regex_syntax::parse(pattern).is_ok_and(|hir| hir_admits_slash(&hir))
+}
+
+fn hir_admits_slash(hir: &regex_syntax::hir::Hir) -> bool {
+    use regex_syntax::hir::{Class, HirKind};
+    match hir.kind() {
+        HirKind::Empty | HirKind::Look(_) => false,
+        HirKind::Literal(literal) => literal.0.contains(&b'/'),
+        HirKind::Class(Class::Unicode(class)) => class
+            .ranges()
+            .iter()
+            .any(|range| range.start() <= '/' && '/' <= range.end()),
+        HirKind::Class(Class::Bytes(class)) => class
+            .ranges()
+            .iter()
+            .any(|range| range.start() <= b'/' && b'/' <= range.end()),
+        // A sub-expression repeated zero times contributes nothing to any match.
+        HirKind::Repetition(repetition) => {
+            repetition.max != Some(0) && hir_admits_slash(&repetition.sub)
+        }
+        HirKind::Capture(capture) => hir_admits_slash(&capture.sub),
+        HirKind::Concat(parts) | HirKind::Alternation(parts) => {
+            parts.iter().any(hir_admits_slash)
+        }
+    }
 }
 
 impl Grammar {
@@ -195,18 +248,20 @@ impl Grammar {
         // every component an ID is built from. `config.rs` rejects each key at its
         // own line first; this is the backstop that keeps the invariant true for a
         // `Config` assembled in code, since the whole namespace grammar rests on it.
-        for (label, value) in [
-            ("[id] format", format),
+        if let Some(message) = id_grammar_literal_slash_error("[id] format", format) {
+            return Err(anyhow!("{message}"));
+        }
+        for (label, pattern) in [
             ("[id] number_pattern", number_pattern),
             ("[id] slug_pattern", slug_pattern),
         ] {
-            if let Some(message) = id_grammar_slash_error(label, value) {
+            if let Some(message) = id_grammar_pattern_slash_error(label, pattern) {
                 return Err(anyhow!("{message}"));
             }
         }
         for kind in kinds {
             if let Some(message) =
-                id_grammar_slash_error(&format!("[[kinds]] prefix `{kind}`"), kind)
+                id_grammar_literal_slash_error(&format!("[[kinds]] prefix `{kind}`"), kind)
             {
                 return Err(anyhow!("{message}"));
             }

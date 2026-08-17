@@ -14,6 +14,10 @@ include = ["src/**", "assets/**", "Cargo.toml", "README.md"]
 [dependencies]
 ignore = "0.4"
 regex = "1"
+# Only for §FS-config.3.2: "can this ID pattern match a `/`?" is a question about
+# the pattern's parsed syntax, not its text. `regex` already builds on this crate
+# at the same version, so asking it directly adds nothing to the dependency tree.
+regex-syntax = "0.8"
 anyhow = "1"
 once_cell = "1"
 rayon = "1"

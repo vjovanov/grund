@@ -3,7 +3,9 @@
 ///
 /// Its own module because these cases fail together for one reason: a component
 /// that admits a character the citation grammar has already spent. The
-/// alias-path boundary (§FS-workspace.1) is the first such character.
+/// alias-path boundary (§FS-workspace.1) is the first such character, and it is
+/// asked of a *pattern* as a question about what the pattern matches — both
+/// directions are pinned below, because a substring test got both wrong.
 #[cfg(test)]
 mod tests_id_grammar {
     use super::*;
@@ -25,12 +27,12 @@ mod tests_id_grammar {
             ),
             (
                 "[id]\nnumber_pattern = \"[0-9/]+\"\n",
-                "[id] number_pattern must not contain `/`",
+                "[id] number_pattern must not match `/`",
                 2,
             ),
             (
                 "[id]\nslug_pattern = \"[a-z][a-z0-9/-]*\"\n",
-                "[id] slug_pattern must not contain `/`",
+                "[id] slug_pattern must not match `/`",
                 2,
             ),
             (
@@ -57,6 +59,75 @@ mod tests_id_grammar {
         }
     }
 
+    /// §FS-config.3.2: the rule is about what a pattern **matches**, so a pattern
+    /// with no `/` in its text is rejected when it can produce one. This is the
+    /// case a substring test missed: `slug_pattern = "[^.[:space:]]+"` loaded,
+    /// declared `FS-a/b`, listed it — and `grund FS-a/b` then refused the ID grund
+    /// had just emitted, because the CLI splits an `<alias>/<ID>` argument on the
+    /// last `/` (§FS-workspace.1).
+    #[test]
+    fn id_grammar_rejects_a_pattern_that_matches_a_slash_without_containing_one() {
+        let root = test_root("id_grammar_rejects_a_pattern_that_matches_a_slash_without_containing_one");
+        for (pattern, key) in [
+            ("[^.[:space:]]+", "slug_pattern"),
+            (".+", "slug_pattern"),
+            ("[!-9]+", "slug_pattern"),
+            ("[^[:space:]]+", "slug_pattern"),
+            ("[0-9]+|[/a-z]+", "number_pattern"),
+        ] {
+            write(
+                &root.join(".agents/grund.toml"),
+                &format!("grund_config_version = 1\n\n[id]\n{key} = \"{pattern}\"\n"),
+            );
+            let err = match load_config(&root) {
+                Ok(_) => panic!("a pattern matching `/` should fail to load: {pattern}"),
+                Err(err) => format!("{err:#}"),
+            };
+            assert!(
+                err.contains(&format!(".agents/grund.toml:4: [id] {key} must not match `/`")),
+                "unexpected error for {pattern}: {err}"
+            );
+        }
+    }
+
+    /// §FS-config.3.2, the other direction: a pattern that **forbids** `/` names
+    /// the character in its text and must load. Rejecting it broke configs that
+    /// had always worked, and told their authors to delete the very exclusion the
+    /// rule asks for.
+    #[test]
+    fn id_grammar_accepts_a_pattern_that_forbids_a_slash() {
+        let root = test_root("id_grammar_accepts_a_pattern_that_forbids_a_slash");
+        for pattern in ["[^/. ]+", "[^/.]+", "(?:a|b)[^/.]*", "[a-z][a-z0-9-]*"] {
+            write(
+                &root.join(".agents/grund.toml"),
+                &format!("grund_config_version = 1\n\n[id]\nslug_pattern = \"{pattern}\"\n"),
+            );
+            let config = load_config(&root)
+                .unwrap_or_else(|err| panic!("`{pattern}` cannot produce a `/` and must load: {err:#}"));
+            assert_eq!(config.slug_pattern, pattern);
+        }
+
+        // `[^/]+` excludes only the `/`, so this rule has nothing to say about it.
+        // The rule that does is the section-separator collision — a different
+        // conflict, named as itself.
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n\n[id]\nslug_pattern = \"[^/]+\"\n",
+        );
+        let err = match load_config(&root) {
+            Ok(_) => panic!("`[^/]+` also matches the section separator"),
+            Err(err) => format!("{err:#}"),
+        };
+        assert!(
+            !err.contains("must not match `/`"),
+            "the `/` rule must not be what rejects a pattern that forbids `/`: {err}"
+        );
+        assert!(
+            err.contains("[id].section_separator `.` is matched by [id].slug_pattern"),
+            "unexpected error: {err}"
+        );
+    }
+
     /// §FS-config.3.2: the same invariant holds for a `Config` assembled in code —
     /// `Grammar::build` is the backstop under every located check above, so no
     /// caller can route around the rule the namespace grammar depends on.
@@ -72,7 +143,7 @@ mod tests_id_grammar {
             .expect_err("a slug pattern admitting `/` is rejected at build");
 
         assert!(
-            format!("{err:#}").contains("[id] slug_pattern must not contain `/`"),
+            format!("{err:#}").contains("[id] slug_pattern must not match `/`"),
             "unexpected error: {err:#}"
         );
     }
