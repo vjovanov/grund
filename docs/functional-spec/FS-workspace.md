@@ -267,6 +267,15 @@ every command in this section:
   silently reserved. Output paths still render from the workspace root, not from
   the first member. Completions, `show`, `refs`, and `list --project` all agree
   on this.
+- **A malformed alias path is rejected before the scan, and the diagnostic names
+  the offending segment** — `Sprayer` for `grund hardware/Sprayer/FS-x`, not the
+  whole `hardware/Sprayer`. The path is one slug per level (§1), so the mistake
+  is always in a segment; naming the path against a pattern that forbids `/`
+  would read as "a namespace may not contain `/`", which is the opposite of the
+  rule. An empty segment (`hardware//FS-x`) has nothing to quote, so the
+  diagnostic says a segment is empty; a leading `/` (`/FS-x`) says the path is
+  empty — never empty backticks. An alias path that is *well formed* but names no
+  project is the unknown-alias error of §8.1, not this one.
 
 ### 8.1 `grund <alias>/<ID>`
 
