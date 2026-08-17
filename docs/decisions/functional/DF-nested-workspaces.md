@@ -111,8 +111,15 @@ names what it names at the repository root, and `<§>final/<ID>` is simply
 unknown there. The alternative — naming a subtree's projects from the subtree —
 would let a citation pass a local check and fail the run CI does, which is
 [§GOAL-no-dangling-refs](../../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) failing quietly in the one place it is supposed to
-hold. The prefix is recovered by climbing to the nearest ancestor that both
-declares `[workspace]` and lists the directory below it.
+hold. The prefix is recovered by climbing the chain of ancestors that each
+declare `[workspace]` and list the directory below it.
+
+The guarantee reaches exactly that chain, and no further
+([§FS-workspace.6.1](../../functional-spec/FS-workspace.md#61-nested-workspaces)). A `[workspace]` block no enclosing block
+lists is claimed by nobody: the outer run ignores it and absorbs its tree into
+the enclosing namespace, a run inside it names itself from itself, and the two
+disagree. Diagnosing that needs a walk for config files no pass performs, so it
+is recorded as a known limitation there rather than designed around here.
 
 ### 3.5 The intermediate node reuses `include_root`, and defaults to a project
 
