@@ -92,6 +92,17 @@ to a qualified citation and produced a spurious `unknown project alias`
 error. The marker is the only signal the scanner uses for "the writer meant
 this as a citation."
 
+It is also the whole of the rule, in every repository: a `<namespace>` capture is
+matched wherever the marker precedes it, not only where a workspace is
+configured, and a `<namespace>` is now a run of segments (§2). So a *marked* file
+path whose last segment parses as an ID — `<§>docs/functional-spec/FS-login.md` —
+is a qualified citation with a two-segment alias path, in a single-project
+repository as much as in a workspace, and reports `unknown project alias` because
+the resolver never skips (§4). Widening one capture is what admits it; the
+alternative is a scanner that branches on whether a workspace exists, which §3.2
+rules out. Unmarking the path is the fix, and [§FS-workspace.1](../functional-spec/FS-workspace.md#1-citation-syntax) says so where an
+author writes one.
+
 ### 3.2 The scanner never branches on workspace
 
 The scanner does not know whether it is running for a single-project repo or
