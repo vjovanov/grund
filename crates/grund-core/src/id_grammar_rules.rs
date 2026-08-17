@@ -37,6 +37,19 @@ fn id_grammar_pattern_slash_error(label: &str, pattern: &str) -> Option<String> 
     pattern_admits_slash(pattern).then(|| id_grammar_slash_message(label, "match"))
 }
 
+/// §FS-config.3.2: and `section_separator` may not carry a `/` either — the same
+/// invariant from the other side. A citation is `[<alias path>/]<ID>[<sep><section>]`
+/// and its alias-path boundary is the **last** `/`, so a `/` separator makes the two
+/// boundaries the same character: `<§>root/fs-x/1` — section 1 of `fs-x` in project
+/// `root` — reads as alias path `root/fs-x` and ID `1`. That citation resolved before
+/// alias *paths* existed, so a `[citations]` obligation resting on it turns red with
+/// no config change (§FS-workspace.1).
+fn section_separator_slash_error(separator: &str) -> Option<String> {
+    separator.contains('/').then(|| {
+        "[id].section_separator must not contain `/` (a citation's alias path ends at the last `/`, so a `/` here would put the ID/section boundary inside it)".to_string()
+    })
+}
+
 fn id_grammar_slash_message(label: &str, verb: &str) -> String {
     format!(
         "{label} must not {verb} `/` (an ID never contains `/` — it separates the alias path from the ID)"
@@ -88,6 +101,7 @@ fn hir_admits_slash(hir: &regex_syntax::hir::Hir) -> bool {
 fn id_grammar_key_slash_error(key: &str, value: &str) -> Option<String> {
     match key {
         "format" => id_grammar_literal_slash_error("[id].format", value),
+        "section_separator" => section_separator_slash_error(value),
         "number_pattern" | "slug_pattern" => {
             id_grammar_pattern_slash_error(&format!("[id].{key}"), value)
         }

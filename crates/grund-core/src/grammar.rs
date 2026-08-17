@@ -219,6 +219,9 @@ impl Grammar {
         if section_separator.is_empty() {
             return Err(anyhow!("[id].section_separator must not be empty"));
         }
+        if let Some(message) = section_separator_slash_error(section_separator) {
+            return Err(anyhow!("{message}"));
+        }
         if literals.iter().any(|lit| lit.contains(section_separator)) {
             return Err(anyhow!(
                 "[id].section_separator `{section_separator}` collides with a literal in [id].format"

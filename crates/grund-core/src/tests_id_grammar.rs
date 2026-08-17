@@ -128,6 +128,41 @@ mod tests_id_grammar {
         );
     }
 
+    /// §FS-config.3.2: `section_separator = "/"` is rejected at its own line. The
+    /// alias-path boundary is the **last** `/` in a citation, so a `/` separator
+    /// makes the ID/section boundary the same character: `§root/fs-x/1` — section 1
+    /// of `fs-x` in project `root` — read as alias path `root/fs-x` and ID `1`, so a
+    /// citation that resolved before alias *paths* existed stopped resolving and a
+    /// `[citations]` obligation resting on it flipped green to red with no config
+    /// change.
+    #[test]
+    fn id_grammar_rejects_a_slash_section_separator() {
+        let root = test_root("id_grammar_rejects_a_slash_section_separator");
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\n\n[id]\nsection_separator = \"/\"\n",
+        );
+        let err = match load_config(&root) {
+            Ok(_) => panic!("a `/` section separator must fail to load"),
+            Err(err) => format!("{err:#}"),
+        };
+        assert_eq!(
+            err,
+            ".agents/grund.toml:4: [id].section_separator must not contain `/` (a citation's alias path ends at the last `/`, so a `/` here would put the ID/section boundary inside it)"
+        );
+
+        // And the backstop under it, for a `Config` assembled in code.
+        let mut config = Config::default_for(root);
+        config.section_separator = "/".into();
+        let err = config
+            .rebuild_grammar()
+            .expect_err("a `/` section separator is rejected at build");
+        assert!(
+            format!("{err:#}").contains("[id].section_separator must not contain `/`"),
+            "unexpected error: {err:#}"
+        );
+    }
+
     /// §FS-config.3.2: the same invariant holds for a `Config` assembled in code —
     /// `Grammar::build` is the backstop under every located check above, so no
     /// caller can route around the rule the namespace grammar depends on.
