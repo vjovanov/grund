@@ -336,8 +336,8 @@ fn qualify_alias(prefix: &str, alias: &str) -> String {
 /// and the canonical-root check that both rejects a member cycle and bounds the
 /// walk.
 fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjectEntry>> {
-    let member_roots = expand_workspace_members(root_config)?;
-    root_config.workspace_boundary_roots = member_roots.clone();
+    let members = expand_workspace_member_list(root_config)?;
+    root_config.workspace_boundary_roots = members.iter().map(|m| m.root.clone()).collect();
 
     let mut entries: Vec<WorkspaceProjectEntry> = Vec::new();
     let mut visited: Vec<PathBuf> = vec![root_config.root.clone()];
@@ -371,7 +371,7 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
         });
     }
     collect_workspace_members(
-        &member_roots,
+        &members,
         root_config,
         root_config,
         &self_path,
@@ -397,7 +397,7 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
 /// rendering, so every diagnostic names a project against the same base;
 /// `prefix` is the alias path of the enclosing workspace, empty at the top.
 fn collect_workspace_members(
-    member_roots: &[PathBuf],
+    members: &[WorkspaceMember],
     parent_config: &Config,
     top_config: &Config,
     prefix: &str,
@@ -405,17 +405,21 @@ fn collect_workspace_members(
     visited: &mut Vec<PathBuf>,
     entries: &mut Vec<WorkspaceProjectEntry>,
 ) -> Result<()> {
-    for member_root in member_roots {
+    for member in members {
+        let member_root = &member.root;
         // §FS-workspace.6.1: members are compared as canonical paths, so a
-        // member that resolves to a project the workspace already holds — a
-        // symlink back at an ancestor or across at a sibling — fails at the
-        // line that introduced it. Consuming a distinct root per step is also
-        // what bounds the recursion; no depth limit is needed.
+        // member that resolves to a project the workspace already holds fails at
+        // the line that introduced it — named as the entry was written, and
+        // beside the project root it lands on, since those are two different
+        // strings and the author wrote only one of them. Consuming a distinct
+        // root per step is also what bounds the recursion; no depth limit is
+        // needed.
         if visited.iter().any(|seen| seen == member_root) {
             return Err(workspace_members_error(
                 parent_config,
                 format!(
-                    "workspace member `{}` is already a project in this workspace",
+                    "workspace member `{}` resolves to `{}`, already a project in this workspace",
+                    member.written,
                     display_path(top_config, member_root)
                 ),
             ));
@@ -455,8 +459,8 @@ fn collect_workspace_members(
         // §FS-workspace.6.1: a member that is itself a workspace root
         // contributes its whole subtree, and `include_root` on *its* block
         // decides whether the grouping directory is one of the projects.
-        let nested_roots = expand_workspace_members(&member_config)?;
-        member_config.workspace_boundary_roots = nested_roots.clone();
+        let nested = expand_workspace_member_list(&member_config)?;
+        member_config.workspace_boundary_roots = nested.iter().map(|m| m.root.clone()).collect();
         let before = entries.len();
         if member_config.workspace_include_root {
             entries.push(WorkspaceProjectEntry {
@@ -465,7 +469,7 @@ fn collect_workspace_members(
             });
         }
         collect_workspace_members(
-            &nested_roots,
+            &nested,
             &member_config,
             top_config,
             &qualified,
@@ -497,42 +501,6 @@ fn member_alias(
             workspace_members_error(parent_config, message)
         }
     })
-}
-
-/// §FS-workspace.6.1: resolve one `members` entry to the canonical project root
-/// it names, or the located error that entry earns. Both errors are reported at
-/// the block's `members` line and name the entry **as written**: a canonical root
-/// renders as nothing when it equals the render base and as an absolute path when
-/// it lies outside it, and neither is something an author can act on
-/// (§FS-errors.4).
-///
-/// The entry has to exist, and it has to resolve *strictly inside* the block that
-/// listed it. `..` is already rejected in the entry text (§FS-workspace.2), so
-/// escaping takes a symlink — and a member root outside its own block breaks what
-/// everything above it assumes. No lexical ancestor lists it, so its alias path is
-/// read from a different chain at every scope and no citation text passes both; a
-/// root that is an *ancestor* of its own block scans nothing at all, because every
-/// scan root lies under its own member boundary, so the project's declarations
-/// vanish and its dangling citations pass (§GOAL-no-dangling-refs).
-fn workspace_member_root(config: &Config, written: &str, lexical: &Path) -> Result<PathBuf> {
-    if !lexical.is_dir() {
-        return Err(workspace_members_error(
-            config,
-            format!("workspace member does not exist: {written}"),
-        ));
-    }
-    let root = fs::canonicalize(lexical).unwrap_or_else(|_| lexical.to_path_buf());
-    let block_root = canonical_workspace_path(&config.root);
-    // Strictly inside: equal is the `self` symlink, not-a-prefix is every other
-    // escape, and the two differ only in the preposition the message needs.
-    if root == block_root || !root.starts_with(&block_root) {
-        let landing = if root == block_root { "to" } else { "outside" };
-        return Err(workspace_members_error(
-            config,
-            format!("workspace member `{written}` resolves {landing} the workspace root that lists it"),
-        ));
-    }
-    Ok(root)
 }
 
 /// §FS-workspace.6.1: every `[workspace]` block must put at least one project

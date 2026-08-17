@@ -228,11 +228,7 @@ re-spell the subtree, while an ancestor whose config does not even load is no cl
 
 That chain of mutual claims is also the boundary of the guarantee: a `[workspace]` block no enclosing block lists is outside it — absorbed into the enclosing namespace at the outer scope, a root of its own from the inside, and diagnosed by no pass ([§FS-workspace.6.1](../functional-spec/FS-workspace.md#61-nested-workspaces)).
 
-Expansion is bounded by the canonical project roots already collected: each is
-recorded as it is added, and a member resolving to one already present is a
-config error at the `members` line that introduced it — never a silent skip,
-never an unbounded walk. Depth needs no separate limit because each recursion
-step consumes a distinct root.
+Expansion is bounded twice over. Every member root has to land strictly inside the block that listed it, so a `members` list can only ever reach downward; and the canonical roots already collected are recorded as they are added, so a member resolving to one already present is a config error at the `members` line that introduced it — never a silent skip, never an unbounded walk. Depth needs no separate limit because each recursion step consumes a distinct root. Both errors name the entry **as the config wrote it**, since a canonical root renders as the empty string when it equals the render base and as an absolute path once it leaves the tree, and a diagnostic may do neither ([§FS-errors.4](../functional-spec/FS-errors.md#4-determinism)). `workspace_members.rs` holds that rule set, one file for every block's expansion at any depth.
 
 Three invariants are per-block, because every `[workspace]` block is a workspace
 root in its own right (§5.1 — one loader, whatever the depth):

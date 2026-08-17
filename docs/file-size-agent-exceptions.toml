@@ -223,21 +223,11 @@ reason = """
 The declaration catalog query and its renderers, 18 lines over budget. They change together — every field the query learns to select is a field the output shapes have to show — so splitting now produces two files that are always opened as a pair. What retires this is that coupling ending, not the file growing.
 """
 [[exceptions]]
-path = "crates/grund-core/src/checker_cmd.rs"
-match = "exact"
-rules = ["core-source"]
-kind = "deferred"
-until = "it gains logic beyond argument translation and report dispatch"
-max_accepted = { value = 394, unit = "lines" }
-reason = """
-The check command adapter. It is already the thin layer between CLI arguments and checker.rs and checker_references.rs, so the category boundary a split would cut along is the one this file already sits on — the result would be two halves of one adapter. The `--full` work grew it without tripping the trigger below: the scope layer it added (which files are in `[scan] include`, what the out-of-scope tier reports) is in checker_references.rs and the caution's text and predicate are in output.rs, so what landed here is the same two jobs it already did — translate the flag, sequence the passes, dispatch the report. It stops being an adapter, and becomes splittable, only if checking logic starts landing here.
-"""
-[[exceptions]]
 path = "docs/functional-spec/FS-workspace.md"
 match = "exact"
 rules = ["docs"]
 kind = "deferred"
-max_accepted = { value = 394, unit = "lines" }
+max_accepted = { value = 396, unit = "lines" }
 until = "split into child FS documents once a grund refs sweep can be landed with the move"
 reason = """
 A spec whose numbered sections are live citation targets, so splitting relocates IDs: `grund refs` must be swept and every citing site updated in the same change, or the repository fails its own grounding check. That coupling between document structure and the citation graph, not the prose, is what makes this heavier than a 78-line overage suggests.

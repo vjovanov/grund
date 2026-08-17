@@ -25,6 +25,7 @@ include!("scanner.rs");
 include!("checker.rs");
 include!("checker_references.rs");
 include!("checker_cmd.rs");
+include!("workspace_members.rs");
 include!("workspace_context.rs");
 include!("output.rs");
 include!("show.rs");

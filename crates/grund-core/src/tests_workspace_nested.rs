@@ -263,6 +263,40 @@ mod tests_workspace_nested {
         );
     }
 
+    /// §FS-workspace.2 / §FS-errors.4: a nested block's overlap error names both
+    /// entries as the config wrote them, at that block's own `members` line. It
+    /// used to print `display_path` of the canonical roots, which renders an
+    /// absolute path for anything outside the render base — the one thing every
+    /// other diagnostic in this repository is not allowed to do.
+    #[test]
+    fn nested_workspace_member_overlap_names_both_entries_as_written() {
+        let root = test_root("nested_workspace_member_overlap_names_both_entries_as_written");
+        for (dir, body) in [
+            (
+                "",
+                "project_name = \"root\"\n\n[workspace]\nmembers = [\"group\"]\n",
+            ),
+            (
+                "group",
+                "project_name = \"group\"\n\n[workspace]\nmembers = [\"packages\", \"packages/api\"]\n",
+            ),
+            ("group/packages/api", "project_name = \"api\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        let mut config = load_config(&root).expect("load workspace root config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("one member root containing another must fail expansion");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "group/grund.toml:4: workspace members overlap: `packages` contains `packages/api`",
+            "both entries are named as written, at the line that listed them"
+        );
+    }
+
     /// §FS-workspace.6.1: the rule above bites only on an escape — a member that
     /// really is nested inside the block that lists it still loads, including the
     /// multi-segment form (`grp/alpha`) whose canonical root is two levels down.
