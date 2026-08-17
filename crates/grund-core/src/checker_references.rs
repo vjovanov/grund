@@ -208,7 +208,7 @@ fn check_citation_resolution(
                 path: Some(cite.file.clone()),
                 line: Some(cite.line),
                 column: Some(cite.column),
-                message: format!("unknown project alias {namespace}"),
+                message: unknown_project_message(namespace, workspace),
                 sites: Vec::new(),
             });
             continue;
@@ -269,5 +269,73 @@ fn check_citation_resolution(
                 });
             }
         }
+    }
+}
+
+/// §FS-check.3.8: the unknown-alias message. A qualified citation names its
+/// target by the whole alias path (§FS-workspace.6.1), and the mistake that
+/// invites is writing a project's short name where its path is required. So
+/// before giving up, look for a project the citation could have meant: one
+/// whose path *ends* with what was written (`sprayer` for `group/sprayer`), one
+/// whose last segment matches under a different parent (a wrong prefix), or one
+/// a typo away. §GOAL-friendliness-first — the reader who has the tree in front
+/// of them is the one who does not need this; the agent editing one file is.
+fn unknown_project_message(
+    namespace: &str,
+    workspace: &BTreeMap<String, WorkspaceCheckTarget<'_>>,
+) -> String {
+    let candidates = nearest_project_aliases(namespace, workspace.keys().map(String::as_str));
+    if candidates.is_empty() {
+        return format!("unknown project alias {namespace}");
+    }
+    format!(
+        "unknown project alias {namespace}; did you mean {}?",
+        join_alternatives(&candidates)
+    )
+}
+
+/// The projects a written alias path plausibly meant, best tier first. Tiers do
+/// not mix: a suffix match is a near-certain "you dropped the prefix", and
+/// diluting it with edit-distance noise would make the good hint harder to act
+/// on.
+fn nearest_project_aliases<'a>(
+    namespace: &str,
+    known: impl Iterator<Item = &'a str>,
+) -> Vec<String> {
+    let written: Vec<&str> = namespace.split('/').collect();
+    let (mut suffix, mut same_leaf, mut near) = (Vec::new(), Vec::new(), Vec::new());
+    for candidate in known {
+        let segments: Vec<&str> = candidate.split('/').collect();
+        if segments.len() > written.len() && segments.ends_with(&written) {
+            suffix.push(candidate.to_string());
+        } else if segments.last() == written.last() {
+            same_leaf.push(candidate.to_string());
+        } else if close_enough_for_hint(
+            edit_distance(namespace, candidate),
+            namespace.chars().count(),
+            candidate.chars().count(),
+        ) {
+            near.push(candidate.to_string());
+        }
+    }
+    let mut best = if !suffix.is_empty() {
+        suffix
+    } else if !same_leaf.is_empty() {
+        same_leaf
+    } else {
+        near
+    };
+    best.sort();
+    // Three is enough to disambiguate the common `api` collision without
+    // turning one finding into a catalogue; `grund list` is the catalogue.
+    best.truncate(3);
+    best
+}
+
+fn join_alternatives(items: &[String]) -> String {
+    match items {
+        [] => String::new(),
+        [only] => only.clone(),
+        [rest @ .., last] => format!("{} or {last}", rest.join(", ")),
     }
 }

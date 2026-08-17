@@ -313,23 +313,34 @@ pub fn complete_ids(opts: CompleteIdsOpts) -> Result<Vec<String>> {
         .map(|project| &project.config)
         .unwrap_or_else(|| context.render_config());
     let mut candidates = BTreeSet::new();
-    if let Some(slash) = opts.prefix.find('/') {
-        let (alias_prefix, id_prefix) = opts.prefix.split_at(slash);
-        let id_prefix = &id_prefix[1..];
+    // §FS-workspace.8.4: an alias path may itself carry slashes
+    // (§FS-workspace.6.1), so the split is at the *last* `/` — the left names a
+    // project, the right is its ID-prefix. A prefix that lands mid-path
+    // completes both: the deeper alias paths still to be typed, and the IDs of
+    // the project already named.
+    if let Some((alias_prefix, id_prefix)) = opts.prefix.rsplit_once('/') {
         if !context.workspace_loaded {
             return Ok(Vec::new());
         }
-        let Some(project) = context.project_by_alias(alias_prefix) else {
-            return Ok(Vec::new());
-        };
-        let complete_sections = opts.sections || id_prefix.contains(&project.config.section_separator);
-        add_complete_id_candidates(
-            &mut candidates,
-            Some(alias_prefix),
-            &project.config,
-            &project.findings,
-            complete_sections,
-        );
+        for alias in context.aliases() {
+            let continuation = format!("{alias}/");
+            // The exact prefix is withheld: re-offering what is already on the
+            // line stalls the shell instead of advancing it.
+            if continuation != opts.prefix && continuation.starts_with(&opts.prefix) {
+                candidates.insert(continuation);
+            }
+        }
+        if let Some(project) = context.project_by_alias(alias_prefix) {
+            let complete_sections =
+                opts.sections || id_prefix.contains(&project.config.section_separator);
+            add_complete_id_candidates(
+                &mut candidates,
+                Some(alias_prefix),
+                &project.config,
+                &project.findings,
+                complete_sections,
+            );
+        }
     } else {
         let complete_sections = opts.sections || opts.prefix.contains(&current_config.section_separator);
         if let Some(current_project) = context.current_project() {

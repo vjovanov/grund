@@ -1,0 +1,13 @@
+grund_config_version = 1
+project_name = "api"
+
+[reference]
+marker = "§"
+strict = true
+
+[id]
+format = "{kind}-{slug}"
+slug_pattern = "[a-z][a-z0-9-]*"
+
+[scan]
+include = ["docs"]

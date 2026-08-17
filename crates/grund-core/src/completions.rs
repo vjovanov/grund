@@ -63,40 +63,49 @@ fn command_complete_ids(args: &[String]) -> ExitCode {
         Ok(context) => context,
         Err(_) => return ExitCode::SUCCESS,
     };
-    // §FS-workspace.8.4: split the prefix on the first `/` — the left is an
-    // alias, the right is the alias's project ID-prefix. A prefix without a
-    // slash completes the current project's IDs and, in workspace mode,
-    // also emits one trailing-slash candidate per known alias so the shell
-    // can advance from `api` → `api/`.
+    // §FS-workspace.8.4: split the prefix on the *last* `/` — the left is an
+    // alias path, the right is that project's ID-prefix. An alias path may
+    // itself carry slashes (§FS-workspace.6.1), so a prefix mid-path completes
+    // two things at once: the deeper alias paths still to be typed, and the IDs
+    // of the project already named. A prefix without a slash completes the
+    // current project's IDs and, in workspace mode, one trailing-slash
+    // candidate per known alias path so the shell can advance from `api` →
+    // `api/` and from `group/` → `group/alpha/`.
     let current_config = context
         .current_project()
         .map(|project| &project.config)
         .unwrap_or_else(|| context.render_config());
-    if let Some(slash) = prefix.find('/') {
-        let (alias_prefix, id_prefix) = prefix.split_at(slash);
-        let id_prefix = &id_prefix[1..];
+    if let Some((alias_prefix, id_prefix)) = prefix.rsplit_once('/') {
         if !context.workspace_loaded {
             return ExitCode::SUCCESS;
         }
-        let Some(project) = context.project_by_alias(alias_prefix) else {
-            return ExitCode::SUCCESS;
-        };
-        let complete_sections =
-            force_sections || id_prefix.contains(&project.config.section_separator);
         let mut candidates = BTreeSet::new();
-        for (id, decls) in &project.findings.declarations {
-            let rendered = render_id(&project.config, id);
-            if complete_sections {
-                for decl in decls {
-                    for section in decl.sections.keys() {
-                        candidates.insert(format!(
-                            "{}/{}{}{}",
-                            alias_prefix, rendered, project.config.section_separator, section
-                        ));
+        // Alias paths that continue past what has been typed. The exact prefix
+        // itself is withheld — re-offering what is already on the line would
+        // stall the shell instead of advancing it.
+        for alias in context.aliases() {
+            let continuation = format!("{alias}/");
+            if continuation != prefix && continuation.starts_with(&prefix) {
+                candidates.insert(continuation);
+            }
+        }
+        if let Some(project) = context.project_by_alias(alias_prefix) {
+            let complete_sections =
+                force_sections || id_prefix.contains(&project.config.section_separator);
+            for (id, decls) in &project.findings.declarations {
+                let rendered = render_id(&project.config, id);
+                if complete_sections {
+                    for decl in decls {
+                        for section in decl.sections.keys() {
+                            candidates.insert(format!(
+                                "{}/{}{}{}",
+                                alias_prefix, rendered, project.config.section_separator, section
+                            ));
+                        }
                     }
+                } else {
+                    candidates.insert(format!("{}/{}", alias_prefix, rendered));
                 }
-            } else {
-                candidates.insert(format!("{}/{}", alias_prefix, rendered));
             }
         }
         for candidate in candidates {

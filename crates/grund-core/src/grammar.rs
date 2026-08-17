@@ -113,12 +113,19 @@ static AGENTS_SECTION_BOUNDARY: Lazy<Regex> =
 /// shape of a declaration heading or a citation. Built once per config load.
 /// Realizes §FS-config.3.1, §FS-config.3.2, §FS-config.3.3 and the regex-not-a-parser
 /// stance of §AR-scanner.5.
-/// The pattern an alias must match before the `/` of a qualified citation
-/// (§FS-workspace.1, §AR-workspace.2). One canonical place — also referenced by
-/// the config-load alias validator (`is_valid_project_alias` in `config.rs`).
+/// The pattern one alias segment must match (§FS-workspace.1, §AR-workspace.2).
+/// One canonical place — also referenced by the config-load alias validator
+/// (`is_valid_project_alias` in `config.rs`).
 const PROJECT_ALIAS_PATTERN: &str = "[a-z][a-z0-9-]*";
+/// The namespace a qualified citation carries: one alias segment per workspace
+/// level, so a project nested inside a member workspace is named by its whole
+/// chain (§FS-workspace.1, §FS-workspace.6.1). Greedy by construction and the
+/// ID that follows never contains `/`, so the last `/` in the token is always
+/// the boundary between the project path and the ID.
+static PROJECT_PATH_PATTERN: Lazy<String> =
+    Lazy::new(|| format!("{PROJECT_ALIAS_PATTERN}(?:/{PROJECT_ALIAS_PATTERN})*"));
 static QUALIFIED_CITATION_PREFIX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(&format!(r"^(?P<namespace>{})/", PROJECT_ALIAS_PATTERN)).unwrap()
+    Regex::new(&format!(r"^(?P<namespace>{})/", *PROJECT_PATH_PATTERN)).unwrap()
 });
 
 #[derive(Clone)]
@@ -242,8 +249,9 @@ impl Grammar {
         // §FS-workspace.1: the optional `<alias>/` namespace prefix is part of
         // the citation grammar, not a separate parser pass. The scanner gates
         // it on the marker (§AR-workspace.3.1) — without `§`, a `slug/ID`
-        // token is treated as text, not a citation.
-        let namespace_prefix = format!(r"(?:(?P<namespace>{})/)?", PROJECT_ALIAS_PATTERN);
+        // token is treated as text, not a citation. One segment per workspace
+        // level (§FS-workspace.6.1), so nesting needs no second grammar.
+        let namespace_prefix = format!(r"(?:(?P<namespace>{})/)?", *PROJECT_PATH_PATTERN);
         let citation_re =
             Regex::new(&format!(r"\b{}{}{}", namespace_prefix, id_pat, sec_suffix))?;
         let id_input_re = Regex::new(&format!(r"^{}{}$", id_pat, sec_suffix))?;

@@ -203,7 +203,14 @@ The home-kind rule applies to declaration lines and stub lines, not citations or
 
 ### 3.8 Cross-project citation failure
 
-In a workspace run, an alias-qualified citation whose alias is unknown, whose target declaration is missing, or whose target section is missing is reported at the citation site. The namespace and resolution rules live in [§FS-workspace.4](FS-workspace.md#4-resolution).
+In a workspace run, an alias-qualified citation whose alias path is unknown, whose target declaration is missing, or whose target section is missing is reported at the citation site. The namespace and resolution rules live in [§FS-workspace.4](FS-workspace.md#4-resolution).
+
+An unknown alias path names the projects it could have meant, so the fix is in the diagnostic rather than in the config. Candidates are taken from the projects in scope in one tier only, best first: a project whose path **ends with** what was written (a dropped prefix — the mistake full alias paths invite, [§FS-workspace.6.1](FS-workspace.md#61-nested-workspaces)), else one whose **last segment** matches (a wrong prefix), else one a **typo** away under the same near-match rule §3.1 uses. Up to three are listed — `grund list` is the catalogue, a finding is not — and a path with no candidate reports on its own, unchanged.
+
+```text
+docs/FS-root.md:3: unknown project alias sprayer; did you mean hardware/sprayer?
+docs/FS-root.md:4: unknown project alias api; did you mean left/api or right/api?
+```
 
 ### 3.9 Section heading level mismatch
 

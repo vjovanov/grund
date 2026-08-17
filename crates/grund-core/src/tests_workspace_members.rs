@@ -271,6 +271,78 @@ mod tests_workspace_members {
         assert!(section.contains("- [`service`](AGENTS.md): Billing service"));
     }
 
+    /// §FS-init.2.3.4.15 + §FS-workspace.6.1: in a nested workspace the search
+    /// climbs to the *outermost* root, so a member three levels down is taught
+    /// every alias CI can resolve — not just its enclosing group's. Rows carry
+    /// the whole alias path, the grouping node is itself a row, and link
+    /// targets stay relative to the entrypoint being written.
+    #[test]
+    fn workspace_members_nested_workspace_lists_the_whole_tree() {
+        let root = test_root("workspace_members_nested_workspace_lists_the_whole_tree");
+        write(
+            &root.join(".agents/grund.toml"),
+            "project_name = \"root\"\n\n[workspace]\nmembers = [\"group\", \"apps/api\"]\n",
+        );
+        write(
+            &root.join("group/.agents/grund.toml"),
+            "project_name = \"group\"\n\n[workspace]\nmembers = [\"alpha\"]\n",
+        );
+        write(
+            &root.join("group/alpha/.agents/grund.toml"),
+            "project_name = \"alpha\"\n",
+        );
+        std::fs::create_dir_all(root.join("apps/api")).expect("create api");
+        let alpha_target = root.join("group/alpha");
+
+        let section = render_workspace_members_section(&alpha_target, None, None, "§", true);
+
+        assert!(
+            section.contains("- [`group/alpha`](AGENTS.md)"),
+            "self row carries its whole alias path: {section}"
+        );
+        assert!(
+            section.contains("- [`group`](../) *(not yet initialized)*"),
+            "the grouping node is a project of its own: {section}"
+        );
+        assert!(
+            section.contains("- [`api`](../../apps/api/) *(not yet initialized)*"),
+            "a sibling outside the enclosing group is still citable: {section}"
+        );
+        assert!(
+            section.contains("- [`root`](../../) *(not yet initialized)*"),
+            "root row: {section}"
+        );
+    }
+
+    /// §FS-init.2.3.4.15 + §FS-workspace.6.1: `include_root` is read per
+    /// `[workspace]` block, so a grouping node that opted out contributes no
+    /// alias and therefore no row.
+    #[test]
+    fn workspace_members_nested_grouping_node_without_include_root_has_no_row() {
+        let root = test_root("workspace_members_nested_grouping_node_without_include_root_has_no_row");
+        write(
+            &root.join(".agents/grund.toml"),
+            "project_name = \"root\"\n\n[workspace]\nmembers = [\"group\"]\n",
+        );
+        write(
+            &root.join("group/.agents/grund.toml"),
+            "project_name = \"group\"\n\n[workspace]\nmembers = [\"alpha\"]\ninclude_root = false\n",
+        );
+        write(
+            &root.join("group/alpha/.agents/grund.toml"),
+            "project_name = \"alpha\"\n",
+        );
+
+        let section = render_workspace_members_section(&root, None, None, "§", true);
+
+        assert!(
+            section.contains("- [`group/alpha`](group/alpha/)"),
+            "the leaf keeps its `group/` segment even though `group` is not a project: {section}"
+        );
+        assert!(section.contains("- [`root`](AGENTS.md)"), "root row: {section}");
+        assert!(!section.contains("`group`]"), "grouping node must not be a row: {section}");
+    }
+
     /// §FS-init.2.4 + §DF-workspace-member-descriptions: the generated config
     /// teaches `project_description` with a commented line by default, and
     /// `--description` turns it into the real key.
