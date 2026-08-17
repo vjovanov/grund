@@ -960,7 +960,7 @@ fn find_init_workspace_root(target: &Path) -> Option<Config> {
         }
         cursor = dir.parent();
     };
-    let mut ancestors = AncestorWorkspaces::default();
+    let mut ancestors = AncestorWorkspaces::for_run_at(&config.root);
     loop {
         match enclosing_workspace_of(&config.root, &canonical_target, &mut ancestors) {
             Ok(Some(parent)) => config = parent,

@@ -175,9 +175,11 @@ mod tests_workspace_nested {
             panic!("an enclosing workspace that cannot expand must fail the run");
         };
         let err = format!("{err:#}");
-        assert!(
-            err.contains("grund.toml:4: workspace member does not exist: missing"),
-            "the narrowed run must report the enclosing block's own error: {err}"
+        assert_eq!(
+            err, "../grund.toml:4: workspace member does not exist: missing",
+            "the enclosing block's own error, at the file that holds the line: \
+             rendered against the root this run was launched at, so it climbs out \
+             of the subtree with `..` instead of naming a same-shaped file inside it"
         );
     }
 
@@ -211,9 +213,10 @@ mod tests_workspace_nested {
             panic!("an invalid alias in the claimed chain must fail the run");
         };
         let err = format!("{err:#}");
-        assert!(
-            err.contains("grund.toml:1: invalid workspace project alias `My_Group`"),
-            "the narrowed run must report the ancestor's own alias error: {err}"
+        assert_eq!(
+            err,
+            "../grund.toml:1: invalid workspace project alias `My_Group` (expected [a-z][a-z0-9-]*) for workspace member `mid`",
+            "the ancestor's own alias error, at its own `project_name` line: {err}"
         );
     }
 
@@ -490,6 +493,31 @@ mod tests_workspace_nested {
             format!("{err:#}"),
             "group/grund.toml:4: workspace members overlap: `packages` contains `packages/api`",
             "both entries are named as written, at the line that listed them"
+        );
+    }
+
+    /// §FS-workspace.2 / §FS-errors.4: a glob whose parent directory is missing
+    /// names the entry **as written**, like every other member error. It used to
+    /// render the joined path against the block's own root — a base no report uses
+    /// — which under `[output] relative_paths = false` could not be made relative
+    /// at all and printed an absolute path.
+    #[test]
+    fn a_missing_glob_parent_names_the_entry_as_written() {
+        let root = test_root("a_missing_glob_parent_names_the_entry_as_written");
+        write(
+            &root.join("grund.toml"),
+            "project_name = \"root\"\n\n[output]\nrelative_paths = false\n\n[workspace]\nmembers = [\"packages/*\"]\n",
+        );
+
+        let mut config = load_config(&root).expect("load workspace root config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("a glob naming a directory that does not exist must fail expansion");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "grund.toml:7: workspace member glob parent does not exist: packages",
+            "the entry is named as written, at the line that listed it"
         );
     }
 
