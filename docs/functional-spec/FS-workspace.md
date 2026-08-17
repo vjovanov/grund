@@ -211,8 +211,12 @@ resolve to the same root are the same member — deduped, not rejected, so a glo
 may legitimately name a directory an explicit entry also names (`members =
 ["packages/*", "packages/api"]`); what §2 rejects there is one expanded root
 *containing* another. An entry that resolves to a project root **another** block
-already holds is a config error at the `members` line that introduced it, which
-is also what makes expansion terminate ([AR-workspace.6.1](../architecture/AR-workspace.md#61-nested-workspaces-are-one-recursion-not-a-second-namespace-model)). So is one that escapes
+already holds is a config error at the `members` line that introduced it. What
+makes expansion terminate is containment: a member root resolves strictly inside
+the block that lists it and no member of one block contains another, so every step
+goes strictly downward into a finite tree and no two roots in it can be equal —
+which is also what makes that duplicate error a backstop rather than a rule a
+config can trip ([AR-workspace.6.1](../architecture/AR-workspace.md#61-nested-workspaces-are-one-recursion-not-a-second-namespace-model)). So is one that escapes
 its own block (§2): no lexical ancestor lists such a root, so nothing gives it a
 stable alias path, and a root *above* its own block scans nothing at all — every
 scan root lies under its own member boundary, so the project's declarations

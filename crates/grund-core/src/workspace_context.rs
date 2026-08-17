@@ -417,13 +417,17 @@ fn collect_workspace_members(
 ) -> Result<()> {
     for member in members {
         let member_root = &member.root;
-        // §FS-workspace.6.1: members are compared as canonical paths, so a
-        // member that resolves to a project the workspace already holds fails at
-        // the line that introduced it — named as the entry was written, and
-        // beside the project root it lands on, since those are two different
-        // strings and the author wrote only one of them. Consuming a distinct
-        // root per step is also what bounds the recursion; no depth limit is
-        // needed.
+        // §FS-workspace.6.1: an **unreachable backstop**, kept because it is the
+        // one that would name the line if the rule above it ever stopped holding.
+        // What bounds this recursion is containment: every member root resolves
+        // strictly inside the block that listed it (`workspace_member_root`) and no
+        // member of one block contains another (`reject_overlapping_workspace_members`),
+        // so the blocks form a strict containment tree — every step consumes a
+        // canonical root strictly deeper than the block that named it, and no two
+        // roots in the tree can be equal. Should a duplicate reach here anyway it is
+        // a config error at the line that introduced it, named as the entry was
+        // written and beside the root it lands on, since those are two different
+        // strings and the author wrote only one of them.
         if visited.iter().any(|seen| seen == member_root) {
             return Err(workspace_members_error(
                 parent_config,
