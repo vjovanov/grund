@@ -197,13 +197,25 @@ makes expansion terminate ([AR-workspace.6.1](../architecture/AR-workspace.md#61
 
 Scope follows §5 unchanged: discovery stops at the *nearest* config
 ([§FS-config.1](FS-config.md#1-file-location-and-discovery)), so a command invoked at an intermediate node runs that
-node's subtree. **Alias paths do not change with scope** — they are always read
-from the outermost workspace, so a narrowed run resolves a *subset* of the same
-paths rather than a re-spelled set of its own. Inside `hardware/`,
-`<§>hardware/sprayer/<ID>` still names what it names at the repository root and
-`<§>final/<ID>` is simply unknown. The alternative would let a citation pass a
-subtree check and fail the run CI does, which is [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) failing
-in the one place it has to hold.
+node's subtree. **Alias paths do not change with scope** for every project the
+*claimed chain* reaches: the chain of `[workspace]` blocks from the outermost
+root down, each one listing the directory below it among its `members`. A path is
+read from the outermost block that claims the run's own root, so a narrowed run
+resolves a *subset* of the same paths rather than a re-spelled set of its own.
+Inside `hardware/`, `<§>hardware/sprayer/<ID>` still names what it names at the
+repository root and `<§>final/<ID>` is simply unknown. The alternative would let
+a citation pass a subtree check and fail the run CI does, which is
+[§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) failing in the one place it has to hold.
+
+A `[workspace]` block that no enclosing block lists is **not** part of that
+chain, and its paths are not stable across scopes. At the outer scope the block
+is ignored: its directory is an ordinary part of the enclosing project's
+namespace when that project's scan reaches it, and is checked by nobody when it
+does not. A run started inside it reads every path from itself instead. `grund
+check` does not report such a block today — finding one needs a walk for config
+files that no pass performs — so this is a known limitation rather than a
+diagnosed error: a `[workspace]` block joins the tree only when the block above
+it lists it as a member.
 
 ## 7. Neighboring repos
 

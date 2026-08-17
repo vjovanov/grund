@@ -227,6 +227,12 @@ climbing to the nearest ancestor that both declares `[workspace]` and lists the
 directory below it — an ancestor that does not claim this tree says nothing
 about how it is named.
 
+That climb is also the boundary of the guarantee: it reaches the chain of blocks
+that claim each other, and a `[workspace]` block no enclosing block lists is
+outside it — absorbed into the enclosing namespace at the outer scope, a root of
+its own from the inside, and not diagnosed by any pass
+([§FS-workspace.6.1](../functional-spec/FS-workspace.md#61-nested-workspaces)).
+
 Expansion is bounded by the canonical project roots already collected: each is
 recorded as it is added, and a member resolving to one already present is a
 config error at the `members` line that introduced it — never a silent skip,
