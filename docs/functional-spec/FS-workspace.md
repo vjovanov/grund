@@ -192,7 +192,15 @@ project. Under the default an intermediate node is a project like any other: it
 derives an alias (§3), is scanned under its own config minus its members'
 subtrees (§6), and is citable at its own path. Under `include_root = false` it
 is pure grouping — no project, but still a segment in every path below it, so
-`<§>hardware/sprayer/<ID>` is unaffected either way. Every block must put at
+`<§>hardware/sprayer/<ID>` is unaffected either way. What it costs is that the
+node's own files are then scanned by **nobody**: the enclosing scan stops at the
+member boundary (§6) and no other scan covers that directory, so a declaration
+there is in no catalog and a citation there is never checked — not even under
+`--full` ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)), which
+widens a project's scope and has no project to widen here. `grund check` stays
+green over content nothing reads, which is precisely why the default is a project
+([§DF-nested-workspaces.3.5](../decisions/functional/DF-nested-workspaces.md#35-the-intermediate-node-reuses-include_root-and-defaults-to-a-project)).
+Every block must put at
 least one project in scope, so `include_root = false` with no members is a
 config error at that block's `members` line — or at its `[workspace]` line when
 there is no `members` key to point at, since a tree may hold many blocks and the
