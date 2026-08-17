@@ -108,9 +108,10 @@ mod tests_workspace_nested {
 
     /// §FS-workspace.2 / §FS-errors.4: a nested block's overlap error names both
     /// entries as the config wrote them, at that block's own `members` line. It
-    /// used to print `display_path` of the canonical roots, which renders an
-    /// absolute path for anything outside the render base — the one thing every
-    /// other diagnostic in this repository is not allowed to do.
+    /// used to print `display_path` of the canonical roots instead, which is a
+    /// different string from the one the author wrote. This fixture cannot see the
+    /// difference — written and canonical agree in it — so it pins the message
+    /// shape; the case below is the one that bites.
     #[test]
     fn nested_workspace_member_overlap_names_both_entries_as_written() {
         let root = test_root("nested_workspace_member_overlap_names_both_entries_as_written");
@@ -137,6 +138,44 @@ mod tests_workspace_nested {
             format!("{err:#}"),
             "group/grund.toml:4: workspace members overlap: `packages` contains `packages/api`",
             "both entries are named as written, at the line that listed them"
+        );
+    }
+
+    /// §FS-errors.4, the same rule where the two strings differ: one of the
+    /// overlapping entries is a **symlink**, so its canonical root
+    /// (`packages/api`) is spelled nothing like the entry that named it (`link`).
+    /// Printing `display_path` of the canonical roots — the regression the case
+    /// above cannot see, because there the two agree — names a path the author
+    /// never wrote and cannot search for.
+    #[test]
+    #[cfg(unix)]
+    fn member_overlap_names_the_entry_not_the_canonical_root() {
+        let root = physical_test_root("member_overlap_names_the_entry_not_the_canonical_root");
+        for (dir, body) in [
+            (
+                "",
+                "project_name = \"root\"\n\n[workspace]\nmembers = [\"group\"]\n",
+            ),
+            (
+                "group",
+                "project_name = \"group\"\n\n[workspace]\nmembers = [\"packages\", \"link\"]\n",
+            ),
+            ("group/packages/api", "project_name = \"api\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+        std::os::unix::fs::symlink(root.join("group/packages/api"), root.join("group/link"))
+            .expect("name one member through a symlink");
+
+        let mut config = load_config(&root).expect("load workspace root config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("one member root containing another must fail expansion");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "group/grund.toml:4: workspace members overlap: `packages` contains `link`",
+            "the entries as written, even though the second one's canonical root reads differently"
         );
     }
 
