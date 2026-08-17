@@ -40,6 +40,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - config redundant pair (the bare `grund.toml` wins, the `.agents/` file is warned about)
 - workspace mixing both config discovery forms across its members
 - nested workspaces: whole-alias-path naming, per-level alias uniqueness, the grouping node as a project, subtree scope, the short-leaf-name hint, an enclosing workspace whose own member list fails to expand, one cross-branch citation checked at both scopes, and an empty nested block with no `members` key at all
+- `include_root = false` at the outermost root of a nested tree: no catalog row for the root, member paths still rendered from the workspace root, the root alias unknown to `show` and to `list --project`, and completions offering no `root/`
 - `fmt --cross-refs --write` wrapping citations that cross two workspace levels in both directions, and the `--check` re-run staying silent on the result
 - a nested qualified ID as a CLI argument: `grund group/alpha/FS-x`, `refs group/alpha/FS-x`, and `list --project` for both a leaf and the grouping node it sits under (an exact alias match, never a prefix one)
 - a `[citations]` rule entry qualified by a whole alias path (`must = ["group/alpha/FS"]`), satisfied by a nested-path line in an `spec.refs` manifest and unsatisfied by the leaf name alone
