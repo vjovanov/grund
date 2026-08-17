@@ -136,9 +136,10 @@ fn workspace_member_root(config: &Config, written: &str, lexical: &Path) -> Resu
 }
 
 /// What one `members` entry *names*, read from the entry text alone — before
-/// anyone asks whether that directory exists (§FS-workspace.6.1). This is the
-/// half of a member list that cannot fail, and it is all the ancestor climb
-/// needs to decide whether a block claims the directory below it.
+/// anyone asks whether that directory exists, or whether the config that holds
+/// the entry loads at all (§FS-workspace.6.1). This is the half of a member list
+/// that cannot fail, and it is all the ancestor climb needs to decide whether a
+/// block claims the directory below it.
 struct MemberClaim {
     /// The entry joined onto the block's root, exactly as written.
     lexical: PathBuf,
@@ -164,16 +165,15 @@ impl MemberClaim {
     }
 }
 
-fn member_claims(config: &Config) -> Vec<MemberClaim> {
-    config
-        .workspace_members
+fn member_claims(root: &Path, entries: &[String]) -> Vec<MemberClaim> {
+    entries
         .iter()
         .map(|entry| {
             let (path, glob) = match entry.strip_suffix("/*") {
                 Some(parent) => (parent, true),
                 None => (entry.as_str(), false),
             };
-            let lexical = config.root.join(path);
+            let lexical = root.join(path);
             MemberClaim {
                 canonical: canonical_workspace_path(&lexical),
                 lexical,
@@ -183,12 +183,56 @@ fn member_claims(config: &Config) -> Vec<MemberClaim> {
         .collect()
 }
 
-/// One ancestor `[workspace]` block: its config, what its `members` list names,
-/// and — once some directory below it turns out to be claimed — the expanded
-/// member roots.
+/// The `[workspace] members` entries of a config, read from the file text **on
+/// its own**: the parser's own line and section rules applied to that one key,
+/// and nothing else — no other key, no shape rule (§FS-workspace.2), no grammar
+/// rebuild (§FS-workspace.6.1).
+///
+/// The ancestor climb needs the claim answerable for a config that does not
+/// *load*, because the key that decides the claim is the very one a load error
+/// may be about: read from a loaded config, every failure above a repository was
+/// silently equal to "claims nothing", and the alias prefix the rule protects
+/// collapsed. `Err` is the residue where even this read cannot answer — the file
+/// cannot be read, or the value is not a list — and carries the reason the
+/// warning that says so has to name.
+fn ancestor_member_entries(config_path: &Path) -> Result<Vec<String>, String> {
+    let text = fs::read_to_string(config_path).map_err(|err| err.to_string())?;
+    let mut in_workspace = false;
+    let mut entries = Vec::new();
+    for (idx, raw_line) in text.lines().enumerate() {
+        let line = strip_comment(raw_line).trim();
+        if line.is_empty() {
+            continue;
+        }
+        if line.starts_with('[') && line.ends_with(']') {
+            // Read exactly as `parse_config_file` reads a section header, so the
+            // forms it *rejects* still count as the block that claims: a
+            // `[[workspace]]` above a repository has to be able to fail the run
+            // it claims, not vanish from it.
+            in_workspace = line.trim_matches(['[', ']']) == "workspace";
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        if !in_workspace || key.trim() != "members" {
+            continue;
+        }
+        // Last assignment wins, exactly as it does in a full parse.
+        entries = parse_string_list(config_path, idx + 1, value.trim())
+            .map_err(|_| "`members` is not a list of strings".to_string())?;
+    }
+    Ok(entries)
+}
+
+/// One ancestor `[workspace]` block: what its `members` entries name, the config
+/// a claim is answered from — or the error loading it produced, carried rather
+/// than raised because it is only this run's error once a claim reaches it
+/// (§FS-workspace.6.1) — and, once some directory below it turns out to be
+/// claimed, the expanded member roots.
 struct AncestorBlock {
-    config: Config,
     claims: Vec<MemberClaim>,
+    config: Result<Config, String>,
     members: Option<Vec<PathBuf>>,
 }
 
@@ -240,7 +284,7 @@ impl AncestorWorkspaces {
         cli_base: &Path,
     ) -> Result<Option<&Config>> {
         if !self.blocks.contains_key(dir) {
-            let block = load_ancestor_workspace_block(dir, cli_base, &self.report_base);
+            let block = read_ancestor_workspace_block(dir, cli_base, &self.report_base);
             self.blocks.insert(dir.to_path_buf(), block);
         }
         let Some(block) = self.blocks.get_mut(dir).and_then(Option::as_mut) else {
@@ -253,34 +297,82 @@ impl AncestorWorkspaces {
         {
             return Ok(None);
         }
+        // A claim is an obligation, and a config that will not load is the
+        // sharpest way of failing it — the file that would answer the claim is
+        // the one that is broken — so the carried load error is raised here, the
+        // same way an expansion failure is (§FS-workspace.6.1).
+        let config = match &block.config {
+            Ok(config) => config,
+            Err(message) => return Err(anyhow!("{message}")),
+        };
         if block.members.is_none() {
-            block.members = Some(expand_workspace_members(&block.config)?);
+            block.members = Some(expand_workspace_members(config)?);
         }
         let claimed = block
             .members
             .as_ref()
             .is_some_and(|members| members.iter().any(|root| root == canonical_child));
-        Ok(claimed.then_some(&block.config))
+        Ok(claimed.then_some(config))
     }
 }
 
-fn load_ancestor_workspace_block(
+/// The `[workspace]` block `dir` holds, as far as deciding a claim needs it.
+/// `None` when nothing here can claim this child: no config file, no
+/// `[workspace] members` entries — or a `members` value that could not be read
+/// at all, which warns and is then treated as no claim, because this walk climbs
+/// to the filesystem root and a stray broken `grund.toml` above a repository
+/// must not break every run beneath it (§FS-workspace.6.1, §AR-workspace.6.1).
+fn read_ancestor_workspace_block(
     dir: &Path,
     cli_base: &Path,
     report_base: &Path,
 ) -> Option<AncestorBlock> {
-    config_file_in(dir)?;
-    // A config that does not even load is no claim at all: this walk climbs to
-    // the filesystem root, and a stray unparseable `grund.toml` above the
-    // repository must not break every run beneath it (§AR-workspace.6.1).
-    let config = load_config_at_with_report_base(dir, cli_base, Some(report_base)).ok()?;
-    if !config.workspace_declared {
+    let config_path = config_file_in(dir)?;
+    let entries = match ancestor_member_entries(&config_path) {
+        Ok(entries) => entries,
+        Err(reason) => {
+            warn_undecidable_ancestor_claim(&config_path, report_base, &reason);
+            return None;
+        }
+    };
+    if entries.is_empty() {
         return None;
     }
-    let claims = member_claims(&config);
     Some(AncestorBlock {
-        config,
-        claims,
+        claims: member_claims(&canonical_workspace_path(dir), &entries),
+        config: load_config_at_with_report_base(dir, cli_base, Some(report_base))
+            .map_err(|err| format!("{err:#}")),
         members: None,
     })
+}
+
+/// §FS-workspace.6.1: the one residue of the members-only read — a config whose
+/// `members` text cannot be obtained, so the claim is undecidable in *both*
+/// directions. Failing would let one unreadable `grund.toml` above a repository
+/// break every run inside it; staying silent is what let a claiming ancestor
+/// re-spell the subtree below it. So the run continues and says what it could not
+/// answer, in the CLI-level `warning:` shape on stderr (§FS-errors.2.2) —
+/// naming the config against the root this run was launched at, like every other
+/// diagnostic from an ancestor block (§FS-errors.4).
+fn warn_undecidable_ancestor_claim(config_path: &Path, report_base: &Path, reason: &str) {
+    eprintln!(
+        "warning: {}",
+        undecidable_ancestor_claim_warning(config_path, report_base, reason)
+    );
+}
+
+/// The sentence [`warn_undecidable_ancestor_claim`] prints, built apart from the
+/// printing so a test can read it: what could not be answered, and what that
+/// costs the reader — the alias paths below this directory, which is the
+/// difference between a citation that passes here and one that passes at the root.
+fn undecidable_ancestor_claim_warning(
+    config_path: &Path,
+    report_base: &Path,
+    reason: &str,
+) -> String {
+    format!(
+        "{}: cannot read [workspace] members ({reason}); \
+         alias paths below it may be missing a segment",
+        format_path(&relative_from_base(report_base, config_path))
+    )
 }

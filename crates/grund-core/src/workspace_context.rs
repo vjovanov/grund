@@ -295,9 +295,12 @@ fn enclosing_alias_prefix(config: &Config) -> Result<String> {
 /// this directory": the key that failed is the very one that would have answered
 /// the question (§FS-workspace.6.1). The claim is read off the entry text first,
 /// so a block that names nothing here is never expanded and its errors are not
-/// this run's business. A config that does not even *load* is skipped for the same
-/// reason — this walk climbs to the filesystem root, and a stray `grund.toml`
-/// somewhere above the repository must not break every run beneath it.
+/// this run's business. The entry text is read from the file on its own
+/// (`ancestor_member_entries`) precisely so that a config which does not *load*
+/// can still be asked the question: a claiming block that will not parse fails the
+/// run like any other claim it cannot answer, while one that names nothing here is
+/// climbed past however broken it is — this walk reaches the filesystem root, and a
+/// stray `grund.toml` above the repository must not break every run beneath it.
 fn enclosing_workspace_of(
     child: &Path,
     cli_base: &Path,
