@@ -1,1 +1,1 @@
-docs/FS-left.md:3: unknown project alias api; only left is in scope here — check from the workspace root for a path outside it
+docs/FS-left.md:3: unknown project alias api; only the left subtree is in scope here — check from the workspace root for a path outside it
