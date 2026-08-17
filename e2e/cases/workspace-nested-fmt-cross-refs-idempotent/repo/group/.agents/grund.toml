@@ -1,0 +1,20 @@
+project_name = "group"
+grund_config_version = 1
+
+[reference]
+marker = "§"
+strict = true
+
+[id]
+format = "{kind}-{slug}"
+slug_pattern = "[a-z][a-z0-9-]*"
+
+[fmt.cross_refs]
+enabled = true
+
+[scan]
+include = ["docs"]
+
+[workspace]
+members = ["alpha"]
+include_root = false
