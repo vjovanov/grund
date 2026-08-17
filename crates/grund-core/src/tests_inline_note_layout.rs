@@ -5,32 +5,30 @@ mod tests_inline_note_layout {
     use super::tests_support::*;
     use super::*;
 
-    fn layout_config(root: PathBuf, layout: &str) -> Config {
-        let mut config = legacy_fs_folder_config(root);
-        config.inline_note_layout = layout.to_string();
-        config
-    }
-
-    /// A layout the check actually reads: the classifier records nothing while
-    /// `inline_note_layout_check` is `off` (§FS-inline-citation-style.4.4), so a
-    /// test that asks it a question has to turn the gate on.
-    fn checked_layout_config(root: PathBuf, layout: &str) -> Config {
-        let mut config = layout_config(root, layout);
-        config.inline_note_layout_check = "error".to_string();
-        config
-    }
-
     fn conforms(config: &Config, line: &str) -> bool {
         let ranges = line_citation_ranges(line, config, &[]);
-        line_conforms(InlineNoteLayout::from_config(config), line, &ranges, config)
+        let prefixes = comment_strip_prefixes(config);
+        match line_layout_view(line, &ranges, &prefixes) {
+            // §FS-inline-citation-style.3.3, rule 1: no citation in the content,
+            // so nothing to lay out.
+            None => true,
+            Some((content, tokens)) => {
+                content_conforms(InlineNoteLayout::from_config(config), content, &tokens)
+            }
+        }
     }
 
     fn has_note(config: &Config, block: &[&str]) -> bool {
-        block_has_inline_note(&mut BlockCitations::new(block, config, &[]))
+        block_has_inline_note(block, config, &[], &comment_strip_prefixes(config))
     }
 
     fn violations(config: &Config, block: &[&str], has_note: bool) -> Vec<usize> {
-        inline_layout_violations(&mut BlockCitations::new(block, config, &[]), 1, has_note)
+        inline_layout_violations(
+            &mut BlockCitations::new(block, config, &[]),
+            &comment_strip_prefixes(config),
+            1,
+            has_note,
+        )
     }
 
     // §FS-inline-citation-style.2.1: the default imposes nothing, so every
@@ -144,7 +142,7 @@ mod tests_inline_note_layout {
             ("/* §FS-001-login: reject it */", "§FS-001-login: reject it"),
             ("\"\"\"§FS-001-login: \"\"\"", "§FS-001-login:"),
         ] {
-            let (start, end) = comment_content_range(line, &config);
+            let (start, end) = comment_content_range(line, &comment_strip_prefixes(&config));
             assert_eq!(&line[start..end], content, "content of `{line}`");
             assert!(conforms(&config, line), "must accept `{line}`");
         }
@@ -152,6 +150,76 @@ mod tests_inline_note_layout {
         // A citation alone inside a block comment still carries no note.
         let block = ["/* §FS-001-login */"];
         assert!(!has_note(&config, &block));
+    }
+
+    // §FS-inline-citation-style.3.3: a leading list marker is skipped with the
+    // indentation, so an enumerated block of grounded points can open each item
+    // with its citation run. One marker, and only where a space follows it.
+    #[test]
+    fn a_list_marker_is_skipped_like_indentation() {
+        let config = layout_config(
+            test_root("a_list_marker_is_skipped_like_indentation"),
+            "citation-first-colon",
+        );
+        for line in [
+            "/// - §FS-001-login: a bulleted grounded point",
+            "/// * §FS-001-login: a star bullet",
+            "/// + §FS-001-login: a plus bullet",
+            "/// 1. §FS-001-login: an ordered item",
+            "/// 12) §FS-001-login: a two-digit ordered item",
+            "///   - §FS-001-login: indented past the prefix first",
+        ] {
+            assert!(conforms(&config, line), "must accept `{line}`");
+        }
+        for line in [
+            // No space after the marker: the `-` is the first thing the content says.
+            "// -§FS-001-login: not a list item",
+            // One marker is skipped, not a chain of them.
+            "// - - §FS-001-login: two markers deep",
+            // The marker changes nothing about the rest of the form.
+            "// - §FS-001-login a bulleted point with no colon",
+        ] {
+            assert!(!conforms(&config, line), "must reject `{line}`");
+        }
+
+        // §2.3 is untouched: the marker is still note text when note presence is
+        // decided, so a bulleted pointer is not silently reclassified.
+        assert!(has_note(&config, &["// - §FS-001-login"]));
+    }
+
+    // §FS-inline-citation-style.3.3, rule 1: the line that opens the note is
+    // judged, and so is any later line that opens with a citation — but a
+    // continuation line that opens with prose is note text, so a note may wrap
+    // and still name a second point on the way (rule 3, and the line budget).
+    #[test]
+    fn a_wrapped_note_may_name_a_point_on_its_continuation() {
+        let config = checked_layout_config(
+            test_root("a_wrapped_note_may_name_a_point_on_its_continuation"),
+            "citation-first-colon",
+        );
+
+        let wrapped = [
+            "/* §FS-001-login: a note that runs past one line and",
+            "   still names §FS-002-logout on the way */",
+        ];
+        assert!(violations(&config, &wrapped, true).is_empty());
+
+        // The same continuation, opening with the citation: indistinguishable from
+        // a note opening, so it is judged and it fails.
+        let opens_with_citation = [
+            "/* §FS-001-login: a note that runs past one line and",
+            "   §FS-002-logout opens the continuation */",
+        ];
+        assert_eq!(violations(&config, &opens_with_citation, true), vec![2]);
+
+        // The first citation-bearing line is judged whatever it opens with: a
+        // summary line above it is unconstrained, it is not.
+        let prose_first = [
+            "/// Walks the credential store.",
+            "/// then §FS-001-login decides",
+            "/// and §FS-002-logout follows",
+        ];
+        assert_eq!(violations(&config, &prose_first, true), vec![2]);
     }
 
     // §FS-inline-citation-style.3.3, rule 5: a workspace-qualified token is one
@@ -267,17 +335,36 @@ mod tests_inline_note_layout {
         let block = ["// §FS-001-login reject an expired credential"];
 
         let any = checked_layout_config(root.clone(), "any");
-        assert!(violations(&any, &block, true).is_empty());
-
         let mut citation_only = checked_layout_config(root.clone(), "citation-first-colon");
         citation_only.inline_style = "citation-only".into();
-        assert!(violations(&citation_only, &block, true).is_empty());
-
         // A layout the project documents but does not gate: at `off` the verdicts
         // have no consumer, so the deviating line is never classified.
         let documented_only = layout_config(root, "citation-first-colon");
         assert_eq!(documented_only.inline_note_layout_check, "off");
-        assert!(violations(&documented_only, &block, true).is_empty());
+
+        for config in [any, citation_only, documented_only] {
+            assert!(!layout_pass_enabled(&config));
+            let (_, violations) = inline_note_verdicts(&block, 1, &config, &[]);
+            assert!(violations.is_empty(), "the line must not be classified");
+        }
+    }
+
+    // §FS-inline-citation-style.4.4: the scanner classifies a line only where the
+    // checker has somewhere to report it, and both read one predicate — so a
+    // `Config` built in memory with a level the load-time enum would have rejected
+    // (§FS-inline-citation-style.2.2) classifies nothing rather than paying for
+    // verdicts the checker then drops.
+    #[test]
+    fn an_unknown_check_level_classifies_nothing() {
+        let root = test_root("an_unknown_check_level_classifies_nothing");
+        let block = ["// §FS-001-login reject an expired credential"];
+
+        let mut config = checked_layout_config(root, "citation-first-colon");
+        config.inline_note_layout_check = "info".into();
+        assert!(layout_channel(&config).is_none());
+        assert!(!layout_pass_enabled(&config));
+        let (_, violations) = inline_note_verdicts(&block, 1, &config, &[]);
+        assert!(violations.is_empty());
     }
 
     /// How many of a site's lines have been tokenized so far: the memo slots the
@@ -302,220 +389,39 @@ mod tests_inline_note_layout {
             "/// §FS-001-login — and one more, laid out wrong.",
         ];
 
-        // Documented-only (§FS-inline-citation-style.4.4): the classifier returns
-        // on the `off` guard, before it looks at a line, so the memo does not grow.
+        // Documented-only (§FS-inline-citation-style.4.4): no channel, so no second
+        // reader exists, the block is walked without a memo at all, and the only
+        // verdict taken is note presence.
         let documented_only = layout_config(root.clone(), "citation-first-colon");
         assert_eq!(documented_only.inline_note_layout_check, "off");
-        let mut site = BlockCitations::new(&block, &documented_only, &[]);
-        let has_note = block_has_inline_note(&mut site);
+        assert!(!layout_pass_enabled(&documented_only));
+        let (has_note, violations) = inline_note_verdicts(&block, 1, &documented_only, &[]);
         assert!(has_note);
+        assert!(
+            violations.is_empty(),
+            "at `off` no line is classified, so none can deviate"
+        );
+
+        // Gated: the layout pass judges the lines rule 1 names, so every line is
+        // tokenized — and the one the note walk already read is not tokenized twice.
+        let gated_config = checked_layout_config(root, "citation-first-colon");
+        assert!(layout_pass_enabled(&gated_config));
+        let prefixes = comment_strip_prefixes(&gated_config);
+        let mut gated = BlockCitations::new(&block, &gated_config, &[]);
+        let has_note = block_has_inline_note_memoized(&mut gated, &prefixes);
         assert_eq!(
-            filled_slots(&site),
+            filled_slots(&gated),
             1,
             "the note walk stops at the first line that says something"
         );
-        assert!(inline_layout_violations(&mut site, 1, has_note).is_empty());
         assert_eq!(
-            filled_slots(&site),
-            1,
-            "at `off` no line is classified, so no further line is tokenized"
+            inline_layout_violations(&mut gated, &prefixes, 1, has_note),
+            vec![3]
         );
-
-        // Gated: the layout pass judges every line, so every line is tokenized —
-        // and the one the note walk already read is not tokenized twice.
-        let gated_config = checked_layout_config(root, "citation-first-colon");
-        let mut gated = BlockCitations::new(&block, &gated_config, &[]);
-        let has_note = block_has_inline_note(&mut gated);
-        assert_eq!(filled_slots(&gated), 1);
-        assert_eq!(inline_layout_violations(&mut gated, 1, has_note), vec![3]);
         assert_eq!(
             filled_slots(&gated),
             block.len(),
             "the layout pass reads every line of the site"
-        );
-    }
-
-    fn layout_fixture(name: &str) -> PathBuf {
-        let root = test_root(name);
-        write(
-            &root.join("docs/functional-spec/FS-001-login.md"),
-            "# FS-001-login: Login\n",
-        );
-        write(
-            &root.join("src/auth.rs"),
-            concat!(
-                "// §FS-001-login: reject an expired credential\n",
-                "pub fn login() {}\n",
-                "\n",
-                "// §FS-001-login reject an expired credential\n",
-                "pub fn relogin() {}\n",
-                "\n",
-                "/// Walks the credential store.\n",
-                "/// §FS-001-login: one error per expired credential.\n",
-                "/// §FS-001-login — and one more, laid out wrong.\n",
-                "pub fn sweep() {}\n",
-            ),
-        );
-        root
-    }
-
-    fn style_findings(config: &Config, root: &Path) -> (Vec<usize>, Vec<usize>) {
-        let (findings, _) = scan_tree(config, Some(root), true).expect("scan root");
-        let report = check_findings(&findings, config);
-        let lines = |diagnostics: &[Diagnostic]| {
-            diagnostics
-                .iter()
-                .filter(|finding| {
-                    finding.code == "inline-citation-style"
-                        && finding.message.starts_with("inline note must open")
-                })
-                .filter_map(|finding| finding.line)
-                .collect::<Vec<_>>()
-        };
-        (lines(&report.errors), lines(&report.warnings))
-    }
-
-    // §FS-inline-citation-style.4.4: one error per nonconforming line, anchored at
-    // the line — never at the site's opener, and never on a conforming sibling.
-    #[test]
-    fn layout_error_reports_one_finding_per_offending_line() {
-        let root = layout_fixture("layout_error_reports_one_finding_per_offending_line");
-        let mut config = layout_config(root.clone(), "citation-first-colon");
-        config.inline_note_layout_check = "error".into();
-
-        let (errors, warnings) = style_findings(&config, &root);
-        assert_eq!(errors, vec![4, 9], "the two deviating lines, in file order");
-        assert!(warnings.is_empty(), "`error` speaks through one channel only");
-    }
-
-    // §FS-inline-citation-style.4.4: `warn` reports the same lines with the same
-    // message on the warning channel, which never moves the exit code.
-    #[test]
-    fn layout_warn_reports_the_same_lines_as_warnings() {
-        let root = layout_fixture("layout_warn_reports_the_same_lines_as_warnings");
-        let mut config = layout_config(root.clone(), "citation-first-colon");
-        config.inline_note_layout_check = "warn".into();
-
-        let (errors, warnings) = style_findings(&config, &root);
-        assert!(errors.is_empty(), "a warning never becomes an error");
-        assert_eq!(warnings, vec![4, 9]);
-    }
-
-    // §FS-inline-citation-style.4.4: the message is identical at both levels, so a
-    // project moving from `warn` to `error` changes the exit code and nothing else.
-    #[test]
-    fn layout_message_names_the_form_with_the_configured_marker() {
-        let root = layout_fixture("layout_message_names_the_form_with_the_configured_marker");
-        let mut config = layout_config(root.clone(), "citation-first-colon");
-        config.inline_note_layout_check = "error".into();
-
-        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
-        let report = check_findings(&findings, &config);
-        let messages = report
-            .errors
-            .iter()
-            .filter(|finding| finding.code == "inline-citation-style")
-            .map(|finding| finding.message.clone())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            messages,
-            vec![
-                "inline note must open with its citations and a colon (§<ID>: note)".to_string();
-                2
-            ]
-        );
-    }
-
-    // §FS-inline-citation-style.4.4: both keys default to the inert value, and the
-    // check key is inert on its own under `any` — an upgrade turns nothing red.
-    #[test]
-    fn layout_is_silent_when_either_key_is_inert() {
-        let root = layout_fixture("layout_is_silent_when_either_key_is_inert");
-
-        let off = layout_config(root.clone(), "citation-first-colon");
-        assert_eq!(style_findings(&off, &root), (Vec::new(), Vec::new()));
-
-        let mut any = layout_config(root.clone(), "any");
-        any.inline_note_layout_check = "error".into();
-        assert_eq!(style_findings(&any, &root), (Vec::new(), Vec::new()));
-
-        let defaults = legacy_fs_folder_config(root.clone());
-        assert_eq!(defaults.inline_note_layout, "any");
-        assert_eq!(defaults.inline_note_layout_check, "off");
-        assert_eq!(style_findings(&defaults, &root), (Vec::new(), Vec::new()));
-    }
-
-    // §FS-inline-citation-style.2.2: both keys are closed enums read from the
-    // project's own config, and an unrecognized value fails on load.
-    #[test]
-    fn both_layout_keys_load_and_reject_unknown_values() {
-        let root = test_root("both_layout_keys_load_and_reject_unknown_values");
-        write(
-            &root.join("grund.toml"),
-            "grund_config_version = 1\n[reference]\ninline_note_layout = \"citation-first-colon\"\ninline_note_layout_check = \"warn\"\n",
-        );
-        let config = load_config(&root).expect("load config");
-        assert_eq!(config.inline_note_layout, "citation-first-colon");
-        assert_eq!(config.inline_note_layout_check, "warn");
-
-        for (key, value, expected) in [
-            (
-                "inline_note_layout",
-                "citation-first",
-                "unknown [reference] inline_note_layout `citation-first` (expected any or citation-first-colon)",
-            ),
-            (
-                "inline_note_layout_check",
-                "errors",
-                "unknown [reference] inline_note_layout_check `errors` (expected off, warn, or error)",
-            ),
-        ] {
-            write(
-                &root.join("grund.toml"),
-                &format!("grund_config_version = 1\n[reference]\n{key} = \"{value}\"\n"),
-            );
-            let error = match load_config(&root) {
-                Ok(_) => panic!("{key} = \"{value}\" must be rejected"),
-                Err(error) => error,
-            };
-            assert!(
-                error.to_string().contains(expected),
-                "expected `{expected}`, got `{error}`"
-            );
-        }
-    }
-
-    // §FS-inline-citation-style.5: the layout sentence appends to the budget
-    // sentence, is written with the project's marker, and is absent under `any` so
-    // no existing managed block drifts.
-    #[test]
-    fn agents_sentence_teaches_the_configured_layout() {
-        let root = test_root("agents_sentence_teaches_the_configured_layout");
-        let any = layout_config(root.clone(), "any");
-        assert_eq!(
-            inline_citation_style_sentence(&any),
-            "Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns."
-        );
-
-        let mut colon = layout_config(root.clone(), "citation-first-colon");
-        colon.inline_note_layout_check = "error".into();
-        assert_eq!(
-            inline_citation_style_sentence(&colon),
-            "Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. Lay each note out citation-first: `// §<ID>: <note>` (several citations: `// §<ID>, §<ID>: <note>`)."
-        );
-
-        // The enforcement level is not an instruction: `off` renders the same
-        // sentence `error` does.
-        let mut off = layout_config(root.clone(), "citation-first-colon");
-        off.marker = "@".into();
-        assert!(inline_citation_style_sentence(&off).contains("`// @<ID>: <note>`"));
-
-        // A style that permits no note at all has no layout to teach.
-        let mut citation_only = layout_config(root, "citation-first-colon");
-        citation_only.inline_style = "citation-only".into();
-        assert_eq!(
-            inline_citation_style_sentence(&citation_only),
-            "Inline citations carry no prose — put rationale in the spec."
         );
     }
 }

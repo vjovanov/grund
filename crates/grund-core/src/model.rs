@@ -130,15 +130,23 @@ pub struct InlineCitationSite {
     pub last_line: usize,
     pub max_columns: usize,
     pub has_note: bool,
-    /// The site's citation-carrying lines that deviate from
+    /// The site's judged lines that deviate from
     /// `[reference] inline_note_layout` (§FS-inline-citation-style.3.3), 1-based
-    /// and ascending. Always empty — and never computed — under the default
+    /// and ascending. Judged is rule 1's set, not every line carrying a citation:
+    /// the line that opens the note, and any later line that opens with a
+    /// citation of its own.
+    ///
+    /// This is **what `check` will report**, never an independent survey of the
+    /// tree. It is empty — and no line is classified — under the default
     /// `inline_note_layout = "any"`, under `inline_style = "citation-only"`,
     /// where no note is permitted and so none has a layout, and at
     /// `inline_note_layout_check = "off"`, where the verdicts would reach no
     /// channel (§FS-inline-citation-style.4.4). So the field costs a project only
     /// what it asked for: until it configures a layout and gates it, no line is
-    /// tokenized or classified on its account (§AR-scanner.3).
+    /// tokenized or classified on its account (§AR-scanner.3). A consumer that
+    /// wants the deviations of a tree whose gate is `off` is asking a different
+    /// question and has to gate it, or classify the lines itself — reading an
+    /// empty list here is not evidence that the tree conforms.
     pub layout_violations: Vec<usize>,
 }
 

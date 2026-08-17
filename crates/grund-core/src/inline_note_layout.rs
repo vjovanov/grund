@@ -8,6 +8,10 @@
 // turns that list into findings at the configured level (§AR-checker.2.14), and
 // both read the same classifier. Split across the two stages, the two halves of
 // "what is a well-laid-out note?" could drift.
+//
+// What is *not* that invariant sits in `comment_line.rs`: reducing one line to
+// its content and its citation tokens is the same question for note presence and
+// for layout, and for the scanner walk that asked it first.
 
 /// The layouts `[reference] inline_note_layout` selects, as the two dimensions a
 /// value picks: where the citation run sits on the line, and what separates it
@@ -35,76 +39,141 @@ impl InlineNoteLayout {
     }
 }
 
+/// The report channel a layout deviation reaches (§FS-inline-citation-style.4.4).
+/// One answer read by both stages — the scanner to decide whether classifying a
+/// line buys anything, the checker to decide where the verdict goes — so a value
+/// outside the enum cannot leave one of them working while the other discards
+/// the result. The load-time check rejects such a value
+/// (§FS-inline-citation-style.2.2); this is what keeps the two halves agreeing
+/// anyway, for a `Config` built in memory.
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum LayoutChannel {
+    Warn,
+    Error,
+}
+
+fn layout_channel(config: &Config) -> Option<LayoutChannel> {
+    match config.inline_note_layout_check.as_str() {
+        "warn" => Some(LayoutChannel::Warn),
+        "error" => Some(LayoutChannel::Error),
+        _ => None,
+    }
+}
+
+/// Whether any line in this run will be classified at all: a layout to deviate
+/// from, notes permitted, and a channel for the verdict to reach. Config-only,
+/// so it is the same answer for every block and is read once per block before a
+/// line is looked at — the default `any`, a layout left at `off`, and
+/// `citation-only` each cost this comparison and nothing else
+/// (§GOAL-fast-feedback).
+fn layout_pass_enabled(config: &Config) -> bool {
+    InlineNoteLayout::from_config(config) != InlineNoteLayout::Any
+        && config.inline_style != "citation-only"
+        && layout_channel(config).is_some()
+}
+
 /// The separator between two citations of one run: comma, exactly one space
 /// (§FS-inline-citation-style.3.3, rule 4).
 const CITATION_RUN_SEPARATOR: &str = ", ";
 
-/// The 1-based lines of one comment block that carry a citation and deviate from
-/// the configured layout, ascending (§FS-inline-citation-style.3.3).
+/// The 1-based lines of one comment block that are judged by the configured
+/// layout and deviate from it, ascending (§FS-inline-citation-style.3.3).
 ///
-/// Empty — with no line classified at all — when no layout is configured, when
-/// `inline_style` forbids notes outright, when the block carries no note, since a
-/// layout is a relation between a citation and a note
-/// (§FS-inline-citation-style.3.3, rule 2), or when `inline_note_layout_check` is
-/// `off` and the verdicts would reach no channel (§FS-inline-citation-style.4.4).
-/// The default `any` — and a documented-only layout — therefore costs one
-/// comparison per site (§GOAL-fast-feedback): the guard below is read before a
-/// single line is looked at, so no line is tokenized on its account.
+/// Called only where `layout_pass_enabled` already said a verdict has somewhere
+/// to go, so the remaining exemption is the block's own: a site with no note is
+/// a pure pointer, and a layout is a relation between a citation and a note
+/// (§FS-inline-citation-style.3.3, rule 2).
+///
+/// Which lines are judged is rule 1: the first line whose content carries a
+/// citation opens the note and is always judged; a later one is judged only when
+/// it *opens* with a citation, since a line that opens with prose and names an ID
+/// further along is the continuation of a note that already opened correctly.
 fn inline_layout_violations(
     block: &mut BlockCitations<'_>,
+    prefixes: &[&str],
     first_line: usize,
     has_note: bool,
 ) -> Vec<usize> {
-    let config = block.config;
-    let layout = InlineNoteLayout::from_config(config);
-    if layout == InlineNoteLayout::Any
-        || !has_note
-        || config.inline_style == "citation-only"
-        // §FS-inline-citation-style.4.4: at `off` the layout is documentation, so
-        // classifying a line would buy a verdict nothing reads.
-        || config.inline_note_layout_check == "off"
-    {
+    if !has_note {
         return Vec::new();
     }
-    (0..block.len())
-        .filter(|index| {
-            let (line, ranges) = block.line(*index);
-            !line_conforms(layout, line, ranges, config)
-        })
-        .map(|offset| first_line + offset)
-        .collect()
+    let layout = InlineNoteLayout::from_config(block.config);
+    let mut violations = Vec::new();
+    let mut note_opened = false;
+    for index in 0..block.len() {
+        let (line, ranges) = block.line(index);
+        let Some((content, tokens)) = line_layout_view(line, ranges, prefixes) else {
+            continue;
+        };
+        let opens_with_citation = tokens.first().is_some_and(|(start, _)| *start == 0);
+        let judged = !note_opened || opens_with_citation;
+        note_opened = true;
+        if judged && !content_conforms(layout, content, &tokens) {
+            violations.push(first_line + index);
+        }
+    }
+    violations
 }
 
-/// Whether one raw comment line conforms to `layout`
-/// (§FS-inline-citation-style.3.3). The line is read the way §2.3 reads it — the
-/// comment prefix and any block closer stripped — and its citation tokens are the
-/// ones the scanner itself recognizes there (§FS-inline-citation-style.3.3, rule 5),
-/// translated into that stripped window rather than re-tokenized in it.
-fn line_conforms(
-    layout: InlineNoteLayout,
-    line: &str,
+/// One line reduced to what this rule reads: its content window with any leading
+/// list marker skipped, and the citation tokens inside that window rebased onto
+/// it. The window is the one §2.3 uses — comment prefix and block closer stripped
+/// — and the tokens are the ones the scanner itself recognizes on the line
+/// (§FS-inline-citation-style.3.3, rule 5), translated rather than re-tokenized
+/// in the stripped copy. `None` when no citation falls inside the window, which
+/// is rule 1's unconstrained line.
+fn line_layout_view<'a>(
+    line: &'a str,
     ranges: &[(usize, usize)],
-    config: &Config,
-) -> bool {
+    prefixes: &[&str],
+) -> Option<(&'a str, Vec<(usize, usize)>)> {
+    let (start, end) = comment_content_range(line, prefixes);
+    let content_start = start + list_marker_len(&line[start..end]);
+    let tokens = content_citation_tokens(ranges, content_start, end);
+    (!tokens.is_empty()).then(|| (&line[content_start..end], tokens))
+}
+
+/// The form itself: `L <delimiter> ( W T | ε )` over one line's content
+/// (§FS-inline-citation-style.3.3).
+fn content_conforms(layout: InlineNoteLayout, content: &str, tokens: &[(usize, usize)]) -> bool {
     let InlineNoteLayout::CitationFirst { delimiter } = layout else {
         return true;
     };
-    let (start, end) = comment_content_range(line, config);
-    let tokens = content_citation_tokens(ranges, start, end);
-    // §FS-inline-citation-style.3.3 rule 1: a line carrying no citation is unconstrained.
-    if tokens.is_empty() {
-        return true;
-    }
-    let content = &line[start..end];
-    let Some(run_end) = citation_run_end(content, &tokens) else {
+    let Some(run_end) = citation_run_end(content, tokens) else {
         return false;
     };
     let Some(rest) = content[run_end..].strip_prefix(delimiter) else {
         return false;
     };
-    // `L <delimiter> ( W T | ε )`: the delimiter may end the line, and anything
-    // that follows it must be separated by a space (§FS-inline-citation-style.3.3).
+    // The delimiter may end the line, and anything that follows it must be
+    // separated by a space (§FS-inline-citation-style.3.3, rule 4).
     rest.is_empty() || rest.starts_with(' ')
+}
+
+/// The byte length of a leading Markdown list marker and the spaces behind it,
+/// or `0` when the content does not open with one
+/// (§FS-inline-citation-style.3.3). A bullet is item structure rather than note
+/// text, so an enumerated block of grounded points can open each item with its
+/// citation run. One marker is skipped, never a chain, and only where a space
+/// follows — `-§<ID>` opens with a `-`.
+fn list_marker_len(content: &str) -> usize {
+    let after_marker = match content.strip_prefix(['-', '*', '+']) {
+        Some(rest) => rest,
+        None => {
+            let Some(digits) = content.find(|ch: char| !ch.is_ascii_digit()) else {
+                return 0;
+            };
+            match content[digits..].strip_prefix(['.', ')']) {
+                Some(rest) if digits > 0 => rest,
+                _ => return 0,
+            }
+        }
+    };
+    let spaces = after_marker.len() - after_marker.trim_start_matches(' ').len();
+    if spaces == 0 {
+        return 0;
+    }
+    content.len() - after_marker.len() + spaces
 }
 
 /// The end of the opening citation run `L`: the tokens that start the content,
@@ -118,11 +187,17 @@ fn citation_run_end(content: &str, tokens: &[(usize, usize)]) -> Option<usize> {
     let mut index = 0;
     loop {
         let (start, end) = *tokens.get(index)?;
+        index += 1;
+        // A token the run has already passed is one the tokenizer produced twice
+        // over the same bytes, not a break in the run — the same reading
+        // `remove_inline_citation_tokens` takes of an overlap.
+        if start < cursor {
+            continue;
+        }
         if start != cursor {
             return None;
         }
         cursor = end;
-        index += 1;
         if content[cursor..].starts_with(CITATION_RUN_SEPARATOR) {
             cursor += CITATION_RUN_SEPARATOR.len();
         } else {
@@ -131,53 +206,46 @@ fn citation_run_end(content: &str, tokens: &[(usize, usize)]) -> Option<usize> {
     }
 }
 
-/// The line's citation tokens that fall inside its stripped content window,
-/// rebased onto that window. A token straddling the window's edge — one the
-/// closer cut in half — is dropped rather than reported at a shifted offset. The
-/// ranges arrive already sorted and deduplicated, so this is a translation, never
-/// a second reading of the line.
-fn content_citation_tokens(
-    ranges: &[(usize, usize)],
-    start: usize,
-    end: usize,
-) -> Vec<(usize, usize)> {
-    ranges
-        .iter()
-        .filter(|(token_start, token_end)| *token_start >= start && *token_end <= end)
-        .map(|(token_start, token_end)| (token_start - start, token_end - start))
-        .collect()
-}
-
 /// The two verdicts one comment block carries about its note: whether it says
 /// anything at all (§FS-inline-citation-style.2.3) and which of its citation
-/// lines say it in the wrong shape (§FS-inline-citation-style.3.3). Both answers
-/// are about where this block's citation tokens sit, so both passes read one
-/// tokenization of each line rather than two that could only agree
-/// (§GOAL-fast-feedback). Shared, not eager: the sharing is one empty memo per
-/// block — its whole up-front cost, paid at every configuration — that the passes
-/// fill as they reach a line. So the two reasons a line goes unread, note
-/// presence stopping at the first line that says something and the layout pass
-/// not running at all, each cost an untouched slot and no tokenization.
+/// lines say it in the wrong shape (§FS-inline-citation-style.3.3).
+///
+/// Whether a second reader exists is a config fact, so it is settled here, once
+/// per block, before a line is touched. Where one does, both passes read one
+/// tokenization of each line through a memo the walks fill as they reach a line —
+/// two readings that could only agree, at the price of one `Vec` per block. Where
+/// none does, which is every default-configured tree, the note walk reads each
+/// line once and keeps nothing, so the memo is never allocated
+/// (§GOAL-fast-feedback).
 fn inline_note_verdicts(
     lines: &[&str],
     first_line: usize,
     config: &Config,
     workspace_targets: &[WorkspaceCitationTarget],
 ) -> (bool, Vec<usize>) {
+    let prefixes = comment_strip_prefixes(config);
+    if !layout_pass_enabled(config) {
+        return (
+            block_has_inline_note(lines, config, workspace_targets, &prefixes),
+            Vec::new(),
+        );
+    }
     let mut block = BlockCitations::new(lines, config, workspace_targets);
-    let has_note = block_has_inline_note(&mut block);
-    let layout_violations = inline_layout_violations(&mut block, first_line, has_note);
+    let has_note = block_has_inline_note_memoized(&mut block, &prefixes);
+    let layout_violations = inline_layout_violations(&mut block, &prefixes, first_line, has_note);
     (has_note, layout_violations)
 }
 
 /// One comment block's lines together with their citation-token byte ranges, each
 /// line tokenized on the first ask and remembered for the second.
 ///
-/// A line and its ranges are handed out by one accessor, so the two cannot be
-/// misaligned by a caller that pairs them itself; and no line is tokenized until
-/// a pass actually looks at it, so a block the note-presence walk leaves early —
-/// or that no layout pass revisits — tokenizes only the lines that were read and
-/// leaves the rest of the memo empty (§GOAL-fast-feedback).
+/// Built only where a second ask exists — a configured layout with a channel to
+/// report through (`layout_pass_enabled`) — so the memo is a cost of the rule
+/// rather than of scanning. A line and its ranges are handed out by one accessor,
+/// so the two cannot be misaligned by a caller that pairs them itself; and no line
+/// is tokenized until a pass actually looks at it, so a block the note-presence
+/// walk leaves early tokenizes only the lines that were read and leaves the rest
+/// of the memo empty (§GOAL-fast-feedback).
 struct BlockCitations<'a> {
     lines: &'a [&'a str],
     config: &'a Config,
@@ -214,117 +282,36 @@ impl<'a> BlockCitations<'a> {
     }
 }
 
-fn line_citation_ranges(
-    line: &str,
-    config: &Config,
-    workspace_targets: &[WorkspaceCitationTarget],
-) -> Vec<(usize, usize)> {
-    let mut ranges = citation_token_ranges(line, config, workspace_targets);
-    ranges.sort_unstable();
-    ranges.dedup();
-    ranges
-}
-
 /// Whether any line of a comment block carries note text — non-whitespace that is
 /// neither a comment token nor part of a citation (§FS-inline-citation-style.2.3).
 /// The walk stops at the first line that says something, so the block is read only
 /// as far as the answer needs it.
-fn block_has_inline_note(block: &mut BlockCitations<'_>) -> bool {
-    let config = block.config;
-    (0..block.len()).any(|index| {
-        let (line, ranges) = block.line(index);
-        let tokenless = remove_inline_citation_tokens(line, ranges);
-        let clean = strip_comment_tokens(&tokenless, config);
-        !clean.trim().is_empty()
+fn block_has_inline_note(
+    lines: &[&str],
+    config: &Config,
+    workspace_targets: &[WorkspaceCitationTarget],
+    prefixes: &[&str],
+) -> bool {
+    lines.iter().any(|line| {
+        let ranges = line_citation_ranges(line, config, workspace_targets);
+        line_says_something(line, &ranges, prefixes)
     })
 }
 
-fn remove_inline_citation_tokens(line: &str, ranges: &[(usize, usize)]) -> String {
-    let mut out = String::with_capacity(line.len());
-    let mut cursor = 0;
-    let mut after_token = false;
-    for (start, end) in ranges.iter().copied() {
-        if start < cursor {
-            continue;
-        }
-        let gap = &line[cursor..start];
-        // §FS-inline-citation-style.1: what joins two citations of one run is not
-        // note text, so it is swallowed with them rather than left behind as prose.
-        if !(after_token && is_citation_run_separator(gap)) {
-            out.push_str(gap);
-        }
-        cursor = end;
-        after_token = true;
-    }
-    out.push_str(&line[cursor..]);
-    out
+/// The same walk where a layout pass will read these lines again, so each
+/// tokenization is kept rather than dropped.
+fn block_has_inline_note_memoized(block: &mut BlockCitations<'_>, prefixes: &[&str]) -> bool {
+    (0..block.len()).any(|index| {
+        let (line, ranges) = block.line(index);
+        line_says_something(line, ranges, prefixes)
+    })
 }
 
-/// Whether the bytes strictly between two consecutive citation tokens join them
-/// into one run rather than saying anything: whitespace, with at most one comma
-/// (§FS-inline-citation-style.1). A second comma, or any other character, is a
-/// note — `// §A + §B` says something `// §A, §B` does not.
-fn is_citation_run_separator(gap: &str) -> bool {
-    gap.chars().filter(|ch| *ch == ',').count() <= 1
-        && gap.chars().all(|ch| ch == ',' || ch.is_whitespace())
-}
-
-fn strip_comment_tokens(line: &str, config: &Config) -> String {
-    let (start, end) = comment_content_range(line, config);
-    line[start..end].to_string()
-}
-
-/// The byte range of a comment line's content: what is left once the leading
-/// whitespace, the comment prefix and one space after it, and any block closer are
-/// removed. Returned as a range into the original line so a caller holding byte
-/// offsets into that line — the citation-token ranges above — can translate them
-/// instead of re-tokenizing the stripped copy and risking a different answer.
-fn comment_content_range(line: &str, config: &Config) -> (usize, usize) {
-    let body_start = line
-        .char_indices()
-        .find_map(|(idx, ch)| (!ch.is_whitespace()).then_some(idx))
-        .unwrap_or(line.len());
-    let mut offset = body_start;
-    let mut rest = &line[body_start..];
-    for prefix in comment_strip_prefixes(config) {
-        if let Some(stripped) = rest.strip_prefix(prefix) {
-            // §FS-inline-citation-style.3.3: whatever indents the content past the
-            // prefix goes with the prefix. A wrapped Rustdoc continuation, an
-            // aligned ` * ` filler, and a tab after `#` are comment formatting;
-            // the layout starts at the first byte that says something.
-            let after = stripped.trim_start_matches([' ', '\t']);
-            offset += rest.len() - after.len();
-            rest = after;
-            break;
-        }
-    }
-    let trimmed_end = rest.trim_end();
-    // Trimmed again after the closer: `/* §<ID>: */` must leave `§<ID>:`, so a
-    // colon that ends the content is the grammar's empty tail rather than a space
-    // the closer happened to sit behind (§FS-inline-citation-style.3.3).
-    let rest = trimmed_end
-        .strip_suffix("*/")
-        .or_else(|| trimmed_end.strip_suffix("\"\"\""))
-        .or_else(|| trimmed_end.strip_suffix("'''"))
-        .unwrap_or(trimmed_end)
-        .trim_end();
-    (offset, offset + rest.len())
-}
-
-fn comment_strip_prefixes(config: &Config) -> Vec<&str> {
-    let mut prefixes = vec!["/**", "/*", "*/", "\"\"\"", "'''"];
-    for prefix in &config.comment_prefixes {
-        if prefix == "//" {
-            prefixes.extend(["///", "//!", "//"]);
-        } else if prefix == "/*" {
-            prefixes.extend(["/*", "*"]);
-        } else if !prefix.is_empty() {
-            prefixes.push(prefix.as_str());
-        }
-    }
-    prefixes.sort_by_key(|prefix| std::cmp::Reverse(prefix.len()));
-    prefixes.dedup();
-    prefixes
+/// Whether one line says anything once its comment tokens and its citations are
+/// taken out of it (§FS-inline-citation-style.2.3).
+fn line_says_something(line: &str, ranges: &[(usize, usize)], prefixes: &[&str]) -> bool {
+    let tokenless = remove_inline_citation_tokens(line, ranges);
+    !strip_comment_tokens(&tokenless, prefixes).trim().is_empty()
 }
 
 /// §AR-checker.2.14: the inline citation style rule, a pure pass over
@@ -333,12 +320,16 @@ fn comment_strip_prefixes(config: &Config) -> Vec<&str> {
 /// layout deviations, so nothing here re-reads a file
 /// (§FS-inline-citation-style.4).
 fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mut CheckReport) {
+    // A site is identified by the file and the line it opens on — two blocks in
+    // one file cannot share an opener — so the key stays two cheap fields rather
+    // than a clone of the whole recorded site.
     let mut seen = BTreeSet::new();
+    let layout_message = layout_violation_message(config);
     for cite in &findings.citations {
         let Some(site) = &cite.inline_site else {
             continue;
         };
-        if !seen.insert((cite.file.clone(), site.clone())) {
+        if !seen.insert((cite.file.as_path(), site.first_line)) {
             continue;
         }
         match config.inline_style.as_str() {
@@ -398,7 +389,7 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         sites: Vec::new(),
                     });
                 }
-                report_layout_deviations(cite, site, config, report);
+                report_layout_deviations(cite, site, config, &layout_message, report);
             }
         }
     }
@@ -413,12 +404,13 @@ fn report_layout_deviations(
     cite: &Citation,
     site: &InlineCitationSite,
     config: &Config,
+    message: &str,
     report: &mut CheckReport,
 ) {
-    let channel = match config.inline_note_layout_check.as_str() {
-        "warn" => &mut report.warnings,
-        "error" => &mut report.errors,
-        _ => return,
+    let channel = match layout_channel(config) {
+        Some(LayoutChannel::Warn) => &mut report.warnings,
+        Some(LayoutChannel::Error) => &mut report.errors,
+        None => return,
     };
     for line in &site.layout_violations {
         channel.push(Diagnostic {
@@ -426,7 +418,7 @@ fn report_layout_deviations(
             path: Some(cite.file.clone()),
             line: Some(*line),
             column: None,
-            message: layout_violation_message(config),
+            message: message.to_string(),
             sites: Vec::new(),
         });
     }
