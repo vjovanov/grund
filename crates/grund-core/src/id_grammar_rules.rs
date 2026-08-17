@@ -51,9 +51,15 @@ fn section_separator_slash_error(separator: &str) -> Option<String> {
 }
 
 fn id_grammar_slash_message(label: &str, verb: &str) -> String {
-    format!(
-        "{label} must not {verb} `/` (an ID never contains `/` — it separates the alias path from the ID)"
-    )
+    // The parenthetical carries what the key must satisfy, like the `(expected …)`
+    // clause the neighbouring `[id]` validators use (§FS-errors.3). For a pattern
+    // that is a property of what it matches, not of its text, and saying so is what
+    // keeps `must not match` from being read as `must not contain`.
+    let expected = match verb {
+        "match" => "expected a pattern that cannot produce one",
+        _ => "an ID never contains `/`",
+    };
+    format!("{label} must not {verb} `/` ({expected} — it separates the alias path from the ID)")
 }
 
 /// Whether any string this pattern matches can contain a `/`: walk the parsed
