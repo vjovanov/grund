@@ -14,7 +14,7 @@ Other options:
   --format text|md|json  text (default) is the body; md keeps the heading; json wraps it
   --path PATH            repo or subtree to resolve the ID in (default `.`)
 
-Exit:  0 printed · 1 ID not found / ambiguous / broken stub / unknown section · 2 CLI error.
+Exit:  0 printed · 1 ID not found / ambiguous / broken stub / unknown section · 2 unknown project alias, or CLI error.
 
 Examples:
   grund FS-login                   # the lead — the cheap default

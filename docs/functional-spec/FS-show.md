@@ -167,7 +167,7 @@ The first line is the invocation (`grund check` when the case has no `command.ar
 
 - `0` — printed successfully.
 - `1` — ID not found, ambiguous ID (multiple homes — [§FS-show.2.2.1](FS-show.md#221-ambiguous-id)), broken stub ([§FS-show.2.3.4](FS-show.md#234-broken-stub)), or section not found in declaration.
-- `2` — I/O error.
+- `2` — I/O error, or a CLI-level failure that stops the query before it runs: the commonest is a qualified ID naming a project this run does not hold, which exits `2` with `error: unknown project alias` however many segments the path has ([§FS-workspace.8.1](FS-workspace.md#81-grund-aliasid)). An ID the grammar rejects is *not* one of these — `invalid ID` is a failed query, `1` (below).
 
 Stdout carries the body (or, with `--format=json`, the result object — one JSON object, never NDJSON, per [§FS-errors.5](FS-errors.md#5-json-format)). Stderr carries errors. Stdout is empty on error.
 
