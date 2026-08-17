@@ -198,36 +198,23 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             ("reference", "warn_on_suggested") => {
                 config.warn_on_suggested = parse_bool(path, line_no, value)?
             }
-            // §FS-config.3.2: a `/` in any ID component is rejected at the line that
-            // wrote it. The grammar backstop in `Grammar::build` catches the same
-            // thing unlocated, so the check runs here to keep the config-error style
-            // (§FS-errors.2.1) the other `[id]` validators use.
-            ("id", "format") => {
-                let id_format = parse_string(path, line_no, value)?;
-                if let Some(message) = id_grammar_literal_slash_error("[id] format", &id_format) {
+            // §FS-config.3.2: the keys an ID is built from share one rule — no `/`
+            // — and differ only in which shape of it applies, so they share one arm
+            // and `id_grammar_rules.rs` answers per key. The grammar backstop in
+            // `Grammar::build` catches the same thing unlocated; the check runs here
+            // to keep the config-error style (§FS-errors.2.1) the other `[id]`
+            // validators use.
+            ("id", key @ ("format" | "section_separator" | "number_pattern" | "slug_pattern")) => {
+                let parsed = parse_string(path, line_no, value)?;
+                if let Some(message) = id_grammar_key_slash_error(key, &parsed) {
                     bail_config(path, line_no, message)?;
                 }
-                config.id_format = id_format;
-                grammar_dirty = true;
-            }
-            ("id", "section_separator") => {
-                config.section_separator = parse_string(path, line_no, value)?;
-                grammar_dirty = true;
-            }
-            ("id", "number_pattern") => {
-                let pattern = parse_string(path, line_no, value)?;
-                if let Some(message) = id_grammar_pattern_slash_error("[id] number_pattern", &pattern) {
-                    bail_config(path, line_no, message)?;
+                match key {
+                    "format" => config.id_format = parsed,
+                    "section_separator" => config.section_separator = parsed,
+                    "number_pattern" => config.number_pattern = parsed,
+                    _ => config.slug_pattern = parsed,
                 }
-                config.number_pattern = pattern;
-                grammar_dirty = true;
-            }
-            ("id", "slug_pattern") => {
-                let pattern = parse_string(path, line_no, value)?;
-                if let Some(message) = id_grammar_pattern_slash_error("[id] slug_pattern", &pattern) {
-                    bail_config(path, line_no, message)?;
-                }
-                config.slug_pattern = pattern;
                 grammar_dirty = true;
             }
             ("id", "section_heading_levels") => {

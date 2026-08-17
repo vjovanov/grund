@@ -22,17 +22,17 @@ mod tests_id_grammar {
         let cases = [
             (
                 "[id]\nformat = \"{kind}/{slug}\"\n",
-                "[id] format must not contain `/`",
+                "[id].format must not contain `/`",
                 2,
             ),
             (
                 "[id]\nnumber_pattern = \"[0-9/]+\"\n",
-                "[id] number_pattern must not match `/`",
+                "[id].number_pattern must not match `/`",
                 2,
             ),
             (
                 "[id]\nslug_pattern = \"[a-z][a-z0-9/-]*\"\n",
-                "[id] slug_pattern must not match `/`",
+                "[id].slug_pattern must not match `/`",
                 2,
             ),
             (
@@ -84,7 +84,7 @@ mod tests_id_grammar {
                 Err(err) => format!("{err:#}"),
             };
             assert!(
-                err.contains(&format!(".agents/grund.toml:4: [id] {key} must not match `/`")),
+                err.contains(&format!(".agents/grund.toml:4: [id].{key} must not match `/`")),
                 "unexpected error for {pattern}: {err}"
             );
         }
@@ -143,7 +143,7 @@ mod tests_id_grammar {
             .expect_err("a slug pattern admitting `/` is rejected at build");
 
         assert!(
-            format!("{err:#}").contains("[id] slug_pattern must not match `/`"),
+            format!("{err:#}").contains("[id].slug_pattern must not match `/`"),
             "unexpected error: {err:#}"
         );
     }
