@@ -210,6 +210,15 @@ repository root and `<§>final/<ID>` is simply unknown. The alternative would le
 a citation pass a subtree check and fail the run CI does, which is
 [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) failing in the one place it has to hold.
 
+Reading a path from that chain means every block in it has to answer. A block
+that declares `[workspace]` and claims this directory either contributes its
+segment or fails the run with **its own error** — a member that does not exist,
+overlapping expanded roots, an invalid alias for the project below it — the same
+diagnostic a run at that block reports, from the same `members` or `project_name`
+line. Dropping the block and naming the subtree from below instead would invent a
+namespace no other scope agrees with, and
+[§FS-check.3.8](FS-check.md#38-cross-project-citation-failure) would then hint the one spelling that fails at the root.
+
 A `[workspace]` block that no enclosing block lists is **not** part of that
 chain, and its paths are not stable across scopes. At the outer scope the block
 is ignored: its directory is an ordinary part of the enclosing project's

@@ -46,6 +46,76 @@ mod tests_workspace_nested {
         );
     }
 
+    /// §FS-workspace.6.1: a block that claims this directory and cannot expand
+    /// its own member list fails the narrowed run with that block's error. The
+    /// alternative shipped: the failure read as "does not claim this tree", the
+    /// climb walked past, and the subtree named itself — `alpha` where the root
+    /// says `group/alpha` — so §FS-check.3.8 hinted the one spelling that fails
+    /// in CI.
+    #[test]
+    fn enclosing_workspace_that_cannot_expand_fails_the_narrowed_run() {
+        let root = test_root("enclosing_workspace_that_cannot_expand_fails_the_narrowed_run");
+        for (dir, body) in [
+            (
+                "",
+                "project_name = \"root\"\n\n[workspace]\nmembers = [\"group\", \"missing\"]\n",
+            ),
+            (
+                "group",
+                "project_name = \"group\"\n\n[workspace]\nmembers = [\"alpha\"]\n",
+            ),
+            ("group/alpha", "project_name = \"alpha\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        let mut config = load_config(&root.join("group")).expect("load the group config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("an enclosing workspace that cannot expand must fail the run");
+        };
+        let err = format!("{err:#}");
+        assert!(
+            err.contains("grund.toml:4: workspace member does not exist: missing"),
+            "the narrowed run must report the enclosing block's own error: {err}"
+        );
+    }
+
+    /// §FS-workspace.6.1: the truncation half of the same rule — an ancestor in
+    /// the chain whose alias is invalid is an error, not a dropped segment. It
+    /// used to `break` the climb, so the root run exited 2 while the subtree run
+    /// exited 0 with every project renamed one level short.
+    #[test]
+    fn enclosing_workspace_with_an_invalid_alias_fails_the_narrowed_run() {
+        let root = test_root("enclosing_workspace_with_an_invalid_alias_fails_the_narrowed_run");
+        for (dir, body) in [
+            (
+                "",
+                "project_name = \"root\"\n\n[workspace]\nmembers = [\"mid\"]\n",
+            ),
+            (
+                "mid",
+                "project_name = \"My_Group\"\n\n[workspace]\nmembers = [\"group\"]\n",
+            ),
+            (
+                "mid/group",
+                "project_name = \"group\"\n\n[workspace]\nmembers = [\"alpha\"]\n",
+            ),
+            ("mid/group/alpha", "project_name = \"alpha\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        let mut config = load_config(&root.join("mid/group")).expect("load the group config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("an invalid alias in the claimed chain must fail the run");
+        };
+        let err = format!("{err:#}");
+        assert!(
+            err.contains("grund.toml:1: invalid workspace project alias `My_Group`"),
+            "the narrowed run must report the ancestor's own alias error: {err}"
+        );
+    }
+
     /// §FS-workspace.6.1 / §AR-workspace.6.1: a nested member that resolves to
     /// a project root the workspace already holds is a located config error.
     /// It has no e2e fixture because reaching it needs a symlink, and that is
