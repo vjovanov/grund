@@ -45,11 +45,11 @@ mod tests_alias_hints {
     fn a_narrowed_run_offers_no_candidate_even_for_a_dropped_prefix() {
         assert_eq!(
             unknown_project_message("api", ["left", "left/api"].into_iter(), "left"),
-            "unknown project alias api; only left is in scope here — check from the workspace root for a path outside it"
+            "unknown project alias api; only the left subtree is in scope here — check from the workspace root for a path outside it"
         );
         assert_eq!(
             unknown_project_message("lef", ["left", "left/api"].into_iter(), "left"),
-            "unknown project alias lef; only left is in scope here — check from the workspace root for a path outside it",
+            "unknown project alias lef; only the left subtree is in scope here — check from the workspace root for a path outside it",
             "§FS-check.3.8: the typo tier is off too — one rule for the whole narrowed run"
         );
     }

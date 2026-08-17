@@ -291,7 +291,9 @@ fn check_citation_resolution(
 /// candidate it could offer is a rewrite of a citation the run CI performs
 /// accepts — green before and green after, with nothing left to catch it. Such a
 /// run names the scope it covers and offers nothing (§FS-check.3.8,
-/// §FS-workspace.6.1).
+/// §FS-workspace.6.1). It names it as a *subtree*, because the scope path is one
+/// project among several in scope — `alpha` with `alpha/beta` below it — and
+/// "only alpha is in scope" reads as "alpha is the only project".
 fn unknown_project_message<'a>(
     namespace: &str,
     known: impl Iterator<Item = &'a str>,
@@ -299,7 +301,7 @@ fn unknown_project_message<'a>(
 ) -> String {
     if !scope_path.is_empty() {
         return format!(
-            "unknown project alias {namespace}; only {scope_path} is in scope here — check from the workspace root for a path outside it"
+            "unknown project alias {namespace}; only the {scope_path} subtree is in scope here — check from the workspace root for a path outside it"
         );
     }
     let candidates = nearest_project_aliases(namespace, known);

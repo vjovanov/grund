@@ -212,10 +212,10 @@ docs/FS-root.md:3: unknown project alias sprayer; did you mean hardware/sprayer?
 docs/FS-root.md:4: unknown project alias api; did you mean left/api or right/api?
 ```
 
-A run narrowed to a subtree ([§FS-workspace.5](FS-workspace.md#5-command-scope), [§FS-workspace.6.1](FS-workspace.md#61-nested-workspaces)) holds only part of the tree, so a path naming a project outside it is unknown *here* while being exactly right at the workspace root. Such a run therefore offers **no candidate at all**. It cannot tell a dropped prefix from a path that correctly names a project outside its subtree, and every tier reads it as the first: the dropped-prefix tier included, because a *shorter* written path is itself a complete alias path whenever a top-level project carries that name, so re-pointing it at a deeper namesake rewrites a citation CI accepts into a different project's — green before and green after, so nothing catches it. One rule for the whole narrowed run, and no residual misdirection: it names the subtree it covers rather than reporting the path bare, which is neither "delete this" nor "re-prefix this" but "check this from the root":
+A run narrowed to a subtree ([§FS-workspace.5](FS-workspace.md#5-command-scope), [§FS-workspace.6.1](FS-workspace.md#61-nested-workspaces)) holds only part of the tree, so a path naming a project outside it is unknown *here* while being exactly right at the workspace root. Such a run therefore offers **no candidate at all**. It cannot tell a dropped prefix from a path that correctly names a project outside its subtree, and every tier reads it as the first: the dropped-prefix tier included, because a *shorter* written path is itself a complete alias path whenever a top-level project carries that name, so re-pointing it at a deeper namesake rewrites a citation CI accepts into a different project's — green before and green after, so nothing catches it. One rule for the whole narrowed run, and no residual misdirection: it names the subtree it covers — as a *subtree*, since that scope's own alias path is one project among the several it holds — rather than reporting the path bare, which is neither "delete this" nor "re-prefix this" but "check this from the root":
 
 ```text
-docs/AR-bus.md:3: unknown project alias final/pod; only hardware is in scope here — check from the workspace root for a path outside it
+docs/AR-bus.md:3: unknown project alias final/pod; only the hardware subtree is in scope here — check from the workspace root for a path outside it
 ```
 
 ### 3.9 Section heading level mismatch

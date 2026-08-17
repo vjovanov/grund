@@ -1,1 +1,1 @@
-docs/AR-bus.md:3: unknown project alias final/pod; only hardware is in scope here — check from the workspace root for a path outside it
+docs/AR-bus.md:3: unknown project alias final/pod; only the hardware subtree is in scope here — check from the workspace root for a path outside it
