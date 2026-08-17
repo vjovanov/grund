@@ -145,11 +145,22 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) -> CaseOutcome
     // without developer mode, so the fixture is built at run time and the case
     // would otherwise compare a different tree's output (§FS-workspace.6.1). The
     // skip is returned, so the pass counts and names it instead of exiting 0.
-    if !case_symlinks(case).is_empty() && !symlinks_supported(manifest_dir) {
-        return CaseOutcome::Skipped {
-            case: name.to_string(),
-            why: SYMLINK_SKIP,
-        };
+    if !case_symlinks(case).is_empty() {
+        // Links are created in the copy, and only the `{repo_copy}` branch of
+        // `command_args` copies the fixture — so a manifest case written against
+        // `{repo}` created no links at all and was green anyway, testing the
+        // committed tree while claiming to test a symlinked one.
+        assert!(
+            case_command(case).contains("{repo_copy}"),
+            "{name}: a case with a `symlinks` manifest must run against {{repo_copy}} — \
+             its links are created in the copy"
+        );
+        if !symlinks_supported(manifest_dir) {
+            return CaseOutcome::Skipped {
+                case: name.to_string(),
+                why: SYMLINK_SKIP,
+            };
+        }
     }
 
     let args = command_args(manifest_dir, case, name);
@@ -192,12 +203,23 @@ fn case_name(case: &Path) -> &str {
         .unwrap_or("<invalid case name>")
 }
 
-fn is_mutating_case(case: &Path) -> bool {
+/// The command a case runs, as written: its `command.args`, or the default every
+/// case without one runs. One reader, so "is this a mutating case?", "does it use
+/// the copy?", and the argument expansion below cannot disagree about what the
+/// case does.
+fn case_command(case: &Path) -> String {
     let command_file = case.join("command.args");
-    if !command_file.exists() {
-        return false;
+    if command_file.exists() {
+        read_to_string(command_file)
+    } else {
+        DEFAULT_COMMAND.to_string()
     }
-    let command = read_to_string(command_file);
+}
+
+const DEFAULT_COMMAND: &str = "check {repo}";
+
+fn is_mutating_case(case: &Path) -> bool {
+    let command = case_command(case);
     command.contains("--write") || command.contains("{repo_copy}")
 }
 
@@ -222,12 +244,7 @@ fn command_args(manifest_dir: &Path, case: &Path, name: &str) -> Vec<String> {
         .unwrap_or(&repo_copy)
         .to_string_lossy()
         .into_owned();
-    let command_file = case.join("command.args");
-    if !command_file.exists() {
-        return vec!["check".to_string(), repo_arg];
-    }
-
-    let command = read_to_string(command_file);
+    let command = case_command(case);
     if command.contains("{repo_copy}") {
         if let Some(parent) = repo_copy.parent() {
             let _ = fs::remove_dir_all(parent);
@@ -285,17 +302,39 @@ fn case_symlinks(case: &Path) -> Vec<(String, String)> {
         if line.is_empty() {
             continue;
         }
-        let (link, target) = line
-            .split_once("->")
-            .unwrap_or_else(|| panic!("{at}: expected `<link> -> <target>`, got `{line}`"));
-        let (link, target) = (link.trim().to_string(), target.trim().to_string());
+        if line.starts_with('#') {
+            continue;
+        }
+        let mut halves = line.split("->");
+        let link = halves.next().unwrap_or_default().trim().to_string();
+        let target = halves
+            .next()
+            .unwrap_or_else(|| panic!("{at}: expected `<link> -> <target>`, got `{line}`"))
+            .trim()
+            .to_string();
+        // `split_once` took the first arrow and swallowed the rest into the target,
+        // so `self -> . -> extra` created a link named `. -> extra` and the case
+        // failed later as a golden mismatch instead of here as the malformed line
+        // it is.
+        assert!(
+            halves.next().is_none(),
+            "{at}: more than one `->` in `{line}` — one link per line"
+        );
         assert!(
             link_stays_in_the_copy(&link),
             "{at}: the link path `{link}` must stay inside the fixture copy — relative, \
              `/`-separated, and no `..`"
         );
+        assert!(!target.is_empty(), "{at}: the link target is empty");
         links.push((link, target));
     }
+    // A manifest with no links is not a case without symlinks: it is a case that
+    // *says* it needs one. It also switched the platform skip off, so such a case
+    // was green on every platform while testing nothing the manifest describes.
+    assert!(
+        !links.is_empty(),
+        "{name}: the `symlinks` manifest declares no links — delete the file or fill it in"
+    );
     links
 }
 

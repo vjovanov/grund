@@ -16,9 +16,14 @@ e2e/cases/<case-name>/
 
 `spec.refs` is required. Every non-empty line must cite a functional spec ID such as `FS-001-check.3.1`; the harness rejects cases that do not cite the behavior they exercise.
 
-An optional `symlinks` file adds links the fixture cannot carry in git: one `<link> -> <target>` per line, both relative to the fixture repo, created in the copied tree at run time. Such a case must run against `{repo_copy}`, and it does not run where the platform cannot create a directory symlink — git on Windows checks a committed symlink out as a text file holding its target unless developer mode is on, so the fixture would be a different tree and the golden would fail for a reason the case is not about.
+### The `symlinks` manifest
 
-The **link** path must stay inside the fixture copy: relative, `/`-separated, no `..`, and no absolute form. The **target** is free to leave it — `link -> ..` is exactly what one case tests. Every rejection names the case and the manifest line.
+An optional `symlinks` file adds links the fixture cannot carry in git — git on Windows checks a committed symlink out as a text file holding its target unless developer mode is on, so the fixture would be a different tree and the golden would fail for a reason the case is not about. The links are created in the copied tree at run time, which makes the file a contract the harness enforces line by line; every rejection names the case and the manifest line.
+
+- One link per line, `<link> -> <target>`, with `->` appearing **exactly once**. Blank lines and lines starting with `#` are ignored.
+- Both paths are relative to the fixture repo, `/`-separated. The **link** path must stay inside the copy: no absolute form, no `..`, and no `\`. The **target** is free to leave it — `link -> ..` is exactly what one case tests.
+- The manifest must declare at least one link. An empty one used to yield no links, no diagnostic, and no skip, so a case could be green with a dead manifest.
+- The case must run against `{repo_copy}`. Only that branch copies the fixture and creates the links, so a manifest case written against `{repo}` tested the committed tree while claiming to test a symlinked one.
 
 A case that does not run is **not** a case that passed. The harness probes the directory it actually creates the links in (`target/e2e-work/`, not the system temp directory), and at the end of each pass it prints every case it skipped with the reason and the count. On a platform that can create a directory symlink a skip is a hard failure, because there it means the harness lost the coverage rather than the platform refusing it.
 
