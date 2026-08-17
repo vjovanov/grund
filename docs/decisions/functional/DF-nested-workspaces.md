@@ -163,9 +163,11 @@ not name the offending line.
   which is what they already write.
 - [§FS-config.3.9](../../functional-spec/FS-config.md#39-citations--citation-direction-rules) citation-direction rules take the same path form
   (`group/api/AR`), split at the last `/` like every other consumer.
-- [§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members) walks to the *outermost* workspace root and renders
-  full paths, so a generated entrypoint anywhere in the tree lists the alias
-  paths CI resolves.
+- [§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members) walks to the outermost workspace root that
+  *claims* the target — the same claimed chain a command run there follows — and
+  renders full paths, so a generated entrypoint anywhere in the tree lists the
+  alias paths CI resolves, while a repository merely sitting under an unrelated
+  `[workspace]` still teaches its own.
 - Converting the issue's flat leaf list into a nested tree **does** rewrite its
   cross-project citations, once, from `<§>sprayer/<ID>` to
   `<§>hardware-current/sprayer/<ID>`. §3.2's diagnostic is what makes that
