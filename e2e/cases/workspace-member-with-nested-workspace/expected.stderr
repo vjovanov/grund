@@ -1,1 +1,0 @@
-error: workspace member `apps/api` declares its own `[workspace]` block (nested workspaces are not supported)

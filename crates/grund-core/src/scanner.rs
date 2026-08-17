@@ -1079,7 +1079,10 @@ fn e2e_spec_ref_from_line(config: &Config, line: &str) -> Option<E2eSpecRef> {
         return None;
     }
     let token = token.strip_prefix(&config.marker).unwrap_or(token);
-    let (namespace, id_text) = match token.split_once('/') {
+    // §FS-workspace.6.1: an alias path may carry slashes, and an ID never does,
+    // so the last separator is the boundary — the same split every other
+    // consumer of a qualified token makes.
+    let (namespace, id_text) = match token.rsplit_once('/') {
         Some((namespace, id_text)) if !namespace.is_empty() => {
             (Some(namespace.to_string()), id_text)
         }

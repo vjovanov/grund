@@ -39,6 +39,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - config discovered as a bare root `grund.toml` from a subdirectory
 - config redundant pair (the bare `grund.toml` wins, the `.agents/` file is warned about)
 - workspace mixing both config discovery forms across its members
+- nested workspaces: whole-alias-path naming, per-level alias uniqueness, the grouping node as a project, subtree scope, and the short-leaf-name hint
 - config include/exclude/extensions
 - explicit `check` subcommand
 - default `show` shorthand and mistyped-path failure with explicit-check hint

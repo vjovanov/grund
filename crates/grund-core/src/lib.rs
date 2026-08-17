@@ -59,6 +59,7 @@ include!("tests_shorthand_rewrite.rs");
 include!("tests_citation_directions.rs");
 include!("tests_managed_block_drift.rs");
 include!("tests_workspace.rs");
+include!("tests_workspace_nested.rs");
 include!("tests_workspace_members.rs");
 include!("tests_init_agents.rs");
 include!("tests_integrations.rs");

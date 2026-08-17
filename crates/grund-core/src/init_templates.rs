@@ -866,70 +866,61 @@ struct InitWorkspaceProject {
     description: Option<String>,
 }
 
-/// Walk up from `target` to the nearest ancestor whose `grund.toml` — either
-/// discovery form (§FS-config.1) — declares `[workspace]`, then expand its members and derive each alias the
-/// same way `grund check` does (§FS-workspace.2 / §FS-workspace.3). Returns the
-/// alias-sorted project list (root + members, subject to `include_root`) when
-/// `target` sits inside a workspace; `None` otherwise. Returns `None` rather
-/// than an error on any workspace configuration problem (missing member,
-/// duplicate alias, nested workspace, …) — init must not fail because a
-/// sibling member is misconfigured; the next `grund check` will surface the
-/// issue (§FS-init.2.3.4.15).
+/// Walk up from `target` to the outermost ancestor whose `grund.toml` — either
+/// discovery form (§FS-config.1) — declares `[workspace]`, then expand the
+/// whole tree and derive each alias the same way `grund check` does
+/// (§FS-workspace.2 / §FS-workspace.3 / §FS-workspace.6.1). Returns the
+/// alias-sorted project list (every block's root, subject to its own
+/// `include_root`, plus every member at every depth) when `target` sits inside
+/// a workspace; `None` otherwise. Returns `None` rather than an error on any
+/// workspace configuration problem (missing member, duplicate alias, member
+/// cycle, …) — init must not fail because a sibling member is misconfigured;
+/// the next `grund check` will surface the issue (§FS-init.2.3.4.15).
 fn find_init_workspace_context(
     target: &Path,
     pending_project_name: Option<&str>,
     pending_project_description: Option<&str>,
 ) -> Option<Vec<InitWorkspaceProject>> {
-    let root_config = find_init_workspace_root(target)?;
-    // `expand_workspace_members` returns canonical member roots, so a
+    let mut root_config = find_init_workspace_root(target)?;
+    // `expand_workspace_tree` returns canonical project roots, so a
     // non-canonical `target` would never match the self project on path
     // equality and the self-exception in §FS-init.2.3.4.15 would silently
     // misfire. Suppress the section rather than render a wrong self row.
     let target_canonical = fs::canonicalize(target).ok()?;
-    let member_roots = expand_workspace_members(&root_config).ok()?;
     let mut projects = Vec::new();
-    if root_config.workspace_include_root {
-        let alias = derive_alias(&root_config, None, RootMode::Root).ok()?;
-        projects.push(InitWorkspaceProject {
-            alias,
-            project_root: root_config.root.clone(),
-            description: root_config.project_description.clone(),
-        });
-    }
-    for member_root in &member_roots {
-        let mut member_config = load_config_at_with_report_base(
-            member_root,
-            &root_config.cli_base,
-            Some(&root_config.root),
-        )
-        .ok()?;
-        if member_root == &target_canonical && config_file_in(member_root).is_none() {
+    for entry in expand_workspace_tree(&mut root_config).ok()? {
+        let mut alias = entry.alias;
+        let mut description = entry.config.project_description.clone();
+        if entry.config.root == target_canonical && config_file_in(&entry.config.root).is_none() {
             // §FS-init.2.3.4.15: self is rendered against the config `init`
             // is about to write, so `grund init member --name service
             // --description "…"` teaches the future `service/...` workspace
             // alias and its description immediately.
             if let Some(name) = pending_project_name {
-                member_config.project_name = Some(name.to_string());
+                if !is_valid_project_alias(name) {
+                    return None;
+                }
+                // `--name` renames the project, not the workspace levels above
+                // it: only the last segment of the alias path changes
+                // (§FS-workspace.6.1).
+                alias = match alias.rsplit_once('/') {
+                    Some((prefix, _)) => format!("{prefix}/{name}"),
+                    None => name.to_string(),
+                };
             }
-            if let Some(description) = pending_project_description {
-                member_config.project_description = Some(description.to_string());
+            if let Some(pending) = pending_project_description {
+                description = Some(pending.to_string());
             }
         }
-        if member_config.workspace_declared {
-            // §FS-workspace.6: nested workspaces are rejected at load — bail
-            // out of the section silently and let `grund check` report it.
-            return None;
-        }
-        let alias = derive_alias(&member_config, Some(member_root), RootMode::Member).ok()?;
         projects.push(InitWorkspaceProject {
             alias,
-            project_root: member_root.clone(),
-            description: member_config.project_description.clone(),
+            project_root: entry.config.root,
+            description,
         });
     }
-    if projects.is_empty() {
-        return None;
-    }
+    // The pending `--name` above is applied after expansion, so it can collide
+    // with a project `expand_workspace_tree` already accepted; the check below
+    // is what catches that case, not a second opinion on the tree itself.
     let mut seen = BTreeMap::new();
     for project in &projects {
         if seen
@@ -946,27 +937,29 @@ fn find_init_workspace_context(
     Some(projects)
 }
 
-/// Walk up from `target` for the nearest ancestor (or `target` itself) whose
-/// config declares `[workspace]`. Unlike [`load_config`], this helper does
-/// **not** stop at the first config it finds — a member with its own config
-/// (which cannot declare `[workspace]` per §FS-workspace.6) must still see the
-/// workspace root above it (§FS-init.2.3.4.15).
+/// Walk up from `target` for the **outermost** ancestor (or `target` itself)
+/// whose config declares `[workspace]`. Unlike [`load_config`], this helper
+/// does **not** stop at the first config it finds — a member with its own
+/// config must still see the workspace root above it, and in a nested
+/// workspace (§FS-workspace.6.1) the section teaches the alias set the
+/// outermost root resolves, not the enclosing group's (§FS-init.2.3.4.15).
 fn find_init_workspace_root(target: &Path) -> Option<Config> {
     // Without a canonical anchor we cannot reliably compare against the
-    // canonicalized member roots `expand_workspace_members` returns; bail
+    // canonicalized project roots `expand_workspace_tree` returns; bail
     // out so the section is suppressed (§FS-init.2.3.4.15).
     let canonical_target = fs::canonicalize(target).ok()?;
     let mut cursor: Option<&Path> = Some(&canonical_target);
+    let mut outermost = None;
     while let Some(dir) = cursor {
         if config_file_in(dir).is_some()
             && let Ok(config) = load_config_at(dir, &canonical_target)
             && config.workspace_declared
         {
-            return Some(config);
+            outermost = Some(config);
         }
         cursor = dir.parent();
     }
-    None
+    outermost
 }
 
 /// Render the §FS-init.2.3.4.15 Workspace Members section, or the empty string

@@ -1,0 +1,1 @@
+error: group/.agents/grund.toml:16: duplicate workspace project alias `group/beta` (workspace members `group/one` and `group/two`)

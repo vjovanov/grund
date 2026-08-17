@@ -16,27 +16,33 @@ A normal citation still resolves inside the current project:
 §FS-login.2.1
 ```
 
-A cross-project citation writes the target project alias, a slash, then the
-target ID:
+A cross-project citation writes the target project's alias path, a slash, then
+the target ID:
 
 ```text
 §api/FS-login
 §root/GOAL-compatibility
 §payments/FS-refunds.3.2
+§hardware/sprayer/FS-nozzle
 ```
 
 The grammar is:
 
 ```text
-§[alias/]ID[.section]
+§[alias/…/alias/]ID[.section]
 ```
 
-`alias` is a lowercase slug: it starts with a letter and then uses lowercase
-letters, digits, or `-`. The slash is part of the citation namespace, not part of
-the ID. For an unqualified citation, the `ID[.section]` part uses the current
-project's ID and section grammar. For a qualified citation, it uses the target
-project's grammar: `<§>api/FS-001-session` is parsed with `api`'s `[id]` config,
-even when the citing/root project uses a different ID format.
+Each `alias` is a lowercase slug: it starts with a letter and then uses lowercase
+letters, digits, or `-`. The alias path carries **one segment per workspace
+level** (§6.1); in a workspace with no nesting it is always a single segment, so
+the common form is `<§>alias/<ID>`. The slashes are part of the citation
+namespace, not part of the ID — and since an ID never contains `/`, the last
+slash in the token is always the boundary between the two.
+
+For an unqualified citation, the `ID[.section]` part uses the current project's
+ID and section grammar. For a qualified citation, it uses the target project's
+grammar: `<§>api/FS-001-session` is parsed with `api`'s `[id]` config, even when
+the citing/root project uses a different ID format.
 
 ## 2. Workspace configuration
 
@@ -73,9 +79,12 @@ The root alias is the root config's `project_name`, or `root` when omitted.
 A member alias is the member config's `project_name`, or the member directory's
 basename when omitted.
 
-Aliases must be unique across the workspace and must match the lowercase slug
-grammar in §1. A duplicate or invalid alias is a launch-time error, because a
-qualified citation would otherwise have two possible targets.
+Aliases must match the lowercase slug grammar in §1 and must be unique **among
+siblings** — the root project and the top-level members share one level, and
+each nested `[workspace]` block's members share another (§6.1). A duplicate or
+invalid alias is a launch-time error, because a qualified citation would
+otherwise have two possible targets. Two projects under different parents may
+carry the same alias: their alias paths still differ, so nothing is ambiguous.
 
 A project's optional one-line `project_description` ([§FS-config.3](FS-config.md#3-schema)) follows the
 same residency rule as the alias: a member's description comes from the
@@ -149,12 +158,52 @@ inside a member. The member is scanned separately under its own config and alias
 This prevents a child project declaration from accidentally becoming a duplicate
 or dependency of the root namespace.
 
-A member config that itself carries a `[workspace]` block is a load-time
-error in v1 — nested workspaces are not supported. The resolver semantics
-they would require (alias priority across nesting levels, which
-`current_alias` a checker run uses, parent-of-parent reachability) are not
-pinned, and the safer default is to refuse the configuration loudly rather
-than silently flatten it ([AR-workspace.6.1](../architecture/AR-workspace.md#61-nested-workspaces-are-rejected)).
+### 6.1 Nested workspaces
+
+A member may itself declare `[workspace]`. Its `members` are paths under *that*
+member's config root, resolved and validated by the rules in §2 exactly as the
+outermost root's are. The tree may nest to any depth.
+
+A project is named by its **whole alias path**: one segment per level, read from
+the outermost workspace down (§1). The outermost root contributes no segment, so
+a workspace with no nesting is spelled exactly as it is today. Given a root with
+`members = ["hardware", "final"]` and `hardware` declaring
+`members = ["sprayer", "pod"]`:
+
+```text
+§root/GOAL-x            the root project        §final/FS-x     a top-level member
+§hardware/AR-bus        the node's own decl     §hardware/sprayer/FS-x   a leaf
+```
+
+Paths, not globally unique names, are what let two `pod` projects under
+different parents coexist ([§DF-nested-workspaces](../decisions/functional/DF-nested-workspaces.md#df-nested-workspaces-a-nested-project-is-named-by-its-whole-alias-path)) — hence the per-level
+uniqueness rule in §3. The cost is that a short leaf name no longer resolves on
+its own, and `grund check` answers that mistake by naming the projects the
+written path could have meant ([§FS-check.3.8](FS-check.md#38-cross-project-citation-failure)).
+
+`include_root` is read per `[workspace]` block and governs that block's own
+project. Under the default an intermediate node is a project like any other: it
+derives an alias (§3), is scanned under its own config minus its members'
+subtrees (§6), and is citable at its own path. Under `include_root = false` it
+is pure grouping — no project, but still a segment in every path below it, so
+`<§>hardware/sprayer/<ID>` is unaffected either way. Every block must put at
+least one project in scope, so `include_root = false` with no members is a
+config error at that block's `members` line.
+
+Members are compared as canonical paths. One that resolves to a project root the
+workspace already holds — a symlink back at an ancestor or across at a sibling —
+is a config error at the `members` line that introduced it, which is also what
+makes expansion terminate ([AR-workspace.6.1](../architecture/AR-workspace.md#61-nested-workspaces-are-one-recursion-not-a-second-namespace-model)).
+
+Scope follows §5 unchanged: discovery stops at the *nearest* config
+([§FS-config.1](FS-config.md#1-file-location-and-discovery)), so a command invoked at an intermediate node runs that
+node's subtree. **Alias paths do not change with scope** — they are always read
+from the outermost workspace, so a narrowed run resolves a *subset* of the same
+paths rather than a re-spelled set of its own. Inside `hardware/`,
+`<§>hardware/sprayer/<ID>` still names what it names at the repository root and
+`<§>final/<ID>` is simply unknown. The alternative would let a citation pass a
+subtree check and fail the run CI does, which is [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) failing
+in the one place it has to hold.
 
 ## 7. Neighboring repos
 
@@ -317,12 +366,17 @@ Completion grammar (the prefix the user has typed so far):
 
 - No `/` in the prefix → bare-ID candidates from the current project (existing
   behavior, unchanged). When the helper is invoked at the workspace root,
-  **also** emit one candidate per known alias, with a trailing `/` — `api/`,
-  `payments/`, and `root/` only when `include_root = true` (§8 intro). The
-  trailing slash is the continuation signal — see "Shell script adjustments"
-  below.
-- Prefix contains a `/` → split on the first `/`. The left side is the alias;
-  emit IDs from that workspace project whose qualified form matches the prefix.
+  **also** emit one candidate per known alias path, with a trailing `/` —
+  `api/`, `payments/`, `group/alpha/`, and `root/` only when
+  `include_root = true` (§8 intro). The trailing slash is the continuation
+  signal — see "Shell script adjustments" below.
+- Prefix contains a `/` → split on the **last** `/`, the same boundary a
+  citation uses (§1). The left side names a project; emit its IDs whose
+  qualified form matches the prefix, **and** every known alias path that
+  continues past the prefix, again with a trailing `/`. So `group/` offers
+  `group/FS-x` alongside `group/alpha/` and `group/beta/`, and one more Tab
+  after `group/alpha/` reaches that project's IDs. The prefix itself is never
+  re-offered as a candidate: it would stall the shell rather than advance it.
 - `--sections` and the implicit section mode (prefix containing the configured
   `[id] section_separator`) compose with the alias prefix in the natural way:
   `api/FS-login.` triggers section candidates against `api`'s declaration of

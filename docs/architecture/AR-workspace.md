@@ -49,7 +49,7 @@ into a regex.
 There is exactly one citation regex in the engine, defined in `grammar.rs`:
 
 ```text
-\b(?:(?P<namespace>[a-z][a-z0-9-]*)/)?<ID>(?:<sep><section>)?
+\b(?:(?P<namespace>[a-z][a-z0-9-]*(?:/[a-z][a-z0-9-]*)*)/)?<ID>(?:<sep><section>)?
 ```
 
 The optional `<namespace>` capture is part of the grammar ([§FS-workspace.1](../functional-spec/FS-workspace.md#1-citation-syntax)),
@@ -58,6 +58,10 @@ not a second parser pass. A scanner that toggles between "qualified" and
 look equivalent on the happy path, but disagree on the edges (a bare
 `path/<ID>` token; a literal slash inside a string; a markdown link
 destination). One regex, one capture group, one decision rule downstream.
+
+Nesting widened the capture to a `/`-joined run of alias segments (§6.1) and
+changed nothing else: still one capture holding one string, so no consumer
+learned a second shape. It stays unambiguous because an ID never contains `/`.
 
 In a workspace run, the alias still controls the ID grammar: a qualified
 citation's `ID[.section]` tail is parsed with the target project's config, not
@@ -195,16 +199,46 @@ directory entry, so the per-entry cost is one path comparison and no
 `canonicalize` syscall.
 
 Members are scanned recursively as independent projects. A member that declares
-its own `[workspace]` block is rejected before scanning (§6.1).
+its own `[workspace]` block contributes its whole subtree instead of one
+project (§6.1).
 
-### 6.1 Nested workspaces are rejected
+### 6.1 Nested workspaces are one recursion, not a second namespace model
 
-A member config carrying its own `[workspace]` block is not silently
-flattened — it is a load-time error. Recursive workspace nesting would
-require resolver semantics this slice does not pin (priority on duplicate
-aliases across nesting levels; which `current_alias` a checker run uses;
-whether parent-of-parent aliases are reachable). Until those questions are
-specified, the safe default is to refuse the configuration loudly.
+A member config carrying its own `[workspace]` block is expanded recursively:
+its members load under that member's config root, and every project the walk
+reaches — at any depth — becomes one entry in the same `alias → project` map
+the single-level case builds. The only difference is the key: a project's alias
+is its whole path, one segment per level ([§FS-workspace.6.1](../functional-spec/FS-workspace.md#61-nested-workspaces)).
+
+That key is what keeps nesting out of every layer below the expansion step. The
+namespace stays **one string**, so the resolver (§4) still does a map lookup,
+the grammar (§2) still has one optional capture, and alias derivation (§5.3)
+still yields one segment that the walk composes. Had it become a *list*, the
+resolver, the citation regex, the completion candidates, the `--project` filter,
+and the `refs`/`list` JSON keys would each have grown a second shape
+([§DF-nested-workspaces](../decisions/functional/DF-nested-workspaces.md#df-nested-workspaces-a-nested-project-is-named-by-its-whole-alias-path)). An ID never contains `/`, so the path/ID split is the
+last separator — one rule, applied identically by the scanner, the CLI argument
+parser, and the `[citations]` rule parser.
+
+The path is absolute with respect to the **outermost** workspace, not the one
+the command started in, so a narrowed run resolves a subset of the same names
+instead of a re-spelled set of its own. `enclosing_alias_prefix` recovers it by
+climbing to the nearest ancestor that both declares `[workspace]` and lists the
+directory below it — an ancestor that does not claim this tree says nothing
+about how it is named.
+
+Expansion is bounded by the canonical project roots already collected: each is
+recorded as it is added, and a member resolving to one already present is a
+config error at the `members` line that introduced it — never a silent skip,
+never an unbounded walk. Depth needs no separate limit because each recursion
+step consumes a distinct root.
+
+Three invariants are per-block, because every `[workspace]` block is a workspace
+root in its own right (§5.1 — one loader, whatever the depth):
+`workspace_boundary_roots` (§6) comes from that block's own member list, so each
+scan stops at its own members; `include_root` decides that block's own project
+only; and alias uniqueness is checked within one sibling set, since paths under
+different parents cannot collide.
 
 ## 7. Standalone members fail loud, not silent
 
@@ -260,7 +294,15 @@ test that fails if the invariant is broken:
 | Resolver returns `None` ⇒ diagnostic, never skip | `e2e/cases/workspace-unknown-alias`; `e2e/cases/workspace-standalone-cross-project` |
 | Alias check fires at use, both for `project_name` and the basename fallback | `e2e/cases/workspace-invalid-auto-alias`; `e2e/cases/workspace-duplicate-auto-alias` |
 | Missing section on a qualified citation reports at the citation site | `e2e/cases/workspace-cross-project-missing-section` |
-| Nested workspace rejected                        | `e2e/cases/workspace-member-with-nested-workspace` |
+| Nested projects are named by their whole alias path | `e2e/cases/workspace-nested-members` |
+| The intermediate node is a project, scanned under its own config | `e2e/cases/workspace-nested-group-is-scanned` |
+| `include_root = false` drops the node but keeps its segment | `e2e/cases/workspace-nested-group-include-root-false` |
+| Same alias under two parents is not a duplicate  | `e2e/cases/workspace-nested-same-alias-different-parents` |
+| Duplicate alias within one sibling set rejected  | `e2e/cases/workspace-nested-duplicate-alias` |
+| Nested block with nothing in scope rejected      | `e2e/cases/workspace-nested-empty-scope` |
+| A short leaf name names the project it could have meant | `e2e/cases/workspace-nested-short-alias-hint` |
+| A narrowed run resolves a subset, not a re-spelling | `e2e/cases/workspace-nested-subtree-scope` |
+| Nested member cycle rejected, expansion terminates | `nested_workspace_member_cycle_is_rejected` (`crates/grund-core/src/tests_workspace.rs`) |
 | Boundary skips member from root scan in `check`  | `workspace_boundary_root_is_not_scanned_as_parent_content` / `workspace_boundary_nested_scan_root_is_not_scanned_as_parent_content` (`crates/grund-core/src/tests.rs`); `e2e/cases/workspace-cross-project-valid` |
 | Boundary skips member from root scan in non-`check` commands | `e2e/cases/workspace-list-respects-boundary` |
 | Member without its own config falls back to canonical defaults | `e2e/cases/workspace-member-without-config` |

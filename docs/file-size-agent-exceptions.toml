@@ -237,7 +237,7 @@ path = "docs/functional-spec/FS-workspace.md"
 match = "exact"
 rules = ["docs"]
 kind = "deferred"
-max_accepted = { value = 330, unit = "lines" }
+max_accepted = { value = 376, unit = "lines" }
 until = "split into child FS documents once a grund refs sweep can be landed with the move"
 reason = """
 A spec whose numbered sections are live citation targets, so splitting relocates IDs: `grund refs` must be swept and every citing site updated in the same change, or the repository fails its own grounding check. That coupling between document structure and the citation graph, not the prose, is what makes this heavier than a 78-line overage suggests.
@@ -261,4 +261,14 @@ max_accepted = { value = 475, unit = "lines" }
 until = "a third shorthand behaviour area earns its own module, the way the rewrite cases already did"
 reason = """
 The rewrite cases already left, to tests_shorthand_rewrite.rs — that was the seam, and it is spent. What remains is one area: what `check` reports about a shorthand, plus the two surfaces that must agree with it (the CLI argument resolver and the LSP snapshot). These fail together — a change to the recognition boundary or the candidate rule breaks the report, the query, and the editor in one move — so a reader chasing one is chasing all three. A second cut here would be by fixture shape rather than by behaviour, which is the split the tests rule exists to prevent.
+"""
+[[exceptions]]
+path = "docs/architecture/AR-workspace.md"
+match = "exact"
+rules = ["docs"]
+kind = "deferred"
+max_accepted = { value = 264, unit = "lines" }
+until = "split into child AR documents once a grund refs sweep can be landed with the move"
+reason = """
+An architecture note whose numbered sections are live citation targets — §AR-workspace.4, .5.1, .6, .6.1, .8 are cited from the specs, the e2e contracts table, and the source. Splitting relocates those IDs, so the move and a full grund refs sweep of every citing site have to land together or the repository fails its own grounding check. The coupling to the citation graph, not the prose, is what defers this.
 """
