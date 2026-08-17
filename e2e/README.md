@@ -16,7 +16,9 @@ e2e/cases/<case-name>/
 
 `spec.refs` is required. Every non-empty line must cite a functional spec ID such as `FS-001-check.3.1`; the harness rejects cases that do not cite the behavior they exercise.
 
-An optional `symlinks` file adds links the fixture cannot carry in git: one `<link> -> <target>` per line, both relative to the fixture repo, created in the copied tree at run time. Such a case must run against `{repo_copy}`, and it is **skipped** where the platform cannot create a directory symlink — git on Windows checks a committed symlink out as a text file holding its target unless developer mode is on, so the fixture would be a different tree and the golden would fail for a reason the case is not about.
+An optional `symlinks` file adds links the fixture cannot carry in git: one `<link> -> <target>` per line, both relative to the fixture repo, created in the copied tree at run time. Such a case must run against `{repo_copy}`, and it does not run where the platform cannot create a directory symlink — git on Windows checks a committed symlink out as a text file holding its target unless developer mode is on, so the fixture would be a different tree and the golden would fail for a reason the case is not about.
+
+A case that does not run is **not** a case that passed. The harness probes the directory it actually creates the links in (`target/e2e-work/`, not the system temp directory), and at the end of each pass it prints every case it skipped with the reason and the count. On a platform that can create a directory symlink a skip is a hard failure, because there it means the harness lost the coverage rather than the platform refusing it.
 
 `expected.exit` contains `0`, `1`, or `2`. `expected.stdout` and `expected.stderr` are compared byte-for-byte, except that a file containing only one newline is treated as empty so empty golden files can be represented cleanly in patches.
 

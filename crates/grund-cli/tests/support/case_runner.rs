@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::OnceLock;
 
 const CANONICAL_KINDS: &[&str] = &["GRUND", "GOAL", "FS", "AR", "DF", "DA", "E2E", "RM"];
 
@@ -16,6 +17,56 @@ impl CaseKind {
     fn requires_spec_refs(self) -> bool {
         matches!(self, CaseKind::E2e)
     }
+}
+
+/// What one pass over one case actually did. A skipped case is not a passing case
+/// and libtest has no third verdict, so the outcome is returned rather than
+/// swallowed: [`assert_every_case_ran`] counts and names the skips at the end of
+/// the pass, and fails where the platform had no excuse for one.
+pub enum CaseOutcome {
+    /// The case ran and its goldens were compared.
+    Ran,
+    /// This pass does not apply to the case — a mutating case has no
+    /// deterministic-rerun contract, because the second run would see the tree the
+    /// first one wrote.
+    NotApplicable,
+    /// The platform could not build the fixture, so nothing was compared.
+    Skipped { case: String, why: &'static str },
+}
+
+/// Why a case with a `symlinks` manifest may not run. One reason, named once, so
+/// the summary and the skip cannot drift.
+const SYMLINK_SKIP: &str = "the platform cannot create a directory symlink under target/e2e-work";
+
+/// Account for every case a pass did not run (§FS-errors.2.2 in spirit: a run says
+/// what it did not do). A skip is printed with its reason and counted — never
+/// folded into the pass total — and on a platform that can always create a
+/// directory symlink it is a **failure**, because there a skipped case means the
+/// harness lost the coverage rather than the platform refusing it. That is the
+/// shape the old bare `return` hid: an unrelated `TMPDIR` property deleted the
+/// member-containment coverage on Linux and macOS and still printed `4 passed`.
+pub fn assert_every_case_ran(label: &str, outcomes: &[CaseOutcome]) {
+    let skipped = outcomes
+        .iter()
+        .filter_map(|outcome| match outcome {
+            CaseOutcome::Skipped { case, why } => Some(format!("  {case}: {why}")),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if skipped.is_empty() {
+        return;
+    }
+    let summary = format!(
+        "{label}: {} case(s) skipped, not passed:\n{}",
+        skipped.len(),
+        skipped.join("\n")
+    );
+    assert!(
+        !cfg!(unix),
+        "{summary}\nthis platform can create a directory symlink, so a skipped case is lost \
+         coverage rather than an unsupported feature"
+    );
+    eprintln!("{summary}");
 }
 
 pub fn discover_e2e_cases(manifest_dir: &Path) -> Vec<PathBuf> {
@@ -50,10 +101,20 @@ fn discover_case_dirs(root: &Path, include: impl Fn(&Path) -> bool) -> Vec<PathB
     cases
 }
 
-pub fn assert_case_is_deterministic(manifest_dir: &Path, case: &Path) {
+pub fn assert_case_is_deterministic(manifest_dir: &Path, case: &Path) -> CaseOutcome {
     let name = case_name(case);
-    if is_mutating_case(case) || !case_symlinks(case).is_empty() && !symlinks_supported() {
-        return;
+    // Two independent questions, one `if` each. Written as one expression they read
+    // as `mutating || (has_links && !supported)`, and since a manifest case is
+    // always a `{repo_copy}` case (`run_case` requires it) the first clause always
+    // won: the platform skip added for those cases decided nothing at all.
+    if !case_symlinks(case).is_empty() && !symlinks_supported(manifest_dir) {
+        return CaseOutcome::Skipped {
+            case: name.to_string(),
+            why: SYMLINK_SKIP,
+        };
+    }
+    if is_mutating_case(case) {
+        return CaseOutcome::NotApplicable;
     }
     let args = command_args(manifest_dir, case, name);
     let first = run_grund(manifest_dir, &args, name);
@@ -71,19 +132,24 @@ pub fn assert_case_is_deterministic(manifest_dir: &Path, case: &Path) {
         first.stderr, second.stderr,
         "{name}: stderr differs between runs"
     );
+    CaseOutcome::Ran
 }
 
-pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) {
+pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) -> CaseOutcome {
     let name = case_name(case);
     if kind.requires_spec_refs() {
         assert_spec_refs(case, name);
     }
-    // A case whose fixture needs a symlink is skipped where the platform cannot
+    // A case whose fixture needs a symlink cannot run where the platform cannot
     // make one: a committed symlink is checked out as a text file on Windows
     // without developer mode, so the fixture is built at run time and the case
-    // reports nothing rather than a different tree's output (§FS-workspace.6.1).
-    if !case_symlinks(case).is_empty() && !symlinks_supported() {
-        return;
+    // would otherwise compare a different tree's output (§FS-workspace.6.1). The
+    // skip is returned, so the pass counts and names it instead of exiting 0.
+    if !case_symlinks(case).is_empty() && !symlinks_supported(manifest_dir) {
+        return CaseOutcome::Skipped {
+            case: name.to_string(),
+            why: SYMLINK_SKIP,
+        };
     }
 
     let args = command_args(manifest_dir, case, name);
@@ -98,7 +164,7 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) {
         write_expected(&case.join("expected.exit"), &format!("{actual_exit}\n"));
         write_expected(&case.join("expected.stdout"), &actual_stdout);
         write_expected(&case.join("expected.stderr"), &actual_stderr);
-        return;
+        return CaseOutcome::Ran;
     }
 
     let expected_exit = read_to_string(case.join("expected.exit"));
@@ -117,6 +183,7 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) {
     assert_eq!(actual_stdout, expected_stdout, "{name}: stdout mismatch");
     assert_eq!(actual_stderr, expected_stderr, "{name}: stderr mismatch");
     assert_expected_repo(case, manifest_dir, name);
+    CaseOutcome::Ran
 }
 
 fn case_name(case: &Path) -> &str {
@@ -219,16 +286,39 @@ fn case_symlinks(case: &Path) -> Vec<(String, String)> {
         .collect()
 }
 
-/// Whether this platform lets the test process create a directory symlink at all.
-/// On Windows that needs developer mode or elevation, so the answer is a probe
-/// rather than a `cfg`.
-fn symlinks_supported() -> bool {
-    let probe =
-        std::env::temp_dir().join(format!("grund-e2e-symlink-probe-{}", std::process::id()));
-    let _ = fs::remove_file(&probe);
-    let made = symlink_dir(Path::new("."), &probe).is_ok();
-    let _ = fs::remove_file(&probe);
-    made
+/// Whether this platform lets the test process create a directory symlink **where
+/// the cases create theirs** — `target/e2e-work/`, the fixture-copy root. On
+/// Windows that needs developer mode or elevation, so the answer is a probe rather
+/// than a `cfg`; probing `std::env::temp_dir()` instead answered a question no case
+/// asks, and a `TMPDIR` that cannot hold a symlink silently deleted the coverage on
+/// Linux and macOS.
+///
+/// Probed once per process (`OnceLock`), which is also what makes it safe from the
+/// threads libtest runs the passes on: the old pid-keyed probe raced with itself,
+/// and its `remove_file` cleanup fails on Windows, where a directory symlink is a
+/// directory — so the first call left the probe behind and every later call
+/// reported `false`.
+fn symlinks_supported(manifest_dir: &Path) -> bool {
+    static SUPPORTED: OnceLock<bool> = OnceLock::new();
+    *SUPPORTED.get_or_init(|| {
+        let work = manifest_dir.join("target/e2e-work");
+        if fs::create_dir_all(&work).is_err() {
+            return false;
+        }
+        let probe = work.join("symlink-support-probe");
+        remove_symlink(&probe);
+        let made = symlink_dir(Path::new("."), &probe).is_ok();
+        remove_symlink(&probe);
+        made
+    })
+}
+
+/// Remove a path that may be a *directory* symlink. `remove_file` is enough on
+/// Unix and fails on Windows, where such a link is a directory to `fs`.
+fn remove_symlink(path: &Path) {
+    if fs::remove_file(path).is_err() {
+        let _ = fs::remove_dir(path);
+    }
 }
 
 #[cfg(unix)]
