@@ -120,6 +120,14 @@ If no split keeps the document coherent, ask a human rather than cutting at an a
 """
 
 [[messages]]
+id = "split-entrypoint-soft"
+text = """
+Should split or shrink: this file is read whole, not by citation — an agent entrypoint is loaded into every session's context, a README by whoever arrives first, a SKILL.md when the skill loads. Every line is charged to every one of those reads (§GOAL-token-economy), which is why the budget here is a fraction of the one the citable `docs/` tree gets.
+Move detail into a `docs/` document and link it, so the whole-file read stays the summary and the depth is fetched on demand.
+fissile exception add <path> --severity soft --rule {rule}
+"""
+
+[[messages]]
 id = "split-script-soft"
 text = """
 Should split or shrink: a repo script this long is usually a pipeline of stages. Extract the stages into functions in a sibling module, or move the whole job into a crate under `crates/` if it has grown real logic worth testing.
@@ -208,15 +216,40 @@ count_comment_lines = false
 priority = 20
 message = "split-python-tests"
 
+# The citable tree gets a budget an order of magnitude above the code rules,
+# because `grund` changes who pays for a document's length. A reader arrives at
+# a spec through a citation and reads a lead, a section, or a table of contents
+# (§FS-show) — never the file — so length here is not charged to every read the
+# way it is for a source file an agent opens whole. What still costs is a
+# document covering two subjects, and that is a structure problem the soft tier
+# names; the hard tier is the backstop for one that has stopped being a
+# document at all (§AR-ci.9, §GOAL-token-economy).
 [[rules]]
 id = "docs"
-include = ["docs/**/*.md", "skills/**/*.md", "README.md", "CLAUDE.md", "AGENTS.md"]
+include = ["docs/**/*.md"]
 unit = "lines"
-soft = 250
-hard = 400
+soft = 750
+hard = 1500
 count_blank_lines = false
 count_comment_lines = true
 soft_message = "split-doc-soft"
+hard_message = "split-doc-hard"
+
+# Entrypoints are the exception to the paragraph above: nothing addresses them
+# by citation, so they are read whole — `CLAUDE.md` and `AGENTS.md` into every
+# session's context, `README.md` by whoever arrives first, a `SKILL.md` when the
+# skill loads. Length here is charged to every one of those reads, which is
+# exactly the cost §GOAL-token-economy is about, so these keep the tighter
+# budget the whole markdown tree used to carry.
+[[rules]]
+id = "entrypoints"
+include = ["README.md", "CLAUDE.md", "AGENTS.md", "skills/**/*.md"]
+unit = "lines"
+soft = 250
+hard = 500
+count_blank_lines = false
+count_comment_lines = true
+soft_message = "split-entrypoint-soft"
 hard_message = "split-doc-hard"
 
 [[rules]]

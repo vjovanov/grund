@@ -117,13 +117,3 @@ until = "extract the pure rendering layer so it can be tested"
 reason = """
 Measurement, aggregation, and report rendering in one script. Rendering is the only part with no I/O and the only part worth testing, and it is currently unreachable from a test. Extracting it makes the script testable, which is the real argument here; the line count is only the symptom.
 """
-[[exceptions]]
-path = "docs/user-facing/clickable-citations.md"
-match = "exact"
-rules = ["docs"]
-kind = "deferred"
-max_accepted = { value = 493, unit = "lines" }
-until = "write the shared model explicitly, then split per surface into child documents"
-reason = """
-One document covering every surface (PR bodies, reviews, permalinks, local conversations) because the rules are largely stated by contrast with one another, and a reader deciding what to emit needs that comparison in view. Splitting per surface loses it. Missing boundary: a parent stating the shared model with children per surface — which requires the shared model to be written first, since today it exists only implicitly in the contrasts.
-"""
