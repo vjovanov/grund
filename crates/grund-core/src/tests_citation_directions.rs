@@ -382,14 +382,35 @@ default = "must-not"
             )
         };
 
-        for target in ["/AR", "Root/AR", "group/Api/AR", "group//AR"] {
+        // The message is the CLI's, so a nested path names the failing *segment*
+        // rather than quoting the whole path against a one-segment pattern
+        // (§FS-workspace.8).
+        for (target, expected) in [
+            ("/AR", "citation target `/AR`: invalid project alias: the path before the ID is empty"),
+            ("Root/AR", "citation target `Root/AR`: invalid project alias `Root`"),
+            (
+                "group/Api/AR",
+                "citation target `group/Api/AR`: invalid project alias segment `Api` in `group/Api`",
+            ),
+            (
+                "group//AR",
+                "citation target `group//AR`: invalid project alias `group/`: a segment is empty",
+            ),
+        ] {
             write(&root.join(".agents/grund.toml"), &cfg(target));
             match load_config(&root) {
                 Ok(_) => panic!("malformed citation namespace qualifier must be rejected"),
-                Err(err) => assert!(
-                    err.to_string().contains("invalid namespace qualifier"),
-                    "expected an invalid qualifier error for {target}, got: {err}"
-                ),
+                Err(err) => {
+                    let err = format!("{err:#}");
+                    assert!(
+                        err.contains(expected),
+                        "expected `{expected}` for {target}, got: {err}"
+                    );
+                    assert!(
+                        err.contains("— `*` matches any project"),
+                        "the qualifier that is not an alias path is still worth naming: {err}"
+                    );
+                }
             }
         }
 

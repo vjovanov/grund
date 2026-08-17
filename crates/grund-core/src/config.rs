@@ -498,14 +498,6 @@ fn is_valid_project_alias(alias: &str) -> bool {
         && chars.all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
 }
 
-/// §FS-workspace.1 / §FS-workspace.6.1: a qualified citation's namespace is one
-/// alias segment per workspace level, so validating it is validating every
-/// segment. A single-level workspace is the one-segment case of this, not a
-/// different rule.
-fn is_valid_project_path(path: &str) -> bool {
-    !path.is_empty() && path.split('/').all(is_valid_project_alias)
-}
-
 /// Drop a trailing `#`-comment from a `grund.toml` line (§FS-config.3).
 fn strip_comment(line: &str) -> &str {
     // A `#` inside a quoted string is not a comment marker. Walk the line and stop at the
@@ -703,13 +695,16 @@ fn parse_citation_target(path: &Path, line_no: usize, token: &str) -> Result<Cit
             let namespace = if qualifier == "*" {
                 NamespaceMatch::Any
             } else {
-                if !is_valid_project_path(qualifier) {
+                // §FS-config.3.9.3: a rule entry's qualifier is the alias path a
+                // citation writes, so a bad one is named the way the CLI names a bad
+                // `<alias>/<ID>` argument — the failing *segment*, not the whole
+                // path, which in a nested tree is usually mostly right
+                // (§FS-workspace.8, §GOAL-friendliness-first).
+                if let Some(message) = invalid_alias_path_message(qualifier) {
                     bail_config(
                         path,
                         line_no,
-                        format!(
-                            "citation target `{token}` has invalid namespace qualifier `{qualifier}` (expected * or [a-z][a-z0-9-]*, one segment per workspace level)"
-                        ),
+                        format!("citation target `{token}`: {message} — `*` matches any project"),
                     )?;
                 }
                 NamespaceMatch::Alias(qualifier.to_string())
