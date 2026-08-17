@@ -358,3 +358,12 @@ test that fails if the invariant is broken:
 
 These are the contracts a future change must keep green; if a change cannot
 keep one of them green, the change is breaking the layering — not the test.
+
+**Which platforms actually run them.** One row above is not covered everywhere: a member root can only escape
+its own block through a symlink, so every unit test for that rule is `#[cfg(unix)]` and the two e2e cases build
+their links at run time into `target/e2e-work/`. Where a directory symlink cannot be created — Windows without
+developer mode or elevation — those cases do not run. The harness probes the directory it creates the links in,
+counts each case it could not run, names it with the reason, and fails outright on a platform that *can* create
+one, so lost coverage cannot read as a pass; but a green `windows-latest` job ([§AR-ci](AR-ci.md#ar-ci-ci-mirrors-the-local-pre-commit-gate)) is still not
+evidence for the member-containment rejection rule. Reaching it there needs a Windows runner with symlink
+creation enabled.
