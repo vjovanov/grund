@@ -538,9 +538,18 @@ fn workspace_member_root(config: &Config, written: &str, lexical: &Path) -> Resu
 /// §FS-workspace.6.1: every `[workspace]` block must put at least one project
 /// in scope — a block that contributes nothing would silently drop its whole
 /// subtree from the check.
+///
+/// The `members` line is the anchor when there is one; the block that reaches this
+/// error with `include_root = false` and *no* `members` key has none, so it falls
+/// back to its own `[workspace]` line. Without the fallback the message carried no
+/// location at all, in a tree that may hold many blocks (§FS-errors.4).
 fn empty_workspace_error(config: &Config) -> anyhow::Error {
-    workspace_members_error(
-        config,
+    let source = config
+        .workspace_members_source
+        .as_ref()
+        .or(config.workspace_section_source.as_ref());
+    config_location_error(
+        source,
         "workspace has no projects in scope (include_root = false and no members)".to_string(),
     )
 }

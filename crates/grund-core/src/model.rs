@@ -364,6 +364,11 @@ pub struct Config {
     pub workspace_declared: bool,
     pub workspace_members: Vec<String>,
     pub workspace_members_source: Option<ConfigLocation>,
+    /// Where the `[workspace]` table header itself was written (§FS-config.4.3).
+    /// The anchor for an error about the *block* rather than about one key — a
+    /// block with no `members` key at all still has to say which of a tree's many
+    /// blocks it is (§FS-workspace.6.1).
+    pub workspace_section_source: Option<ConfigLocation>,
     pub workspace_include_root: bool,
     pub workspace_boundary_roots: Vec<PathBuf>,
     /// §FS-workspace.6.1: the alias path of the *run's* own workspace root, read
@@ -496,6 +501,7 @@ impl Config {
             workspace_declared: false,
             workspace_members: Vec::new(),
             workspace_members_source: None,
+            workspace_section_source: None,
             workspace_scope_path: String::new(),
             workspace_include_root: true,
             workspace_boundary_roots: Vec::new(),
