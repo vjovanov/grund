@@ -287,7 +287,7 @@ test that fails if the invariant is broken:
 
 | Invariant                                        | Test or fixture |
 |--------------------------------------------------|---|
-| Single regex, marker-anchored                    | `marked_qualified_citation_is_recognised_unmarked_one_is_text` (`crates/grund-core/src/tests.rs`); `e2e/cases/non-strict-bare-slash-not-citation` |
+| Single regex, marker-anchored                    | `marked_qualified_citation_is_recognised_unmarked_one_is_text` (`crates/grund-core/src/tests_grounding_style.rs`); `e2e/cases/non-strict-bare-slash-not-citation` |
 | Resolver returns `None` ⇒ diagnostic, never skip | `e2e/cases/workspace-unknown-alias`; `e2e/cases/workspace-standalone-cross-project` |
 | Alias check fires at use, both for `project_name` and the basename fallback | `e2e/cases/workspace-invalid-auto-alias`; `e2e/cases/workspace-duplicate-auto-alias` |
 | Missing section on a qualified citation reports at the citation site | `e2e/cases/workspace-cross-project-missing-section` |
@@ -296,11 +296,15 @@ test that fails if the invariant is broken:
 | `include_root = false` drops the node but keeps its segment | `e2e/cases/workspace-nested-group-include-root-false` |
 | Same alias under two parents is not a duplicate  | `e2e/cases/workspace-nested-same-alias-different-parents` |
 | Duplicate alias within one sibling set rejected  | `e2e/cases/workspace-nested-duplicate-alias` |
-| Nested block with nothing in scope rejected      | `e2e/cases/workspace-nested-empty-scope` |
+| Nested block with nothing in scope rejected, located either way | `e2e/cases/workspace-nested-empty-scope`; `e2e/cases/workspace-nested-empty-scope-no-members` |
 | A short leaf name names the project it could have meant | `e2e/cases/workspace-nested-short-alias-hint` |
 | A narrowed run resolves a subset, not a re-spelling | `e2e/cases/workspace-nested-subtree-scope` |
-| Nested member cycle rejected, expansion terminates | `nested_workspace_member_cycle_is_rejected` (`crates/grund-core/src/tests_workspace.rs`) |
-| Boundary skips member from root scan in `check`  | `workspace_boundary_root_is_not_scanned_as_parent_content` / `workspace_boundary_nested_scan_root_is_not_scanned_as_parent_content` (`crates/grund-core/src/tests.rs`); `e2e/cases/workspace-cross-project-valid` |
+| A member root escaping its own block rejected, expansion terminates | `nested_workspace_member_pointing_at_an_ancestor_is_rejected`, `workspace_member_resolving_out_of_the_tree_is_rejected`, `workspace_member_resolving_to_its_own_block_is_rejected`, `nested_member_inside_the_block_that_lists_it_loads` (`crates/grund-core/src/tests_workspace_nested.rs`) |
+| An alias path is read from the outermost claiming block, and a claiming block that cannot answer fails the run | `alias_paths_follow_the_outermost_claim_of_a_member`, `enclosing_workspace_that_cannot_expand_fails_the_narrowed_run`, `enclosing_workspace_with_an_invalid_alias_fails_the_narrowed_run` (`crates/grund-core/src/tests_workspace_nested.rs`); `e2e/cases/workspace-nested-enclosing-member-missing` |
+| A narrowed run never re-spells a citation whose target it cannot see | `e2e/cases/workspace-nested-cross-branch-citation-at-root`; `e2e/cases/workspace-nested-cross-branch-citation-narrowed` |
+| Member errors name the entry as the config wrote it | `nested_workspace_member_overlap_names_both_entries_as_written` (`crates/grund-core/src/tests_workspace_nested.rs`) |
+| `init` describes the workspace that claims the target | `workspace_members_ignores_an_ancestor_workspace_that_does_not_claim_the_target`, `workspace_members_at_a_group_its_parent_does_not_list_names_its_own_tree` (`crates/grund-core/src/tests_workspace_members.rs`) |
+| Boundary skips member from root scan in `check`  | `workspace_boundary_root_is_not_scanned_as_parent_content` / `workspace_boundary_nested_scan_root_is_not_scanned_as_parent_content` (`crates/grund-core/src/tests_workspace.rs`); `e2e/cases/workspace-cross-project-valid` |
 | Boundary skips member from root scan in non-`check` commands | `e2e/cases/workspace-list-respects-boundary` |
 | Member without its own config falls back to canonical defaults | `e2e/cases/workspace-member-without-config` |
 | Glob expansion                                   | `e2e/cases/workspace-glob-members` |
