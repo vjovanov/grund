@@ -145,7 +145,7 @@ deep trees and still would not name the offending line.
   config that nests is only ever written for a binary that accepts it.
 - Existing single-level workspaces are unaffected — one level means one segment,
   which is what they already write.
-- [§FS-config.3.9](../../functional-spec/FS-config.md#39-citations--allowed-citation-directions) citation-direction rules take the same path form
+- [§FS-config.3.9](../../functional-spec/FS-config.md#39-citations--citation-direction-rules) citation-direction rules take the same path form
   (`group/api/AR`), split at the last `/` like every other consumer.
 - [§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members) walks to the *outermost* workspace root and renders
   full paths, so a generated entrypoint anywhere in the tree lists the alias
