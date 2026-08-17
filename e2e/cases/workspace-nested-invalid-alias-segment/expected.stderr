@@ -1,0 +1,2 @@
+error: invalid project alias segment `Alpha` in `group/Alpha` (expected [a-z][a-z0-9-]*, one segment per workspace level)
+hint: run `grund check group/Alpha/FS-alpha` to validate a path

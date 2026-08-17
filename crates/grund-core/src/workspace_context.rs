@@ -546,12 +546,33 @@ fn load_workspace_project(
 /// caller can parse it with the target project's grammar.
 fn split_qualified_id_arg(raw: &str) -> Result<(Option<String>, &str)> {
     if let Some((alias, rest)) = raw.rsplit_once('/') {
-        if !is_valid_project_path(alias) {
-            return Err(anyhow!(
-                "invalid project alias `{alias}` (expected [a-z][a-z0-9-]*, one segment per workspace level)"
-            ));
+        if let Some(message) = invalid_alias_path_message(alias) {
+            return Err(anyhow!("{message}"));
         }
         return Ok((Some(alias.to_string()), rest));
     }
     Ok((None, raw))
+}
+
+/// §FS-workspace.8: the diagnostic for an alias path that is not one slug per
+/// level, naming the **segment** that failed. Naming the whole path against a
+/// pattern that forbids `/` would read as "a namespace may not contain `/`",
+/// which is the opposite of the rule (§FS-workspace.1) — and in a nested tree the
+/// path is usually mostly right. A single-segment path is its own segment, so it
+/// is named plainly; an empty segment has nothing to quote and says so.
+fn invalid_alias_path_message(alias: &str) -> Option<String> {
+    const EXPECTED: &str = "expected [a-z][a-z0-9-]*, one segment per workspace level";
+    let segments: Vec<&str> = alias.split('/').collect();
+    let bad = segments
+        .iter()
+        .find(|segment| !is_valid_project_alias(segment))?;
+    Some(if alias.is_empty() {
+        format!("invalid project alias: the path before the ID is empty ({EXPECTED})")
+    } else if bad.is_empty() {
+        format!("invalid project alias `{alias}`: a segment is empty ({EXPECTED})")
+    } else if segments.len() == 1 {
+        format!("invalid project alias `{alias}` ({EXPECTED})")
+    } else {
+        format!("invalid project alias segment `{bad}` in `{alias}` ({EXPECTED})")
+    })
 }

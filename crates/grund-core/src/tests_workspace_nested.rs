@@ -327,4 +327,40 @@ mod tests_workspace_nested {
 
         assert_eq!(aliases, vec!["root", "group", "group/alpha", "group/beta"]);
     }
+
+    /// §FS-workspace.8: an alias path that is not one slug per level names the
+    /// **segment** that failed. Before this the message quoted the whole path
+    /// against a pattern forbidding `/`, which reads as "a namespace may not
+    /// contain `/`" — the opposite of §FS-workspace.1, and in a nested tree the
+    /// path is usually mostly right.
+    #[test]
+    fn an_invalid_alias_path_names_the_offending_segment() {
+        let message = |arg: &str| {
+            format!(
+                "{:#}",
+                split_qualified_id_arg(arg).expect_err("malformed alias path is rejected")
+            )
+        };
+
+        assert_eq!(
+            message("group/Alpha/FS-x"),
+            "invalid project alias segment `Alpha` in `group/Alpha` (expected [a-z][a-z0-9-]*, one segment per workspace level)"
+        );
+        assert_eq!(
+            message("group//FS-x"),
+            "invalid project alias `group/`: a segment is empty (expected [a-z][a-z0-9-]*, one segment per workspace level)"
+        );
+        assert_eq!(
+            message("/FS-x"),
+            "invalid project alias: the path before the ID is empty (expected [a-z][a-z0-9-]*, one segment per workspace level)"
+        );
+        // A single-segment path *is* its own segment, so it is named plainly.
+        assert_eq!(
+            message("Group/FS-x"),
+            "invalid project alias `Group` (expected [a-z][a-z0-9-]*, one segment per workspace level)"
+        );
+
+        let (alias, id) = split_qualified_id_arg("group/alpha/FS-x").expect("a valid path splits");
+        assert_eq!((alias.as_deref(), id), (Some("group/alpha"), "FS-x"));
+    }
 }
