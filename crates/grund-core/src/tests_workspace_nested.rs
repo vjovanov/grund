@@ -81,6 +81,37 @@ mod tests_workspace_nested {
         );
     }
 
+    /// §FS-workspace.6.1: the containment rule is about where an entry *resolves*,
+    /// not which of its segments carries the symlink — a symlinked **parent**
+    /// (`members = ["pkgs/api"]` with `pkgs -> ../store/pkgs`) leaves the tree just
+    /// as surely as a symlinked member does, and the migration note says both.
+    #[test]
+    #[cfg(unix)]
+    fn a_member_reached_through_a_symlinked_parent_is_rejected() {
+        let root = physical_test_root("a_member_reached_through_a_symlinked_parent_is_rejected");
+        write(
+            &root.join("repo/grund.toml"),
+            "grund_config_version = 1\nproject_name = \"root\"\n\n[workspace]\nmembers = [\"pkgs/api\"]\n",
+        );
+        write(
+            &root.join("store/pkgs/api/grund.toml"),
+            "grund_config_version = 1\nproject_name = \"api\"\n",
+        );
+        std::os::unix::fs::symlink(root.join("store/pkgs"), root.join("repo/pkgs"))
+            .expect("point a member's parent segment out of the workspace tree");
+
+        let mut config = load_config(&root.join("repo")).expect("load workspace root config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("a member reached through a symlinked parent must fail expansion");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "grund.toml:5: workspace member `pkgs/api` resolves outside the workspace root that lists it",
+            "the entry is named as written, at the line that listed it"
+        );
+    }
+
     /// §FS-workspace.6.1: a member that resolves *to* the block listing it — the
     /// `self` symlink — is the boundary case of the same rule, and stays rejected.
     #[test]
