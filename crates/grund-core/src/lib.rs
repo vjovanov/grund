@@ -14,6 +14,7 @@ use unicode_normalization::UnicodeNormalization;
 // are still included flat to keep this first package split behavior-preserving.
 include!("grammar.rs");
 include!("id_format.rs");
+include!("id_grammar_rules.rs");
 include!("shorthand.rs");
 include!("model.rs");
 include!("config_discovery.rs");
