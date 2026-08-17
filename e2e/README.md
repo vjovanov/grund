@@ -46,6 +46,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - top-level help output
 - per-subcommand help (`grund help check`, `grund help show`, `grund help list`)
 - `grund help <unknown>` failure
+- nested-workspace shell completions: the alias-path candidates a nested tree offers with no prefix, a mid-path prefix offering the grouping node's own ID beside its members' deeper paths, and one more Tab reaching a leaf's IDs — the typed prefix never re-offered
 - `list` ID catalog (text), comma and repeated multi-kind `--kind`, `--unused`, `--summary`, summary composition with `--kind` / `--unused`, `--format json`
 - JSON report output
 - `fmt --check` trigger-to-marker report

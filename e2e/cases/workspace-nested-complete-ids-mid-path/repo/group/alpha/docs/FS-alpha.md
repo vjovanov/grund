@@ -1,0 +1,3 @@
+# FS-alpha: Alpha
+
+Alpha cites §group/beta/FS-beta sideways and §group/FS-group upward.

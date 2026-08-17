@@ -1,0 +1,1 @@
+complete ids --prefix group/ {repo}
