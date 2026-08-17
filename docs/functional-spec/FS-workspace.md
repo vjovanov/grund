@@ -201,33 +201,17 @@ is also what makes expansion terminate ([AR-workspace.6.1](../architecture/AR-wo
 Scope follows §5 unchanged: discovery stops at the *nearest* config
 ([§FS-config.1](FS-config.md#1-file-location-and-discovery)), so a command invoked at an intermediate node runs that
 node's subtree. **Alias paths do not change with scope** for every project the
-*claimed chain* reaches: the chain of `[workspace]` blocks from the outermost
-root down, each one listing the directory below it among its `members`. A path is
-read from the outermost block that claims the run's own root, so a narrowed run
+*claimed chain* reaches — the `[workspace]` blocks from the outermost root down,
+each listing the directory below it among its `members` — so a narrowed run
 resolves a *subset* of the same paths rather than a re-spelled set of its own.
 Inside `hardware/`, `<§>hardware/sprayer/<ID>` still names what it names at the
 repository root and `<§>final/<ID>` is simply unknown. The alternative would let
 a citation pass a subtree check and fail the run CI does, which is
 [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) failing in the one place it has to hold.
 
-Reading a path from that chain means every block in it has to answer. A block
-that declares `[workspace]` and claims this directory either contributes its
-segment or fails the run with **its own error** — a member that does not exist,
-overlapping expanded roots, an invalid alias for the project below it — the same
-diagnostic a run at that block reports, from the same `members` or `project_name`
-line. Dropping the block and naming the subtree from below instead would invent a
-namespace no other scope agrees with, and
-[§FS-check.3.8](FS-check.md#38-cross-project-citation-failure) would then hint the one spelling that fails at the root.
-
-A `[workspace]` block that no enclosing block lists is **not** part of that
-chain, and its paths are not stable across scopes. At the outer scope the block
-is ignored: its directory is an ordinary part of the enclosing project's
-namespace when that project's scan reaches it, and is checked by nobody when it
-does not. A run started inside it reads every path from itself instead. `grund
-check` does not report such a block today — finding one needs a walk for config
-files that no pass performs — so this is a known limitation rather than a
-diagnosed error: a `[workspace]` block joins the tree only when the block above
-it lists it as a member.
+Three rules keep one chain readable from every scope. **A path is read from the outermost block that claims a directory:** a multi-segment `members` entry (`grp/inner`) hops a directory that may itself declare `[workspace]` and list the same child, and the outer claim is the one the walk down from the outermost root follows — ordinary nesting has one claim per directory, where the two agree.
+**A block that claims a directory and cannot answer** — a missing member, overlapping roots, an invalid alias for the project below it — fails the run with *its own error*, from its own `members` or `project_name` line; dropping its segment would let the subtree invent a namespace, and [§FS-check.3.8](FS-check.md#38-cross-project-citation-failure) would then hint the one spelling that fails at the root.
+**A `[workspace]` block that no enclosing block lists is outside the chain:** at the outer scope it is ignored, so its tree belongs to the enclosing project's namespace when that project's scan reaches it and to nobody when it does not, while a run started inside it names every path from itself. `grund check` does not report such a block — finding one needs a walk for config files no pass performs — so it is a known limitation rather than a diagnosed error.
 
 ## 7. Neighboring repos
 

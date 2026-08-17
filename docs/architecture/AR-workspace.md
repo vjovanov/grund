@@ -220,18 +220,13 @@ and the `refs`/`list` JSON keys would each have grown a second shape
 last separator — one rule, applied identically by the scanner, the CLI argument
 parser, and the `[citations]` rule parser.
 
-The path is absolute with respect to the **outermost** workspace, not the one
-the command started in, so a narrowed run resolves a subset of the same names
-instead of a re-spelled set of its own. `enclosing_alias_prefix` recovers it by
-climbing to the nearest ancestor that both declares `[workspace]` and lists the
-directory below it — an ancestor that does not claim this tree says nothing
-about how it is named.
+The path is absolute with respect to the **outermost** workspace, not the one the command started in, so a narrowed run resolves a subset of the same names instead
+of a re-spelled set of its own. `enclosing_alias_prefix` recovers it by climbing the ancestors that both declare `[workspace]` and list the directory below them, and
+takes the **outermost** claim: a multi-segment `members` entry may hop a block that lists the same child, and the top-down walk composes the path through the outer one.
+The climb is fallible — a claiming block that cannot expand its members or name the project below it raises that block's own error, since dropping it would silently
+re-spell the subtree, while an ancestor whose config does not even load is no claim at all and is climbed past.
 
-That climb is also the boundary of the guarantee: it reaches the chain of blocks
-that claim each other, and a `[workspace]` block no enclosing block lists is
-outside it — absorbed into the enclosing namespace at the outer scope, a root of
-its own from the inside, and not diagnosed by any pass
-([§FS-workspace.6.1](../functional-spec/FS-workspace.md#61-nested-workspaces)).
+That chain of mutual claims is also the boundary of the guarantee: a `[workspace]` block no enclosing block lists is outside it — absorbed into the enclosing namespace at the outer scope, a root of its own from the inside, and diagnosed by no pass ([§FS-workspace.6.1](../functional-spec/FS-workspace.md#61-nested-workspaces)).
 
 Expansion is bounded by the canonical project roots already collected: each is
 recorded as it is added, and a member resolving to one already present is a
