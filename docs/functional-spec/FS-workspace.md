@@ -220,20 +220,28 @@ vanish and its dangling citations pass.
 
 Scope follows §5 unchanged: discovery stops at the *nearest* config
 ([§FS-config.1](FS-config.md#1-file-location-and-discovery)), so a command invoked at an intermediate node runs that
-node's subtree. **Alias paths do not change with scope** for every project the
-*claimed chain* reaches — the `[workspace]` blocks from the outermost root down,
-each listing the directory below it among its `members` — so a narrowed run
-resolves a *subset* of the same paths rather than a re-spelled set of its own.
+node's subtree. **Alias paths do not change with scope** for every scope *in* the
+**claimed chain** — the `[workspace]` blocks from the outermost root down, each
+listing the directory below it among its `members` — so a run started at any of
+those blocks resolves a *subset* of the same paths rather than a re-spelled set of
+its own. The guarantee is quantified over the **scope**, not over the project: a
+block the chain never lists is not one of those scopes even when the projects
+*under* it are reached by the chain, which a multi-segment entry (`grp/inner`)
+makes routine, and a run started at such a block names every path from itself. A
+citation can therefore pass that block's check and fail the run CI does — the
+limitation the third rule below records, not a property of a chained scope.
 Inside `hardware/`, `<§>hardware/sprayer/<ID>` still names what it names at the
 repository root and `<§>final/<ID>` is simply unknown — unknown *here*, which is
 what the narrowed run's diagnostic says instead of proposing a project it does
-hold ([§FS-check.3.8](FS-check.md#38-cross-project-citation-failure)). The alternative would let
-a citation pass a subtree check and fail the run CI does, which is
+hold ([§FS-check.3.8](FS-check.md#38-cross-project-citation-failure)). The alternative — naming a
+subtree's projects from the subtree — would make that disagreement the rule at
+*every* scope rather than the recorded exception at one: a citation passing a
+subtree check and failing the run CI does, which is
 [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) failing in the one place it has to hold.
 
 Three rules keep one chain readable from every scope. **A path is read from the outermost block that claims a directory:** a multi-segment `members` entry (`grp/inner`) hops a directory that may itself declare `[workspace]` and list the same child, and the outer claim is the one the walk down from the outermost root follows — ordinary nesting has one claim per directory, where the two agree.
 **A block that claims a directory and cannot answer** — a missing member, overlapping roots, an invalid alias for the project below it — fails the run with *its own error*, from its own `members` or `project_name` line; dropping its segment would let the subtree invent a namespace, and [§FS-check.3.8](FS-check.md#38-cross-project-citation-failure) would then hint the one spelling that fails at the root. The obligation is the claim's, and only the claim's: a block that does not name this directory is not asked, so a `members` list it could not expand is not an error in a run below it. Otherwise one broken config anywhere above a repository — at any depth up to `/`, in a workspace that never mentions it — would answer every command inside it.
-**A `[workspace]` block that no enclosing block lists is outside the chain:** at the outer scope it is ignored, so its tree belongs to the enclosing project's namespace when that project's scan reaches it and to nobody when it does not, while a run started inside it names every path from itself. `grund check` does not report such a block — finding one needs a walk for config files no pass performs — so it is a known limitation rather than a diagnosed error.
+**A `[workspace]` block that no enclosing block lists is outside the chain:** at the outer scope it is ignored, so its tree belongs to the enclosing project's namespace when that project's scan reaches it and to nobody when it does not, while a run started **at** it names every path from itself — a run started at a block *below* it that the chain does list is back inside the guarantee. `grund check` does not report such a block — finding one needs a walk for config files no pass performs — so it is a known limitation rather than a diagnosed error.
 
 ## 7. Neighboring repos
 

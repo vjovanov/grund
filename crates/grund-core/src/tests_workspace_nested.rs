@@ -98,6 +98,55 @@ mod tests_workspace_nested {
         );
     }
 
+    /// §FS-workspace.6.1, the recorded limitation of the scope guarantee, pinned so
+    /// the spec stays honest about it: alias paths are stable for every scope *in*
+    /// the claimed chain, and `grp` — hopped by `mid`'s multi-segment entry
+    /// `grp/inner`, listed by nobody — is not one of them. A run started there
+    /// names its tree from itself, even though the projects below it *are* reached
+    /// by the chain, so `§inner/leaf/…` passes here and fails at the root.
+    #[test]
+    fn a_block_the_chain_never_lists_respells_its_own_subtree() {
+        let root = test_root("a_block_the_chain_never_lists_respells_its_own_subtree");
+        for (dir, body) in [
+            ("", "project_name = \"skip\"\n\n[workspace]\nmembers = [\"mid\"]\n"),
+            (
+                "mid",
+                "project_name = \"mid\"\n\n[workspace]\nmembers = [\"grp/inner\"]\n",
+            ),
+            (
+                "mid/grp",
+                "project_name = \"grp\"\n\n[workspace]\nmembers = [\"inner\"]\n",
+            ),
+            (
+                "mid/grp/inner",
+                "project_name = \"inner\"\n\n[workspace]\nmembers = [\"leaf\"]\n",
+            ),
+            ("mid/grp/inner/leaf", "project_name = \"leaf\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        let aliases_at = |start: &Path| {
+            let mut config = load_config(start).expect("load config");
+            expand_workspace_tree(&mut config)
+                .expect("expand workspace")
+                .into_iter()
+                .map(|entry| entry.alias)
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            aliases_at(&root),
+            vec!["skip", "mid", "mid/inner", "mid/inner/leaf"],
+            "the outermost root reaches the leaf through the hopped block"
+        );
+        assert_eq!(
+            aliases_at(&root.join("mid/grp")),
+            vec!["grp", "inner", "inner/leaf"],
+            "a scope outside the claimed chain names its whole tree from itself"
+        );
+    }
+
     /// §FS-workspace.6.1: a block that claims this directory and cannot expand
     /// its own member list fails the narrowed run with that block's error. The
     /// alternative shipped: the failure read as "does not claim this tree", the
