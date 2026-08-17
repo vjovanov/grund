@@ -212,7 +212,9 @@ node's subtree. **Alias paths do not change with scope** for every project the
 each listing the directory below it among its `members` — so a narrowed run
 resolves a *subset* of the same paths rather than a re-spelled set of its own.
 Inside `hardware/`, `<§>hardware/sprayer/<ID>` still names what it names at the
-repository root and `<§>final/<ID>` is simply unknown. The alternative would let
+repository root and `<§>final/<ID>` is simply unknown — unknown *here*, which is
+what the narrowed run's diagnostic says instead of proposing a project it does
+hold ([§FS-check.3.8](FS-check.md#38-cross-project-citation-failure)). The alternative would let
 a citation pass a subtree check and fail the run CI does, which is
 [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) failing in the one place it has to hold.
 

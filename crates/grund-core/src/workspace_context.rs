@@ -382,6 +382,12 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
     if entries.is_empty() {
         return Err(empty_workspace_error(root_config));
     }
+    // §FS-check.3.8: every project the run loaded carries the run's own scope, so
+    // the diagnostic that would re-spell a citation knows whether it is looking at
+    // the whole tree or a slice of it.
+    for entry in &mut entries {
+        entry.config.workspace_scope_path = self_path.clone();
+    }
     Ok(entries)
 }
 
@@ -517,16 +523,13 @@ fn workspace_member_root(config: &Config, written: &str, lexical: &Path) -> Resu
     }
     let root = fs::canonicalize(lexical).unwrap_or_else(|_| lexical.to_path_buf());
     let block_root = canonical_workspace_path(&config.root);
-    if root == block_root {
+    // Strictly inside: equal is the `self` symlink, not-a-prefix is every other
+    // escape, and the two differ only in the preposition the message needs.
+    if root == block_root || !root.starts_with(&block_root) {
+        let landing = if root == block_root { "to" } else { "outside" };
         return Err(workspace_members_error(
             config,
-            format!("workspace member `{written}` resolves to the workspace root that lists it"),
-        ));
-    }
-    if !root.starts_with(&block_root) {
-        return Err(workspace_members_error(
-            config,
-            format!("workspace member `{written}` resolves outside the workspace root that lists it"),
+            format!("workspace member `{written}` resolves {landing} the workspace root that lists it"),
         ));
     }
     Ok(root)
