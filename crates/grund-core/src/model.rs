@@ -366,6 +366,14 @@ pub struct Config {
     pub workspace_members_source: Option<ConfigLocation>,
     pub workspace_include_root: bool,
     pub workspace_boundary_roots: Vec<PathBuf>,
+    /// §FS-workspace.6.1: the alias path of the *run's* own workspace root, read
+    /// from the outermost workspace and stamped onto every project the run loaded.
+    /// Empty at the outermost root and for a single-project run; non-empty exactly
+    /// when the run is narrowed to a subtree. Not a `grund.toml` key and never read
+    /// from one (like `workspace_boundary_roots`, it is what expansion learned
+    /// about this run): §FS-check.3.8 reads it to know that a path it cannot
+    /// resolve may still be correct at the workspace root.
+    pub workspace_scope_path: String,
     /// Parsed `[citations]` direction rules (§FS-config.3.9). Empty/absent unless
     /// the config declares the section.
     pub citations: CitationRules,
@@ -488,6 +496,7 @@ impl Config {
             workspace_declared: false,
             workspace_members: Vec::new(),
             workspace_members_source: None,
+            workspace_scope_path: String::new(),
             workspace_include_root: true,
             workspace_boundary_roots: Vec::new(),
             citations: CitationRules::default(),

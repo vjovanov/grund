@@ -212,6 +212,12 @@ docs/FS-root.md:3: unknown project alias sprayer; did you mean hardware/sprayer?
 docs/FS-root.md:4: unknown project alias api; did you mean left/api or right/api?
 ```
 
+A run narrowed to a subtree ([§FS-workspace.5](FS-workspace.md#5-command-scope), [§FS-workspace.6.1](FS-workspace.md#61-nested-workspaces)) holds only part of the tree, so a path naming a project outside it is unknown *here* while being exactly right at the workspace root. Such a run offers the **dropped-prefix** tier only, since that tier can add nothing but segments the author left out. The last-segment tier and the typo tier on a multi-segment path are off: their candidate is whichever sibling the narrowed run happens to hold, and following the hint rewrites a citation CI accepts into a different project's — green before and green after, so nothing catches it. With no candidate to offer, a narrowed run names the subtree it covers rather than reporting the path bare, so the diagnostic is not read as "delete this" or "re-prefix this" either:
+
+```text
+docs/AR-bus.md:3: unknown project alias final/pod; only hardware is in scope here — check from the workspace root for a path outside it
+```
+
 ### 3.9 Section heading level mismatch
 
 When `[id] section_heading_levels = "strict"` (the default), every numbered section heading must sit at the Markdown depth implied by its dotted path: expected level is the declaration heading level plus the number of path components ([§FS-config.3.3](FS-config.md#33-section-paths--arbitrary-nesting-depth), [AR-scanner.2.2](../architecture/AR-scanner.md#22-section-detection)). A heading `## 1.1 Details` under an H1 declaration is therefore an error at the heading line: it must be `### 1.1 Details`. With `"warn"`, the same mismatch is reported as a warning; with `"loose"`, the checker does not report it and retains the historical rule that any deeper heading can declare any dotted section path. Plain, unnumbered headings and bold labels are not checked by this rule because they are not grund section targets.
