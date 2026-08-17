@@ -242,40 +242,60 @@ struct WorkspaceProjectEntry {
 /// The climb takes the nearest ancestor that both declares `[workspace]` *and*
 /// actually lists the directory below it — a workspace config that does not
 /// claim this tree says nothing about how it is named.
-fn enclosing_alias_prefix(config: &Config) -> String {
+///
+/// Fallible on purpose (§FS-workspace.6.1): every block in the claimed chain has
+/// to answer. One that claims this directory but cannot expand its members, or
+/// cannot name the project below it, fails the run with its own error instead of
+/// dropping out of the path — a dropped segment would leave the subtree with a
+/// namespace no other scope agrees with, and §FS-check.3.8 would then tell the
+/// author to write the one spelling that fails in CI.
+fn enclosing_alias_prefix(config: &Config) -> Result<String> {
     let mut segments: Vec<String> = Vec::new();
-    let mut child = config.root.clone();
-    while let Some(parent) = enclosing_workspace_of(&child, &config.cli_base) {
-        let Ok(child_config) = load_config_at(&child, &config.cli_base) else {
+    // The first child is the caller's own config, already loaded; each later one
+    // is the claiming ancestor the previous step returned. Either way the config
+    // in hand is the one whose alias segment is being read, so the climb never
+    // reloads a level (§AR-workspace.5.1).
+    let mut climbed: Option<Config> = None;
+    loop {
+        let child_config = climbed.as_ref().unwrap_or(config);
+        let Some(parent) = enclosing_workspace_of(&child_config.root, &config.cli_base)? else {
             break;
         };
-        let Ok(alias) = derive_alias(&child_config, Some(&child), RootMode::Member) else {
-            break;
-        };
+        // A claimed directory is a member of `parent`, so its alias is derived
+        // and located exactly as the outer run derives and locates it — the same
+        // error text, from the same line (§AR-workspace.5.3).
+        let alias = member_alias(child_config, &child_config.root, &parent, &parent)?;
         segments.push(alias);
-        child = parent.root;
+        climbed = Some(parent);
     }
     segments.reverse();
-    segments.join("/")
+    Ok(segments.join("/"))
 }
 
 /// The nearest ancestor workspace that declares `child` a member, or `None`.
 /// Each step moves strictly upward, so the caller's climb terminates.
-fn enclosing_workspace_of(child: &Path, cli_base: &Path) -> Option<Config> {
+///
+/// A block that declares `[workspace]` and cannot expand its member list is that
+/// block's own config error, raised here rather than read as "does not claim this
+/// directory": the key that failed is the very one that would have answered the
+/// question (§FS-workspace.6.1). A config that does not even *load* is skipped —
+/// this walk climbs to the filesystem root, and a stray unparseable `grund.toml`
+/// somewhere above the repository must not break every run beneath it.
+fn enclosing_workspace_of(child: &Path, cli_base: &Path) -> Result<Option<Config>> {
     let mut cursor = child.parent();
     while let Some(dir) = cursor {
         if config_file_in(dir).is_some()
             && let Ok(parent) = load_config_at(dir, cli_base)
             && parent.workspace_declared
-            && expand_workspace_members(&parent)
-                .map(|roots| roots.iter().any(|root| root == child))
-                .unwrap_or(false)
+            && expand_workspace_members(&parent)?
+                .iter()
+                .any(|root| root == child)
         {
-            return Some(parent);
+            return Ok(Some(parent));
         }
         cursor = dir.parent();
     }
-    None
+    Ok(None)
 }
 
 /// Append one alias segment to the path of the workspace that contains it.
@@ -318,7 +338,7 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
     // from the outermost workspace. Empty unless the run was narrowed to a
     // subtree, and that is exactly what keeps a narrowed run resolving a subset
     // of the same paths instead of a differently-spelled set of its own.
-    let self_path = enclosing_alias_prefix(root_config);
+    let self_path = enclosing_alias_prefix(root_config)?;
     if root_config.workspace_include_root {
         let alias = if self_path.is_empty() {
             derive_alias(root_config, None, RootMode::Root).map_err(|err| {
