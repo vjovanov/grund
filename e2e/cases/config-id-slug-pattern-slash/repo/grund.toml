@@ -1,0 +1,10 @@
+grund_config_version = 1
+project_name = "member"
+
+[id]
+format = "{kind}-{slug}"
+slug_pattern = "[a-z][a-z0-9/-]*"
+
+[[kinds]]
+prefix = "FS"
+folder = "docs"

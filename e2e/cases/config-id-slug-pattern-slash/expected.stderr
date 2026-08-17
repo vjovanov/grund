@@ -1,0 +1,1 @@
+error: grund.toml:6: [id] slug_pattern must not contain `/` (an ID never contains `/` — it separates the alias path from the ID)

@@ -151,6 +151,22 @@ pub struct Grammar {
     elements: Vec<IdElement>,
 }
 
+/// §FS-config.3.2: no part of the ID grammar may admit a `/`. The character
+/// belongs to the citation namespace (§FS-workspace.1) — a qualified citation and
+/// every `<alias>/<ID>` CLI argument split on the **last** one — so an ID that
+/// contained a `/` would declare and resolve and then be unqueryable, the alias
+/// boundary landing inside it. Returns the message body for a located config
+/// error, or `None` when `value` is clean. `label` names the key as the config
+/// wrote it, so the same rule reads correctly for an `[id]` key and for a
+/// `[[kinds]]` prefix (which lands in an ID just as directly).
+fn id_grammar_slash_error(label: &str, value: &str) -> Option<String> {
+    value.contains('/').then(|| {
+        format!(
+            "{label} must not contain `/` (an ID never contains `/` — it separates the alias path from the ID)"
+        )
+    })
+}
+
 impl Grammar {
     /// Compile the four regexes from the effective config. The validation rejections
     /// here (`{kind}` required, at least one of `{number}`/`{slug}`, separator must be
@@ -175,6 +191,27 @@ impl Grammar {
                 .collect::<Vec<_>>()
                 .join("|")
         };
+        // §FS-config.3.2: the "an ID never contains `/`" invariant, enforced over
+        // every component an ID is built from. `config.rs` rejects each key at its
+        // own line first; this is the backstop that keeps the invariant true for a
+        // `Config` assembled in code, since the whole namespace grammar rests on it.
+        for (label, value) in [
+            ("[id] format", format),
+            ("[id] number_pattern", number_pattern),
+            ("[id] slug_pattern", slug_pattern),
+        ] {
+            if let Some(message) = id_grammar_slash_error(label, value) {
+                return Err(anyhow!("{message}"));
+            }
+        }
+        for kind in kinds {
+            if let Some(message) =
+                id_grammar_slash_error(&format!("[[kinds]] prefix `{kind}`"), kind)
+            {
+                return Err(anyhow!("{message}"));
+            }
+        }
+
         let kind_group = format!("(?P<kind>{})", kind_alt);
         let num_group = format!("(?P<num>{})", number_pattern);
         let slug_group = format!("(?P<slug>{})", slug_pattern);
