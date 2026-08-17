@@ -190,10 +190,13 @@ is pure grouping — no project, but still a segment in every path below it, so
 least one project in scope, so `include_root = false` with no members is a
 config error at that block's `members` line.
 
-Members are compared as canonical paths. One that resolves to a project root the
-workspace already holds — a symlink back at an ancestor or across at a sibling —
-is a config error at the `members` line that introduced it, which is also what
-makes expansion terminate ([AR-workspace.6.1](../architecture/AR-workspace.md#61-nested-workspaces-are-one-recursion-not-a-second-namespace-model)).
+Members are compared as canonical paths. Two entries in *one* `members` list that
+resolve to the same root are the same member — deduped, not rejected, so a glob
+may legitimately name a directory an explicit entry also names (`members =
+["packages/*", "packages/api"]`); what §2 rejects there is one expanded root
+*containing* another. An entry that resolves to a project root **another** block
+already holds is a config error at the `members` line that introduced it, which
+is also what makes expansion terminate ([AR-workspace.6.1](../architecture/AR-workspace.md#61-nested-workspaces-are-one-recursion-not-a-second-namespace-model)).
 
 Scope follows §5 unchanged: discovery stops at the *nearest* config
 ([§FS-config.1](FS-config.md#1-file-location-and-discovery)), so a command invoked at an intermediate node runs that
