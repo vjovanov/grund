@@ -239,7 +239,7 @@ struct WorkspaceProjectEntry {
 /// inside, so a citation that passes inside `hardware/` passes in CI at the
 /// repository root and vice versa (§FS-workspace.5).
 ///
-/// The climb takes the nearest ancestor that both declares `[workspace]` *and*
+/// The climb takes the outermost ancestor that both declares `[workspace]` *and*
 /// actually lists the directory below it — a workspace config that does not
 /// claim this tree says nothing about how it is named.
 ///
@@ -272,8 +272,17 @@ fn enclosing_alias_prefix(config: &Config) -> Result<String> {
     Ok(segments.join("/"))
 }
 
-/// The nearest ancestor workspace that declares `child` a member, or `None`.
-/// Each step moves strictly upward, so the caller's climb terminates.
+/// The **outermost** ancestor workspace that declares `child` a member, or
+/// `None`. Each step moves strictly upward, so the caller's climb terminates.
+///
+/// Outermost rather than nearest (§FS-workspace.6.1): a multi-segment `members`
+/// entry (`grp/inner`) hops the directories between, and a hopped directory may
+/// declare `[workspace]` and list the same child. Stopping at the nearer of the
+/// two claims would name `inner` from a directory nothing lists and lose every
+/// segment above it, while the top-down walk from the outermost root composes the
+/// path through the outer claim — so the climb has to follow the same one. Where
+/// exactly one block claims a directory, which is ordinary nesting, the two are
+/// the same block.
 ///
 /// A block that declares `[workspace]` and cannot expand its member list is that
 /// block's own config error, raised here rather than read as "does not claim this
@@ -282,6 +291,7 @@ fn enclosing_alias_prefix(config: &Config) -> Result<String> {
 /// this walk climbs to the filesystem root, and a stray unparseable `grund.toml`
 /// somewhere above the repository must not break every run beneath it.
 fn enclosing_workspace_of(child: &Path, cli_base: &Path) -> Result<Option<Config>> {
+    let mut claiming = None;
     let mut cursor = child.parent();
     while let Some(dir) = cursor {
         if config_file_in(dir).is_some()
@@ -291,11 +301,11 @@ fn enclosing_workspace_of(child: &Path, cli_base: &Path) -> Result<Option<Config
                 .iter()
                 .any(|root| root == child)
         {
-            return Ok(Some(parent));
+            claiming = Some(parent);
         }
         cursor = dir.parent();
     }
-    Ok(None)
+    Ok(claiming)
 }
 
 /// Append one alias segment to the path of the workspace that contains it.

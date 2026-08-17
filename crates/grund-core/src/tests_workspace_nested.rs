@@ -46,6 +46,58 @@ mod tests_workspace_nested {
         );
     }
 
+    /// §FS-workspace.6.1: two blocks may claim one directory — a multi-segment
+    /// `members` entry (`grp/inner`) hops `grp`, which declares `[workspace]` and
+    /// lists the same child — and the alias path is read from the **outermost**
+    /// claim, the one the top-down walk follows. Taking the nearest instead
+    /// stopped at `grp`, which nothing lists, and lost every segment above it: the
+    /// citation passed the subtree check and failed the run CI does.
+    #[test]
+    fn alias_paths_follow_the_outermost_claim_of_a_member() {
+        let root = test_root("alias_paths_follow_the_outermost_claim_of_a_member");
+        for (dir, body) in [
+            (
+                "",
+                "project_name = \"skip\"\n\n[workspace]\nmembers = [\"mid\"]\n",
+            ),
+            (
+                "mid",
+                "project_name = \"mid\"\n\n[workspace]\nmembers = [\"grp/inner\"]\n",
+            ),
+            (
+                "mid/grp",
+                "project_name = \"grp\"\n\n[workspace]\nmembers = [\"inner\"]\n",
+            ),
+            (
+                "mid/grp/inner",
+                "project_name = \"inner\"\n\n[workspace]\nmembers = [\"leaf\"]\n",
+            ),
+            ("mid/grp/inner/leaf", "project_name = \"leaf\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        let aliases_at = |start: &Path| {
+            let mut config = load_config(start).expect("load config");
+            expand_workspace_tree(&mut config)
+                .expect("expand workspace")
+                .into_iter()
+                .map(|entry| entry.alias)
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            aliases_at(&root),
+            vec!["skip", "mid", "mid/inner", "mid/inner/leaf"],
+            "the hopped directory contributes no segment at the outermost scope"
+        );
+        assert_eq!(
+            aliases_at(&root.join("mid/grp/inner")),
+            vec!["mid/inner", "mid/inner/leaf"],
+            "a run narrowed to the twice-claimed member keeps the outer spelling"
+        );
+    }
+
     /// §FS-workspace.6.1: a block that claims this directory and cannot expand
     /// its own member list fails the narrowed run with that block's error. The
     /// alternative shipped: the failure read as "does not claim this tree", the
