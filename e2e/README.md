@@ -47,6 +47,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - a `[citations]` rule entry qualified by a whole alias path (`must = ["group/alpha/FS"]`), satisfied by a nested-path line in an `spec.refs` manifest and unsatisfied by the leaf name alone
 - a malformed nested alias path as a CLI argument, naming the segment that failed rather than the whole path
 - the unknown-alias hint at the workspace root (the two `FS-check.3.8` worked examples, byte-exactly): a dropped prefix naming one project, and a leaf name two projects share naming both, joined as `a or b`
+- a narrowed run offering no candidate where the workspace root would have offered one: a citation naming the top-level `api` is green at the root and, from inside `left` (which holds its own `api`), reports the scope it covers rather than pointing at `left/api`
 - config include/exclude/extensions
 - explicit `check` subcommand
 - default `show` shorthand and mistyped-path failure with explicit-check hint
