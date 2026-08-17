@@ -20,3 +20,15 @@ pub fn zeta() {}
 
 // §FS-001-alpha, §FS-002-beta
 pub fn eta() {}
+
+/// - §FS-001-alpha: a bulleted grounded point
+/// 1. §FS-002-beta: an ordered one
+pub fn theta() {}
+
+/* §FS-001-alpha: a note that runs past one line and
+   still names §FS-002-beta on the way */
+pub fn iota() {}
+
+/* §FS-001-alpha: a note that runs past one line and
+   §FS-002-beta opens the continuation */
+pub fn kappa() {}
