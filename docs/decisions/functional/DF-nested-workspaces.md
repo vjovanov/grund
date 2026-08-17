@@ -139,14 +139,19 @@ Opting out drops the project but not the segment: `<§>hardware/sprayer/<ID>` is
 unaffected by whether `hardware` is itself checked, which keeps the naming model
 independent of a scan decision.
 
-### 3.6 Termination is a duplicate check, not a depth limit
+### 3.6 Termination is containment, not a depth limit
 
 Member paths are relative and reject `..` ([§FS-workspace.2](../../functional-spec/FS-workspace.md#2-workspace-configuration)), so a cycle needs a
-symlink. Comparing canonical roots against the ones already collected catches
-exactly that, reports it at the line that caused it, and bounds the walk as a
-side effect: each recursion step consumes a root that can never be consumed
-again. A depth cap would be a second, arbitrary number that fires on legitimate
-deep trees and still would not name the offending line.
+symlink — and what answers a symlink is the rule about where a member may land:
+strictly inside the block that lists it, with no member of one block containing
+another. That makes the blocks a strict containment tree, so every recursion step
+consumes a canonical root strictly deeper than the block that named it, no root
+can be revisited, and a finite tree ends the walk. The duplicate check kept
+beside it — a member resolving to a root already collected is an error at the
+line that caused it — is unreachable while containment holds, and is kept as the
+backstop that would name the offending line if it stopped. A depth cap would be
+a second, arbitrary number that fires on legitimate deep trees and still would
+not name the offending line.
 
 ## 4. Consequences
 
