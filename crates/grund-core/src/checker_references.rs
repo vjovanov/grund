@@ -210,7 +210,7 @@ fn check_citation_resolution(
                 column: Some(cite.column),
                 message: unknown_project_message(
                     namespace,
-                    workspace,
+                    workspace.keys().map(String::as_str),
                     &config.workspace_scope_path,
                 ),
                 sites: Vec::new(),
@@ -285,68 +285,52 @@ fn check_citation_resolution(
 /// a typo away. §GOAL-friendliness-first — the reader who has the tree in front
 /// of them is the one who does not need this; the agent editing one file is.
 ///
-/// A **narrowed** run (non-empty `scope_path`) sees only its own subtree, so a
-/// path naming a project outside it is unknown *here* and correct at the
-/// workspace root. Such a run says so and suggests nothing rather than pointing
-/// at the same-leaf sibling it happens to hold — that hint rewrote a CI-valid
-/// citation into a different project's, and both runs stayed green
-/// (§FS-check.3.8, §FS-workspace.6.1).
-fn unknown_project_message(
+/// Every tier is off in a **narrowed** run (non-empty `scope_path`), which sees
+/// only its own subtree: it cannot tell a path that dropped a prefix from one
+/// that correctly names a project above or beside the subtree, so every
+/// candidate it could offer is a rewrite of a citation the run CI performs
+/// accepts — green before and green after, with nothing left to catch it. Such a
+/// run names the scope it covers and offers nothing (§FS-check.3.8,
+/// §FS-workspace.6.1).
+fn unknown_project_message<'a>(
     namespace: &str,
-    workspace: &BTreeMap<String, WorkspaceCheckTarget<'_>>,
+    known: impl Iterator<Item = &'a str>,
     scope_path: &str,
 ) -> String {
-    let candidates = nearest_project_aliases(
-        namespace,
-        workspace.keys().map(String::as_str),
-        !scope_path.is_empty(),
-    );
-    if !candidates.is_empty() {
+    if !scope_path.is_empty() {
         return format!(
-            "unknown project alias {namespace}; did you mean {}?",
-            join_alternatives(&candidates)
+            "unknown project alias {namespace}; only {scope_path} is in scope here — check from the workspace root for a path outside it"
         );
     }
-    if scope_path.is_empty() {
+    let candidates = nearest_project_aliases(namespace, known);
+    if candidates.is_empty() {
         return format!("unknown project alias {namespace}");
     }
     format!(
-        "unknown project alias {namespace}; only {scope_path} is in scope here — check from the workspace root for a path outside it"
+        "unknown project alias {namespace}; did you mean {}?",
+        join_alternatives(&candidates)
     )
 }
 
 /// The projects a written alias path plausibly meant, best tier first. Tiers do
 /// not mix: a suffix match is a near-certain "you dropped the prefix", and
 /// diluting it with edit-distance noise would make the good hint harder to act
-/// on.
-///
-/// `narrowed` turns off the tiers that would **replace a prefix the author
-/// wrote**: the last-segment tier always, and the typo tier for a multi-segment
-/// path. In a narrowed run the candidate set is a subset of the tree, so those two
-/// can only ever point at a sibling that happens to be in scope — a different
-/// project. The suffix tier stays on either way: it only *adds* a dropped prefix,
-/// which is the mistake whole alias paths actually invite, and it cannot re-point
-/// a citation at a differently-prefixed project.
-fn nearest_project_aliases<'a>(
-    namespace: &str,
-    known: impl Iterator<Item = &'a str>,
-    narrowed: bool,
-) -> Vec<String> {
+/// on. Only the outermost root asks — a narrowed run offers nothing at all
+/// (§FS-check.3.8), so no tier here is conditional on scope.
+fn nearest_project_aliases<'a>(namespace: &str, known: impl Iterator<Item = &'a str>) -> Vec<String> {
     let written: Vec<&str> = namespace.split('/').collect();
     let (mut suffix, mut same_leaf, mut near) = (Vec::new(), Vec::new(), Vec::new());
     for candidate in known {
         let segments: Vec<&str> = candidate.split('/').collect();
         if segments.len() > written.len() && segments.ends_with(&written) {
             suffix.push(candidate.to_string());
-        } else if !narrowed && segments.last() == written.last() {
+        } else if segments.last() == written.last() {
             same_leaf.push(candidate.to_string());
-        } else if (!narrowed || written.len() == 1)
-            && close_enough_for_hint(
-                edit_distance(namespace, candidate),
-                namespace.chars().count(),
-                candidate.chars().count(),
-            )
-        {
+        } else if close_enough_for_hint(
+            edit_distance(namespace, candidate),
+            namespace.chars().count(),
+            candidate.chars().count(),
+        ) {
             near.push(candidate.to_string());
         }
     }
