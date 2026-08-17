@@ -301,7 +301,7 @@ fn unknown_project_message(
         workspace.keys().map(String::as_str),
         !scope_path.is_empty(),
     );
-    if let [_, ..] = candidates.as_slice() {
+    if !candidates.is_empty() {
         return format!(
             "unknown project alias {namespace}; did you mean {}?",
             join_alternatives(&candidates)
