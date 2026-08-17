@@ -216,8 +216,9 @@ count_comment_lines = false
 priority = 20
 message = "split-python-tests"
 
-# The citable tree gets a budget an order of magnitude above the code rules,
-# because `grund` changes who pays for a document's length. A reader arrives at
+# The citable tree gets two to three times the code budgets — 750/1500 against
+# `core-source`'s 350/500 and `tests`' 450/700 — because `grund` changes who pays
+# for a document's length. A reader arrives at
 # a spec through a citation and reads a lead, a section, or a table of contents
 # (§FS-show) — never the file — so length here is not charged to every read the
 # way it is for a source file an agent opens whole. What still costs is a
@@ -239,8 +240,12 @@ hard_message = "split-doc-hard"
 # by citation, so they are read whole — `CLAUDE.md` and `AGENTS.md` into every
 # session's context, `README.md` by whoever arrives first, a `SKILL.md` when the
 # skill loads. Length here is charged to every one of those reads, which is
-# exactly the cost §GOAL-token-economy is about, so these keep the tighter
-# budget the whole markdown tree used to carry.
+# exactly the cost §GOAL-token-economy is about, so these keep the soft 250 the
+# whole markdown tree used to carry. The hard ceiling is raised from that rule's
+# 400 to 500: `skills/grund-init/SKILL.md` measures 387 lines and cannot be split
+# — a shipped artifact whose bytes a test asserts (§FS-init.5) — so 400 stood 13
+# lines from blocking a file nobody is allowed to shorten, and the tier with no
+# override is the wrong one to park a shipped artifact against.
 [[rules]]
 id = "entrypoints"
 include = ["README.md", "CLAUDE.md", "AGENTS.md", "skills/**/*.md"]
