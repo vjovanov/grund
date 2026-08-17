@@ -105,8 +105,8 @@ by the scanner, the CLI argument parser, and the `[citations]` rule parser
 
 ### 3.4 A path means the same thing at every scope
 
-A run narrowed to a subtree resolves a *subset* of the same paths, never a
-re-spelled set of its own: inside `hardware/`, `<§>hardware/sprayer/<ID>` still
+A run narrowed to a scope the claimed chain lists resolves a *subset* of the same
+paths, never a re-spelled set of its own: inside `hardware/`, `<§>hardware/sprayer/<ID>` still
 names what it names at the repository root, and `<§>final/<ID>` is simply
 unknown there. The alternative — naming a subtree's projects from the subtree —
 would let a citation pass a local check and fail the run CI does, which is
@@ -115,10 +115,14 @@ hold. The prefix is recovered by climbing the chain of ancestors that each
 declare `[workspace]` and list the directory below it.
 
 The guarantee reaches exactly that chain, and no further
-([§FS-workspace.6.1](../../functional-spec/FS-workspace.md#61-nested-workspaces)). A `[workspace]` block no enclosing block
+— and it is quantified over the scope a command starts at, not over the project
+that scope names ([§FS-workspace.6.1](../../functional-spec/FS-workspace.md#61-nested-workspaces)). A `[workspace]` block no enclosing block
 lists is claimed by nobody: the outer run ignores it and absorbs its tree into
-the enclosing namespace, a run inside it names itself from itself, and the two
-disagree. Diagnosing that needs a walk for config files no pass performs, so it
+the enclosing namespace, a run started **at** it names itself from itself, and
+the two disagree. The projects under it may themselves be reached by the chain — a
+multi-segment entry (`grp/inner`) hops the block — and a run started there
+re-spells them regardless, so a citation can pass that block's check and fail the
+run CI does. Diagnosing that needs a walk for config files no pass performs, so it
 is recorded as a known limitation there rather than designed around here.
 
 ### 3.5 The intermediate node reuses `include_root`, and defaults to a project
