@@ -382,7 +382,7 @@ default = "must-not"
             )
         };
 
-        for target in ["/AR", "Root/AR"] {
+        for target in ["/AR", "Root/AR", "group/Api/AR", "group//AR"] {
             write(&root.join(".agents/grund.toml"), &cfg(target));
             match load_config(&root) {
                 Ok(_) => panic!("malformed citation namespace qualifier must be rejected"),
@@ -395,6 +395,17 @@ default = "must-not"
 
         write(&root.join(".agents/grund.toml"), &cfg("root/AR"));
         load_config(&root).expect("valid namespace qualifier must load");
+
+        // §FS-workspace.6.1: the kind is the last segment, so a nested member is
+        // pinned by its whole alias path — the same spelling a citation uses.
+        write(&root.join(".agents/grund.toml"), &cfg("group/api/AR"));
+        let config = load_config(&root).expect("a nested alias qualifier must load");
+        let target = &config.citations.per_kind["FS"].must_not[0].targets[0];
+        assert_eq!(target.kind, "AR");
+        assert!(
+            matches!(&target.namespace, NamespaceMatch::Alias(alias) if alias == "group/api"),
+            "the whole alias path is the qualifier, not just its last segment"
+        );
     }
 
     #[cfg(unix)]

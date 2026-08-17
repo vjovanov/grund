@@ -40,6 +40,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - config redundant pair (the bare `grund.toml` wins, the `.agents/` file is warned about)
 - workspace mixing both config discovery forms across its members
 - nested workspaces: whole-alias-path naming, per-level alias uniqueness, the grouping node as a project, subtree scope, the short-leaf-name hint, an enclosing workspace whose own member list fails to expand, one cross-branch citation checked at both scopes, and an empty nested block with no `members` key at all
+- a `[citations]` rule entry qualified by a whole alias path (`must = ["group/alpha/FS"]`), satisfied by a nested-path line in an `spec.refs` manifest and unsatisfied by the leaf name alone
 - a malformed nested alias path as a CLI argument, naming the segment that failed rather than the whole path
 - the unknown-alias hint at the workspace root (the two `FS-check.3.8` worked examples, byte-exactly): a dropped prefix naming one project, and a leaf name two projects share naming both, joined as `a or b`
 - config include/exclude/extensions
