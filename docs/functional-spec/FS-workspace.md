@@ -36,8 +36,9 @@ Each `alias` is a lowercase slug: it starts with a letter and then uses lowercas
 letters, digits, or `-`. The alias path carries **one segment per workspace
 level** (§6.1); in a workspace with no nesting it is always a single segment, so
 the common form is `<§>alias/<ID>`. The slashes are part of the citation
-namespace, not part of the ID — and since an ID never contains `/`, the last
-slash in the token is always the boundary between the two.
+namespace, not part of the ID — and since an ID never contains `/` (the ID
+grammar rejects one on load, [§FS-config.3.2](FS-config.md#32-id--id-grammar)),
+the last slash in the token is always the boundary between the two.
 
 For an unqualified citation, the `ID[.section]` part uses the current project's
 ID and section grammar. For a qualified citation, it uses the target project's

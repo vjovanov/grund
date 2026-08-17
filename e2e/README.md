@@ -86,5 +86,6 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - inline citation style: a citation-only site carrying prose, and a soft-cap overrun surfacing as a warning
 - inline note layout (`citation-first-colon`): one error per nonconforming line under `inline_note_layout_check = "error"`, the same lines as warnings under `warn`, silence at the default `off`, and silence under `inline_note_layout = "any"` whatever the check level
 - config invalid-value failures for `inline_note_layout` and `inline_note_layout_check`, and for a soft cap above the hard cap
+- config ID-grammar failure for a `slug_pattern` that admits the alias separator `/`
 
 Warning coverage is partial. The inline-citation-style family pins its warning channel here — the soft-cap overrun and the `inline_note_layout_check = "warn"` case both assert the warning text and the exit code it must not move. Other warning tiers are not covered yet; they are lower priority than the error, retrieval, formatting, and configuration contracts.

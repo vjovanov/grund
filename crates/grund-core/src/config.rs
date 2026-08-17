@@ -198,8 +198,16 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             ("reference", "warn_on_suggested") => {
                 config.warn_on_suggested = parse_bool(path, line_no, value)?
             }
+            // §FS-config.3.2: a `/` in any ID component is rejected at the line that
+            // wrote it. The grammar backstop in `Grammar::build` catches the same
+            // thing unlocated, so the check runs here to keep the config-error style
+            // (§FS-errors.2.1) the other `[id]` validators use.
             ("id", "format") => {
-                config.id_format = parse_string(path, line_no, value)?;
+                let id_format = parse_string(path, line_no, value)?;
+                if let Some(message) = id_grammar_slash_error("[id] format", &id_format) {
+                    bail_config(path, line_no, message)?;
+                }
+                config.id_format = id_format;
                 grammar_dirty = true;
             }
             ("id", "section_separator") => {
@@ -207,11 +215,19 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                 grammar_dirty = true;
             }
             ("id", "number_pattern") => {
-                config.number_pattern = parse_string(path, line_no, value)?;
+                let pattern = parse_string(path, line_no, value)?;
+                if let Some(message) = id_grammar_slash_error("[id] number_pattern", &pattern) {
+                    bail_config(path, line_no, message)?;
+                }
+                config.number_pattern = pattern;
                 grammar_dirty = true;
             }
             ("id", "slug_pattern") => {
-                config.slug_pattern = parse_string(path, line_no, value)?;
+                let pattern = parse_string(path, line_no, value)?;
+                if let Some(message) = id_grammar_slash_error("[id] slug_pattern", &pattern) {
+                    bail_config(path, line_no, message)?;
+                }
+                config.slug_pattern = pattern;
                 grammar_dirty = true;
             }
             ("id", "section_heading_levels") => {
@@ -229,6 +245,14 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             }
             ("kinds", "prefix") => {
                 let prefix = parse_string(path, line_no, value)?;
+                // §FS-config.3.2: a kind prefix is the leading component of every ID
+                // in its kind, so a `/` here lands in the ID as surely as one in
+                // `slug_pattern` does.
+                if let Some(message) =
+                    id_grammar_slash_error(&format!("[[kinds]] prefix `{prefix}`"), &prefix)
+                {
+                    bail_config(path, line_no, message)?;
+                }
                 if let Some(slot) = current_kind.as_mut() {
                     slot.prefix = prefix;
                 } else {
