@@ -34,6 +34,12 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                     }
                     if section == "workspace" {
                         config.workspace_declared = true;
+                        // §FS-workspace.6.1: the block's own anchor, for the
+                        // errors that are about the block and not about a key.
+                        config.workspace_section_source = Some(ConfigLocation {
+                            path: path.to_path_buf(),
+                            line: line_no,
+                        });
                     }
                 }
                 "kinds" => {

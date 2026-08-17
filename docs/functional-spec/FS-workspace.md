@@ -191,7 +191,9 @@ subtrees (§6), and is citable at its own path. Under `include_root = false` it
 is pure grouping — no project, but still a segment in every path below it, so
 `<§>hardware/sprayer/<ID>` is unaffected either way. Every block must put at
 least one project in scope, so `include_root = false` with no members is a
-config error at that block's `members` line.
+config error at that block's `members` line — or at its `[workspace]` line when
+there is no `members` key to point at, since a tree may hold many blocks and the
+error has to say which one is empty.
 
 Members are compared as canonical paths. Two entries in *one* `members` list that
 resolve to the same root are the same member — deduped, not rejected, so a glob
