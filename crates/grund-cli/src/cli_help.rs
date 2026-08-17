@@ -140,7 +140,7 @@ fn print_subcommand_help(cmd: &str) {
             println!("  --path PATH            repo or subtree to resolve the ID in (default `.`)");
             println!();
             println!(
-                "Exit:  0 printed · 1 ID not found / ambiguous / broken stub / unknown section · 2 CLI error."
+                "Exit:  0 printed · 1 ID not found / ambiguous / broken stub / unknown section · 2 unknown project alias, or CLI error."
             );
             println!();
             println!("Examples:");
