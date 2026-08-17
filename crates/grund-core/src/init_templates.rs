@@ -960,8 +960,9 @@ fn find_init_workspace_root(target: &Path) -> Option<Config> {
         }
         cursor = dir.parent();
     };
+    let mut ancestors = AncestorWorkspaces::default();
     loop {
-        match enclosing_workspace_of(&config.root, &canonical_target) {
+        match enclosing_workspace_of(&config.root, &canonical_target, &mut ancestors) {
             Ok(Some(parent)) => config = parent,
             Ok(None) => break,
             // A broken block above us is `grund check`'s to report; `init` must

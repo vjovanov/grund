@@ -256,9 +256,15 @@ fn enclosing_alias_prefix(config: &Config) -> Result<String> {
     // in hand is the one whose alias segment is being read, so the climb never
     // reloads a level (§AR-workspace.5.1).
     let mut climbed: Option<Config> = None;
+    // One cache for the whole climb: every level walks the same ancestors, so
+    // each ancestor's config is read once per run rather than once per level
+    // (§AR-workspace.6.1).
+    let mut ancestors = AncestorWorkspaces::default();
     loop {
         let child_config = climbed.as_ref().unwrap_or(config);
-        let Some(parent) = enclosing_workspace_of(&child_config.root, &config.cli_base)? else {
+        let Some(parent) =
+            enclosing_workspace_of(&child_config.root, &config.cli_base, &mut ancestors)?
+        else {
             break;
         };
         // A claimed directory is a member of `parent`, so its alias is derived
@@ -290,18 +296,18 @@ fn enclosing_alias_prefix(config: &Config) -> Result<String> {
 /// question (§FS-workspace.6.1). A config that does not even *load* is skipped —
 /// this walk climbs to the filesystem root, and a stray unparseable `grund.toml`
 /// somewhere above the repository must not break every run beneath it.
-fn enclosing_workspace_of(child: &Path, cli_base: &Path) -> Result<Option<Config>> {
+fn enclosing_workspace_of(
+    child: &Path,
+    cli_base: &Path,
+    ancestors: &mut AncestorWorkspaces,
+) -> Result<Option<Config>> {
     let mut claiming = None;
     let mut cursor = child.parent();
     while let Some(dir) = cursor {
-        if config_file_in(dir).is_some()
-            && let Ok(parent) = load_config_at(dir, cli_base)
-            && parent.workspace_declared
-            && expand_workspace_members(&parent)?
-                .iter()
-                .any(|root| root == child)
+        if let Some((parent, members)) = ancestors.block_at(dir, cli_base)?
+            && members.iter().any(|root| root == child)
         {
-            claiming = Some(parent);
+            claiming = Some(parent.clone());
         }
         cursor = dir.parent();
     }
