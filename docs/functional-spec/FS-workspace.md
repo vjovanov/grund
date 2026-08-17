@@ -65,7 +65,9 @@ escape — to a directory *strictly inside* the config root that lists it: not t
 root itself, not an ancestor of it, not another tree. Invalid member entries,
 missing member paths, escaping member roots, and overlapping expanded
 roots are config errors reported at the `members` line per
-[§FS-config.4.3](FS-config.md#43-invalid-config-behavior). `packages/*` means
+[§FS-config.4.3](FS-config.md#43-invalid-config-behavior), and they name the entry as the config wrote
+it rather than the root it resolved to — a resolved root renders as nothing when
+it is the block's own and as an absolute path once it leaves the tree. `packages/*` means
 every direct child directory under `packages/`; recursive `**` globs are not
 part of v1. `include_root` defaults to `true`; when false, `grund check` at the
 workspace root checks only member projects.

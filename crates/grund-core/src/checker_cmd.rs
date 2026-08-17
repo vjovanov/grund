@@ -343,69 +343,6 @@ fn configured_member_root_candidate(config: &Config, member: &str, scope: &Path)
     }
 }
 
-fn canonical_workspace_path(path: &Path) -> PathBuf {
-    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
-}
-
-fn expand_workspace_members(config: &Config) -> Result<Vec<PathBuf>> {
-    let mut roots = Vec::new();
-    for member in &config.workspace_members {
-        if let Some(glob_parent) = member.strip_suffix("/*") {
-            let parent = config.root.join(glob_parent);
-            if !parent.is_dir() {
-                return Err(workspace_members_error(
-                    config,
-                    format!(
-                        "workspace member glob parent does not exist: {}",
-                        display_path(config, &parent)
-                    ),
-                ));
-            }
-            for entry in fs::read_dir(&parent)? {
-                let entry = entry?;
-                if !entry.file_type()?.is_dir() {
-                    continue;
-                }
-                let path = entry.path();
-                // §AR-workspace.5.3: `packages/*` skips hidden dirs (`.git`,
-                // `.agents`, ...) — they are never workspace members and are
-                // not valid aliases either.
-                if is_hidden(&path) {
-                    continue;
-                }
-                // A glob child is written by the glob: `packages/*` names
-                // `packages/api`, which is the form a diagnostic can point at.
-                let written = format!("{glob_parent}/{}", entry.file_name().to_string_lossy());
-                roots.push(workspace_member_root(config, &written, &path)?);
-            }
-        } else {
-            roots.push(workspace_member_root(config, member, &config.root.join(member))?);
-        }
-    }
-    roots.sort_by_key(|path| sort_path_key(path));
-    roots.dedup();
-    reject_overlapping_workspace_members(config, &roots)?;
-    Ok(roots)
-}
-
-fn reject_overlapping_workspace_members(config: &Config, roots: &[PathBuf]) -> Result<()> {
-    for (i, parent) in roots.iter().enumerate() {
-        for (j, child) in roots.iter().enumerate() {
-            if i != j && child.starts_with(parent) {
-                return Err(workspace_members_error(
-                    config,
-                    format!(
-                        "workspace members overlap: `{}` contains `{}`",
-                        display_path(config, parent),
-                        display_path(config, child)
-                    ),
-                ));
-            }
-        }
-    }
-    Ok(())
-}
-
 fn workspace_members_error(config: &Config, message: String) -> anyhow::Error {
     config_location_error(config.workspace_members_source.as_ref(), message)
 }
