@@ -350,8 +350,8 @@ fn canonical_workspace_path(path: &Path) -> PathBuf {
 fn expand_workspace_members(config: &Config) -> Result<Vec<PathBuf>> {
     let mut roots = Vec::new();
     for member in &config.workspace_members {
-        if let Some(parent) = member.strip_suffix("/*") {
-            let parent = config.root.join(parent);
+        if let Some(glob_parent) = member.strip_suffix("/*") {
+            let parent = config.root.join(glob_parent);
             if !parent.is_dir() {
                 return Err(workspace_members_error(
                     config,
@@ -373,17 +373,13 @@ fn expand_workspace_members(config: &Config) -> Result<Vec<PathBuf>> {
                 if is_hidden(&path) {
                     continue;
                 }
-                roots.push(fs::canonicalize(&path).unwrap_or(path));
+                // A glob child is written by the glob: `packages/*` names
+                // `packages/api`, which is the form a diagnostic can point at.
+                let written = format!("{glob_parent}/{}", entry.file_name().to_string_lossy());
+                roots.push(workspace_member_root(config, &written, &path)?);
             }
         } else {
-            let path = config.root.join(member);
-            if !path.is_dir() {
-                return Err(workspace_members_error(
-                    config,
-                    format!("workspace member does not exist: {}", display_path(config, &path)),
-                ));
-            }
-            roots.push(fs::canonicalize(&path).unwrap_or(path));
+            roots.push(workspace_member_root(config, member, &config.root.join(member))?);
         }
     }
     roots.sort_by_key(|path| sort_path_key(path));
