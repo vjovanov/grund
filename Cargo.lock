@@ -153,6 +153,7 @@ dependencies = [
  "once_cell",
  "rayon",
  "regex",
+ "regex-syntax",
  "unicode-normalization",
 ]
 

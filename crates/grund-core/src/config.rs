@@ -204,7 +204,7 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             // (§FS-errors.2.1) the other `[id]` validators use.
             ("id", "format") => {
                 let id_format = parse_string(path, line_no, value)?;
-                if let Some(message) = id_grammar_slash_error("[id] format", &id_format) {
+                if let Some(message) = id_grammar_literal_slash_error("[id] format", &id_format) {
                     bail_config(path, line_no, message)?;
                 }
                 config.id_format = id_format;
@@ -216,7 +216,7 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             }
             ("id", "number_pattern") => {
                 let pattern = parse_string(path, line_no, value)?;
-                if let Some(message) = id_grammar_slash_error("[id] number_pattern", &pattern) {
+                if let Some(message) = id_grammar_pattern_slash_error("[id] number_pattern", &pattern) {
                     bail_config(path, line_no, message)?;
                 }
                 config.number_pattern = pattern;
@@ -224,7 +224,7 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             }
             ("id", "slug_pattern") => {
                 let pattern = parse_string(path, line_no, value)?;
-                if let Some(message) = id_grammar_slash_error("[id] slug_pattern", &pattern) {
+                if let Some(message) = id_grammar_pattern_slash_error("[id] slug_pattern", &pattern) {
                     bail_config(path, line_no, message)?;
                 }
                 config.slug_pattern = pattern;
@@ -249,7 +249,7 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                 // in its kind, so a `/` here lands in the ID as surely as one in
                 // `slug_pattern` does.
                 if let Some(message) =
-                    id_grammar_slash_error(&format!("[[kinds]] prefix `{prefix}`"), &prefix)
+                    id_grammar_literal_slash_error(&format!("[[kinds]] prefix `{prefix}`"), &prefix)
                 {
                     bail_config(path, line_no, message)?;
                 }
