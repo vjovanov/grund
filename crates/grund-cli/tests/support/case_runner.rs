@@ -1,7 +1,7 @@
 // §RM-e2e-corpus: golden CLI cases verify byte-for-byte command behavior.
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::OnceLock;
 
@@ -274,16 +274,48 @@ fn case_symlinks(case: &Path) -> Vec<(String, String)> {
     if !manifest.is_file() {
         return Vec::new();
     }
-    read_to_string(manifest)
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| {
-            let (link, target) = line.split_once("->").unwrap_or_else(|| {
-                panic!("symlinks manifest line is not `<link> -> <target>`: {line}")
-            });
-            (link.trim().to_string(), target.trim().to_string())
-        })
-        .collect()
+    let name = case_name(case);
+    let mut links = Vec::new();
+    for (index, line) in read_to_string(&manifest).lines().enumerate() {
+        // Every rejection below points at the line that has to change, the way a
+        // `grund` diagnostic does: the manifest is a contract, and a contract needs
+        // a location (§FS-errors.2.1).
+        let at = format!("{name}: symlinks:{}", index + 1);
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let (link, target) = line
+            .split_once("->")
+            .unwrap_or_else(|| panic!("{at}: expected `<link> -> <target>`, got `{line}`"));
+        let (link, target) = (link.trim().to_string(), target.trim().to_string());
+        assert!(
+            link_stays_in_the_copy(&link),
+            "{at}: the link path `{link}` must stay inside the fixture copy — relative, \
+             `/`-separated, and no `..`"
+        );
+        links.push((link, target));
+    }
+    links
+}
+
+/// Whether a manifest's **link** path is one the harness may write.
+///
+/// The *target* is deliberately free to leave the copy — `link -> ..` is the whole
+/// point of one of the cases — but the link is where the harness creates a file,
+/// and `PathBuf::join` discards its base for an absolute path, so an unchecked link
+/// wrote symlinks anywhere the test process could reach: an absolute line landed
+/// outside the tree, `../../../../x` landed in the repository root, and nothing
+/// cleaned either up. Every component has to be a plain name, which rejects the
+/// absolute forms, `..`, and a Windows drive prefix in one test; `\` is rejected
+/// separately, because it is a separator on one platform and a filename character
+/// on another and the manifest is documented as `/`-separated.
+fn link_stays_in_the_copy(link: &str) -> bool {
+    !link.is_empty()
+        && !link.contains('\\')
+        && Path::new(link)
+            .components()
+            .all(|component| matches!(component, Component::Normal(_)))
 }
 
 /// Whether this platform lets the test process create a directory symlink **where
@@ -332,8 +364,24 @@ fn symlink_dir(target: &Path, link: &Path) -> std::io::Result<()> {
 }
 
 fn create_case_symlinks(case: &Path, repo_copy: &Path, name: &str) {
+    let copy_root = fs::canonicalize(repo_copy)
+        .unwrap_or_else(|err| panic!("{name}: canonicalize {}: {err}", repo_copy.display()));
     for (link, target) in case_symlinks(case) {
         let link_path = repo_copy.join(&link);
+        // The lexical check in `case_symlinks` rules out a link path that *reads*
+        // like an escape; this one rules out the tree answering differently — an
+        // earlier line in the same manifest may have made a parent directory a
+        // symlink out of the copy. Both are cheap, and only both together mean "the
+        // harness writes inside the fixture copy".
+        let parent = link_path.parent().unwrap_or(repo_copy);
+        let landing = fs::canonicalize(parent).unwrap_or_else(|err| {
+            panic!("{name}: link {link}: resolve {}: {err}", parent.display())
+        });
+        assert!(
+            landing.starts_with(&copy_root),
+            "{name}: link {link} would be created outside the fixture copy, at {}",
+            landing.display()
+        );
         symlink_dir(Path::new(&target), &link_path).unwrap_or_else(|err| {
             panic!("{name}: link {link} -> {target}: {err}");
         });
