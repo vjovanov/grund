@@ -168,6 +168,153 @@ mod tests_workspace_nested {
         );
     }
 
+    /// §FS-workspace.6.1: every obligation of the ancestor climb is scoped to a
+    /// **claim**. A block four levels up that declares `[workspace]`, lists one
+    /// directory that does not exist, and never lists this repository says nothing
+    /// about this tree — so its error is not this run's error. Expanding every
+    /// declaring ancestor instead made one broken `members` list anywhere above a
+    /// repository, at any depth up to `/`, the answer to every command inside it.
+    #[test]
+    fn an_ancestor_that_claims_nothing_here_cannot_break_the_run() {
+        let root = test_root("an_ancestor_that_claims_nothing_here_cannot_break_the_run");
+        for (dir, body) in [
+            (
+                "outer",
+                "project_name = \"outer\"\n\n[workspace]\nmembers = [\"gone\"]\n",
+            ),
+            (
+                "outer/deep/a/b/repo",
+                "project_name = \"repo\"\n\n[workspace]\nmembers = [\"api\"]\n",
+            ),
+            ("outer/deep/a/b/repo/api", "project_name = \"api\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        let repo = root.join("outer/deep/a/b/repo");
+        let mut config = load_config(&repo).expect("load the repository config");
+        let aliases = expand_workspace_tree(&mut config)
+            .expect("a broken ancestor that claims nothing must not fail this run")
+            .into_iter()
+            .map(|entry| entry.alias)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            aliases,
+            vec!["repo", "api"],
+            "an unclaimed repository is named from itself, exactly as it was"
+        );
+    }
+
+    /// §FS-workspace.6.1, the same rule against a different expansion failure:
+    /// overlapping members. The class is what matters — a non-claiming ancestor is
+    /// never expanded, so *no* error its member list could earn reaches a run
+    /// below it.
+    #[test]
+    fn an_ancestor_with_overlapping_members_that_claims_nothing_is_climbed_past() {
+        let root = test_root("an_ancestor_with_overlapping_members_that_claims_nothing_is_climbed_past");
+        for (dir, body) in [
+            (
+                "outer",
+                "project_name = \"outer\"\n\n[workspace]\nmembers = [\"packages\", \"packages/api\"]\n",
+            ),
+            ("outer/packages/api", "project_name = \"api\"\n"),
+            ("outer/repo", "project_name = \"repo\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        let mut config = load_config(&root.join("outer/repo")).expect("load the repository config");
+        let entries = expand_workspace_tree(&mut config)
+            .expect("an unclaimed ancestor's overlap is not this run's error");
+        assert_eq!(
+            entries.into_iter().map(|entry| entry.alias).collect::<Vec<_>>(),
+            vec!["repo"]
+        );
+
+        // The claim, not the declaration, is what makes the ancestor's error this
+        // run's error: list the same directory and the run fails with it.
+        write(
+            &root.join("outer/grund.toml"),
+            "project_name = \"outer\"\n\n[workspace]\nmembers = [\"repo\", \"packages\", \"packages/api\"]\n",
+        );
+        let mut config = load_config(&root.join("outer/repo")).expect("load the repository config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("a claiming ancestor that cannot expand must fail the run");
+        };
+        assert!(
+            format!("{err:#}").contains("workspace members overlap: `packages` contains `packages/api`"),
+            "the claimed chain reports the enclosing block's own error: {err:#}"
+        );
+    }
+
+    /// §FS-workspace.6.1 / §AR-workspace.5.3: a glob claims the directories under
+    /// its parent, so a block whose only mention of this repository is
+    /// `deep/*` still owes it an answer — and a `members` list it cannot expand
+    /// still fails the run. The claim is read from the entry text, and the entry
+    /// text here names a set.
+    #[test]
+    fn an_ancestor_glob_claims_the_child_and_still_owes_it_an_answer() {
+        let root = test_root("an_ancestor_glob_claims_the_child_and_still_owes_it_an_answer");
+        for (dir, body) in [
+            (
+                "outer",
+                "project_name = \"outer\"\n\n[workspace]\nmembers = [\"deep/*\", \"gone\"]\n",
+            ),
+            ("outer/deep/repo", "project_name = \"repo\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+
+        let mut config = load_config(&root.join("outer/deep/repo")).expect("load the member config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("a glob that claims this directory must not drop its segment");
+        };
+        assert!(
+            format!("{err:#}").contains("workspace member does not exist: gone"),
+            "the claiming block's own error, from its own members line: {err:#}"
+        );
+    }
+
+    /// §FS-workspace.6.1: a `members` entry may reach this directory through a
+    /// symlink, and then the entry text names it only once resolved. The claim
+    /// therefore compares canonical paths too — otherwise the prefix is dropped
+    /// and the subtree names itself, which is the re-spelling §FS-check.3.8 would
+    /// then hint at.
+    #[test]
+    #[cfg(unix)]
+    fn an_ancestor_claim_through_a_symlinked_entry_keeps_the_prefix() {
+        let root = physical_test_root("an_ancestor_claim_through_a_symlinked_entry_keeps_the_prefix");
+        for (dir, body) in [
+            (
+                "",
+                "project_name = \"outer\"\n\n[workspace]\nmembers = [\"link\"]\n",
+            ),
+            (
+                "pkgs/kid",
+                "project_name = \"kid\"\n\n[workspace]\nmembers = [\"leaf\"]\n",
+            ),
+            ("pkgs/kid/leaf", "project_name = \"leaf\"\n"),
+        ] {
+            write(&root.join(dir).join("grund.toml"), body);
+        }
+        std::os::unix::fs::symlink(root.join("pkgs/kid"), root.join("link"))
+            .expect("name the member through a symlink");
+
+        let mut config = load_config(&root.join("pkgs/kid")).expect("load the member config");
+        let aliases = expand_workspace_tree(&mut config)
+            .expect("expand the narrowed run")
+            .into_iter()
+            .map(|entry| entry.alias)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            aliases,
+            vec!["kid", "kid/leaf"],
+            "the symlinked claim is found, so the narrowed run keeps the outer spelling"
+        );
+    }
+
     /// §FS-workspace.6.1: a member that resolves to an ancestor of the block that
     /// lists it is a located config error naming the entry as written. It has no
     /// e2e fixture because reaching it needs a symlink, and it is also what bounds

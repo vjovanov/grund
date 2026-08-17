@@ -134,6 +134,63 @@ fn workspace_member_root(config: &Config, written: &str, lexical: &Path) -> Resu
     Ok(root)
 }
 
+/// What one `members` entry *names*, read from the entry text alone — before
+/// anyone asks whether that directory exists (§FS-workspace.6.1). This is the
+/// half of a member list that cannot fail, and it is all the ancestor climb
+/// needs to decide whether a block claims the directory below it.
+struct MemberClaim {
+    /// The entry joined onto the block's root, exactly as written.
+    lexical: PathBuf,
+    /// The same path resolved as far as the filesystem allows: a member reached
+    /// through a symlink names its target, which is the form the expanded list
+    /// holds and the form a run *inside* that directory reports as its root.
+    canonical: PathBuf,
+    /// A `<parent>/*` entry names the visible directories **under** `lexical`,
+    /// not `lexical` itself.
+    glob: bool,
+}
+
+impl MemberClaim {
+    fn names(&self, child: &Path, canonical_child: &Path) -> bool {
+        if self.glob {
+            // §AR-workspace.5.3: a glob never names a hidden directory, so one
+            // is not claimed by a block whose glob parent happens to hold it.
+            return !is_hidden(canonical_child)
+                && (child.parent() == Some(self.lexical.as_path())
+                    || canonical_child.parent() == Some(self.canonical.as_path()));
+        }
+        self.lexical == child || self.canonical == canonical_child
+    }
+}
+
+fn member_claims(config: &Config) -> Vec<MemberClaim> {
+    config
+        .workspace_members
+        .iter()
+        .map(|entry| {
+            let (path, glob) = match entry.strip_suffix("/*") {
+                Some(parent) => (parent, true),
+                None => (entry.as_str(), false),
+            };
+            let lexical = config.root.join(path);
+            MemberClaim {
+                canonical: canonical_workspace_path(&lexical),
+                lexical,
+                glob,
+            }
+        })
+        .collect()
+}
+
+/// One ancestor `[workspace]` block: its config, what its `members` list names,
+/// and — once some directory below it turns out to be claimed — the expanded
+/// member roots.
+struct AncestorBlock {
+    config: Config,
+    claims: Vec<MemberClaim>,
+    members: Option<Vec<PathBuf>>,
+}
+
 /// The `[workspace]` blocks an ancestor climb has already looked at, keyed by
 /// directory (§AR-workspace.6.1). The climb asks the same ancestors about every
 /// level below them — level *n* re-walks all of level *n+1*'s ancestors — so
@@ -144,44 +201,69 @@ fn workspace_member_root(config: &Config, written: &str, lexical: &Path) -> Resu
 /// needs no invalidation.
 #[derive(Default)]
 struct AncestorWorkspaces {
-    blocks: BTreeMap<PathBuf, Option<(Config, Vec<PathBuf>)>>,
+    blocks: BTreeMap<PathBuf, Option<AncestorBlock>>,
 }
 
 impl AncestorWorkspaces {
-    /// The `[workspace]` block `dir` declares together with the member roots it
-    /// claims, or `None` when `dir` holds no config, its config does not load, or
-    /// it declares no `[workspace]`. A block that declares one and cannot expand
-    /// its members is that block's own error (§FS-workspace.6.1) — it ends the
-    /// run, so it is never cached and never asked twice.
-    fn block_at(
+    /// The `[workspace]` block at `dir` **when it claims `child`**, or `None`.
+    ///
+    /// §FS-workspace.6.1 scopes every obligation of this walk to a *claim*: a
+    /// block that claims a directory and cannot answer fails the run with its own
+    /// error, and one that no enclosing block lists says nothing about this tree.
+    /// So the claim is decided first, on the entry text (`MemberClaim`), and the
+    /// member list is expanded — and its error propagated — only for a block that
+    /// names `child`. Expanding every declaring ancestor instead made one broken
+    /// `members` list anywhere above a repository the answer to every command
+    /// inside it, at any depth up to `/`, for a block that claimed nothing here.
+    ///
+    /// The claim is confirmed against the expanded roots, not the entry text:
+    /// what a glob names and where a symlinked entry lands are answers only
+    /// expansion has.
+    fn claiming_block(
         &mut self,
         dir: &Path,
+        child: &Path,
+        canonical_child: &Path,
         cli_base: &Path,
-    ) -> Result<Option<&(Config, Vec<PathBuf>)>> {
+    ) -> Result<Option<&Config>> {
         if !self.blocks.contains_key(dir) {
-            let block = load_ancestor_workspace_block(dir, cli_base)?;
+            let block = load_ancestor_workspace_block(dir, cli_base);
             self.blocks.insert(dir.to_path_buf(), block);
         }
-        Ok(self.blocks.get(dir).and_then(Option::as_ref))
+        let Some(block) = self.blocks.get_mut(dir).and_then(Option::as_mut) else {
+            return Ok(None);
+        };
+        if !block
+            .claims
+            .iter()
+            .any(|claim| claim.names(child, canonical_child))
+        {
+            return Ok(None);
+        }
+        if block.members.is_none() {
+            block.members = Some(expand_workspace_members(&block.config)?);
+        }
+        let claimed = block
+            .members
+            .as_ref()
+            .is_some_and(|members| members.iter().any(|root| root == canonical_child));
+        Ok(claimed.then_some(&block.config))
     }
 }
 
-fn load_ancestor_workspace_block(
-    dir: &Path,
-    cli_base: &Path,
-) -> Result<Option<(Config, Vec<PathBuf>)>> {
-    if config_file_in(dir).is_none() {
-        return Ok(None);
-    }
+fn load_ancestor_workspace_block(dir: &Path, cli_base: &Path) -> Option<AncestorBlock> {
+    config_file_in(dir)?;
     // A config that does not even load is no claim at all: this walk climbs to
     // the filesystem root, and a stray unparseable `grund.toml` above the
     // repository must not break every run beneath it (§AR-workspace.6.1).
-    let Ok(config) = load_config_at(dir, cli_base) else {
-        return Ok(None);
-    };
+    let config = load_config_at(dir, cli_base).ok()?;
     if !config.workspace_declared {
-        return Ok(None);
+        return None;
     }
-    let members = expand_workspace_members(&config)?;
-    Ok(Some((config, members)))
+    let claims = member_claims(&config);
+    Some(AncestorBlock {
+        config,
+        claims,
+        members: None,
+    })
 }

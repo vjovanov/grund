@@ -290,23 +290,27 @@ fn enclosing_alias_prefix(config: &Config) -> Result<String> {
 /// exactly one block claims a directory, which is ordinary nesting, the two are
 /// the same block.
 ///
-/// A block that declares `[workspace]` and cannot expand its member list is that
-/// block's own config error, raised here rather than read as "does not claim this
-/// directory": the key that failed is the very one that would have answered the
-/// question (§FS-workspace.6.1). A config that does not even *load* is skipped —
-/// this walk climbs to the filesystem root, and a stray unparseable `grund.toml`
+/// A block that **claims** this directory and cannot expand its member list is
+/// that block's own config error, raised here rather than read as "does not claim
+/// this directory": the key that failed is the very one that would have answered
+/// the question (§FS-workspace.6.1). The claim is read off the entry text first,
+/// so a block that names nothing here is never expanded and its errors are not
+/// this run's business. A config that does not even *load* is skipped for the same
+/// reason — this walk climbs to the filesystem root, and a stray `grund.toml`
 /// somewhere above the repository must not break every run beneath it.
 fn enclosing_workspace_of(
     child: &Path,
     cli_base: &Path,
     ancestors: &mut AncestorWorkspaces,
 ) -> Result<Option<Config>> {
+    // The claim is compared canonically: a `members` entry may reach this
+    // directory through a symlink, and then only the resolved paths agree
+    // (§FS-workspace.6.1).
+    let canonical_child = canonical_workspace_path(child);
     let mut claiming = None;
     let mut cursor = child.parent();
     while let Some(dir) = cursor {
-        if let Some((parent, members)) = ancestors.block_at(dir, cli_base)?
-            && members.iter().any(|root| root == child)
-        {
+        if let Some(parent) = ancestors.claiming_block(dir, child, &canonical_child, cli_base)? {
             claiming = Some(parent.clone());
         }
         cursor = dir.parent();

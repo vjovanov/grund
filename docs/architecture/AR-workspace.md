@@ -225,6 +225,11 @@ of a re-spelled set of its own. `enclosing_alias_prefix` recovers it by climbing
 takes the **outermost** claim: a multi-segment `members` entry may hop a block that lists the same child, and the top-down walk composes the path through the outer one.
 The climb is fallible — a claiming block that cannot expand its members or name the project below it raises that block's own error, since dropping it would silently
 re-spell the subtree, while an ancestor whose config does not even load is no claim at all and is climbed past.
+Which blocks that reaches is decided **before** any member list is expanded, from the entry text alone (`MemberClaim`: `config.root.join(entry)`, and the visible
+directories under a `<parent>/*` entry, compared both as written and canonically, since an entry may reach the directory through a symlink). Only a block whose
+entries name the child is expanded, and only then is its error propagated; the expanded roots then confirm the claim, because where a glob or a symlinked entry
+lands is an answer only expansion has. Expanding every *declaring* ancestor instead made one broken `members` list above a repository the answer to every command
+inside it, at any depth up to `/`, for a block that claimed nothing there ([§FS-workspace.6.1](../functional-spec/FS-workspace.md#61-nested-workspaces)).
 The blocks it reads are cached per directory for the length of one climb (`AncestorWorkspaces`), because every level re-walks the ancestors of the level below it: without
 the cache each ancestor's config is re-read and its grammar regex set rebuilt once per level, which is quadratic in depth and inverts the cost of narrowing — a `list`
 narrowed to two projects deep inside a 40-level chain measured 7.1 s against 0.4 s for the whole chain from its root, and 0.4 s against 0.4 s with it. One cache per climb
@@ -305,6 +310,7 @@ test that fails if the invariant is broken:
 | A narrowed run resolves a subset, not a re-spelling | `e2e/cases/workspace-nested-subtree-scope` |
 | A member root escaping its own block rejected, expansion terminates | `nested_workspace_member_pointing_at_an_ancestor_is_rejected`, `workspace_member_resolving_out_of_the_tree_is_rejected`, `workspace_member_resolving_to_its_own_block_is_rejected`, `nested_member_inside_the_block_that_lists_it_loads` (`crates/grund-core/src/tests_workspace_nested.rs`) |
 | An alias path is read from the outermost claiming block, and a claiming block that cannot answer fails the run | `alias_paths_follow_the_outermost_claim_of_a_member`, `enclosing_workspace_that_cannot_expand_fails_the_narrowed_run`, `enclosing_workspace_with_an_invalid_alias_fails_the_narrowed_run` (`crates/grund-core/src/tests_workspace_nested.rs`); `e2e/cases/workspace-nested-enclosing-member-missing` |
+| A block that claims nothing here is never expanded | `an_ancestor_that_claims_nothing_here_cannot_break_the_run`, `an_ancestor_with_overlapping_members_that_claims_nothing_is_climbed_past`, `an_ancestor_glob_claims_the_child_and_still_owes_it_an_answer`, `an_ancestor_claim_through_a_symlinked_entry_keeps_the_prefix` (`crates/grund-core/src/tests_workspace_nested.rs`) |
 | A narrowed run never re-spells a citation whose target it cannot see | `e2e/cases/workspace-nested-cross-branch-citation-at-root`; `e2e/cases/workspace-nested-cross-branch-citation-narrowed` |
 | Member errors name the entry as the config wrote it | `nested_workspace_member_overlap_names_both_entries_as_written` (`crates/grund-core/src/tests_workspace_nested.rs`) |
 | `init` describes the workspace that claims the target | `workspace_members_ignores_an_ancestor_workspace_that_does_not_claim_the_target`, `workspace_members_at_a_group_its_parent_does_not_list_names_its_own_tree` (`crates/grund-core/src/tests_workspace_members.rs`) |
