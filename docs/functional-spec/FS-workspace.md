@@ -45,6 +45,17 @@ ID and section grammar. For a qualified citation, it uses the target project's
 grammar: `<§>api/FS-001-session` is parsed with `api`'s `[id]` config, even when
 the citing/root project uses a different ID format.
 
+The shape is read the same way in **every** repository, including one with no
+`[workspace]` at all: what makes a token a citation is the marker
+([§FS-check.1.1](FS-check.md#11-recognized-citations)), and a marked token of this shape is a citation whose alias
+path resolves against nothing, so it is reported as an unknown project alias at
+its site rather than skipped (§5, [§FS-check.3.8](FS-check.md#38-cross-project-citation-failure)) — the same rule that
+stops a member-local run from shipping a cross-project citation the workspace
+root would reject. The multi-segment path therefore makes one *file path*
+readable as a citation: `<§>docs/functional-spec/FS-login.md` is a two-segment
+alias path plus an ID, and marking it is what says "resolve this". A path meant
+as a path is written without the marker, or outside the citation.
+
 ## 2. Workspace configuration
 
 A workspace is declared in the root project's `grund.toml` ([§FS-config.1](FS-config.md#1-file-location-and-discovery)):
