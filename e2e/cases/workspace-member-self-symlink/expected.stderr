@@ -1,0 +1,1 @@
+error: .agents/grund.toml:16: workspace member `self` resolves to the workspace root that lists it
