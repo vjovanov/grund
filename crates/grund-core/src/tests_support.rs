@@ -50,6 +50,24 @@ mod tests_support {
         config
     }
 
+    /// A tree with a configured inline note layout, gate still `off`
+    /// (§FS-inline-citation-style.3.3). Shared because the classifier suite and
+    /// the check suite configure the same two keys from opposite ends.
+    pub(crate) fn layout_config(root: PathBuf, layout: &str) -> Config {
+        let mut config = legacy_fs_folder_config(root);
+        config.inline_note_layout = layout.to_string();
+        config
+    }
+
+    /// A layout the check actually reads: the classifier records nothing while
+    /// `inline_note_layout_check` is `off` (§FS-inline-citation-style.4.4), so a
+    /// test that asks it a question has to turn the gate on.
+    pub(crate) fn checked_layout_config(root: PathBuf, layout: &str) -> Config {
+        let mut config = layout_config(root, layout);
+        config.inline_note_layout_check = "error".to_string();
+        config
+    }
+
     pub(crate) fn canonical_test_path(path: &Path) -> PathBuf {
         std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
     }
