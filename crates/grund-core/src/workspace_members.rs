@@ -38,12 +38,13 @@ fn expand_workspace_member_list(config: &Config) -> Result<Vec<WorkspaceMember>>
         if let Some(glob_parent) = member.strip_suffix("/*") {
             let parent = config.root.join(glob_parent);
             if !parent.is_dir() {
+                // Named as written, like every other member error: a rendered
+                // path here is relative to *this block's* root, which is not the
+                // base the report uses, and under `relative_paths = false` it
+                // could not be made relative at all (§FS-errors.4).
                 return Err(workspace_members_error(
                     config,
-                    format!(
-                        "workspace member glob parent does not exist: {}",
-                        display_path(config, &parent)
-                    ),
+                    format!("workspace member glob parent does not exist: {glob_parent}"),
                 ));
             }
             for entry in fs::read_dir(&parent)? {
@@ -199,12 +200,24 @@ struct AncestorBlock {
 /// so, a run narrowed deep into a 40-level tree taking longer than checking the
 /// whole tree from its root. One cache belongs to one climb, which is also why it
 /// needs no invalidation.
-#[derive(Default)]
 struct AncestorWorkspaces {
+    /// The base a diagnostic from one of these blocks renders its config path
+    /// against: the root this run was launched at. An ancestor's config lies
+    /// *above* that root, so it renders with `..` — without this it rendered
+    /// relative to its own root, and `.agents/grund.toml:16` then named a
+    /// same-shaped file in the reader's own directory (§FS-errors.4).
+    report_base: PathBuf,
     blocks: BTreeMap<PathBuf, Option<AncestorBlock>>,
 }
 
 impl AncestorWorkspaces {
+    fn for_run_at(root: &Path) -> Self {
+        Self {
+            report_base: root.to_path_buf(),
+            blocks: BTreeMap::new(),
+        }
+    }
+
     /// The `[workspace]` block at `dir` **when it claims `child`**, or `None`.
     ///
     /// §FS-workspace.6.1 scopes every obligation of this walk to a *claim*: a
@@ -227,7 +240,7 @@ impl AncestorWorkspaces {
         cli_base: &Path,
     ) -> Result<Option<&Config>> {
         if !self.blocks.contains_key(dir) {
-            let block = load_ancestor_workspace_block(dir, cli_base);
+            let block = load_ancestor_workspace_block(dir, cli_base, &self.report_base);
             self.blocks.insert(dir.to_path_buf(), block);
         }
         let Some(block) = self.blocks.get_mut(dir).and_then(Option::as_mut) else {
@@ -251,12 +264,16 @@ impl AncestorWorkspaces {
     }
 }
 
-fn load_ancestor_workspace_block(dir: &Path, cli_base: &Path) -> Option<AncestorBlock> {
+fn load_ancestor_workspace_block(
+    dir: &Path,
+    cli_base: &Path,
+    report_base: &Path,
+) -> Option<AncestorBlock> {
     config_file_in(dir)?;
     // A config that does not even load is no claim at all: this walk climbs to
     // the filesystem root, and a stray unparseable `grund.toml` above the
     // repository must not break every run beneath it (§AR-workspace.6.1).
-    let config = load_config_at(dir, cli_base).ok()?;
+    let config = load_config_at_with_report_base(dir, cli_base, Some(report_base)).ok()?;
     if !config.workspace_declared {
         return None;
     }

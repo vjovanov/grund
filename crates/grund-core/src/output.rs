@@ -208,6 +208,36 @@ fn format_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
+/// `path` expressed relative to `base`, walking up with `..` for a target that
+/// lies *outside* it (§FS-errors.4: a report never carries an absolute path, and a
+/// reader resolves what it prints against the directory they are standing in). The
+/// case that needs it is a config file **above** the run's root: an enclosing
+/// workspace's `members` line, reported at a run narrowed into one of its members
+/// (§FS-workspace.6.1). Both paths are canonical there. A pair with no shared
+/// component at all — different Windows prefixes — has no relative form, so the
+/// target is returned unchanged.
+fn relative_from_base(base: &Path, path: &Path) -> PathBuf {
+    if let Ok(inside) = path.strip_prefix(base) {
+        return inside.to_path_buf();
+    }
+    let base_parts: Vec<_> = base.components().collect();
+    let path_parts: Vec<_> = path.components().collect();
+    let shared = base_parts
+        .iter()
+        .zip(&path_parts)
+        .take_while(|(a, b)| a == b)
+        .count();
+    if shared == 0 {
+        return path.to_path_buf();
+    }
+    let mut relative = PathBuf::new();
+    for _ in shared..base_parts.len() {
+        relative.push("..");
+    }
+    relative.extend(&path_parts[shared..]);
+    relative
+}
+
 fn sort_path_key(path: &Path) -> String {
     format_path(path)
 }

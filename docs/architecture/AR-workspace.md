@@ -225,6 +225,7 @@ subset of the same names instead of a re-spelled set of its own. `enclosing_alia
 takes the **outermost** claim: a multi-segment `members` entry may hop a block that lists the same child, and the top-down walk composes the path through the outer one.
 The climb is fallible — a claiming block that cannot expand its members or name the project below it raises that block's own error, since dropping it would silently
 re-spell the subtree, while an ancestor whose config does not even load is no claim at all and is climbed past.
+An ancestor's config is loaded with the run's own root as its report base (`load_config_at_with_report_base`), the same way a nested member's is, so its `members` line renders as `../grund.toml:16` rather than as a path relative to that ancestor: the second form is a valid line in the wrong file once the reader resolves it from the subtree they are standing in ([§FS-errors.4](../functional-spec/FS-errors.md#4-determinism)).
 Which blocks that reaches is decided **before** any member list is expanded, from the entry text alone (`MemberClaim`: `config.root.join(entry)`, and the visible
 directories under a `<parent>/*` entry, compared both as written and canonically, since an entry may reach the directory through a symlink). Only a block whose
 entries name the child is expanded, and only then is its error propagated; the expanded roots then confirm the claim, because where a glob or a symlinked entry

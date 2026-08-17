@@ -259,7 +259,7 @@ fn enclosing_alias_prefix(config: &Config) -> Result<String> {
     // One cache for the whole climb: every level walks the same ancestors, so
     // each ancestor's config is read once per run rather than once per level
     // (§AR-workspace.6.1).
-    let mut ancestors = AncestorWorkspaces::default();
+    let mut ancestors = AncestorWorkspaces::for_run_at(&config.root);
     loop {
         let child_config = climbed.as_ref().unwrap_or(config);
         let Some(parent) =

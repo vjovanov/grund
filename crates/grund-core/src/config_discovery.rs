@@ -102,13 +102,17 @@ fn load_config_at_with_report_base(
     config.cli_base = cli_base.to_path_buf();
     // Report config errors against a stable relative path, never the
     // absolute discovered path (§FS-errors.4: deterministic, no absolute
-    // paths outside the configured root).
-    let report_relative = |path: &Path| {
-        let base = report_base.unwrap_or(&root);
-        path.strip_prefix(base)
+    // paths outside the configured root). A report base *above* this config is
+    // the ordinary case for a workspace member; one *below* it is the enclosing
+    // workspace read by an ancestor climb, and that renders with `..` so the
+    // reader lands on the file that holds the offending line rather than on a
+    // same-named one in their own directory (§FS-workspace.6.1).
+    let report_relative = |path: &Path| match report_base {
+        Some(base) => relative_from_base(base, path),
+        None => path
+            .strip_prefix(&root)
             .map(Path::to_path_buf)
-            .or_else(|_| path.strip_prefix(&root).map(Path::to_path_buf))
-            .unwrap_or_else(|_| path.to_path_buf())
+            .unwrap_or_else(|_| path.to_path_buf()),
     };
     // §FS-check.4.3: the loser of a two-name tie is recorded, not read, so every
     // surface that reports on the config can name the file grund ignored.
