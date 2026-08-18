@@ -80,6 +80,50 @@ Workspace and agent-entrypoint release. The main user-visible change is workspac
 """,
         )
 
+    def test_archived_links_that_climb_above_docs_gain_another_level(self) -> None:
+        """A destination is rewritten by how far the file moved, not by its shape.
+
+        `docs/changelog.md` sits in `docs/`, so a link to a repository-root path is
+        written `../crates/...`. Archiving moves the body one directory deeper, to
+        `docs/changelog/<version>.md`, where that same destination has to climb twice.
+        Leaving an already-climbing link alone is how v0.10.0 shipped a link resolving
+        to `docs/crates/...` and turned the tree's own link check red.
+        """
+        changelog = self.write_changelog(
+            """# Changelog
+
+## Unreleased
+
+### Added
+
+- New thing.
+
+## 2. [0.2.0] — 2026-05-17
+
+Previous release.
+
+### Added
+
+- [§AR-checker.2.12](../crates/grund-core/src/checker.rs): an inline declaration.
+- [§FS-workspace](functional-spec/FS-workspace.md#fs-workspace): a sibling under docs.
+- [an anchor](#goal-x) and [an absolute one](/README.md) and [a url](https://example.com/a).
+
+## 3. Older releases
+"""
+        )
+
+        prepare_changelog_release.prepare_release(changelog, "0.3.0", "2026-05-18")
+        archived = (changelog.parent / "changelog" / "0.2.0.md").read_text(encoding="utf-8")
+
+        # Climbed once against `docs/`, so it climbs twice from `docs/changelog/`.
+        self.assertIn("](../../crates/grund-core/src/checker.rs)", archived)
+        # A sibling under `docs/` gains exactly one level.
+        self.assertIn("](../functional-spec/FS-workspace.md#fs-workspace)", archived)
+        # An anchor, an absolute path, and a URL mean the same thing at any depth.
+        self.assertIn("](#goal-x)", archived)
+        self.assertIn("](/README.md)", archived)
+        self.assertIn("](https://example.com/a)", archived)
+
     def test_prepare_fails_when_unreleased_has_no_bullets(self) -> None:
         changelog = self.write_changelog(
             """# Changelog
