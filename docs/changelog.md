@@ -24,6 +24,10 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Fixed
+
+- [§FS-distribution.4](functional-spec/FS-distribution.md#4-release-process): **archiving a release no longer breaks the links it carries above `docs/`.** `scripts/prepare_changelog_release.py` moves the outgoing release body from `docs/changelog.md` into `docs/changelog/<version>.md`, one directory deeper, and rewrote each relative destination to match — except one already beginning `../`, which it skipped. Those are exactly the destinations that need a second `../`: a link to a repository-root path is written `../crates/…` against `docs/`, and from `docs/changelog/` it has to climb twice. v0.10.0 archived v0.9.1 and its two `§AR-checker` links to an inline source declaration became `docs/crates/…`, which turned the tree's own `lychee` gate — and so CI on `main` — red. The rule is now the file's depth rather than the link's shape, an anchor, an absolute path and a URL still mean the same thing at any depth, and the archived v0.9.1 links are corrected. PR #80
+
 ## 2. [0.10.0] — 2026-08-18
 
 ### Added

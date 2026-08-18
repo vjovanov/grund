@@ -187,7 +187,13 @@ def _summary_from(lines: Sequence[str]) -> str:
 def _rewrite_relative_links_for_archive(line: str) -> str:
     def rewrite(match: re.Match[str]) -> str:
         destination = match.group("destination")
-        if destination.startswith(("#", "/", "../", "http://", "https://", "mailto:")):
+        # An anchor, an absolute path, and a URL all mean the same thing one
+        # directory deeper. Every *relative* destination means one directory
+        # less, including one that already climbs: `../crates/x.rs` was written
+        # against `docs/`, so from `docs/changelog/` it needs a second `../`.
+        # Skipping it was how `docs/changelog/0.9.1.md` shipped a link that
+        # resolved to `docs/crates/...` and turned the tree's own link check red.
+        if destination.startswith(("#", "/", "http://", "https://", "mailto:")):
             return match.group(0)
         fragment = match.group("fragment") or ""
         return f"{match.group('prefix')}../{destination}{fragment})"
