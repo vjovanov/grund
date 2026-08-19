@@ -238,6 +238,17 @@ fn shorthand_expansion_edit(
     // Scoped to the edited file's own project — see `DeclaredId`. Collected only
     // now, after every cheap gate above has passed, so an ordinary keystroke never
     // walks the declaration list at all (§GOAL-fast-feedback).
+    // §FS-fmt.2.4.1: a run already on the line is refused here exactly as it is in
+    // the bulk pass. An author typing a *fresh* run has not written the second
+    // number yet when this keystroke fires, so that one expands and is then
+    // visible and undoable — the loud failure, not the silent one
+    // (§DF-shorthand-numeric-run.5).
+    if config
+        .grammar
+        .shorthand_sits_in_numeric_run(&config.marker, &line[token_start..], token_end - token_start)
+    {
+        return None;
+    }
     let in_project = declarations_under_root(declarations, &config.root);
     let text = shorthand_token_expansion(config, &line[token_start..token_end], &in_project)?;
     Some(LineEdit {

@@ -245,6 +245,7 @@ fn scan_file_text(
                 has_marker,
                 shorthand: false,
                 shorthand_rewritable: true,
+                numeric_run: false,
                 text,
                 inline_site: inline_sites.get(&lineno).cloned(),
                 // §AR-scanner.2.4: classified in the post-pass below.
@@ -698,6 +699,7 @@ fn scan_fallback_qualified_citations(
             // so a fallback-parsed qualified citation is never one (§AR-scanner.2.6).
             shorthand: false,
             shorthand_rewritable: true,
+            numeric_run: false,
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
             // §AR-scanner.2.4: classified in the post-pass in `scan_file`.
@@ -807,13 +809,18 @@ fn scan_workspace_qualified_pass(
         let Some(id_rest) = line.scan_line.get(id_start..) else {
             continue;
         };
+        // The winning target is kept, not just its parse: §FS-fmt.2.4.1 asks the
+        // numeric-run question with the *target's* number shape, the same grammar
+        // that claimed the token.
         let parsed = match targets.iter().find(|target| target.alias == alias) {
-            Some(target) => parse_longest_id_prefix(id_rest, &target.config.grammar),
-            None => targets
-                .iter()
-                .find_map(|target| parse_longest_id_prefix(id_rest, &target.config.grammar)),
+            Some(target) => parse_longest_id_prefix(id_rest, &target.config.grammar)
+                .map(|parsed| (parsed, &target.config)),
+            None => targets.iter().find_map(|target| {
+                parse_longest_id_prefix(id_rest, &target.config.grammar)
+                    .map(|parsed| (parsed, &target.config))
+            }),
         };
-        let Some(parsed) = parsed else {
+        let Some((parsed, target_config)) = parsed else {
             continue;
         };
         let token_end = id_start + parsed.len;
@@ -835,6 +842,14 @@ fn scan_workspace_qualified_pass(
                 line.column_offset + marker_start,
             ),
             shorthand: parsed.shorthand,
+            // §FS-fmt.2.4.1: the marker is the citing project's, the number shape
+            // the target's — the same split the rewrite itself uses.
+            numeric_run: parsed.shorthand
+                && target_config.grammar.shorthand_sits_in_numeric_run(
+                    &line.config.marker,
+                    id_rest,
+                    parsed.len,
+                ),
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
             // §AR-scanner.2.4: classified in the post-pass in `scan_file`.
@@ -891,8 +906,10 @@ fn scan_escaped_citations(line: &CitationLine<'_>, findings: &mut Findings) {
             column: line.column_offset + escape_start + 1,
             has_marker: false,
             shorthand: parsed.shorthand,
-            // An escape is check-inert; nothing rewrites it (§AR-scanner.2.5).
+            // An escape is check-inert; nothing rewrites it (§AR-scanner.2.5), so
+            // the run question — which only ever gates a rewrite — never arises.
             shorthand_rewritable: false,
+            numeric_run: false,
             text: line.scan_line[escape_start..token_end].to_string(),
             inline_site: None,
             source_kind: String::new(),

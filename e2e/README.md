@@ -58,6 +58,9 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - a nested qualified ID as a CLI argument: `grund group/alpha/FS-x`, `refs group/alpha/FS-x`, and `list --project` for both a leaf and the grouping node it sits under (an exact alias match, never a prefix one)
 - a `[citations]` rule entry qualified by a whole alias path (`must = ["group/alpha/FS"]`), satisfied by a nested-path line in an `spec.refs` manifest and unsatisfied by the leaf name alone
 - a malformed nested alias path as a CLI argument, naming the segment that failed rather than the whole path
+- a number-only shorthand glued to a second number: `fmt --write` leaves every glued shape byte-for-byte while the ordinary citations around them still expand, `check` reports the site with both the canonical form and the `<§>` escape, and the escape clears it
+- the boundary of that rule: a construct closing and another opening is not one delimiter run, so a Markdown link, a footnote reference, a quoted or bracketed citation, and a path glued to the token all still expand — while a real run inside brackets still does not
+- `fmt --check` naming the text each shorthand expansion will write, including two on one line and a typed trigger marked and expanded in one pass
 - the unknown-alias hint at the workspace root (the two `FS-check.3.8` worked examples, byte-exactly): a dropped prefix naming one project, and a leaf name two projects share naming both, joined as `a or b`
 - a narrowed run offering no candidate where the workspace root would have offered one: a citation naming the top-level `api` is green at the root and, from inside `left` (which holds its own `api`), reports the scope it covers rather than pointing at `left/api`
 - config include/exclude/extensions

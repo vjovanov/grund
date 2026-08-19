@@ -290,8 +290,19 @@ impl Grammar {
             ShorthandGrammar {
                 full_prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, id_pat, sec_suffix),
                 prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, short_pat, sec_suffix),
+                // §FS-fmt.2.4.1 clause 2: the same shorthand shape with no
+                // `<alias>/` in front of it. A namespace precedes a citation and
+                // is never the second number of a run, so reusing `prefix_pattern`
+                // here would count every path ending in an ID-shaped segment.
+                unqualified_prefix_pattern: format!(r"\A{}{}", short_pat, sec_suffix),
+                // Non-capturing: this one is only ever asked `is_match`, and a
+                // second `(?P<num>…)` beside the one in `short_pat` would be a
+                // duplicate group name if the two ever met in one pattern.
+                number_prefix_pattern: format!(r"\A(?:{})", number_pattern),
                 full_prefix_re: once_cell::sync::OnceCell::new(),
                 prefix_re: once_cell::sync::OnceCell::new(),
+                unqualified_prefix_re: once_cell::sync::OnceCell::new(),
+                number_prefix_re: once_cell::sync::OnceCell::new(),
             }
         });
 

@@ -1,0 +1,6 @@
+docs/functional-spec/FS-043-user-logout.md:1: declared but never cited: FS-043-user-logout
+docs/notes.md:1: shorthand §FS-042 sits in a numeric run and was not rewritten; write §FS-042-user-login, or <§>FS-042 if these are old numbers
+docs/notes.md:1: shorthand §FS-042 sits in a numeric run and was not rewritten; write §FS-042-user-login, or <§>FS-042 if these are old numbers
+docs/notes.md:8: shorthand citation §FS-042; write §FS-042-user-login
+docs/notes.md:12: shorthand citation §FS-042; write §FS-042-user-login
+docs/notes.md:12: shorthand citation §FS-042; write §FS-042-user-login

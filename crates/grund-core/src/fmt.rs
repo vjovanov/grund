@@ -54,7 +54,7 @@ fn command_fmt(args: &[String]) -> ExitCode {
     } else {
         None
     };
-    let mut changes: Vec<(PathBuf, usize, &'static str)> = Vec::new();
+    let mut changes: Vec<(PathBuf, usize, String)> = Vec::new();
     // §FS-workspace.8.5: in workspace mode with no explicit path (or with
     // `path == workspace root`), walk every project so cross-project wraps
     // are emitted across the whole repo. An explicit path inside one
@@ -206,7 +206,7 @@ fn fmt_tree(
     scope: Option<&Path>,
     explicit_scope: bool,
     opts: &FmtRunOpts<'_>,
-) -> Result<Vec<(PathBuf, usize, &'static str)>> {
+) -> Result<Vec<(PathBuf, usize, String)>> {
     let mut changes = Vec::new();
     let add_marker = opts.add_marker;
     let cross_refs = opts.cross_refs;
@@ -307,7 +307,7 @@ fn rewrite_file(
     config: &Config,
     is_md: bool,
     opts: &FmtLineOpts<'_>,
-    changes: &mut Vec<(PathBuf, usize, &'static str)>,
+    changes: &mut Vec<(PathBuf, usize, String)>,
 ) -> RewrittenFile {
     let mut in_fence = false;
     let mut lines = Vec::new();
@@ -369,7 +369,7 @@ fn fmt_line(
     is_md: bool,
     opts: &FmtLineOpts<'_>,
     saw_shorthand_candidate: &mut bool,
-) -> (String, &'static str) {
+) -> (String, String) {
     let triggered = replace_trigger(line, config, is_md);
     let trigger_changed = triggered != line;
     let marked = if opts.add_marker {
@@ -383,12 +383,14 @@ fn fmt_line(
     // allocation per line is a measurable share of the command (§GOAL-fast-feedback).
     // `expand_shorthand_citations` returns `None` for "unchanged" exactly so the
     // common line can be moved through untouched.
+    let mut expansions = Vec::new();
     let expansion = expand_shorthand_citations(
         &marked,
         config,
         is_md,
         opts.shorthand_targets,
         saw_shorthand_candidate,
+        &mut expansions,
     );
     let shorthand_changed = expansion.is_some();
     let mut final_line = expansion.unwrap_or(marked);
@@ -411,6 +413,24 @@ fn fmt_line(
         "markdown link"
     } else {
         ""
+    };
+    // §FS-fmt.3: whichever label won, a line that expanded a shorthand names the
+    // text it will write. The other three rewrites move markup around an
+    // unchanged ID token, so `grund check` can still see a mistake in them;
+    // this one writes the slug *into* the token, and a wrong one is a well-formed
+    // citation of the wrong declaration that no later pass can question
+    // (§DF-shorthand-numeric-run.2.7).
+    let label = if expansions.is_empty() {
+        label.to_string()
+    } else {
+        format!(
+            "{label}: {}",
+            expansions
+                .iter()
+                .map(|(written, canonical)| format!("{written} \u{2192} {canonical}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     };
     (final_line, label)
 }

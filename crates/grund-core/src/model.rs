@@ -107,6 +107,14 @@ pub struct Citation {
     /// fix, so `check` never demands an edit the formatter refuses to make.
     /// Always `true` when `shorthand` is `false`.
     pub shorthand_rewritable: bool,
+    /// Whether this shorthand is glued to a second number — `§SPEC-001→SPEC-003`
+    /// — which makes it a numeral in a run rather than a citation, and forbids
+    /// `grund fmt` from expanding it (§FS-fmt.2.4.1). Distinct from
+    /// `shorthand_rewritable` because the two reach different verdicts: an
+    /// illustration in inline code wants no edit and earns no finding, while a
+    /// run needs one and earns §FS-check.3.15. Always `false` when `shorthand`
+    /// is `false`.
+    pub numeric_run: bool,
     pub text: String,
     pub inline_site: Option<InlineCitationSite>,
     /// The resolved *citing* kind for this site (§AR-scanner.2.4): the kind of

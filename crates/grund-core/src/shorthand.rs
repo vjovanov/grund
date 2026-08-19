@@ -11,6 +11,10 @@
 // nothing naming the invariant — so it lives as a feature module and each stage
 // keeps a one-line call into it.
 //
+// What is *not* the rule sits in `id_format.rs`: the `[id] format` template and
+// the post-match tests for where a token of that grammar ends — questions about
+// the shape, which the rule here then serves.
+//
 // File-level prose, so `//` rather than `///`: the crate is assembled by
 // `include!` (§AR-core-module-layout.2), which makes an inner `//!` illegal
 // here, and a `///` block separated from the first item by a blank line would
@@ -19,100 +23,6 @@
 // Everything here is crate-private and reached through the flat `include!` in
 // `lib.rs`; the public embedding surface stays in `api.rs`
 // (§AR-core-module-layout.2).
-
-impl Grammar {
-    /// Whether this repo's `[id] format` has a number-only shorthand at all
-    /// (§FS-check.1.2) — the gate every shorthand pass checks first.
-    fn has_shorthand(&self) -> bool {
-        self.shorthand.is_some()
-    }
-
-    /// Whether `ch` could extend an ID token that has just ended — the test that
-    /// gives the shorthand pattern the trailing boundary it cannot express
-    /// (§DF-number-only-citation-shorthand.2.6).
-    ///
-    /// The shorthand pattern is `\A`-anchored at the *start* only, so under the
-    /// default format it matches the `FS-042` inside `FS-042-User-Login` — a full
-    /// ID whose slug this grammar rejects — and, without this test, a pass would
-    /// claim the prefix and leave `-User-Login` glued to whatever it wrote in its
-    /// place. A `regex` pattern cannot say "and nothing that could continue an ID
-    /// follows" (the crate has no lookahead), so the rule lives here.
-    ///
-    /// Two classes continue a token: an ID component character (an alphanumeric,
-    /// plus `_` because it is the separator people reach for by mistake), and a
-    /// literal from `[id] format` — `-` under the default, which is exactly what
-    /// makes `FS-042` a prefix of `FS-042-user-login`.
-    ///
-    /// `/` is deliberately **not** one of them. It is the namespace separator of
-    /// §FS-workspace.1, which can only *precede* a kind, never follow a number, and
-    /// the full-ID pass already reads `§FS-042-user-login/x` as a citation of
-    /// `FS-042-user-login`. Treating it as a continuation here would make the
-    /// shorthand and the canonical form disagree about the same boundary — and the
-    /// shorthand would be the one silently dropped, which is the false negative
-    /// §GOAL-no-dangling-refs exists to forbid.
-    fn id_token_continues_with(&self, ch: char) -> bool {
-        ch.is_alphanumeric() || ch == '_' || self.format_literal_starting_with(ch).is_some()
-    }
-
-    /// The `[id] format` literal beginning with `ch`, if any.
-    fn format_literal_starting_with(&self, ch: char) -> Option<&str> {
-        self.elements.iter().find_map(|element| match element {
-            IdElement::Literal(text) if text.starts_with(ch) => Some(text.as_str()),
-            _ => None,
-        })
-    }
-
-    /// Whether an ID token that the pattern matched up to `end` really ends there
-    /// (§DF-number-only-citation-shorthand.2.6). `end` is a regex match end, so it
-    /// is always a char boundary.
-    ///
-    /// A separator only continues the token when a component actually follows it.
-    /// That distinction matters wherever a format literal is also ordinary
-    /// punctuation: under `{kind}.{number}.{slug}` the sentence `see §FS.042.` ends
-    /// with a literal `.`, and reading that as a continuation would drop a real
-    /// citation. `see §FS.042.User-Login` has a component after the separator and
-    /// is correctly refused.
-    fn id_token_ends_cleanly(&self, rest: &str, end: usize) -> bool {
-        let tail = &rest[end..];
-        let Some(next) = tail.chars().next() else {
-            return true;
-        };
-        if next.is_alphanumeric() || next == '_' {
-            return false;
-        }
-        let Some(literal) = self.format_literal_starting_with(next) else {
-            return true;
-        };
-        !tail
-            .strip_prefix(literal)
-            .and_then(|after| after.chars().next())
-            .is_some_and(|after| after.is_alphanumeric() || after == '_')
-    }
-}
-
-/// The end offset of the ID-shaped token starting at exactly `at`, or `None` when
-/// none does — a full ID, or the number-only shorthand where the repo has one
-/// (§FS-check.1.2). One definition of "a real ID follows here", shared by `fmt`'s
-/// trigger pass (§FS-fmt.2.1) and the LSP's live transform (§FS-lsp.1.4), so the
-/// two cannot disagree about which `$$` to consume.
-fn id_token_end_at(line: &str, at: usize, grammar: &Grammar) -> Option<usize> {
-    if let Some(found) = grammar
-        .citation_re
-        .find_at(line, at)
-        .filter(|found| found.start() == at)
-    {
-        return Some(found.end());
-    }
-    let shorthand = grammar.shorthand.as_ref()?;
-    let rest = line.get(at..)?;
-    shorthand
-        .prefix_re()
-        .find(rest)
-        // §DF-number-only-citation-shorthand.2.6: `$$FS-042abc` is not a
-        // shorthand, so the trigger before it is not rewritable either.
-        .filter(|found| grammar.id_token_ends_cleanly(rest, found.end()))
-        .map(|found| at + found.end())
-}
 
 /// One parsed ID token: the `Id`, its optional section path, and whether it was
 /// written in the number-only shorthand (§FS-check.1.2). A shorthand `Id` carries
@@ -382,17 +292,20 @@ fn scan_shorthand_citations(
         let Some(caps) = shorthand.prefix_re().captures(rest) else {
             continue;
         };
+        let match_end = caps.get(0).map_or(0, |found| found.end());
         // §DF-number-only-citation-shorthand.2.6: the pattern is anchored only at
         // the start, so without this the `FS-042` inside a rejected full ID like
         // `§FS-042-User-Login` would be reported as a shorthand — naming a token
         // the file does not contain.
-        if !line
-            .config
-            .grammar
-            .id_token_ends_cleanly(rest, caps.get(0).map_or(0, |found| found.end()))
-        {
+        if !line.config.grammar.id_token_ends_cleanly(rest, match_end) {
             continue;
         }
+        // §FS-fmt.2.4.1: the token ended, which does not make it a citation.
+        let numeric_run = line.config.grammar.shorthand_sits_in_numeric_run(
+            &line.config.marker,
+            rest,
+            match_end,
+        );
         let namespace = caps.name("namespace").map(|m| m.as_str().to_string());
         if workspace_mode && namespace.is_some() {
             continue;
@@ -403,7 +316,7 @@ fn scan_shorthand_citations(
         {
             continue;
         }
-        let token_end = token_start + caps.get(0).map(|found| found.end()).unwrap_or(0);
+        let token_end = token_start + match_end;
         findings.citations.push(Citation {
             namespace,
             id,
@@ -422,6 +335,7 @@ fn scan_shorthand_citations(
                 line.is_md,
                 line.column_offset + marker_start,
             ),
+            numeric_run,
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
             // §AR-scanner.2.4: classified in the post-pass in `scan_file`.
@@ -512,12 +426,34 @@ fn shorthand_diagnostic(
                 .as_ref()
                 .map(|section| format!("{}{}", target_config.section_separator, section))
                 .unwrap_or_default();
-            format!(
-                "shorthand citation {written}; write {}{}{}",
+            let canonical = format!(
+                "{}{}{}",
                 config.marker,
                 render_qualified_id(target_config, cite.namespace.as_deref(), unique),
                 section
-            )
+            );
+            // §FS-check.3.15: the same site, a different verdict — `fmt` will not
+            // rewrite a numeral in a run, so naming only the canonical form would
+            // advise the edit that corrupts the line. Both exits, and the author
+            // knows which.
+            if cite.numeric_run {
+                return Some(Diagnostic {
+                    code: "shorthand-numeric-run",
+                    path: Some(cite.file.clone()),
+                    line: Some(cite.line),
+                    column: Some(cite.column),
+                    message: format!(
+                        "shorthand {written} sits in a numeric run and was not rewritten; \
+                         write {canonical}, or <{}>{} if these are old numbers",
+                        config.marker,
+                        written
+                            .strip_prefix(config.marker.as_str())
+                            .unwrap_or(written),
+                    ),
+                    sites: Vec::new(),
+                });
+            }
+            format!("shorthand citation {written}; write {canonical}")
         }
         many => format!(
             "shorthand citation {written} is ambiguous: {}",
@@ -598,6 +534,7 @@ fn expand_shorthand_citations(
     is_md: bool,
     targets: &ShorthandTargets<'_>,
     saw_candidate: &mut bool,
+    expansions: &mut Vec<(String, String)>,
 ) -> Option<String> {
     // The local grammar is only one of the grammars in play: a qualified citation
     // is parsed with the *target's*, so a citing project with no shorthand of its
@@ -674,6 +611,16 @@ fn expand_shorthand_citations(
         if !target_config.grammar.id_token_ends_cleanly(tail, match_end) {
             continue;
         }
+        // §FS-fmt.2.4.1: `§SPEC-001→SPEC-003` is a renumbering table, not a
+        // citation. The marker is the *citing* project's — it is what the author
+        // typed — while the number shape is the target's, the same split the
+        // rewrite below uses.
+        if target_config
+            .grammar
+            .shorthand_sits_in_numeric_run(&config.marker, tail, match_end)
+        {
+            continue;
+        }
         // §FS-fmt.2.3: the same exclusions the other rewrites honour — an
         // illustration in inline code, a link destination, a runtime string.
         if never_rewrite_context(line, is_md, marker_start) {
@@ -706,6 +653,11 @@ fn expand_shorthand_citations(
         let namespace = alias.map(|(alias, _)| alias);
         let match_end = alias_len + match_end;
         output.push_str(&line[cursor..token_start]);
+        // §FS-fmt.3: the written and canonical forms are recorded as the line is
+        // built, because this is the only point that holds both. The report is
+        // what makes an expansion reviewable before it is written, and expanding
+        // is the one rewrite here whose mistakes no later pass can see.
+        let written_start = output.len();
         if let Some(alias) = namespace {
             output.push_str(alias);
             output.push('/');
@@ -719,6 +671,10 @@ fn expand_shorthand_citations(
             output.push_str(&target_config.section_separator);
             output.push_str(section.as_str());
         }
+        expansions.push((
+            line[marker_start..token_start + match_end].to_string(),
+            format!("{}{}", config.marker, &output[written_start..]),
+        ));
         cursor = token_start + match_end;
     }
     // `cursor` moves only when something was rewritten, so this is the

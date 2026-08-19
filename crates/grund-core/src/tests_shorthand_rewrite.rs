@@ -40,6 +40,7 @@ mod tests_shorthand_rewrite {
                 is_md,
                 &ShorthandTargets::new(Some(&findings), None),
                 &mut saw_candidate,
+                &mut Vec::new(),
             )
             .unwrap_or_else(|| line.to_string())
         };
@@ -82,6 +83,7 @@ mod tests_shorthand_rewrite {
                 is_md,
                 &ShorthandTargets::new(Some(&findings), None),
                 &mut saw_candidate,
+                &mut Vec::new(),
             )
             .unwrap_or_else(|| line.to_string())
         };
@@ -110,6 +112,46 @@ mod tests_shorthand_rewrite {
         assert_eq!(expand("H §FS-042.", true), "H §FS-042-user-login.");
         assert_eq!(expand("I §FS-042 x", true), "I §FS-042-user-login x");
         assert_eq!(expand("J (§FS-042)", true), "J (§FS-042-user-login)");
+    }
+
+    // §FS-fmt.3: a line that expands a shorthand names the text it will write, so
+    // the invention can be reviewed *before* `--write` puts it on disk. The other
+    // rewrites leave the ID token byte-identical and `check` can still catch them;
+    // this one writes the slug into the token, and a wrong one is invisible
+    // afterwards (§DF-shorthand-numeric-run.2.7).
+    #[test]
+    fn the_report_names_the_text_every_expansion_writes() {
+        let root = test_root("the_report_names_the_text_every_expansion_writes");
+        write(
+            &root.join("docs/functional-spec/FS-042-user-login.md"),
+            "# FS-042-user-login: User login\n\nLead.\n\n## 1. Inputs\n\nStuff.\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-043-user-logout.md"),
+            "# FS-043-user-logout: User logout\n\nLead.\n",
+        );
+        let config = numbered_config(root.clone());
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+
+        let mut expansions = Vec::new();
+        let mut saw_candidate = false;
+        expand_shorthand_citations(
+            "See §FS-042.1 and §FS-043.",
+            &config,
+            true,
+            &ShorthandTargets::new(Some(&findings), None),
+            &mut saw_candidate,
+            &mut expansions,
+        )
+        .expect("line rewritten");
+        // Source order, and the section rides along with the ID it belongs to.
+        assert_eq!(
+            expansions,
+            vec![
+                ("§FS-042.1".to_string(), "§FS-042-user-login.1".to_string()),
+                ("§FS-043".to_string(), "§FS-043-user-logout".to_string()),
+            ]
+        );
     }
 
     // §FS-fmt.2.4: a qualified `§<alias>/FS-042` is rewritten too, against the
@@ -144,7 +186,10 @@ mod tests_shorthand_rewrite {
         })
         .expect("fmt");
         assert_eq!(output.changes.len(), 1, "{:?}", output.changes);
-        assert_eq!(output.changes[0].label, "shorthand \u{2192} canonical");
+        assert_eq!(
+            output.changes[0].label,
+            "shorthand \u{2192} canonical: \u{a7}api/FS-042 \u{2192} \u{a7}api/FS-042-session"
+        );
         assert_eq!(
             std::fs::read_to_string(root.join("web/docs/notes.md")).expect("read"),
             "Cross: §api/FS-042-session\n"
@@ -179,7 +224,10 @@ mod tests_shorthand_rewrite {
             &mut false,
         );
         assert_eq!(line, "Typed §FS-042-user-login here.");
-        assert_eq!(label, "trigger \u{2192} marker");
+        assert_eq!(
+            label,
+            "trigger \u{2192} marker: \u{a7}FS-042 \u{2192} \u{a7}FS-042-user-login"
+        );
 
         let (line, label) = fmt_line(
             "Persisted §FS-042 here.",
@@ -196,7 +244,10 @@ mod tests_shorthand_rewrite {
             &mut false,
         );
         assert_eq!(line, "Persisted §FS-042-user-login here.");
-        assert_eq!(label, "shorthand \u{2192} canonical");
+        assert_eq!(
+            label,
+            "shorthand \u{2192} canonical: \u{a7}FS-042 \u{2192} \u{a7}FS-042-user-login"
+        );
     }
 
     /// Replay `typed` one character at a time through `on_type_line_edits`,
