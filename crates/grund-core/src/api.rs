@@ -1185,7 +1185,10 @@ impl Default for FmtOpts {
 pub struct FmtChange {
     pub path: String,
     pub line: usize,
-    pub label: &'static str,
+    /// The rewrite class, and — for a line that expanded a number-only shorthand
+    /// — the text it wrote (§FS-fmt.3). A `String` rather than one of four fixed
+    /// labels because that detail is per-site.
+    pub label: String,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -1204,7 +1207,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
     } else {
         None
     };
-    let mut changes: Vec<(PathBuf, usize, &'static str)> = Vec::new();
+    let mut changes: Vec<(PathBuf, usize, String)> = Vec::new();
     let walk_all_projects = context.workspace_loaded
         && (!opts.path_provided
             || fs::canonicalize(&opts.path)

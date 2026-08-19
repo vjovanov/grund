@@ -1,0 +1,3 @@
+docs/notes.md:1: shorthand → canonical: §FS-042 → §FS-042-user-login
+docs/notes.md:2: shorthand → canonical: §FS-042.1 → §FS-042-user-login.1, §FS-043 → §FS-043-user-logout
+docs/notes.md:3: trigger → marker: §FS-042 → §FS-042-user-login

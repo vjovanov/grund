@@ -233,8 +233,19 @@ struct ShorthandGrammar {
     /// one anchored match and never reaches the shorthand pattern.
     full_prefix_pattern: String,
     prefix_pattern: String,
+    /// `prefix_pattern` without the `<alias>/` namespace — the shorthand shape
+    /// on its own, which is what §FS-fmt.2.4.1 clause 2 asks the token after a
+    /// run's delimiters to have.
+    unqualified_prefix_pattern: String,
+    /// Bare `[id] number_pattern` as a prefix of the same slice — the second
+    /// half of the numeric-run test (§FS-fmt.2.4.1), which asks whether the
+    /// token glued after a shorthand is another number (`§SPEC-001/003`) as
+    /// well as whether it is another shorthand (`§SPEC-001→SPEC-003`).
+    number_prefix_pattern: String,
     full_prefix_re: once_cell::sync::OnceCell<Regex>,
     prefix_re: once_cell::sync::OnceCell<Regex>,
+    unqualified_prefix_re: once_cell::sync::OnceCell<Regex>,
+    number_prefix_re: once_cell::sync::OnceCell<Regex>,
 }
 
 impl ShorthandGrammar {
@@ -261,6 +272,23 @@ impl ShorthandGrammar {
             Regex::new(&self.full_prefix_pattern).expect("full-ID prefix pattern compiles")
         })
     }
+
+    /// Compiled on first use like the others, and reached later still: only a
+    /// shorthand that has already passed every gate of §FS-fmt.2.4 asks the
+    /// numeric-run question, so a tree without shorthands never builds it.
+    fn unqualified_prefix_re(&self) -> &Regex {
+        self.unqualified_prefix_re.get_or_init(|| {
+            Regex::new(&self.unqualified_prefix_pattern)
+                .expect("unqualified shorthand prefix pattern compiles")
+        })
+    }
+
+    /// The other half of that question, compiled on the same terms.
+    fn number_prefix_re(&self) -> &Regex {
+        self.number_prefix_re.get_or_init(|| {
+            Regex::new(&self.number_prefix_pattern).expect("number prefix pattern compiles")
+        })
+    }
 }
 
 /// The number-only shorthand's element list, or `None` when the format has no
@@ -270,4 +298,189 @@ fn shorthand_elements(elements: &[IdElement]) -> Option<Vec<IdElement>> {
     let has_both =
         elements.contains(&IdElement::Number) && elements.contains(&IdElement::Slug);
     has_both.then(|| elements_without(elements, &IdElement::Slug))
+}
+
+// ---------------------------------------------------------------------------
+// Where a token of this grammar *ends*, and what that ending means.
+//
+// These sit here rather than in `shorthand.rs` for the reason the header above
+// gives: they are questions about the template's shape, not about the shorthand
+// rule that the shape serves. Every one is a pure function of the compiled
+// grammar and a string — none reads a declaration, a citation, or a finding —
+// and `shorthand_sits_in_numeric_run` reaches straight into the `ShorthandGrammar`
+// patterns defined a few lines above it.
+//
+// The `regex` crate has no lookahead, so neither question can be part of a
+// pattern; both are post-match tests over the bytes that follow it.
+// ---------------------------------------------------------------------------
+
+impl Grammar {
+    /// Whether this repo's `[id] format` has a number-only shorthand at all
+    /// (§FS-check.1.2) — the gate every shorthand pass checks first.
+    fn has_shorthand(&self) -> bool {
+        self.shorthand.is_some()
+    }
+
+    /// Whether `ch` could extend an ID token that has just ended — the test that
+    /// gives the shorthand pattern the trailing boundary it cannot express
+    /// (§DF-number-only-citation-shorthand.2.6).
+    ///
+    /// The shorthand pattern is `\A`-anchored at the *start* only, so under the
+    /// default format it matches the `FS-042` inside `FS-042-User-Login` — a full
+    /// ID whose slug this grammar rejects — and, without this test, a pass would
+    /// claim the prefix and leave `-User-Login` glued to whatever it wrote in its
+    /// place. A `regex` pattern cannot say "and nothing that could continue an ID
+    /// follows" (the crate has no lookahead), so the rule lives here.
+    ///
+    /// Two classes continue a token: an ID component character (an alphanumeric,
+    /// plus `_` because it is the separator people reach for by mistake), and a
+    /// literal from `[id] format` — `-` under the default, which is exactly what
+    /// makes `FS-042` a prefix of `FS-042-user-login`.
+    ///
+    /// `/` is deliberately **not** one of them. It is the namespace separator of
+    /// §FS-workspace.1, which can only *precede* a kind, never follow a number, and
+    /// the full-ID pass already reads `§FS-042-user-login/x` as a citation of
+    /// `FS-042-user-login`. Treating it as a continuation here would make the
+    /// shorthand and the canonical form disagree about the same boundary — and the
+    /// shorthand would be the one silently dropped, which is the false negative
+    /// §GOAL-no-dangling-refs exists to forbid.
+    fn id_token_continues_with(&self, ch: char) -> bool {
+        ch.is_alphanumeric() || ch == '_' || self.format_literal_starting_with(ch).is_some()
+    }
+
+    /// The `[id] format` literal beginning with `ch`, if any.
+    fn format_literal_starting_with(&self, ch: char) -> Option<&str> {
+        self.elements.iter().find_map(|element| match element {
+            IdElement::Literal(text) if text.starts_with(ch) => Some(text.as_str()),
+            _ => None,
+        })
+    }
+
+    /// Whether an ID token that the pattern matched up to `end` really ends there
+    /// (§DF-number-only-citation-shorthand.2.6). `end` is a regex match end, so it
+    /// is always a char boundary.
+    ///
+    /// A separator only continues the token when a component actually follows it.
+    /// That distinction matters wherever a format literal is also ordinary
+    /// punctuation: under `{kind}.{number}.{slug}` the sentence `see §FS.042.` ends
+    /// with a literal `.`, and reading that as a continuation would drop a real
+    /// citation. `see §FS.042.User-Login` has a component after the separator and
+    /// is correctly refused.
+    fn id_token_ends_cleanly(&self, rest: &str, end: usize) -> bool {
+        let tail = &rest[end..];
+        let Some(next) = tail.chars().next() else {
+            return true;
+        };
+        if next.is_alphanumeric() || next == '_' {
+            return false;
+        }
+        let Some(literal) = self.format_literal_starting_with(next) else {
+            return true;
+        };
+        !tail
+            .strip_prefix(literal)
+            .and_then(|after| after.chars().next())
+            .is_some_and(|after| after.is_alphanumeric() || after == '_')
+    }
+
+    /// Whether a shorthand token ending at `end` in `rest` is glued to a second
+    /// number, which makes it a numeral in a run rather than a citation
+    /// (§FS-fmt.2.4.1, §DF-shorthand-numeric-run.2.2).
+    ///
+    /// `id_token_ends_cleanly` answers whether the token *ended*; it says nothing
+    /// about whether the token is a citation. `§SPEC-001→SPEC-003` clears it —
+    /// `→` cannot continue an ID — and is a renumbering table, so expanding the
+    /// left number attaches today's slug to a number that named something else
+    /// and produces a citation `check` can never question.
+    ///
+    /// The evidence is the second number, not the punctuation, which is why no
+    /// delimiter list appears here: whatever a person writes between two numbers
+    /// is a delimiter, and what makes the pair a run is that the pair exists.
+    ///
+    /// The neighbour is matched **unqualified**, never with `prefix_re`, whose
+    /// optional `<alias>/` would make any path ending in an ID-shaped segment a
+    /// second number — `docs/functional-spec/FS-042-user-login.md` among them.
+    fn shorthand_sits_in_numeric_run(&self, marker: &str, rest: &str, end: usize) -> bool {
+        let Some(shorthand) = self.shorthand.as_ref() else {
+            return false;
+        };
+        let Some(neighbor) = numeric_run_neighbor(marker, &rest[end..]) else {
+            return false;
+        };
+        shorthand.number_prefix_re().is_match(neighbor)
+            || shorthand.unqualified_prefix_re().is_match(neighbor)
+    }
+}
+
+/// The token a delimiter run separates from the shorthand that just ended, or
+/// `None` when `tail` opens no run at all (§DF-shorthand-numeric-run.2.2).
+///
+/// A run is the delimiters and what follows them. Three things disqualify it, and
+/// they are the whole safety margin of the rule:
+///
+/// - **Whitespace.** The gluing is the evidence — a run is written as one
+///   unbroken string because its parts belong together. Without this, the default
+///   `number_pattern = "\d+"` would read `§FS-042 (2024)` as a run and refuse to
+///   expand an ordinary citation.
+/// - **The marker.** `§FS-042, §FS-043` is two citations the author marked one at
+///   a time, which is the clearest statement of intent this grammar offers.
+/// - **A bracket or a quote.** Those bound a construct instead of gluing two
+///   numerals, so a walk that crossed one would join the characters *closing* the
+///   citation's own construct to the ones *opening* the next and read the next
+///   construct's number as the second one — making a run of the Markdown link
+///   `[§FS-042](FS-042-user-login.md)` that §FS-fmt.6 itself writes, and of the
+///   footnote reference `§FS-042[^1]`.
+fn numeric_run_neighbor<'a>(marker: &str, tail: &'a str) -> Option<&'a str> {
+    let mut end = 0;
+    for ch in tail.chars() {
+        if ch.is_alphanumeric() || ch == '_' {
+            break;
+        }
+        if ch.is_whitespace() || bounds_a_construct(ch) {
+            return None;
+        }
+        if !marker.is_empty() && tail[end..].starts_with(marker) {
+            return None;
+        }
+        end += ch.len_utf8();
+    }
+    // No delimiter is not a run, and delimiters running to the end of the line
+    // have nothing after them to be one with.
+    (end > 0 && end < tail.len()).then(|| &tail[end..])
+}
+
+/// Whether `ch` opens or closes a paired construct (§FS-fmt.2.4.1 clause 1).
+///
+/// Not the delimiter list §DF-shorthand-numeric-run.3 rejects, which enumerated
+/// what *makes* a run and had to be complete to be correct. Every character here
+/// is here for one property — it pairs — so a member nobody thought of costs a
+/// withheld rewrite, not a corrupted line. `|` is deliberately absent: it is a
+/// delimiter people write between numbers, and a Markdown table cell writes
+/// `| §FS-042 |` with the spaces the whitespace rule already covers.
+fn bounds_a_construct(ch: char) -> bool {
+    matches!(ch, '(' | ')' | '[' | ']' | '{' | '}' | '"' | '\'' | '`')
+}
+
+/// The end offset of the ID-shaped token starting at exactly `at`, or `None` when
+/// none does — a full ID, or the number-only shorthand where the repo has one
+/// (§FS-check.1.2). One definition of "a real ID follows here", shared by `fmt`'s
+/// trigger pass (§FS-fmt.2.1) and the LSP's live transform (§FS-lsp.1.4), so the
+/// two cannot disagree about which `$$` to consume.
+fn id_token_end_at(line: &str, at: usize, grammar: &Grammar) -> Option<usize> {
+    if let Some(found) = grammar
+        .citation_re
+        .find_at(line, at)
+        .filter(|found| found.start() == at)
+    {
+        return Some(found.end());
+    }
+    let shorthand = grammar.shorthand.as_ref()?;
+    let rest = line.get(at..)?;
+    shorthand
+        .prefix_re()
+        .find(rest)
+        // §DF-number-only-citation-shorthand.2.6: `$$FS-042abc` is not a
+        // shorthand, so the trigger before it is not rewritable either.
+        .filter(|found| grammar.id_token_ends_cleanly(rest, found.end()))
+        .map(|found| at + found.end())
 }
