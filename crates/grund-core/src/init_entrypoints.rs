@@ -181,48 +181,23 @@ impl InitCompanionAgentEntrypoint {
 }
 
 /// Existing companion agent entrypoints that should carry the same managed grund
-/// block as `AGENTS.md` (§FS-init.2.1). A symlink to `AGENTS.md` is already
-/// covered by the canonical file and is intentionally skipped. Generic
-/// non-discovery entrypoints (currently `.rules`) are included only when their
-/// workspace proves ownership or the file already carries a managed grund block.
+/// block as `AGENTS.md` (§FS-init.2.1) — what `grund check` validates. A symlink
+/// to `AGENTS.md` is already covered by the canonical file and is intentionally
+/// skipped. Generic non-discovery entrypoints (currently `.rules`) are included
+/// only when their workspace proves ownership or the file already carries a
+/// managed grund block.
+///
+/// This is `init`'s existing-entrypoint set with the plan stripped off, and it
+/// is derived from it rather than restated: the two answer the same question —
+/// which companion files does this repository have — and a second copy of that
+/// walk is a place for `check` and `init` to disagree about what an entrypoint
+/// is (§FS-check.3.5).
 fn companion_agent_entrypoints(root: &Path) -> Result<Vec<PathBuf>, (PathBuf, String)> {
-    let mut paths = Vec::new();
-    let canonical = root.join(CANONICAL_AGENT_ENTRYPOINT);
-    for entrypoint in COMPANION_AGENT_ENTRYPOINTS {
-        let path = root.join(entrypoint.rel);
-        if !is_file_or_symlink(&path) {
-            continue;
-        }
-        match is_symlink_to(&path, &canonical) {
-            Ok(true) => continue,
-            Ok(false) => {
-                if companion_selected_by_evidence(root, entrypoint, &path) {
-                    paths.push(path);
-                }
-            }
-            Err(err) => return Err((path, format!("{err:#}"))),
-        }
-    }
-    Ok(paths)
-}
-
-/// Claude entrypoints that are symlinks to the canonical `AGENTS.md`
-/// (§FS-init.2.3.4.17). A symlink resolves to the canonical target, so one file
-/// carries the block for every agent — and that file is the one Codex reads,
-/// where the linked form is recorded as erasing the citation. The committed
-/// `link` opinion therefore cannot reach Claude through a symlinked entrypoint,
-/// and `init` says so rather than leaving the sentence silently absent.
-pub(crate) fn claude_entrypoints_shadowed_by_symlink(root: &Path) -> Vec<String> {
-    let canonical = root.join(CANONICAL_AGENT_ENTRYPOINT);
-    COMPANION_AGENT_ENTRYPOINTS
+    let (_, companions) = existing_init_companion_agent_entrypoints(root)?;
+    Ok(companions
         .iter()
-        .filter(|entrypoint| entrypoint.agent == Some(AgentEntrypoint::Claude))
-        .filter(|entrypoint| {
-            let path = root.join(entrypoint.rel);
-            is_file_or_symlink(&path) && is_symlink_to(&path, &canonical).unwrap_or(false)
-        })
-        .map(|entrypoint| entrypoint.rel.to_string())
-        .collect()
+        .map(|companion| companion.path().to_path_buf())
+        .collect())
 }
 
 /// Companion entrypoints `grund init` should update or create (§FS-init.2.1).
@@ -261,9 +236,10 @@ fn existing_init_companion_agent_entrypoints(
 /// `.claude/` proves Claude is in use, which is one fact, not two files.
 fn workspace_init_companion_agent_entrypoints(
     root: &Path,
+    linked_conversation: bool,
 ) -> Result<Vec<InitCompanionAgentEntrypoint>, (PathBuf, String)> {
     let mut paths = Vec::new();
-    let mut covered = agents_with_own_entrypoint(root)?;
+    let mut covered = agents_with_own_entrypoint(root, linked_conversation)?;
     for entrypoint in COMPANION_AGENT_ENTRYPOINTS {
         let path = root.join(entrypoint.rel);
         if !companion_workspace_exists(root, entrypoint)
@@ -289,11 +265,12 @@ fn workspace_init_companion_agent_entrypoints(
 fn requested_init_companion_agent_entrypoints(
     root: &Path,
     selection: &InitAgentEntrypointSelection,
+    linked_conversation: bool,
 ) -> Result<(bool, Vec<InitCompanionAgentEntrypoint>), (PathBuf, String)> {
     let mut paths = Vec::new();
     let mut canonical_requested_by_symlink = false;
     let canonical = root.join(CANONICAL_AGENT_ENTRYPOINT);
-    let mut covered = agents_with_own_entrypoint(root)?;
+    let mut covered = agents_with_own_entrypoint(root, linked_conversation)?;
     for entrypoint in COMPANION_AGENT_ENTRYPOINTS {
         let Some(agent) = entrypoint.agent.filter(|agent| selection.includes(*agent)) else {
             continue;
@@ -313,13 +290,22 @@ fn requested_init_companion_agent_entrypoints(
     Ok((canonical_requested_by_symlink, paths))
 }
 
-/// The agents that already have a repository entrypoint of their own
-/// (§FS-init.2.1.1) — the ones `init` has a file to update and so must not
-/// create a second file for. A companion that is a *symlink* to the canonical
-/// entrypoint is not one: it is `AGENTS.md` under another name (§FS-init.2.1),
-/// so the agent still has no file carrying its own form of the block, and an
-/// explicit request writes it the first path the symlink has not taken.
-fn agents_with_own_entrypoint(root: &Path) -> Result<Vec<AgentEntrypoint>, (PathBuf, String)> {
+/// The agents that already carry the managed block in a file of their own
+/// (§FS-init.2.1.1) — the ones `init` has something to update and so must not
+/// create a second file for.
+///
+/// A companion that is a *symlink* to the canonical entrypoint counts, because
+/// the agent reads that block through it (§FS-init.2.1): creating a second file
+/// beside it would hand the agent the same bytes twice, which is the thing this
+/// rule exists to stop. The one exception is the one that makes the two files
+/// differ — a repository committing `[reference] conversation = "link"`, whose
+/// canonical file cannot carry the Claude form (§FS-init.2.3.4.17). There the
+/// symlink resolves to the plain form, the agent has no file carrying its own,
+/// and an explicit request writes it the first path the symlink has not taken.
+fn agents_with_own_entrypoint(
+    root: &Path,
+    linked_conversation: bool,
+) -> Result<Vec<AgentEntrypoint>, (PathBuf, String)> {
     let canonical = root.join(CANONICAL_AGENT_ENTRYPOINT);
     let mut agents = Vec::new();
     for entrypoint in COMPANION_AGENT_ENTRYPOINTS {
@@ -331,52 +317,23 @@ fn agents_with_own_entrypoint(root: &Path) -> Result<Vec<AgentEntrypoint>, (Path
             continue;
         }
         match is_symlink_to(&path, &canonical) {
-            Ok(true) => continue,
-            Ok(false) => agents.push(agent),
+            Ok(true) if symlink_leaves_agent_uncovered(&path, linked_conversation) => continue,
+            Ok(_) => agents.push(agent),
             Err(err) => return Err((path, format!("{err:#}"))),
         }
     }
     Ok(agents)
 }
 
-/// One `note:` line per agent whose entrypoints this run wrote the managed
-/// block into more than once (§FS-init.2.1.1). `init` no longer creates that
-/// second file, but a repository that already carries both keeps feeding the
-/// same block to one agent twice, and the run that just wrote to each of them
-/// is the only place that is visible.
-pub(crate) fn duplicate_agent_entrypoint_notes(
-    target: &Path,
-    entrypoints: &[InitCompanionAgentEntrypoint],
-) -> Vec<String> {
-    let written: Vec<&CompanionAgentEntrypoint> = COMPANION_AGENT_ENTRYPOINTS
-        .iter()
-        .filter(|entrypoint| {
-            let path = target.join(entrypoint.rel);
-            entrypoints.iter().any(|planned| planned.path() == path)
-        })
-        .collect();
-    let mut notes = Vec::new();
-    let mut reported = Vec::new();
-    for entrypoint in &written {
-        let Some(agent) = entrypoint.agent.filter(|agent| !reported.contains(agent)) else {
-            continue;
-        };
-        let rels: Vec<&str> = written
-            .iter()
-            .filter(|other| other.agent == Some(agent))
-            .map(|other| other.rel)
-            .collect();
-        if rels.len() < 2 {
-            continue;
-        }
-        reported.push(agent);
-        notes.push(format!(
-            "{} both carry the managed block, so {} reads it twice; delete the one you do not want — `grund init` creates only one",
-            format_list(&rels, "and"),
-            agent.name(),
-        ));
-    }
-    notes
+/// Whether a companion symlinked to the canonical entrypoint leaves its agent
+/// without the block it should read (§FS-init.2.1.1). Only when the repository
+/// commits the linked-conversation opinion *and* this path is one the canonical
+/// file cannot speak for: the surfaces are what differ (§FS-init.2.3.4.17), so
+/// a symlink whose surface is the canonical file's own carries exactly the
+/// bytes that file carries.
+fn symlink_leaves_agent_uncovered(path: &Path, linked_conversation: bool) -> bool {
+    linked_conversation
+        && ConversationSurface::for_entrypoint(path) != ConversationSurface::Plain
 }
 
 fn companion_workspace_exists(root: &Path, entrypoint: &CompanionAgentEntrypoint) -> bool {

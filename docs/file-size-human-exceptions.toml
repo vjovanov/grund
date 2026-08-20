@@ -3,10 +3,12 @@ fissile_exceptions_version = 2
 # is identified by this registry and its `path`, which is why it carries no name
 # of its own.
 #
-# Two entries were retired when their files were split: crates/grund-core/src/
+# Three entries were retired when their files were split: crates/grund-core/src/
 # tests.rs (4111 lines) into thirteen `tests_*` category modules plus
-# `tests_support`, and crates/grund-cli/src/cli.rs (1735 lines) into one file per
-# command. Both are now under budget with no exception.
+# `tests_support`, crates/grund-cli/src/cli.rs (1735 lines) into one file per
+# command, and crates/grund-cli/tests/init.rs (1023 lines) into the scaffold
+# cases and the entrypoint-selection cases over a shared fixture, which is what
+# its `until` asked for. All three are now under budget with no exception.
 [[exceptions]]
 path = "crates/grund-core/src/api.rs"
 match = "exact"
@@ -68,16 +70,6 @@ reason = """
 The reference-resolution family has already left, to checker_references.rs, and the inline citation style rule with it, to inline_note_layout.rs, which is what dropped the ceiling 1083 -> 1013. What remains is blocked for a different reason. Seven rules — duplicate homes, configured kind homes, the escaped-citation suggestion, heading-level strictness, broken stub links, unused declarations, and the grounding floor — are written as inline blocks inside one body of check_with_workspace, sharing a KindHomeIndex, repeated passes over findings.declarations, and one &mut CheckReport. They are statements, not functions, so there is nothing to move yet. Missing boundary: each of them named, after which the declaration-placement rules leave as one family and this file keeps the citation-side rules and the shared diagnostic helpers.
 """
 [[exceptions]]
-path = "crates/grund-cli/tests/init.rs"
-match = "exact"
-rules = ["tests"]
-kind = "deferred"
-max_accepted = { value = 1023, unit = "lines" }
-until = "extract the fixture builder, then split by init scenario"
-reason = """
-The cases share a fixture builder that constructs a temp repo and asserts over the emitted tree. Same shape as the LSP suite: the shared harness is real cohesion, its residence in one file is not. Missing boundary: the fixture builder extracted to test support, after which cases split by scenario.
-"""
-[[exceptions]]
 path = "crates/grund-core/src/config.rs"
 match = "exact"
 rules = ["core-source"]
@@ -92,20 +84,20 @@ path = "crates/grund-core/src/init_templates.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 796, unit = "lines" }
+max_accepted = { value = 509, unit = "lines" }
 until = "separate the managed-block renderer from the template payload constants"
 reason = """
-Corrects an earlier reason that described this file as mostly template payload. It is not: 641 of its lines are function bodies and only 10 constants are include_str!. The bulk is rendering logic that composes the AGENTS.md managed block from config — citation directions, inline-style sentences, link construction — sitting among the constants because both are reached from init. Missing boundary: payload and renderer are two jobs, and the renderer belongs beside init.rs.
+Corrects an earlier reason that described this file as mostly template payload. It is not: 641 of its lines are function bodies and only 10 constants are include_str!. The bulk is rendering logic that composes the AGENTS.md managed block from config — citation directions, inline-style sentences, link construction — sitting among the constants because both are reached from init. Missing boundary: payload and renderer are two jobs, and the renderer belongs beside init.rs. The ceiling dropped from 796 after the entrypoint table and the selection rules that read it moved to init_entrypoints.rs — which is not that boundary: it is the one §FS-init.2.1.1 introduced, between which files a run touches and what bytes go in them.
 """
 [[exceptions]]
 path = "crates/grund-core/src/init.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 776, unit = "lines" }
-until = "extract the managed-block machinery and unify it with the integrations.rs implementation"
+max_accepted = { value = 579, unit = "lines" }
+until = "unify init_block.rs with the second implementation of the same protocol in integrations.rs"
 reason = """
-Scaffold writing (create a docs tree, write files that do not yet exist) and the managed agent-entrypoint block (locate, version, migrate, rewrite a document in place) are different operations with different failure modes, sharing this file only because both are reached from init. In-place rewriting of a user's file is the risky half and deserves its own module and its own tests. Missing boundary: that machinery, unified with the duplicate implementation in integrations.rs.
+Half of this entry is paid: the managed agent-entrypoint block — locate, version, migrate, rewrite a document in place — left for init_block.rs, and the ceiling dropped from 776 with it. What is left here is scaffold writing, the run, and its report, which is one job. The debt that remains is the one this file cannot pay alone: integrations.rs implements the same locate-version-splice protocol a second time for foreign config files, and two implementations of in-place rewriting of a user's file is the risk worth naming. Missing boundary: one managed-block protocol both callers use.
 """
 [[exceptions]]
 path = "scripts/local-benchmark-report.py"

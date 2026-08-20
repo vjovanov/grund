@@ -228,7 +228,8 @@ fn init_cursor_flag_updates_existing_legacy_cursorrules() {
 fn init_agent_flag_updates_canonical_target_for_symlinked_entrypoint() {
     // §FS-init.2.1 / §FS-init.2.3: a requested companion symlink to AGENTS.md is
     // covered by updating the canonical target, even when --agents-md was not
-    // passed explicitly.
+    // passed explicitly — and §FS-init.2.1.1: covered means covered, so nothing
+    // is created beside it while the block both files would carry is the same.
     let target = workdir("init_agent_flag_updates_canonical_target_for_symlinked_entrypoint");
     std::os::unix::fs::symlink("AGENTS.md", target.join("CLAUDE.md"))
         .expect("create CLAUDE.md symlink");
@@ -248,8 +249,8 @@ fn init_agent_flag_updates_canonical_target_for_symlinked_entrypoint() {
         "init should update the symlink target, got:\n{stderr}"
     );
     assert!(
-        stderr.contains("wrote .claude/CLAUDE.md"),
-        "explicit --claude should still create the non-symlink Claude entrypoint, got:\n{stderr}"
+        !target.join(".claude").exists(),
+        "the symlink already feeds Claude this block; a second file would be the same bytes twice"
     );
     assert!(
         !stderr.contains("wrote CLAUDE.md") && !stderr.contains("appended CLAUDE.md"),
@@ -268,6 +269,9 @@ fn init_workspace_symlinked_alias_writes_canonical_target() {
     // §FS-init.2.1 / §FS-init.2.3: a workspace-selected companion symlink to
     // AGENTS.md is covered by updating the canonical target, even before the
     // target exists, rather than writing a companion-only block through it.
+    // §FS-init.2.1.1: the dangling symlink is still Claude's copy of that block,
+    // so `.claude/` does not also earn an alias — the run would be writing the
+    // same bytes to two files one agent reads.
     let target = workdir("init_workspace_symlinked_alias_writes_canonical_target");
     fs::create_dir_all(target.join(".claude")).expect("create .claude");
     std::os::unix::fs::symlink("AGENTS.md", target.join("CLAUDE.md"))
@@ -285,8 +289,8 @@ fn init_workspace_symlinked_alias_writes_canonical_target() {
         "init should update the canonical symlink target, got:\n{stderr}"
     );
     assert!(
-        stderr.contains("wrote .claude/CLAUDE.md"),
-        "init should still create the missing workspace alias, got:\n{stderr}"
+        !target.join(".claude/CLAUDE.md").exists() && !stderr.contains(".claude/CLAUDE.md"),
+        "the symlink already carries this block for Claude, got:\n{stderr}"
     );
     assert!(
         !stderr.contains("wrote CLAUDE.md") && !stderr.contains("appended CLAUDE.md"),
@@ -304,12 +308,54 @@ fn init_workspace_symlinked_alias_writes_canonical_target() {
         agents.starts_with("# init_workspace_symlinked_alias_writes_canonical_target"),
         "AGENTS.md should be the full canonical entrypoint with an H1, got:\n{agents}"
     );
-    let claude_scoped =
+}
+
+#[cfg(unix)]
+#[test]
+fn init_claude_flag_writes_the_real_entrypoint_a_link_repo_symlinked_away() {
+    // §FS-init.2.1.1 / §FS-init.2.3.4.17: the one case where a symlinked
+    // companion leaves its agent uncovered. With `conversation = "link"` the
+    // canonical file carries the plain form — the one Claude is not meant to
+    // read — so `--claude` writes the Claude entrypoint the symlink left free,
+    // and that file is the only one carrying the linked sentence.
+    let target = workdir("init_claude_flag_writes_the_real_entrypoint_a_link_repo_symlinked_away");
+    fs::write(
+        target.join("grund.toml"),
+        "grund_config_version = 1\nproject_name = \"demo\"\n\n[reference]\nconversation = \"link\"\n",
+    )
+    .expect("write config");
+    std::os::unix::fs::symlink("AGENTS.md", target.join("CLAUDE.md"))
+        .expect("create CLAUDE.md symlink");
+
+    let output = run_grund(
+        &["init", target.to_str().unwrap(), "--claude"],
+        manifest_dir(),
+    );
+    assert!(
+        output.status.success(),
+        "init failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("wrote .claude/CLAUDE.md"),
+        "--claude should write the Claude entrypoint the symlink left free, got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("note: CLAUDE.md is a symlink to AGENTS.md"),
+        "the shadowed entrypoint should still be reported, got:\n{stderr}"
+    );
+
+    let scoped =
         fs::read_to_string(target.join(".claude/CLAUDE.md")).expect("read .claude/CLAUDE.md");
     assert!(
-        claude_scoped
-            .starts_with("<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v7)\n"),
-        ".claude/CLAUDE.md should be a thin managed-block alias, got:\n{claude_scoped}"
+        scoped.contains("as a Markdown link whose visible text is the citation itself"),
+        ".claude/CLAUDE.md should carry the linked form:\n{scoped}"
+    );
+    let agents = fs::read_to_string(target.join("AGENTS.md")).expect("read AGENTS.md");
+    assert!(
+        !agents.contains("as a Markdown link whose visible text is the citation itself"),
+        "the canonical file keeps the plain form, which is why the second file exists:\n{agents}"
     );
 }
 
