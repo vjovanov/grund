@@ -10,22 +10,28 @@
 /// pin down.
 ///
 /// Both rules are pure path questions: they read the environment and the
-/// filesystem and write nothing, so these cases use the real `$HOME` rather
-/// than pointing the variable somewhere else. Mutating it would race every
+/// filesystem and write nothing, so these cases use the real home directory
+/// rather than pointing `$HOME` somewhere else. Mutating it would race every
 /// other case in this binary that reads it.
 #[cfg(test)]
 mod tests_init_target {
     use super::tests_support::*;
     use super::*;
 
-    /// The real `$HOME`, which every rule under test resolves against. Absent,
-    /// there is nothing to assert rather than something that passes vacuously.
+    /// The real home directory, resolved the way the rules under test resolve
+    /// it. Absent, there is nothing to assert rather than something that passes
+    /// vacuously.
     fn home() -> PathBuf {
-        PathBuf::from(
-            std::env::var_os("HOME").expect("these cases assert against the real $HOME; it is unset"),
-        )
+        std::env::home_dir()
+            .expect("these cases assert against the real home directory; it is unset")
     }
 
+    // The user-global table is `~`-rooted and resolved through `$HOME`
+    // (§FS-integrations.4), so on a platform that does not set that variable the
+    // rule has no path to compare against and there is nothing to assert. The
+    // home-directory rule below resolves the platform home directory instead and
+    // runs everywhere, which is what keeps the reported accident refused.
+    #[cfg(unix)]
     #[test]
     fn user_global_instruction_files_are_refused() {
         let home = home();
@@ -65,6 +71,12 @@ mod tests_init_target {
         );
     }
 
+    // The user-global table is `~`-rooted and resolved through `$HOME`
+    // (§FS-integrations.4), so on a platform that does not set that variable the
+    // rule has no path to compare against and there is nothing to assert. The
+    // home-directory rule below resolves the platform home directory instead and
+    // runs everywhere, which is what keeps the reported accident refused.
+    #[cfg(unix)]
     #[test]
     fn the_rule_holds_for_a_path_that_does_not_exist_yet() {
         // `init` refuses *before* creating anything, so the comparison has to
