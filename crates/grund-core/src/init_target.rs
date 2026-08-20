@@ -66,19 +66,21 @@ fn refuse_init_target(target: &Path, no_vcs: bool) -> Option<String> {
 }
 
 /// §FS-init.1.2 — decline when a planned entrypoint is one of the file-backed
-/// user-global agent instruction targets of §FS-integrations.4.3. Today
-/// `~/.claude/CLAUDE.md` is the only path the repository entrypoints and that
-/// table share, so the home-directory rule above already covers every case this
-/// catches; they are two checks because they are two different facts, and only
-/// this one stays true if either table grows an entry. The division is the one
-/// §FS-integrations.4.3 already states: the user-global files carry machine-wide
-/// policy and are `grund integrations --write`'s to manage, the repository
-/// entrypoint carries this project's syntax and is `init`'s.
-fn refuse_init_global_instruction_paths(
-    entrypoints: &[InitCompanionAgentEntrypoint],
-) -> Option<String> {
+/// user-global agent instruction targets of §FS-integrations.4.3. This is not
+/// the home-directory rule restated: that one fires when `<path>` *is* `$HOME`,
+/// and `<path>` is arbitrary. `<path>/AGENTS.md` with `<path>` at `~/.codex`,
+/// `~/.config/zed`, or `~/.pi/agent`, and `<path>/GEMINI.md` with `<path>` at
+/// `~/.gemini`, are each that table's file while `<path>` is a directory the
+/// home rule has nothing to say about — and one whose dotfiles are a repository,
+/// which is the usual case, satisfies the version-control rule too. So this rule
+/// is load-bearing on its own, and it takes every planned path rather than a
+/// target. The division is the one §FS-integrations.4.3 already states: the
+/// user-global files carry machine-wide policy and are `grund integrations
+/// --write`'s to manage, the repository entrypoint carries this project's syntax
+/// and is `init`'s.
+fn refuse_init_global_instruction_paths(entrypoints: &[PathBuf]) -> Option<String> {
     entrypoints.iter().find_map(|entrypoint| {
-        let resolved = resolve_for_target_compare(entrypoint.path());
+        let resolved = resolve_for_target_compare(entrypoint);
         let owned = GLOBAL_AGENT_INSTRUCTION_TARGETS.iter().any(|target| {
             expand_target(target.file)
                 .is_some_and(|global| resolve_for_target_compare(&global) == resolved)
