@@ -8,6 +8,10 @@ pub struct InitOpts {
     pub docs: bool,
     pub force: bool,
     pub dry_run: bool,
+    /// `--no-vcs` — scaffold into a target no version-control marker covers
+    /// (§FS-init.1.2). Lifts that rule and only that one; it is not `--force`,
+    /// which decides whether files `init` owns get overwritten (§FS-init.3).
+    pub no_vcs: bool,
     pub agent_selection: InitAgentEntrypointSelection,
 }
 
@@ -20,6 +24,7 @@ impl Default for InitOpts {
             docs: false,
             force: false,
             dry_run: false,
+            no_vcs: false,
             agent_selection: InitAgentEntrypointSelection::default(),
         }
     }
@@ -96,7 +101,8 @@ impl std::error::Error for InitError {}
 /// location (§FS-config.1), even with `--force`, since that file is the user's
 /// config (§FS-init.3) — print a `next:`
 /// block (suppressed when every reported path is `exists `, §FS-init.2.2), and
-/// exit `2` on a missing target / CLI error / unsupported block version
+/// exit `2` on a missing target / refused target (§FS-init.1.2) / CLI error /
+/// unsupported block version
 /// (§FS-init.4). Non-interactive — every choice is a flag (§FS-non-goals.10).
 /// With `--dry-run`, every line is reported with a `would-` prefix and nothing
 /// is written to disk.
@@ -107,6 +113,7 @@ fn command_init(args: &[String]) -> ExitCode {
     let mut docs = false;
     let mut force = false;
     let mut dry_run = false;
+    let mut no_vcs = false;
     let mut agent_selection = InitAgentEntrypointSelection::default();
     let mut idx = 0;
     while idx < args.len() {
@@ -114,6 +121,7 @@ fn command_init(args: &[String]) -> ExitCode {
             "--docs" => docs = true,
             "--force" => force = true,
             "--dry-run" => dry_run = true,
+            "--no-vcs" => no_vcs = true,
             "--agents-md" => agent_selection.canonical = true,
             "--claude" => agent_selection.claude = true,
             "--gemini" => agent_selection.gemini = true,
@@ -165,6 +173,7 @@ fn command_init(args: &[String]) -> ExitCode {
         docs,
         force,
         dry_run,
+        no_vcs,
         agent_selection,
     }) {
         Ok(output) => output,
@@ -186,6 +195,7 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         docs,
         force,
         dry_run,
+        no_vcs,
         agent_selection,
     } = opts;
     // §FS-init.1: `--description` mirrors the config-side single-line rule
@@ -197,17 +207,11 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
             "--description must be a single line".to_string(),
         ));
     }
-    if !target.exists() {
-        return Err(InitError::new(format!(
-            "target directory does not exist: {}",
-            target.display()
-        )));
-    }
-    if !target.is_dir() {
-        return Err(InitError::new(format!(
-            "target is not a directory: {}",
-            target.display()
-        )));
+    // §FS-init.1, §FS-init.1.2: what `<path>` is, and whether it may be
+    // scaffolded at all. The companion rule that needs the entrypoint plan runs
+    // below, where that plan first exists; both are ahead of every write.
+    if let Some(message) = refuse_init_target(&target, no_vcs) {
+        return Err(InitError::new(message));
     }
 
     let resolved_name = match name {
@@ -224,6 +228,13 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
             )));
         }
     };
+
+    // §FS-init.1.2: the planned entrypoint paths are known now, so check them
+    // against the user-global instruction files `grund integrations --write`
+    // owns (§FS-integrations.4.3) before any of them is written.
+    if let Some(message) = refuse_init_global_instruction_paths(&agent_entrypoints.companions) {
+        return Err(InitError::new(message));
+    }
 
     // §FS-init.2.3: render agent instructions against the config `init` leaves in
     // place, so the ID-shape / kind / marker prose matches `grund.toml`.
@@ -831,18 +842,6 @@ fn find_legacy_agents_block(text: &str) -> AgentsBlockLookup {
         end,
         version,
     })
-}
-
-/// The default project name when `--name` is omitted: the basename of `<path>`
-/// resolved to an absolute path (§FS-init.1).
-fn derive_default_name(target: &Path) -> Result<String> {
-    let absolute =
-        fs::canonicalize(target).with_context(|| format!("resolve {}", target.display()))?;
-    absolute
-        .file_name()
-        .and_then(|name| name.to_str())
-        .map(|name| name.to_string())
-        .ok_or_else(|| anyhow!("cannot derive project name from {}", absolute.display()))
 }
 
 /// The `--docs` scaffold: the default requirements/spec home, canonical `docs/`

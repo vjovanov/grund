@@ -546,6 +546,8 @@ mod tests_integrations {
         let output = init(InitOpts {
             target: root.clone(),
             dry_run: true,
+            // §FS-init.1.2: a bare temp root no VCS marker covers.
+            no_vcs: true,
             ..InitOpts::default()
         })
         .expect("init without the opinion");
@@ -558,6 +560,8 @@ mod tests_integrations {
         let output = init(InitOpts {
             target: root.clone(),
             dry_run: true,
+            // §FS-init.1.2: a bare temp root no VCS marker covers.
+            no_vcs: true,
             ..InitOpts::default()
         })
         .expect("init with the opinion");

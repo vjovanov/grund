@@ -178,6 +178,8 @@ mod tests_config_discovery {
         let fresh = test_root("init_generates_the_bare_form");
         let output = init(InitOpts {
             target: fresh.clone(),
+            // §FS-init.1.2: a bare temp root no VCS marker covers.
+            no_vcs: true,
             ..InitOpts::default()
         })
         .expect("init fresh repo");
@@ -196,6 +198,8 @@ mod tests_config_discovery {
         write(&existing.join(".agents/grund.toml"), MARKER_AT);
         let output = init(InitOpts {
             target: existing.clone(),
+            // §FS-init.1.2: a bare temp root no VCS marker covers.
+            no_vcs: true,
             ..InitOpts::default()
         })
         .expect("init configured repo");

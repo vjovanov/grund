@@ -284,6 +284,8 @@ mod tests_api {
         let init_output = init(InitOpts {
             target: init_root,
             dry_run: true,
+            // §FS-init.1.2: a bare temp root no VCS marker covers.
+            no_vcs: true,
             ..InitOpts::default()
         })
         .expect("public init api");
@@ -329,6 +331,8 @@ mod tests_api {
             target: root,
             docs: true,
             dry_run: true,
+            // §FS-init.1.2: a bare temp root no VCS marker covers.
+            no_vcs: true,
             ..InitOpts::default()
         })
         .expect("init dry run");
@@ -369,6 +373,8 @@ file = "specs/requirements.md"
             target: root,
             docs: true,
             dry_run: true,
+            // §FS-init.1.2: a bare temp root no VCS marker covers.
+            no_vcs: true,
             ..InitOpts::default()
         })
         .expect("init dry run");

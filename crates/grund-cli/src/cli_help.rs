@@ -351,7 +351,7 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!();
             println!(
-                "Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] [--dry-run] [--agents-md] [--claude] [--gemini] [--pi] [--copilot] [--cursor] [--windsurf] [--zed]"
+                "Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] [--dry-run] [--no-vcs] [--agents-md] [--claude] [--gemini] [--pi] [--copilot] [--cursor] [--windsurf] [--zed]"
             );
             println!();
             println!("Options:");
@@ -371,6 +371,9 @@ fn print_subcommand_help(cmd: &str) {
                 "  --dry-run      report what would be written/appended/updated without touching any file"
             );
             println!(
+                "  --no-vcs       scaffold into a target with no .git/.hg/.jj/.svn above it (refused by default)"
+            );
+            println!(
                 "  --agents-md    create/update canonical AGENTS.md even when another entrypoint exists"
             );
             println!("  --claude       create/update CLAUDE.md and .claude/CLAUDE.md");
@@ -384,7 +387,7 @@ fn print_subcommand_help(cmd: &str) {
             println!("  --zed          create/update .rules");
             println!();
             println!(
-                "Exit:  0 written / updated / already current · 2 missing target, unknown flag, or unsupported newer block."
+                "Exit:  0 written / updated / already current · 2 missing or refused target, unknown flag, or unsupported newer block."
             );
             println!();
             println!("Examples:");
