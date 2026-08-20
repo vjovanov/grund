@@ -348,3 +348,94 @@ fn init_dry_run_reports_a_duplicated_entrypoint_in_the_conditional() {
         "the preview's note should be in the conditional, got:\n{stderr}"
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn init_symlink_note_names_the_entrypoint_claude_already_has() {
+    // §FS-init.2.1.1 / §FS-init.2.3.4.17: whether Claude has an entrypoint of
+    // its own is a fact about the tree, not about which flag this run carries.
+    // A run that selected some other agent has not changed it, so it must reach
+    // the same diagnosis a flagless run does — naming the real entrypoint and
+    // the symlink to delete, never claiming there is nowhere left to write.
+    let target = workdir("init_symlink_note_names_the_entrypoint_claude_already_has");
+    fs::write(
+        target.join("grund.toml"),
+        "grund_config_version = 1\nproject_name = \"demo\"\n\n[reference]\nconversation = \"link\"\n",
+    )
+    .expect("write config");
+    fs::write(target.join("AGENTS.md"), "# demo\n").expect("write AGENTS.md");
+    fs::create_dir_all(target.join(".claude")).expect("create .claude");
+    fs::write(target.join(".claude/CLAUDE.md"), "# project notes\n")
+        .expect("write .claude/CLAUDE.md");
+    std::os::unix::fs::symlink("AGENTS.md", target.join("CLAUDE.md")).expect("symlink CLAUDE.md");
+
+    for flags in [&["--gemini"][..], &["--agents-md"][..]] {
+        let mut args = vec!["init", target.to_str().unwrap()];
+        args.extend_from_slice(flags);
+        let output = run_grund(&args, manifest_dir());
+        assert!(
+            output.status.success(),
+            "init {flags:?} failed: stderr={}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("the linked form from .claude/CLAUDE.md"),
+            "{flags:?}: the note must name the entrypoint Claude already has, got:\n{stderr}"
+        );
+        assert!(
+            !stderr.contains("taken every path"),
+            "{flags:?}: Claude has a real entrypoint, so no path is exhausted, got:\n{stderr}"
+        );
+        assert!(
+            !stderr.contains("run `grund init --claude` to write"),
+            "{flags:?}: the entrypoint exists — writing it is not the open fix, got:\n{stderr}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn init_dry_run_symlink_note_waits_for_the_block_not_the_file() {
+    // §FS-init.2.2: a preview writes nothing, so the symlink may only go once
+    // the entrypoint *carries the block*. Keying the conditional on the file
+    // existing is the same sentence with a precondition the reader can already
+    // satisfy — they check, see the file, delete their only Claude entrypoint,
+    // and are left with one that says nothing.
+    let target = workdir("init_dry_run_symlink_note_waits_for_the_block_not_the_file");
+    fs::write(
+        target.join("grund.toml"),
+        "grund_config_version = 1\nproject_name = \"demo\"\n\n[reference]\nconversation = \"link\"\n",
+    )
+    .expect("write config");
+    fs::write(target.join("AGENTS.md"), "# demo\n").expect("write AGENTS.md");
+    fs::create_dir_all(target.join(".claude")).expect("create .claude");
+    fs::write(target.join(".claude/CLAUDE.md"), "# project notes\n")
+        .expect("write .claude/CLAUDE.md");
+    std::os::unix::fs::symlink("AGENTS.md", target.join("CLAUDE.md")).expect("symlink CLAUDE.md");
+
+    let output = run_grund(
+        &["init", target.to_str().unwrap(), "--claude", "--dry-run"],
+        manifest_dir(),
+    );
+    assert!(
+        output.status.success(),
+        "init failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("would-append .claude/CLAUDE.md"),
+        "the fixture needs an entrypoint the run appends to, not creates, got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains(
+            "once .claude/CLAUDE.md carries the block, delete the symlink to leave it as Claude's only entrypoint"
+        ),
+        "the preview's condition is the block, not the file, got:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("once .claude/CLAUDE.md exists"),
+        "the file already exists — that condition is satisfied on sight, got:\n{stderr}"
+    );
+}

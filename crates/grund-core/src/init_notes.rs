@@ -8,80 +8,89 @@
 // the run wrote nothing, so a note in the present tense describes a tree that
 // does not exist, and an instruction that assumes the write already happened —
 // "delete the symlink" — costs the reader the only entrypoint they have.
+//
+// The duplicate note is built from the run's plan and touches no disk; the
+// shadowed note asks the tree, because its subject is an agent the run may not
+// have selected at all. Neither guesses from the other's evidence: a note that
+// reads the plan for a fact only the tree has is how `--gemini` came to print a
+// diagnosis of Claude's files that a flagless run on the same tree contradicts.
 
 /// The `note:` for a repository whose committed `link` opinion cannot reach
 /// Claude, because a Claude entrypoint is a symlink to the canonical file
 /// (§FS-init.2.3.4.17). Silence here reads as the opinion not working, on the
 /// one agent it was mostly written for.
 ///
-/// `claude_companions` is this run's plan for the files Claude reads: its first
-/// entry is the real entrypoint the run gives the repository, when it gives it
-/// one (§FS-init.2.1.1). The note names the fix
-/// still open, and which fix that is depends on what the tree leaves possible:
-/// write the entrypoint where a path is free, delete the symlink where this run
-/// just wrote one, and — where symlinks have taken every path Claude reads —
-/// delete one of them, because there is nowhere left for `--claude` to write.
-/// Advising a command that has just run and can do no more would be a note that
-/// never retires.
+/// The fix the note names is the one the *tree* leaves open, not the one this
+/// run happens to be about: whether Claude has an entrypoint of its own is a
+/// fact about the repository, and a run that selected some other agent has not
+/// changed it. So `planned` — this run's plan for the files Claude reads
+/// (§FS-init.2.1.1) — only decides *which* entrypoint to name and whether it is
+/// current by the time the run ends; an entrypoint already on disk answers the
+/// question just as well. Where Claude has none: write it where a path is free,
+/// and — where symlinks have taken every path Claude reads — delete one first,
+/// because there is nowhere left for `--claude` to write. Advising a command
+/// that has just run and can do no more would be a note that never retires.
 pub(crate) fn shadowed_claude_entrypoint_note(
     root: &Path,
-    claude_companions: &[String],
+    planned: &[String],
     dry_run: bool,
-) -> Option<String> {
-    let shadowed = claude_entrypoints_shadowed_by_symlink(root);
-    if shadowed.is_empty() {
-        return None;
+) -> Result<Option<String>, (PathBuf, String)> {
+    let canonical = root.join(CANONICAL_AGENT_ENTRYPOINT);
+    let mut shadowed = Vec::new();
+    let mut on_disk = Vec::new();
+    let mut free = false;
+    for entrypoint in claude_entrypoint_rows() {
+        let path = root.join(entrypoint.rel);
+        if !is_file_or_symlink(&path) {
+            free |= path_missing_without_following_symlinks(&path);
+            continue;
+        }
+        match is_symlink_to(&path, &canonical) {
+            Ok(true) => shadowed.push(entrypoint.rel),
+            Ok(false) => on_disk.push(entrypoint.rel.to_string()),
+            Err(err) => return Err((path, format!("{err:#}"))),
+        }
     }
-    let claude_entrypoint = claude_companions.first().map(String::as_str);
-    let subject = format_list(
-        &shadowed.iter().map(String::as_str).collect::<Vec<_>>(),
-        "and",
-    );
-    let (is_are, symlinks) = if shadowed.len() == 1 {
-        ("is", "a symlink")
+    if shadowed.is_empty() {
+        return Ok(None);
+    }
+    let subject = format_list(&shadowed, "and");
+    let (is_are, symlinks, one_of_them) = if shadowed.len() == 1 {
+        ("is", "a symlink", "delete it")
     } else {
-        ("are", "symlinks")
+        ("are", "symlinks", "delete one of them")
     };
     let reads = if dry_run { "would read" } else { "reads" };
-    let head = format!("{subject} {is_are} {symlinks} to {CANONICAL_AGENT_ENTRYPOINT}, so Claude {reads} the plain-location form");
-    Some(match claude_entrypoint {
-        Some(entrypoint) if dry_run => format!(
-            "{head} from there as well as the linked form from {entrypoint}; once {entrypoint} exists, delete the symlink to leave it as Claude's only entrypoint"
-        ),
-        Some(entrypoint) => format!(
-            "{head} from there as well as the linked form from {entrypoint}; delete the symlink to leave {entrypoint} as Claude's only entrypoint"
-        ),
-        None if claude_entrypoint_path_is_free(root) => format!(
-            "{head}; run `grund init --claude` to write a real Claude entrypoint that teaches the linked form"
-        ),
-        None => format!(
-            "{head}, and the symlinks have taken every path a real Claude entrypoint could go; delete one of them and re-run `grund init --claude`"
-        ),
-    })
-}
-
-/// Claude entrypoints that are symlinks to the canonical `AGENTS.md`
-/// (§FS-init.2.3.4.17). A symlink resolves to the canonical target, so one file
-/// carries the block for every agent — and that file is the one Codex reads,
-/// where the linked form is recorded as erasing the citation. The committed
-/// `link` opinion therefore cannot reach Claude through a symlinked entrypoint.
-fn claude_entrypoints_shadowed_by_symlink(root: &Path) -> Vec<String> {
-    let canonical = root.join(CANONICAL_AGENT_ENTRYPOINT);
-    claude_entrypoint_rows()
-        .filter(|entrypoint| {
-            let path = root.join(entrypoint.rel);
-            is_file_or_symlink(&path) && is_symlink_to(&path, &canonical).unwrap_or(false)
-        })
-        .map(|entrypoint| entrypoint.rel.to_string())
-        .collect()
-}
-
-/// Whether any path Claude reads is still free for `--claude` to write
-/// (§FS-init.2.1.1) — what decides whether writing the entrypoint is a fix the
-/// user can still reach, or whether a symlink has to go first.
-fn claude_entrypoint_path_is_free(root: &Path) -> bool {
-    claude_entrypoint_rows()
-        .any(|entrypoint| path_missing_without_following_symlinks(&root.join(entrypoint.rel)))
+    let head = format!(
+        "{subject} {is_are} {symlinks} to {CANONICAL_AGENT_ENTRYPOINT}, so Claude {reads} the plain-location form"
+    );
+    // The symlink may go before the entrypoint only once that entrypoint really
+    // carries the block: this run wrote to it, and the run was not a preview.
+    // Otherwise the deletion is still the fix, and the note says what has to be
+    // true first rather than sending the reader to delete their only Claude
+    // entrypoint on the strength of a file that exists but says nothing.
+    let carries_the_block = !dry_run && !planned.is_empty();
+    let delete_symlinks = if shadowed.len() == 1 {
+        "delete the symlink"
+    } else {
+        "delete the symlinks"
+    };
+    Ok(Some(
+        match planned.first().map(String::as_str).or(on_disk.first().map(String::as_str)) {
+            Some(entrypoint) if carries_the_block => format!(
+                "{head} from there as well as the linked form from {entrypoint}; {delete_symlinks} to leave {entrypoint} as Claude's only entrypoint"
+            ),
+            Some(entrypoint) => format!(
+                "{head} from there as well as the linked form from {entrypoint}; once {entrypoint} carries the block, {delete_symlinks} to leave it as Claude's only entrypoint"
+            ),
+            None if free => format!(
+                "{head}; run `grund init --claude` to write a real Claude entrypoint that teaches the linked form"
+            ),
+            None => format!(
+                "{head}, and the symlinks have taken every path a real Claude entrypoint could go; {one_of_them} and re-run `grund init --claude`"
+            ),
+        },
+    ))
 }
 
 fn claude_entrypoint_rows() -> impl Iterator<Item = &'static CompanionAgentEntrypoint> {
@@ -96,43 +105,43 @@ fn claude_entrypoint_rows() -> impl Iterator<Item = &'static CompanionAgentEntry
 /// agent twice, and the run that just wrote to each of them is the only place
 /// that is visible.
 ///
-/// `canonical_selected` says whether this run also writes `AGENTS.md`, which a
-/// companion symlink resolves to: that symlink carries whatever the canonical
-/// file carries, so it is one of the agent's copies of the block even though it
-/// is never in the companion plan (§FS-init.2.1).
+/// Everything this reads is already in the plan. `plan.canonical_symlinks` are
+/// the companions that resolve to the canonical file: never in the companion
+/// plan, because the canonical write is the one that reaches them, but copies of
+/// the block for their agent all the same whenever this run also writes
+/// `AGENTS.md` (§FS-init.2.1).
 ///
-/// `linked_conversation` withholds that reading for the Claude symlink alone,
-/// because there the shadowed-entrypoint note above names the same two files
-/// and a *better* fix (§FS-init.2.3.4.17). "Delete the one you do not want" is
-/// the wrong sentence for a repository that committed the `link` opinion and
-/// just asked for the second file: one of the two is a symlink to the entrypoint
-/// every other agent reads, and only the specific note says which.
+/// `reach` withholds that reading for a symlink whose agent the canonical render
+/// cannot speak for, because there the shadowed-entrypoint note above names the
+/// same two files and a *better* fix (§FS-init.2.3.4.17). "Delete the one you do
+/// not want" is the wrong sentence for a repository that committed the `link`
+/// opinion and just asked for the second file: one of the two is a symlink to
+/// the entrypoint every other agent reads, and only the specific note says which.
 pub(crate) fn duplicate_agent_entrypoint_notes(
     target: &Path,
-    entrypoints: &[InitCompanionAgentEntrypoint],
-    canonical_selected: bool,
-    linked_conversation: bool,
+    plan: &SelectedInitAgentEntrypoints,
+    reach: CanonicalSurfaceReach,
     dry_run: bool,
 ) -> Vec<String> {
-    let canonical = target.join(CANONICAL_AGENT_ENTRYPOINT);
     let written: Vec<&CompanionAgentEntrypoint> = COMPANION_AGENT_ENTRYPOINTS
         .iter()
         .filter(|entrypoint| {
             let path = target.join(entrypoint.rel);
-            let spoken_for =
-                linked_conversation && entrypoint.agent == Some(AgentEntrypoint::Claude);
-            entrypoints.iter().any(|planned| planned.path() == path)
-                || (canonical_selected
-                    && !spoken_for
-                    && is_symlink_to(&path, &canonical).unwrap_or(false))
+            plan.companions
+                .iter()
+                .any(|planned| planned.path() == path)
+                || (plan.canonical
+                    && !reach.leaves_uncovered(&path)
+                    && plan.canonical_symlinks.contains(&path))
         })
         .collect();
     let mut notes = Vec::new();
-    let mut reported = Vec::new();
+    let mut considered = Vec::new();
     for entrypoint in &written {
-        let Some(agent) = entrypoint.agent.filter(|agent| !reported.contains(agent)) else {
+        let Some(agent) = entrypoint.agent.filter(|agent| !considered.contains(agent)) else {
             continue;
         };
+        considered.push(agent);
         let rels: Vec<&str> = written
             .iter()
             .filter(|other| other.agent == Some(agent))
@@ -141,14 +150,21 @@ pub(crate) fn duplicate_agent_entrypoint_notes(
         if rels.len() < 2 {
             continue;
         }
-        reported.push(agent);
-        let (carry, reads) = if dry_run {
-            ("would both carry", "would read")
+        // Two is the shape every agent in the table has today; the wording is
+        // derived rather than written for it, so a third path added to one agent
+        // reports itself instead of claiming "both".
+        let (all, times, spare) = if rels.len() == 2 {
+            ("both", "twice".to_string(), "the one you do not want")
         } else {
-            ("both carry", "reads")
+            ("all", format!("{} times", rels.len()), "the ones you do not want")
+        };
+        let (carry, reads) = if dry_run {
+            (format!("would {all} carry"), "would read")
+        } else {
+            (format!("{all} carry"), "reads")
         };
         notes.push(format!(
-            "{} {carry} the managed block, so {} {reads} it twice; delete the one you do not want — `grund init` creates only one",
+            "{} {carry} the managed block, so {} {reads} it {times}; delete {spare} — `grund init` creates only one",
             format_list(&rels, "and"),
             agent.name(),
         ));

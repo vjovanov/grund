@@ -376,12 +376,14 @@ fn print_subcommand_help(cmd: &str) {
             println!(
                 "  --agents-md    create/update canonical AGENTS.md even when another entrypoint exists"
             );
-            println!("  --claude       create/update CLAUDE.md (or .claude/CLAUDE.md if present)");
+            println!(
+                "  --claude       create/update CLAUDE.md and .claude/CLAUDE.md; creates only the first"
+            );
             println!("  --gemini       create/update GEMINI.md");
             println!("  --pi           create/update .pi/AGENTS.md");
             println!("  --copilot      create/update .github/copilot-instructions.md");
             println!(
-                "  --cursor       create/update .cursor/rules/grund.mdc (or the legacy .cursorrules if present)"
+                "  --cursor       create/update .cursor/rules/grund.mdc and legacy .cursorrules; creates only the first"
             );
             println!("  --windsurf     create/update .windsurfrules");
             println!("  --zed          create/update .rules");

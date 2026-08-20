@@ -227,18 +227,18 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     // (§FS-init.2.1.1, §FS-init.2.3.4.17).
     let init_config = init_pending_effective_config(&target, &resolved_name, description.as_deref())
         .map_err(|err| InitError::new(err.to_string()))?;
-    let linked_conversation = init_config.conversation.as_deref() == Some("link");
+    let reach = CanonicalSurfaceReach::for_config(&init_config);
 
-    let agent_entrypoints =
-        match selected_init_agent_entrypoints(&target, &agent_selection, linked_conversation) {
-            Ok(entrypoints) => entrypoints,
-            Err((path, message)) => {
-                return Err(InitError::new(format!(
-                    "inspect {}: {message}",
-                    path.display()
-                )));
-            }
-        };
+    let agent_entrypoints = match selected_init_agent_entrypoints(&target, &agent_selection, reach)
+    {
+        Ok(entrypoints) => entrypoints,
+        Err((path, message)) => {
+            return Err(InitError::new(format!(
+                "inspect {}: {message}",
+                path.display()
+            )));
+        }
+    };
 
     // §FS-init.1.2: the planned entrypoint paths are known now, so check them
     // against the user-global instruction files `grund integrations --write`
@@ -281,16 +281,11 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     // §FS-init.2.1.1, §FS-init.2.3.4.17: both computed before the companion loop
     // consumes the plan — `init` creates one entrypoint per agent, but a
     // repository that already carries two keeps both, and this run is where that
-    // shows; and the fix the symlink note names depends on whether this run is
-    // the one giving Claude an entrypoint of its own.
+    // shows; and the entrypoint the symlink note names is the one this run makes
+    // current, when it makes one current.
     let claude_companions = agent_entrypoints.companions_of_claude(&target);
-    let mut notes = duplicate_agent_entrypoint_notes(
-        &target,
-        &agent_entrypoints.companions,
-        agent_entrypoints.canonical,
-        linked_conversation,
-        dry_run,
-    );
+    let mut notes =
+        duplicate_agent_entrypoint_notes(&target, &agent_entrypoints, reach, dry_run);
     let mut workflow_entrypoint = None;
     // Track whether any path changed (or, under --dry-run, *would* change).
     // The `next:` block is suppressed when every reported path is `exists `,
@@ -452,11 +447,20 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     // and a Claude entrypoint that is a symlink to `AGENTS.md` is the canonical
     // file — which every other agent reads too, so it must keep the plain form.
     // Silence here would read as the opinion simply not working.
-    if linked_conversation
-        && let Some(note) =
-            shadowed_claude_entrypoint_note(&target, &claude_companions, dry_run)
-    {
-        notes.push(note);
+    if reach == CanonicalSurfaceReach::PlainEntrypointsOnly {
+        match shadowed_claude_entrypoint_note(&target, &claude_companions, dry_run) {
+            Ok(Some(note)) => notes.push(note),
+            Ok(None) => {}
+            // The same hard failure the selection gives for a path it cannot
+            // inspect: this note is the only place the state is visible, so
+            // dropping it on an unreadable link would report a clean run.
+            Err((path, message)) => {
+                return Err(InitError::with_events(
+                    events,
+                    format!("inspect {}: {message}", path.display()),
+                ));
+            }
+        }
     }
     Ok(InitOutput {
         events,
@@ -558,84 +562,6 @@ fn verb_appended(dry_run: bool) -> &'static str {
 fn verb_updated(dry_run: bool) -> &'static str {
     if dry_run { "would-update" } else { "updated" }
 }
-
-struct SelectedInitAgentEntrypoints {
-    canonical: bool,
-    companions: Vec<InitCompanionAgentEntrypoint>,
-}
-
-impl SelectedInitAgentEntrypoints {
-    /// The `<path>`-relative entrypoints in this plan that Claude reads
-    /// (§FS-init.2.3.4.17) — what tells the shadowed-entrypoint note whether
-    /// this run is the one giving Claude a file of its own, and which file.
-    fn companions_of_claude(&self, target: &Path) -> Vec<String> {
-        self.companions
-            .iter()
-            .map(|companion| companion.path())
-            .filter(|path| ConversationSurface::for_entrypoint(path) == ConversationSurface::Linked)
-            .map(|path| format_path(path.strip_prefix(target).unwrap_or(path)))
-            .collect()
-    }
-
-    /// Every entrypoint path this plan would write, append to, or update — what
-    /// §FS-init.1.2's user-global rule has to be asked about. The canonical
-    /// entrypoint is as `<path>`-relative as any companion, but it is carried
-    /// here as a flag rather than a path, so a caller that reasons about paths
-    /// cannot see it at all unless it is rebuilt: `<path>/AGENTS.md` with
-    /// `<path>` at `~/.codex` is the machine-global Codex instruction file.
-    fn planned_paths(&self, target: &Path) -> Vec<PathBuf> {
-        self.canonical
-            .then(|| target.join(CANONICAL_AGENT_ENTRYPOINT))
-            .into_iter()
-            .chain(
-                self.companions
-                    .iter()
-                    .map(|companion| companion.path().to_path_buf()),
-            )
-            .collect()
-    }
-}
-
-fn selected_init_agent_entrypoints(
-    target: &Path,
-    selection: &InitAgentEntrypointSelection,
-    linked_conversation: bool,
-) -> Result<SelectedInitAgentEntrypoints, (PathBuf, String)> {
-    if selection.any() {
-        let (canonical_from_symlink, companions) =
-            requested_init_companion_agent_entrypoints(target, selection, linked_conversation)?;
-        return Ok(SelectedInitAgentEntrypoints {
-            canonical: selection.canonical || canonical_from_symlink,
-            companions,
-        });
-    }
-
-    let canonical = target.join(CANONICAL_AGENT_ENTRYPOINT);
-    let canonical_exists = is_file_or_symlink(&canonical);
-    let (canonical_from_companion_symlink, existing_companions) =
-        existing_init_companion_agent_entrypoints(target)?;
-    if canonical_exists || !existing_companions.is_empty() {
-        return Ok(SelectedInitAgentEntrypoints {
-            canonical: canonical_exists || canonical_from_companion_symlink,
-            companions: existing_companions,
-        });
-    }
-
-    let workspace_companions =
-        workspace_init_companion_agent_entrypoints(target, linked_conversation)?;
-    if canonical_from_companion_symlink || !workspace_companions.is_empty() {
-        return Ok(SelectedInitAgentEntrypoints {
-            canonical: canonical_from_companion_symlink,
-            companions: workspace_companions,
-        });
-    }
-
-    Ok(SelectedInitAgentEntrypoints {
-        canonical: true,
-        companions: Vec::new(),
-    })
-}
-
 
 /// The `--docs` scaffold: the default requirements/spec home, canonical `docs/`
 /// files (`grund.md`, `goals.md`, `roadmap.md`, `changelog.md`, architecture

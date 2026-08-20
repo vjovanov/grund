@@ -97,7 +97,7 @@ path = "crates/grund-core/src/init.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 589, unit = "lines" }
+max_accepted = { value = 529, unit = "lines" }
 until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
 Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
@@ -137,10 +137,10 @@ path = "crates/grund-cli/src/cli_help.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "structural"
-max_accepted = { value = 486, unit = "lines" }
+max_accepted = { value = 488, unit = "lines" }
 until = "indefinite"
 reason = """
-The help screens are one user-facing document rendered per command, and their worth is consistency: the same section order, voice, and example style across the 12 command arms and the top-level page. That consistency is held by seeing them together. Scattering them beside their commands makes drift between screens the likeliest failure and produces no compile-time signal when it happens. The file is text, not logic: no state, no branching beyond the command match, nothing to test. Its length tracks the command surface, not accumulated logic.
+The help screens are one user-facing document rendered per command, and their worth is consistency: the same section order, voice, and example style across the 12 command arms and the top-level page. That consistency is held by seeing them together. Scattering them beside their commands makes drift between screens the likeliest failure and produces no compile-time signal when it happens. The file is text, not logic: no state, no branching beyond the command match, nothing to test. Its length tracks the command surface, not accumulated logic: the ceiling moved 486 -> 488 because the one-per-agent rule (§FS-init.2.1.1) made the --claude line too long for a single println!, which is one flag being described accurately rather than logic accruing.
 """
 [[exceptions]]
 path = "scripts/try-integrations.sh"
