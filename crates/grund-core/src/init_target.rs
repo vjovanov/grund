@@ -38,8 +38,11 @@ fn refuse_init_target(target: &Path, no_vcs: bool) -> Option<String> {
     // project uses Claude" (§FS-init.2.1). Both readings are right in their own
     // scope; in `$HOME` they name one file. No flag lifts this: nobody targets
     // `$HOME` on purpose, so there is no case to keep working.
-    if let Some(home) = std::env::var_os("HOME").filter(|home| !home.is_empty())
-        && resolve_for_target_compare(Path::new(&home)) == resolved
+    // `std::env::home_dir` rather than `$HOME` directly: the variable is the
+    // Unix spelling, and a Windows runner that never sets it would silently
+    // lose the rule that stops the accident this exists for.
+    if let Some(home) = std::env::home_dir()
+        && resolve_for_target_compare(&home) == resolved
     {
         return Some(format!(
             "refusing to scaffold into the home directory {} — init writes repository paths, and .claude/CLAUDE.md here is the machine-global agent instruction file",
