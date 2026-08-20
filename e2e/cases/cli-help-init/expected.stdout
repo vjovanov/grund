@@ -15,7 +15,7 @@ Options:
   --gemini       create/update GEMINI.md
   --pi           create/update .pi/AGENTS.md
   --copilot      create/update .github/copilot-instructions.md
-  --cursor       create/update .cursor/rules/grund.mdc (legacy .cursorrules is updated only if present)
+  --cursor       create/update .cursor/rules/grund.mdc (or the legacy .cursorrules if present)
   --windsurf     create/update .windsurfrules
   --zed          create/update .rules
 

@@ -312,7 +312,7 @@ mod tests_init_agents {
         fs::create_dir_all(root.join(".github/workflows")).expect("create github metadata");
 
         let companions =
-            workspace_init_companion_agent_entrypoints(&root).expect("discover workspace aliases");
+            workspace_init_companion_agent_entrypoints(&root, false).expect("discover workspace aliases");
         let rels = companions
             .iter()
             .map(|entrypoint| match entrypoint {
@@ -342,7 +342,7 @@ mod tests_init_agents {
         };
 
         let (canonical_by_symlink, companions) =
-            requested_init_companion_agent_entrypoints(&root, &selection).expect("select requested");
+            requested_init_companion_agent_entrypoints(&root, &selection, false).expect("select requested");
 
         assert!(!canonical_by_symlink);
         let planned = companions

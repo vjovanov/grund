@@ -77,17 +77,17 @@ path = "crates/grund-cli/tests/init.rs"
 match = "exact"
 rules = ["tests"]
 kind = "deferred"
-max_accepted = { value = 1023, unit = "lines" }
-until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
+max_accepted = { value = 630, unit = "lines" }
+until = "the scaffold cases split again by what they assert about the emitted tree"
 reason = """
-Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+The hard twin is retired: the fixture builder moved to tests/support/init_fixture.rs and the entrypoint-selection cases to tests/init_agent_entrypoints.rs, which took this file from 1023 lines to 630 and under the hard budget. This entry now carries the argument alone. What is left is one area — what `init` writes and what it reports — whose cases are long because each builds a tree, runs the binary, and reads the bytes back, not because two areas share a file. Missing boundary: a second axis inside that area worth naming, most likely the scaffold contents against the report (`--docs`, `--force`, `--dry-run`, determinism).
 """
 [[exceptions]]
 path = "crates/grund-core/src/init_templates.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 796, unit = "lines" }
+max_accepted = { value = 509, unit = "lines" }
 until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
 Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
@@ -97,7 +97,7 @@ path = "crates/grund-core/src/init.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 776, unit = "lines" }
+max_accepted = { value = 579, unit = "lines" }
 until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
 Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
@@ -237,8 +237,8 @@ path = "crates/grund-cli/tests/init_agent_entrypoints.rs"
 match = "exact"
 rules = ["tests"]
 kind = "deferred"
-max_accepted = { value = 450, unit = "lines" }
+max_accepted = { value = 484, unit = "lines" }
 until = "the suite gains another case, at which point it splits along the automatic-mode / explicit-flag boundary of §FS-init.2.1"
 reason = """
-The eleven cases are one behavior area — which entrypoint files a run selects — and they fail together: a change to the companion table or to the one-per-agent rule breaks the automatic-detection and the explicit-flag cases in the same edit, which is why they moved out of init.rs as one group rather than two. The seam inside the area is the one §FS-init.2.1 already names, automatic mode against explicit flags, and it is five cases on either side today; taking it now would put two thin suites on a boundary that has not had to carry anything yet, and the shared fixture is already extracted, so neither side would get simpler. Missing boundary: enough weight on one side for the two modes to be worth reading apart.
+The twelve cases are one behavior area — which entrypoint files a run selects — and they fail together: a change to the companion table or to the one-per-agent rule breaks the automatic-detection and the explicit-flag cases in the same edit, which is why they moved out of init.rs as one group rather than two. The seam inside the area is the one §FS-init.2.1 already names, automatic mode against explicit flags, and it is six cases on either side today; taking it now would put two thin suites on a boundary that has not had to carry anything yet, and the shared fixture is already extracted, so neither side would get simpler. Missing boundary: enough weight on one side for the two modes to be worth reading apart.
 """

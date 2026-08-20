@@ -138,14 +138,3 @@ fn resolve_for_target_compare(path: &Path) -> PathBuf {
     }
     path.to_path_buf()
 }
-
-/// `a`, `b`, `c`, or `d` — a list spelled the way the message reads, joined by
-/// the `conjunction` that message wants before the last item.
-fn format_list(items: &[&str], conjunction: &str) -> String {
-    match items {
-        [] => String::new(),
-        [only] => (*only).to_string(),
-        [first, second] => format!("{first} {conjunction} {second}"),
-        [rest @ .., last] => format!("{}, {conjunction} {last}", rest.join(", ")),
-    }
-}

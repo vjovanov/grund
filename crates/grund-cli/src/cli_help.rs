@@ -381,7 +381,7 @@ fn print_subcommand_help(cmd: &str) {
             println!("  --pi           create/update .pi/AGENTS.md");
             println!("  --copilot      create/update .github/copilot-instructions.md");
             println!(
-                "  --cursor       create/update .cursor/rules/grund.mdc (legacy .cursorrules is updated only if present)"
+                "  --cursor       create/update .cursor/rules/grund.mdc (or the legacy .cursorrules if present)"
             );
             println!("  --windsurf     create/update .windsurfrules");
             println!("  --zed          create/update .rules");
