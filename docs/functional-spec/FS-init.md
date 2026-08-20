@@ -9,7 +9,7 @@ For verbose implementer fixtures — exact stderr transcripts, final tree expect
 ## 1. Inputs
 
 ```
-grund init [<path>] [--name <name>] [--description <text>] [--docs] [--force] [--dry-run] [--agents-md] [--claude] [--gemini] [--pi] [--copilot] [--cursor] [--windsurf] [--zed]
+grund init [<path>] [--name <name>] [--description <text>] [--docs] [--force] [--dry-run] [--no-vcs] [--agents-md] [--claude] [--gemini] [--pi] [--copilot] [--cursor] [--windsurf] [--zed]
 ```
 
 - `<path>` — directory in which to scaffold. Defaults to `.` (the current directory). Applies to every form of `init` — including `--docs` — and prefixes every emitted path in §2.1. Must exist; `init` does not create the target directory itself (a missing target is a user error, not something to silently paper over).
@@ -18,6 +18,7 @@ grund init [<path>] [--name <name>] [--description <text>] [--docs] [--force] [-
 - `--docs` — also scaffold the docs referenced by the effective config: by default this means stub `requirements.md`, `docs/grund.md`, `docs/goals.md`, `docs/roadmap.md`, `docs/changelog.md`, `docs/architecture/`, `docs/decisions/architectural/`, `docs/decisions/functional/`, and an empty `e2e/` directory with a stub `README.md`. The root-level `requirements.md` stub is scaffolded because the generated `FS` kind uses it as the default requirements/spec home (§2.4); an existing config that omits `[[kinds]]` instead keeps the compatibility FS home from [§FS-config.2](FS-config.md#2-precedence), so `--docs` scaffolds `docs/functional-spec/README.md` and points next-step guidance at `docs/functional-spec`. `roadmap.md` and `changelog.md` are scaffolded because the generated managed block's `docs/` table links to them (§2.3). Off by default — most adopters already have a `docs/` of some shape and want only the entry point and config. Composes with `<path>`: every scaffolded file lands under `<path>/`.
 - `--force` — overwrite files that already exist at the target paths. Off by default. The default existing-entrypoint behavior is already append-or-update (§2.3), so `--force` is only needed to reset a generated `AGENTS.md` or a `--docs` scaffold to its canonical bytes.
 - `--dry-run` — preview the run without writing or modifying any file. Every line that would have been emitted as `wrote `, `appended `, or `updated ` is reported with the `would-write `, `would-append `, or `would-update ` prefix instead; `exists ` lines and the `next:` block are unchanged. Composes with every other flag, including `--force`. Off by default.
+- `--no-vcs` — scaffold into a target that no version-control marker covers (§1.2). Off by default; without it such a target is refused. It says only *this really is where I want a project*, and nothing else: it does not lift the unconditional refusals in §1.2, and it is not `--force` (which decides whether files `init` owns get overwritten, §3) — the two answer different questions and a run may need either, both, or neither.
 - `--agents-md` — explicitly create or update the canonical `<path>/AGENTS.md` entrypoint even when another agent entrypoint already exists.
 - `--claude` — explicitly create or update the Claude entrypoints: `<path>/CLAUDE.md` and `<path>/.claude/CLAUDE.md`.
 - `--gemini` — explicitly create or update `<path>/GEMINI.md`.
@@ -44,6 +45,24 @@ grund init --docs --name acme path/to/repo  # full form
 ```
 
 Argument order is flexible: positional `<path>` may appear before or after the flags.
+
+### 1.2 Refused targets
+
+`init` is the only subcommand that creates adoption scaffolding, so it is the only one that can write a file the user never named — and the paths it writes are all `<path>`-relative, which makes `<path>` load-bearing in a way no other command's is. Before it touches anything it therefore checks *where* it was pointed. Every check below runs before the first write, and a refusal is total: no file is created, appended, or updated, not even the ones that would have been unobjectionable, and `init` exits `2` (§4). `--dry-run` reports the same refusal rather than a preview — a preview of a run that would be refused *is* that refusal.
+
+- **The home directory is refused, unconditionally.** A `<path>` that resolves to `$HOME` is declined and nothing is written. No flag lifts this — not `--no-vcs`, not `--force`. `$HOME` is where the file-backed user-global agent instruction files of [§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions) live, and `init`'s repository-relative model is wrong about every one of them: `<path>/.claude/CLAUDE.md` with `<path>` at `$HOME` **is** `~/.claude/CLAUDE.md`, the machine-global file every agent session in every project loads. The collision is not incidental. The same signal — `.claude/` exists — means "this machine runs Claude, sync the small marked rendering block" to `grund integrations --write` ([§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions)) and "this project uses Claude, scaffold the managed block" to automatic mode (§2.1). Both readings are correct in their own scope; in `$HOME` they name one file, and the project-shaped one would append a specific repository's instructions to every session the user ever starts. Nobody targets `$HOME` on purpose, so there is no case to keep working and no escape hatch to offer.
+- **A user-global instruction file is refused, unconditionally.** Independently of the rule above, `init` declines when any path it would write, append to, or update is one of the file-backed user-global targets of [§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions). Today `~/.claude/CLAUDE.md` is the only path the two sets share, so the `$HOME` rule already covers every case this one catches — they are kept as two rules because they are two different facts, and only this one stays true if either table grows an entry. The division is the one [§FS-integrations.4.3](FS-integrations.md#43-user-preference-and-global-agent-instructions) already states: the user-global files carry machine-wide *policy* and are `grund integrations --write`'s to manage, the repository entrypoint carries this project's *syntax* and is `init`'s.
+- **A target outside version control is refused unless `--no-vcs` is passed.** `init` looks for a `.git`, `.hg`, `.jj`, or `.svn` entry in `<path>` or any ancestor and declines when it finds none, naming the flag that proceeds anyway. Presence is tested, not type: a linked worktree and a submodule both write `.git` as a file. This is not `grund` reading history — nothing is parsed, no command is run, and [§FS-non-goals.6](FS-non-goals.md#6-decision-database-audit-log-history-tracking) is untouched; the marker's existence is a fact about the tree in exactly the way a `grund.toml`'s is. Unlike the two rules above this one has a legitimate other side — scaffolding a directory before `git init`, or a project under no VCS at all — so it is a default, not a law. `--no-vcs` says only *this really is where I want a project* and lifts only this rule.
+
+A refused run says which rule declined it and, where one exists, the flag that proceeds:
+
+```
+error: refusing to scaffold into the home directory /home/you — init writes repository paths, and .claude/CLAUDE.md here is the machine-global agent instruction file
+error: refusing to write /home/you/.claude/CLAUDE.md — that is the machine-global agent instruction file, managed by `grund integrations --write`, not a repository entrypoint
+error: /tmp/nowhere is not inside a version-controlled tree — no .git, .hg, .jj, or .svn here or above; pass --no-vcs to scaffold anyway
+```
+
+These are refusals, not prompts: `init` still never asks a question ([§FS-non-goals.10](FS-non-goals.md#10-interactive-mode)), it declines and names the flag that would have let the run through. That is the only shape a guard can take in a non-interactive command, and it is why the two unconditional rules have no flag at all — a rule nobody means to trip does not need one.
 
 ## 2. Outputs
 
@@ -253,6 +272,7 @@ A single `project_name = "<name>"` key appears at the top above the section tabl
 
 A reader skimming for "what won't `init` touch?" gets the consolidated answer here; the detail lives at the section cited beside each guarantee.
 
+- **A target that is not a project is refused before anything is written.** The home directory and the user-global agent instruction files are declined unconditionally; a target no version-control marker covers is declined unless `--no-vcs` says otherwise (§1.2).
 - **Automatic mode never adds a competing entrypoint.** An existing `CLAUDE.md`, `GEMINI.md`, or other known entrypoint is updated in place; no canonical `AGENTS.md` is invented alongside it (§1, §2.1).
 - **Ambiguous companions need a workspace signal.** `.github/copilot-instructions.md` is never created from `.github/` alone (it is generic GitHub metadata); `.rules` is never created from file existence alone (its filename is too generic) — both require either an existing workspace directory or an explicit flag (§2.1, §2.3).
 - **User-authored content in agent entrypoints is preserved.** Only the delimiter-bounded managed `## Grounding with grund (vN)` block is touched. Everything before and after the block is byte-for-byte preserved, including the block's position within the file (§2.3, §2.3.1).
@@ -277,7 +297,7 @@ The `--docs` mode applies the same rule across the docs tree: existing scaffold 
 ## 4. Exit codes
 
 - `0` — every requested file was written, appended, updated, or already current.
-- `2` — I/O error (target path does not exist, permission denied, disk full, etc.); a CLI-level error such as an unknown flag; or an existing `AGENTS.md` contains a managed block whose schema version is newer than the running binary supports (§2.3), in which case the file is left unchanged.
+- `2` — I/O error (target path does not exist, permission denied, disk full, etc.); a CLI-level error such as an unknown flag; a refused target (§1.2), in which case nothing was written; or an existing `AGENTS.md` contains a managed block whose schema version is newer than the running binary supports (§2.3), in which case the file is left unchanged.
 
 Exit-code mapping is fixed per [§GOAL-friendliness-first.2](../goals.md#2-what-this-rules-out) and [§FS-non-goals.9](FS-non-goals.md#9-severity-exit-code-or-report-ordering-customization).
 

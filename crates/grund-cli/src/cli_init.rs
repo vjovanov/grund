@@ -5,6 +5,7 @@ fn command_init(args: &[String]) -> ExitCode {
     let mut docs = false;
     let mut force = false;
     let mut dry_run = false;
+    let mut no_vcs = false;
     let mut agent_selection = InitAgentEntrypointSelection::default();
     let mut idx = 0;
     while idx < args.len() {
@@ -12,6 +13,7 @@ fn command_init(args: &[String]) -> ExitCode {
             "--docs" => docs = true,
             "--force" => force = true,
             "--dry-run" => dry_run = true,
+            "--no-vcs" => no_vcs = true,
             "--agents-md" => agent_selection.canonical = true,
             "--claude" => agent_selection.claude = true,
             "--gemini" => agent_selection.gemini = true,
@@ -63,6 +65,7 @@ fn command_init(args: &[String]) -> ExitCode {
         docs,
         force,
         dry_run,
+        no_vcs,
         agent_selection,
     }) {
         Ok(output) => output,

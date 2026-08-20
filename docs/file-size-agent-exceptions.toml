@@ -137,7 +137,7 @@ path = "crates/grund-cli/src/cli_help.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "structural"
-max_accepted = { value = 483, unit = "lines" }
+max_accepted = { value = 486, unit = "lines" }
 until = "indefinite"
 reason = """
 The help screens are one user-facing document rendered per command, and their worth is consistency: the same section order, voice, and example style across the 12 command arms and the top-level page. That consistency is held by seeing them together. Scattering them beside their commands makes drift between screens the likeliest failure and produces no compile-time signal when it happens. The file is text, not logic: no state, no branching beyond the command match, nothing to test. Its length tracks the command surface, not accumulated logic.
