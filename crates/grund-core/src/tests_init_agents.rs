@@ -312,7 +312,8 @@ mod tests_init_agents {
         fs::create_dir_all(root.join(".github/workflows")).expect("create github metadata");
 
         let companions =
-            workspace_init_companion_agent_entrypoints(&root, false).expect("discover workspace aliases");
+            workspace_init_companion_agent_entrypoints(&root, CanonicalSurfaceReach::EveryEntrypoint)
+                .expect("discover workspace aliases");
         let rels = companions
             .iter()
             .map(|entrypoint| match entrypoint {
@@ -329,6 +330,34 @@ mod tests_init_agents {
     }
 
     #[test]
+    fn an_unclaimed_generic_file_is_not_its_agent_s_entrypoint() {
+        // §FS-init.2.1.1 / §FS-init.2.1: `.rules` is too generic to attribute to
+        // Zed by filename alone, so a build-rules file that no `.zed/` and no
+        // managed block claims is somebody else's. Answering *does this agent
+        // have an entrypoint* on looser evidence than the update set and
+        // `grund check` use is how the two come to disagree about what an
+        // entrypoint is (§FS-check.3.5).
+        let root = test_root("an_unclaimed_generic_file_is_not_its_agent_s_entrypoint");
+        write(&root.join(".rules"), "# somebody else's build rules\n");
+
+        let covered = agents_with_own_entrypoint(&root, CanonicalSurfaceReach::EveryEntrypoint)
+            .expect("inspect entrypoints");
+        assert!(
+            !covered.contains(&AgentEntrypoint::Zed),
+            "an unclaimed .rules is not Zed's entrypoint"
+        );
+
+        // The `.zed/` workspace is the evidence that settles it.
+        fs::create_dir_all(root.join(".zed")).expect("create .zed");
+        let covered = agents_with_own_entrypoint(&root, CanonicalSurfaceReach::EveryEntrypoint)
+            .expect("inspect entrypoints");
+        assert!(
+            covered.contains(&AgentEntrypoint::Zed),
+            "with .zed/ present the same file is Zed's entrypoint"
+        );
+    }
+
+    #[test]
     fn init_requests_one_entrypoint_per_agent() {
         // §FS-init.2.1.1: an explicit flag updates every entrypoint the agent has
         // and creates one only for an agent that has none — the block is the same
@@ -341,10 +370,15 @@ mod tests_init_agents {
             ..InitAgentEntrypointSelection::default()
         };
 
-        let (canonical_by_symlink, companions) =
-            requested_init_companion_agent_entrypoints(&root, &selection, false).expect("select requested");
+        let (canonical_symlinks, companions) =
+            requested_init_companion_agent_entrypoints(
+                &root,
+                &selection,
+                CanonicalSurfaceReach::EveryEntrypoint,
+            )
+            .expect("select requested");
 
-        assert!(!canonical_by_symlink);
+        assert!(canonical_symlinks.is_empty());
         let planned = companions
             .iter()
             .map(|entrypoint| {

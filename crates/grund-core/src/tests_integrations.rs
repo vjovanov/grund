@@ -516,16 +516,22 @@ mod tests_integrations {
         let root = test_root("claude_symlink_to_agents_md_is_detected");
         write(&root.join("AGENTS.md"), "# demo\n");
         std::os::unix::fs::symlink("AGENTS.md", root.join("CLAUDE.md")).expect("symlink");
+        let note = shadowed_claude_entrypoint_note(&root, &[], false).expect("inspect entrypoints");
         assert_eq!(
-            claude_entrypoints_shadowed_by_symlink(&root),
-            vec!["CLAUDE.md".to_string()]
+            note.as_deref(),
+            Some(
+                "CLAUDE.md is a symlink to AGENTS.md, so Claude reads the plain-location form; run `grund init --claude` to write a real Claude entrypoint that teaches the linked form"
+            )
         );
 
         // A real file is not shadowed — it carries its own block.
         let other = test_root("claude_real_file_is_not_shadowed");
         write(&other.join("AGENTS.md"), "# demo\n");
         write(&other.join("CLAUDE.md"), "# demo\n");
-        assert!(claude_entrypoints_shadowed_by_symlink(&other).is_empty());
+        assert_eq!(
+            shadowed_claude_entrypoint_note(&other, &[], false).expect("inspect entrypoints"),
+            None
+        );
     }
 
     // §FS-init.2.3.4.17: the note is emitted only when the repository actually

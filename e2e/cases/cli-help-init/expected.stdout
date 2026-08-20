@@ -11,11 +11,11 @@ Options:
   --dry-run      report what would be written/appended/updated without touching any file
   --no-vcs       scaffold into a target with no .git/.hg/.jj/.svn above it (refused by default)
   --agents-md    create/update canonical AGENTS.md even when another entrypoint exists
-  --claude       create/update CLAUDE.md (or .claude/CLAUDE.md if present)
+  --claude       create/update CLAUDE.md and .claude/CLAUDE.md; creates only the first
   --gemini       create/update GEMINI.md
   --pi           create/update .pi/AGENTS.md
   --copilot      create/update .github/copilot-instructions.md
-  --cursor       create/update .cursor/rules/grund.mdc (or the legacy .cursorrules if present)
+  --cursor       create/update .cursor/rules/grund.mdc and legacy .cursorrules; creates only the first
   --windsurf     create/update .windsurfrules
   --zed          create/update .rules
 

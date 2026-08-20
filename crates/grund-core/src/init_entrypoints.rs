@@ -1,10 +1,15 @@
-// Which agent entrypoint files a repository has, and which of them one `grund
-// init` run writes, appends to, or updates (§FS-init.2.1, §FS-init.2.1.1). This
-// is the selection half of `init`: it answers *which files*, while
-// `init_templates.rs` answers *what bytes go in them* and `init.rs` performs
-// the writes. The table below is the one place the supported agent set is
-// spelled out, and the agent behind each row is what makes one entrypoint per
-// agent decidable (§FS-init.2.1.1).
+// Which agent entrypoint files a repository *has* (§FS-init.2.1): the table of
+// paths each supported agent reads, and the rules that decide whether a file
+// standing at one of them is that agent's entrypoint or somebody else's. This is
+// the half that only ever asks the tree — `init_plan.rs` turns these answers
+// into the plan one run acts on, `init_templates.rs` answers what bytes go in
+// them, and `init.rs` performs the writes (§AR-core-module-layout.1).
+//
+// The table below is the one place the supported agent set is spelled out, and
+// the agent behind each row is what makes one entrypoint per agent decidable
+// (§FS-init.2.1.1). `grund check`'s companion scan resolves through the same
+// rules, so the checker and the writer cannot disagree about what an entrypoint
+// is (§FS-check.3.5).
 
 const CANONICAL_AGENT_ENTRYPOINT: &str = "AGENTS.md";
 const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
@@ -115,40 +120,42 @@ impl AgentEntrypoint {
     }
 }
 
-#[derive(Clone, Default)]
-pub struct InitAgentEntrypointSelection {
-    pub canonical: bool,
-    pub claude: bool,
-    pub gemini: bool,
-    pub pi: bool,
-    pub copilot: bool,
-    pub cursor: bool,
-    pub windsurf: bool,
-    pub zed: bool,
+/// How far the canonical entrypoint's own render reaches (§FS-init.2.1.1) — the
+/// one question a companion *symlinked* to `AGENTS.md` turns on: does the agent
+/// reading through that link get the block it should, or a form it is not meant
+/// to read? The answer is a property of the effective config, not of any one
+/// path, so it is decided once per run and carried; every site that asks about a
+/// symlinked companion asks it through [`Self::leaves_uncovered`], so the rule
+/// has one spelling and a second gated surface changes only this file.
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum CanonicalSurfaceReach {
+    /// The canonical render is what every entrypoint would carry, so a symlink
+    /// to it is simply its agent's copy of the block.
+    EveryEntrypoint,
+    /// `[reference] conversation = "link"` gates the Claude form away from the
+    /// canonical file, which every other agent reads too (§FS-init.2.3.4.17), so
+    /// the canonical render can only speak for entrypoints on the plain surface.
+    PlainEntrypointsOnly,
 }
 
-impl InitAgentEntrypointSelection {
-    fn any(&self) -> bool {
-        self.canonical
-            || self.claude
-            || self.gemini
-            || self.pi
-            || self.copilot
-            || self.cursor
-            || self.windsurf
-            || self.zed
+impl CanonicalSurfaceReach {
+    fn for_config(config: &Config) -> Self {
+        if config.conversation.as_deref() == Some("link") {
+            Self::PlainEntrypointsOnly
+        } else {
+            Self::EveryEntrypoint
+        }
     }
 
-    fn includes(&self, agent: AgentEntrypoint) -> bool {
-        match agent {
-            AgentEntrypoint::Claude => self.claude,
-            AgentEntrypoint::Gemini => self.gemini,
-            AgentEntrypoint::Pi => self.pi,
-            AgentEntrypoint::Copilot => self.copilot,
-            AgentEntrypoint::Cursor => self.cursor,
-            AgentEntrypoint::Windsurf => self.windsurf,
-            AgentEntrypoint::Zed => self.zed,
-        }
+    /// Whether a companion symlinked to the canonical entrypoint leaves its
+    /// agent without the block it should read (§FS-init.2.1.1). Only when the
+    /// canonical render is gated *and* this path's surface is one it cannot
+    /// carry: the surfaces are what differ (§FS-init.2.3.4.17), so a symlink
+    /// whose surface is the canonical file's own carries exactly the bytes that
+    /// file carries.
+    fn leaves_uncovered(self, path: &Path) -> bool {
+        self == Self::PlainEntrypointsOnly
+            && ConversationSurface::for_entrypoint(path) != ConversationSurface::Plain
     }
 }
 
@@ -204,18 +211,26 @@ fn companion_agent_entrypoints(root: &Path) -> Result<Vec<PathBuf>, (PathBuf, St
 /// Existing companions are updated in place. Generic non-discovery entrypoints
 /// are not selected by filename alone, but they are selected when the owning
 /// workspace exists or when a previous `grund init` left a managed block there.
+///
+/// The first half of the pair is the companion paths that are *symlinks* to the
+/// canonical entrypoint. They are never in the plan — the canonical file is the
+/// one write that reaches them — but they are entrypoints the run puts the block
+/// in front of, which is what the duplicate-entrypoint `note:` has to count
+/// (§FS-init.2.1.1). Returning them rather than a bare "some companion was a
+/// symlink" flag is what lets that note be built from the plan instead of a
+/// second walk of the same table.
 fn existing_init_companion_agent_entrypoints(
     root: &Path,
-) -> Result<(bool, Vec<InitCompanionAgentEntrypoint>), (PathBuf, String)> {
+) -> Result<(Vec<PathBuf>, Vec<InitCompanionAgentEntrypoint>), (PathBuf, String)> {
     let mut paths = Vec::new();
-    let mut canonical_requested_by_symlink = false;
+    let mut canonical_symlinks = Vec::new();
     let canonical = root.join(CANONICAL_AGENT_ENTRYPOINT);
     for entrypoint in COMPANION_AGENT_ENTRYPOINTS {
         let path = root.join(entrypoint.rel);
         if is_file_or_symlink(&path) {
             match is_symlink_to(&path, &canonical) {
                 Ok(true) => {
-                    canonical_requested_by_symlink = true;
+                    canonical_symlinks.push(path);
                     continue;
                 }
                 Ok(false) => {
@@ -227,67 +242,7 @@ fn existing_init_companion_agent_entrypoints(
             }
         }
     }
-    Ok((canonical_requested_by_symlink, paths))
-}
-
-/// Missing neutral aliases are created only when their owning agent-specific
-/// workspace directory already exists; generic project metadata directories
-/// remain existing-file-only. At most one alias per agent (§FS-init.2.1.1) —
-/// `.claude/` proves Claude is in use, which is one fact, not two files.
-fn workspace_init_companion_agent_entrypoints(
-    root: &Path,
-    linked_conversation: bool,
-) -> Result<Vec<InitCompanionAgentEntrypoint>, (PathBuf, String)> {
-    let mut paths = Vec::new();
-    let mut covered = agents_with_own_entrypoint(root, linked_conversation)?;
-    for entrypoint in COMPANION_AGENT_ENTRYPOINTS {
-        let path = root.join(entrypoint.rel);
-        if !companion_workspace_exists(root, entrypoint)
-            || !path_missing_without_following_symlinks(&path)
-        {
-            continue;
-        }
-        if let Some(agent) = entrypoint.agent {
-            if covered.contains(&agent) {
-                continue;
-            }
-            covered.push(agent);
-        }
-        paths.push(InitCompanionAgentEntrypoint::MissingAlias(path));
-    }
-    Ok(paths)
-}
-
-/// Explicit agent flags create their requested companion entrypoints even when
-/// the normal automatic detection would not choose them — one per agent
-/// (§FS-init.2.1.1): every entrypoint the repository already has is updated,
-/// and a missing one is created only for an agent that has none.
-fn requested_init_companion_agent_entrypoints(
-    root: &Path,
-    selection: &InitAgentEntrypointSelection,
-    linked_conversation: bool,
-) -> Result<(bool, Vec<InitCompanionAgentEntrypoint>), (PathBuf, String)> {
-    let mut paths = Vec::new();
-    let mut canonical_requested_by_symlink = false;
-    let canonical = root.join(CANONICAL_AGENT_ENTRYPOINT);
-    let mut covered = agents_with_own_entrypoint(root, linked_conversation)?;
-    for entrypoint in COMPANION_AGENT_ENTRYPOINTS {
-        let Some(agent) = entrypoint.agent.filter(|agent| selection.includes(*agent)) else {
-            continue;
-        };
-        let path = root.join(entrypoint.rel);
-        if is_file_or_symlink(&path) {
-            match is_symlink_to(&path, &canonical) {
-                Ok(true) => canonical_requested_by_symlink = true,
-                Ok(false) => paths.push(InitCompanionAgentEntrypoint::Existing(path)),
-                Err(err) => return Err((path, format!("{err:#}"))),
-            }
-        } else if entrypoint.create_on_request && !covered.contains(&agent) {
-            covered.push(agent);
-            paths.push(InitCompanionAgentEntrypoint::MissingAlias(path));
-        }
-    }
-    Ok((canonical_requested_by_symlink, paths))
+    Ok((canonical_symlinks, paths))
 }
 
 /// The agents that already carry the managed block in a file of their own
@@ -302,9 +257,16 @@ fn requested_init_companion_agent_entrypoints(
 /// canonical file cannot carry the Claude form (§FS-init.2.3.4.17). There the
 /// symlink resolves to the plain form, the agent has no file carrying its own,
 /// and an explicit request writes it the first path the symlink has not taken.
+///
+/// A file at one of these paths is the agent's entrypoint only on the evidence
+/// the rest of this module uses (`companion_selected_by_evidence`): a `.rules`
+/// that no `.zed/` and no managed block claims for Zed is somebody else's file,
+/// and answering *does this agent have an entrypoint* with a looser definition
+/// than `check` and the update set use is how the two come to disagree about
+/// what an entrypoint is (§FS-check.3.5).
 fn agents_with_own_entrypoint(
     root: &Path,
-    linked_conversation: bool,
+    reach: CanonicalSurfaceReach,
 ) -> Result<Vec<AgentEntrypoint>, (PathBuf, String)> {
     let canonical = root.join(CANONICAL_AGENT_ENTRYPOINT);
     let mut agents = Vec::new();
@@ -317,23 +279,18 @@ fn agents_with_own_entrypoint(
             continue;
         }
         match is_symlink_to(&path, &canonical) {
-            Ok(true) if symlink_leaves_agent_uncovered(&path, linked_conversation) => continue,
-            Ok(_) => agents.push(agent),
+            Ok(true) if reach.leaves_uncovered(&path) => continue,
+            // A symlink to the canonical file is grund-owned by construction, so
+            // only a file standing on its own has to prove it.
+            Ok(true) => agents.push(agent),
+            Ok(false) if companion_selected_by_evidence(root, entrypoint, &path) => {
+                agents.push(agent)
+            }
+            Ok(false) => continue,
             Err(err) => return Err((path, format!("{err:#}"))),
         }
     }
     Ok(agents)
-}
-
-/// Whether a companion symlinked to the canonical entrypoint leaves its agent
-/// without the block it should read (§FS-init.2.1.1). Only when the repository
-/// commits the linked-conversation opinion *and* this path is one the canonical
-/// file cannot speak for: the surfaces are what differ (§FS-init.2.3.4.17), so
-/// a symlink whose surface is the canonical file's own carries exactly the
-/// bytes that file carries.
-fn symlink_leaves_agent_uncovered(path: &Path, linked_conversation: bool) -> bool {
-    linked_conversation
-        && ConversationSurface::for_entrypoint(path) != ConversationSurface::Plain
 }
 
 fn companion_workspace_exists(root: &Path, entrypoint: &CompanionAgentEntrypoint) -> bool {

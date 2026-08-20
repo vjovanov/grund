@@ -376,3 +376,47 @@ fn the_user_global_rule_refuses_to_create_the_file_too() {
         "a refused run created the machine-global file"
     );
 }
+
+/// §FS-init.1.2: the user-global rule checks the entrypoints the run *plans*,
+/// and the plan depends on the effective configuration (§FS-init.2.1.1) — so a
+/// configuration `init` cannot parse is reported before it. Both refuse the run
+/// and write nothing; only which of the two problems the message names differs,
+/// and locking the order here is what keeps a later refactor from quietly
+/// swapping a config error for a rule the run never got far enough to apply.
+///
+/// Unix only, for the same reason as the rule it orders against: the table is
+/// `~`-rooted through `$HOME` (§FS-integrations.4).
+#[cfg(unix)]
+#[test]
+fn an_unparseable_config_is_reported_before_the_user_global_rule() {
+    let home = outside_repo_dir("global_bad_config");
+    fs::create_dir_all(home.join(".git")).expect("create the dotfiles marker");
+    let target = home.join(".claude");
+    fs::create_dir_all(&target).expect("create the user-global directory");
+    let global = target.join("CLAUDE.md");
+    fs::write(&global, PERSONAL_INSTRUCTIONS).expect("write personal file");
+    fs::write(
+        target.join("grund.toml"),
+        "grund_config_version = 1\n[project]\nname = \"x\"\n",
+    )
+    .expect("write an unparseable config");
+
+    let output = run_init(&[target.to_str().unwrap(), "--claude"], Some(&home));
+
+    assert_eq!(output.status.code(), Some(2), "{}", stderr(&output));
+    let message = stderr(&output);
+    assert!(
+        message.contains("unknown config section `project`"),
+        "the unreadable config is the problem named first: {message}"
+    );
+    assert!(
+        !message.contains("machine-global agent instruction file"),
+        "the user-global rule cannot have been reached — its input is the plan \
+         this config would have produced: {message}"
+    );
+    assert_eq!(
+        fs::read_to_string(&global).expect("read personal file"),
+        PERSONAL_INSTRUCTIONS,
+        "a refused run must not touch the machine-global file"
+    );
+}
