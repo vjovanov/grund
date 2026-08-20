@@ -16,18 +16,76 @@ use std::process::{Command, Output};
 /// with any project, which a refused run must leave byte-for-byte alone.
 const PERSONAL_INSTRUCTIONS: &str = "# Personal instructions\n\nNothing to do with any project.\n";
 
-/// A fresh directory under the system temp root — deliberately *not* under
-/// `target/`, which is inside this repository's git tree and would satisfy the
-/// version-control rule through the walk-up.
+/// The version-control markers the rule under test walks for (§FS-init.1.2),
+/// spelled here rather than imported because these cases exercise the binary.
+const VCS_MARKERS: [&str; 4] = [".git", ".hg", ".jj", ".svn"];
+
+/// The nearest marker in `dir` or any ancestor, or `None` when the walk reaches
+/// the filesystem root without finding one — the same walk `init` performs, so
+/// the fixture can tell whether it is actually outside version control rather
+/// than only checking its own directory.
+fn vcs_marker_at_or_above(dir: &Path) -> Option<PathBuf> {
+    let mut current = Some(dir);
+    while let Some(dir) = current {
+        for marker in VCS_MARKERS {
+            let candidate = dir.join(marker);
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+        current = dir.parent();
+    }
+    None
+}
+
+/// The temp root these fixtures build under: one no marker covers, *including
+/// through its ancestors*, since that walk-up is the rule under test. The
+/// system temp directory is the first candidate and normally the only one, but
+/// `TMPDIR` pointing inside a checkout is common enough on CI images and
+/// developer machines that a second candidate is worth having — with it, the
+/// version-control cases keep testing the rule instead of silently inverting
+/// into failures about the fixture.
+///
+/// The path is per-process: every case here starts by removing its directory,
+/// so a shared fixed path would let two concurrent runs on one machine delete
+/// each other's targets mid-run.
+fn fixture_root() -> PathBuf {
+    let mut candidates = vec![std::env::temp_dir()];
+    #[cfg(unix)]
+    if !candidates.contains(&PathBuf::from("/tmp")) {
+        candidates.push(PathBuf::from("/tmp"));
+    }
+    let reasons: Vec<String> = candidates
+        .iter()
+        .filter_map(|candidate| {
+            vcs_marker_at_or_above(candidate)
+                .map(|marker| format!("{} is covered by {}", candidate.display(), marker.display()))
+        })
+        .collect();
+    let root = candidates
+        .into_iter()
+        .find(|candidate| vcs_marker_at_or_above(candidate).is_none())
+        .unwrap_or_else(|| {
+            panic!(
+                "these cases need a temp root outside every version-controlled tree, because that \
+                 is the condition under test; point TMPDIR at one ({})",
+                reasons.join("; ")
+            )
+        });
+    root.join(format!("grund-init-refused-targets-{}", std::process::id()))
+}
+
+/// A fresh directory outside every version-controlled tree — deliberately *not*
+/// under `target/`, which is inside this repository's git tree and would satisfy
+/// the version-control rule through the walk-up.
 fn outside_repo_dir(suffix: &str) -> PathBuf {
-    let dir = std::env::temp_dir()
-        .join("grund-init-refused-targets")
-        .join(suffix);
+    let dir = fixture_root().join(suffix);
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).expect("create target outside the repo");
     assert!(
-        !dir.join(".git").exists(),
-        "fixture root must not be version-controlled"
+        vcs_marker_at_or_above(&dir).is_none(),
+        "fixture root must not be version-controlled: {}",
+        dir.display()
     );
     dir
 }
@@ -42,6 +100,11 @@ fn run_init(args: &[&str], home: Option<&Path>) -> Output {
     command.arg("init").args(args);
     if let Some(home) = home {
         command.env("HOME", home).env("USERPROFILE", home);
+        // `~/.config/zed/AGENTS.md` in the user-global table resolves through
+        // `$XDG_CONFIG_HOME` when it is set (§FS-integrations.4), so a machine
+        // that sets it would send that one row somewhere the fixture home is
+        // not. Clearing it puts every row back under the home just set.
+        command.env_remove("XDG_CONFIG_HOME");
     }
     command.output().expect("spawn grund")
 }
@@ -183,4 +246,128 @@ fn each_supported_marker_satisfies_the_rule() {
             stderr(&output)
         );
     }
+}
+
+/// §FS-init.1.2 — the user-global instruction rule, reached the way a user
+/// reaches it. The home rule cannot answer here: the target is a directory
+/// *inside* the home directory, not the home directory itself. Neither can the
+/// version-control rule, because dotfiles under `git` are the usual state of a
+/// machine that has these directories at all — so this rule is alone with the
+/// decision, and the file it protects is the same machine-global one.
+///
+/// Unix only: that table is `~`-rooted and resolved through `$HOME`
+/// (§FS-integrations.4), the spelling a Windows runner may not set.
+#[cfg(unix)]
+#[test]
+fn a_user_global_instruction_file_is_refused_though_the_target_is_not_home() {
+    let home = outside_repo_dir("global_files");
+    fs::create_dir_all(home.join(".git")).expect("create the dotfiles marker");
+    // Every row of §FS-integrations.4.3 that an `init` target can produce. Four
+    // of the five are the canonical `AGENTS.md`, which is the entrypoint `init`
+    // reaches for by default and carries no agent's name to warn anyone off.
+    // `~/.copilot/copilot-instructions.md` is absent because `init` writes that
+    // basename under `.github/` only, so no `<path>` names it.
+    for (dir, file) in [
+        (".codex", "AGENTS.md"),
+        (".config/zed", "AGENTS.md"),
+        (".pi/agent", "AGENTS.md"),
+        (".gemini", "GEMINI.md"),
+        (".claude", "CLAUDE.md"),
+    ] {
+        let target = home.join(dir);
+        fs::create_dir_all(&target).expect("create the user-global directory");
+        fs::write(target.join(file), PERSONAL_INSTRUCTIONS).expect("write personal file");
+
+        let output = run_init(&[target.to_str().unwrap()], Some(&home));
+
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "{dir}/{file}: {}",
+            stderr(&output)
+        );
+        let message = stderr(&output);
+        assert!(
+            message.contains("machine-global agent instruction file")
+                && message.contains("grund integrations --write"),
+            "{dir}/{file} must be refused by the user-global rule, naming the command \
+             that owns the file: {message}"
+        );
+        assert_eq!(
+            fs::read_to_string(target.join(file)).expect("read personal file"),
+            PERSONAL_INSTRUCTIONS,
+            "{dir}/{file}: a refused run must not touch the machine-global file"
+        );
+        assert!(
+            !target.join("grund.toml").exists(),
+            "{dir}/{file}: a refused run wrote a config"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn no_flag_lifts_the_user_global_rule_and_none_rewrites_the_file() {
+    let home = outside_repo_dir("global_force");
+    fs::create_dir_all(home.join(".git")).expect("create the dotfiles marker");
+    let target = home.join(".codex");
+    fs::create_dir_all(&target).expect("create the user-global directory");
+    let global = target.join("AGENTS.md");
+    fs::write(&global, PERSONAL_INSTRUCTIONS).expect("write personal file");
+
+    // `--force` is the worst of these: canonical `AGENTS.md` is the one file
+    // `init` *overwrites* rather than appends to (§FS-init.3), so a run that got
+    // this far would leave nothing behind to hand-remove.
+    for flags in [
+        vec!["--agents-md"],
+        vec!["--force"],
+        vec!["--force", "--no-vcs"],
+        vec!["--dry-run"],
+        vec!["--no-vcs"],
+    ] {
+        let mut args = flags.clone();
+        args.push(target.to_str().unwrap());
+        let output = run_init(&args, Some(&home));
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "{flags:?} must not lift the user-global rule: {}",
+            stderr(&output)
+        );
+        assert!(
+            stderr(&output).contains("machine-global agent instruction file"),
+            "{flags:?}: {}",
+            stderr(&output)
+        );
+        assert_eq!(
+            fs::read_to_string(&global).expect("read personal file"),
+            PERSONAL_INSTRUCTIONS,
+            "{flags:?} rewrote the machine-global file"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn the_user_global_rule_refuses_to_create_the_file_too() {
+    // The rule is about the path, not about what is at it: a machine that has
+    // `~/.pi/agent/` but has never written the instruction file must not get one
+    // from `init` either (§FS-init.1.2).
+    let home = outside_repo_dir("global_missing");
+    fs::create_dir_all(home.join(".git")).expect("create the dotfiles marker");
+    let target = home.join(".pi/agent");
+    fs::create_dir_all(&target).expect("create the user-global directory");
+
+    let output = run_init(&["--agents-md", target.to_str().unwrap()], Some(&home));
+
+    assert_eq!(output.status.code(), Some(2), "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains("machine-global agent instruction file"),
+        "{}",
+        stderr(&output)
+    );
+    assert!(
+        !target.join("AGENTS.md").exists(),
+        "a refused run created the machine-global file"
+    );
 }

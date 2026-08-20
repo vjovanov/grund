@@ -232,7 +232,9 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     // §FS-init.1.2: the planned entrypoint paths are known now, so check them
     // against the user-global instruction files `grund integrations --write`
     // owns (§FS-integrations.4.3) before any of them is written.
-    if let Some(message) = refuse_init_global_instruction_paths(&agent_entrypoints.companions) {
+    if let Some(message) =
+        refuse_init_global_instruction_paths(&agent_entrypoints.planned_paths(&target))
+    {
         return Err(InitError::new(message));
     }
 
@@ -546,6 +548,26 @@ fn verb_updated(dry_run: bool) -> &'static str {
 struct SelectedInitAgentEntrypoints {
     canonical: bool,
     companions: Vec<InitCompanionAgentEntrypoint>,
+}
+
+impl SelectedInitAgentEntrypoints {
+    /// Every entrypoint path this plan would write, append to, or update — what
+    /// §FS-init.1.2's user-global rule has to be asked about. The canonical
+    /// entrypoint is as `<path>`-relative as any companion, but it is carried
+    /// here as a flag rather than a path, so a caller that reasons about paths
+    /// cannot see it at all unless it is rebuilt: `<path>/AGENTS.md` with
+    /// `<path>` at `~/.codex` is the machine-global Codex instruction file.
+    fn planned_paths(&self, target: &Path) -> Vec<PathBuf> {
+        self.canonical
+            .then(|| target.join(CANONICAL_AGENT_ENTRYPOINT))
+            .into_iter()
+            .chain(
+                self.companions
+                    .iter()
+                    .map(|companion| companion.path().to_path_buf()),
+            )
+            .collect()
+    }
 }
 
 fn selected_init_agent_entrypoints(

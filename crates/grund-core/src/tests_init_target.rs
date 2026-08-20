@@ -1,13 +1,15 @@
 /// §FS-init.1.2 — the rules that decide whether a target may be scaffolded at
 /// all, tested at the unit the CLI cannot reach.
 ///
-/// The user-global instruction rule is deliberately unreachable through the
-/// command line today: `~/.claude/CLAUDE.md` is the only path the repository
-/// entrypoints and §FS-integrations.4.3's table share, so the home-directory
-/// rule answers first for every argument that could produce it. That is a fact
-/// about the two path sets, not about this rule being redundant — it is the one
-/// that stays true if either table grows an entry, which is what these cases
-/// pin down.
+/// The user-global instruction rule is not the home-directory rule restated.
+/// The home rule answers when `<path>` *is* `$HOME`; this one answers for the
+/// planned paths, and `<path>` is arbitrary — `<path>/AGENTS.md` under
+/// `~/.codex` and `<path>/GEMINI.md` under `~/.gemini` are that table's files
+/// with `<path>` at a directory the home rule says nothing about. Those
+/// arguments reach the rule from the command line, which is where
+/// `grund-cli/tests/init_refused_targets.rs` pins them down; what is left for
+/// this module is the rule itself, on the paths a CLI argument cannot produce
+/// one at a time.
 ///
 /// Both rules are pure path questions: they read the environment and the
 /// filesystem and write nothing, so these cases use the real home directory
@@ -43,9 +45,7 @@ mod tests_init_target {
             ".config/zed/AGENTS.md",
             ".pi/agent/AGENTS.md",
         ] {
-            let refusal = refuse_init_global_instruction_paths(&[
-                InitCompanionAgentEntrypoint::MissingAlias(home.join(global)),
-            ]);
+            let refusal = refuse_init_global_instruction_paths(&[home.join(global)]);
             let message = refusal
                 .unwrap_or_else(|| panic!("{global} is a user-global file and was allowed"));
             assert!(
@@ -62,8 +62,8 @@ mod tests_init_target {
         // inside a project is the entrypoint `init` exists to write.
         let project = test_root("init_target_project_entrypoint");
         let allowed = refuse_init_global_instruction_paths(&[
-            InitCompanionAgentEntrypoint::MissingAlias(project.join(".claude/CLAUDE.md")),
-            InitCompanionAgentEntrypoint::Existing(project.join("CLAUDE.md")),
+            project.join(".claude/CLAUDE.md"),
+            project.join("CLAUDE.md"),
         ]);
         assert!(
             allowed.is_none(),
@@ -84,20 +84,12 @@ mod tests_init_target {
         let home = home();
         let global = home.join(".claude/CLAUDE.md");
         assert!(
-            refuse_init_global_instruction_paths(&[
-                InitCompanionAgentEntrypoint::MissingAlias(global.clone()),
-            ])
-            .is_some(),
+            refuse_init_global_instruction_paths(std::slice::from_ref(&global)).is_some(),
             "{} was allowed",
             global.display()
         );
         assert!(
-            refuse_init_global_instruction_paths(&[
-                InitCompanionAgentEntrypoint::MissingAlias(
-                    home.join(".pi/agent/AGENTS.md")
-                ),
-            ])
-            .is_some(),
+            refuse_init_global_instruction_paths(&[home.join(".pi/agent/AGENTS.md")]).is_some(),
             "a user-global path whose directory the machine may not have was allowed"
         );
     }
@@ -105,6 +97,19 @@ mod tests_init_target {
     #[test]
     fn a_home_directory_target_is_refused_whatever_the_flags_say() {
         let home = home();
+        // `refuse_init_target` answers "does not exist" before this rule, on
+        // purpose (the case below pins that order), so a sandbox whose `HOME`
+        // names no directory — a Nix builder's `/homeless-shelter`, some
+        // container images — would turn this into a red case about a message
+        // rather than about the rule. There is nothing to assert there, and
+        // creating the real home directory is not this case's to do.
+        if !home.is_dir() {
+            eprintln!(
+                "skipped: the home directory {} does not exist on this machine",
+                home.display()
+            );
+            return;
+        }
         for no_vcs in [false, true] {
             let message = refuse_init_target(&home, no_vcs)
                 .unwrap_or_else(|| panic!("the home directory was allowed with no_vcs={no_vcs}"));
