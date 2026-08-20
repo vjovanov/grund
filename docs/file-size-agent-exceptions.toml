@@ -97,7 +97,7 @@ path = "crates/grund-core/src/init.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 579, unit = "lines" }
+max_accepted = { value = 589, unit = "lines" }
 until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
 Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
@@ -231,14 +231,4 @@ max_accepted = { value = 475, unit = "lines" }
 until = "a third shorthand behaviour area earns its own module, the way the rewrite cases already did"
 reason = """
 The rewrite cases already left, to tests_shorthand_rewrite.rs — that was the seam, and it is spent. What remains is one area: what `check` reports about a shorthand, plus the two surfaces that must agree with it (the CLI argument resolver and the LSP snapshot). These fail together — a change to the recognition boundary or the candidate rule breaks the report, the query, and the editor in one move — so a reader chasing one is chasing all three. A second cut here would be by fixture shape rather than by behaviour, which is the split the tests rule exists to prevent.
-"""
-[[exceptions]]
-path = "crates/grund-cli/tests/init_agent_entrypoints.rs"
-match = "exact"
-rules = ["tests"]
-kind = "deferred"
-max_accepted = { value = 484, unit = "lines" }
-until = "the suite gains another case, at which point it splits along the automatic-mode / explicit-flag boundary of §FS-init.2.1"
-reason = """
-The twelve cases are one behavior area — which entrypoint files a run selects — and they fail together: a change to the companion table or to the one-per-agent rule breaks the automatic-detection and the explicit-flag cases in the same edit, which is why they moved out of init.rs as one group rather than two. The seam inside the area is the one §FS-init.2.1 already names, automatic mode against explicit flags, and it is six cases on either side today; taking it now would put two thin suites on a boundary that has not had to carry anything yet, and the shared fixture is already extracted, so neither side would get simpler. Missing boundary: enough weight on one side for the two modes to be worth reading apart.
 """
