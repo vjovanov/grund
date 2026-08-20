@@ -50,11 +50,16 @@ fn vcs_marker_at_or_above(dir: &Path) -> Option<PathBuf> {
 /// so a shared fixed path would let two concurrent runs on one machine delete
 /// each other's targets mid-run.
 fn fixture_root() -> PathBuf {
-    let mut candidates = vec![std::env::temp_dir()];
+    let system = std::env::temp_dir();
+    // The second candidate exists only where the platform has a well-known temp
+    // root to fall back to; elsewhere the list is the system one alone.
     #[cfg(unix)]
-    if !candidates.contains(&PathBuf::from("/tmp")) {
-        candidates.push(PathBuf::from("/tmp"));
-    }
+    let fallbacks = [PathBuf::from("/tmp")];
+    #[cfg(not(unix))]
+    let fallbacks: [PathBuf; 0] = [];
+    let candidates: Vec<PathBuf> = std::iter::once(system.clone())
+        .chain(fallbacks.into_iter().filter(|path| *path != system))
+        .collect();
     let reasons: Vec<String> = candidates
         .iter()
         .filter_map(|candidate| {
