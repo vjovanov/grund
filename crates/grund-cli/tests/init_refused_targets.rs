@@ -6,7 +6,7 @@
 //! version-control rule can never fire: the condition under test is the state
 //! every other init fixture takes for granted. Each case here therefore builds
 //! its target under the system temp directory and, for the home-directory rule,
-//! points `$HOME` at it.
+//! points the child's home directory at it.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -32,11 +32,16 @@ fn outside_repo_dir(suffix: &str) -> PathBuf {
     dir
 }
 
+/// Run `grund init`, with the child's home directory pointed at `home`. Both
+/// spellings are set because `init` resolves the home directory the way the
+/// platform reports it (§FS-init.1.2): Unix reads `$HOME`, Windows
+/// `%USERPROFILE%`, and a case that set only one would pass on the platform it
+/// was written on and quietly test nothing on the other.
 fn run_init(args: &[&str], home: Option<&Path>) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_grund"));
     command.arg("init").args(args);
     if let Some(home) = home {
-        command.env("HOME", home);
+        command.env("HOME", home).env("USERPROFILE", home);
     }
     command.output().expect("spawn grund")
 }
