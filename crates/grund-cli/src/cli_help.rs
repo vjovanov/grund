@@ -376,7 +376,7 @@ fn print_subcommand_help(cmd: &str) {
             println!(
                 "  --agents-md    create/update canonical AGENTS.md even when another entrypoint exists"
             );
-            println!("  --claude       create/update CLAUDE.md and .claude/CLAUDE.md");
+            println!("  --claude       create/update CLAUDE.md (or .claude/CLAUDE.md if present)");
             println!("  --gemini       create/update GEMINI.md");
             println!("  --pi           create/update .pi/AGENTS.md");
             println!("  --copilot      create/update .github/copilot-instructions.md");

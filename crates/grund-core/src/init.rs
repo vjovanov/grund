@@ -272,6 +272,10 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         })
         .then(|| render_block(ConversationSurface::Linked));
     let agents_contents = render_agents_md_from_block(&resolved_name, &agents_block);
+    // §FS-init.2.1.1: computed before the companion loop consumes the plan —
+    // `init` creates one entrypoint per agent, but a repository that already
+    // carries two keeps both, and this run is where that shows.
+    let mut notes = duplicate_agent_entrypoint_notes(&target, &agent_entrypoints.companions);
     let mut workflow_entrypoint = None;
     // Track whether any path changed (or, under --dry-run, *would* change).
     // The `next:` block is suppressed when every reported path is `exists `,
@@ -433,12 +437,11 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     // and a Claude entrypoint that is a symlink to `AGENTS.md` is the canonical
     // file — which every other agent reads too, so it must keep the plain form.
     // Silence here would read as the opinion simply not working.
-    let mut notes = Vec::new();
     if init_config.conversation.as_deref() == Some("link") {
         let shadowed = claude_entrypoints_shadowed_by_symlink(&target);
         if !shadowed.is_empty() {
             notes.push(format!(
-                "{} {} a symlink to {CANONICAL_AGENT_ENTRYPOINT}, so Claude reads the plain-location form; run `grund init --claude` to write real Claude entrypoints that teach the linked form",
+                "{} {} a symlink to {CANONICAL_AGENT_ENTRYPOINT}, so Claude reads the plain-location form; run `grund init --claude` to write a real Claude entrypoint that teaches the linked form",
                 shadowed.join(", "),
                 if shadowed.len() == 1 { "is" } else { "are" },
             ));
@@ -594,7 +597,7 @@ fn selected_init_agent_entrypoints(
         });
     }
 
-    let workspace_companions = workspace_init_companion_agent_entrypoints(target);
+    let workspace_companions = workspace_init_companion_agent_entrypoints(target)?;
     if canonical_from_companion_symlink || !workspace_companions.is_empty() {
         return Ok(SelectedInitAgentEntrypoints {
             canonical: canonical_from_companion_symlink,

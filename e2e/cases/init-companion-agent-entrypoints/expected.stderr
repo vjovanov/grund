@@ -9,6 +9,8 @@ appended .cursorrules
 appended .windsurfrules
 appended .rules
 wrote grund.toml
+note: CLAUDE.md and .claude/CLAUDE.md both carry the managed block, so Claude reads it twice; delete the one you do not want — `grund init` creates only one
+note: .cursor/rules/grund.mdc and .cursorrules both carry the managed block, so Cursor reads it twice; delete the one you do not want — `grund init` creates only one
 
 next:
   1. re-run with --docs to scaffold the FS home (requirements.md), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan

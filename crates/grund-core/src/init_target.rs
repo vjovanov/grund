@@ -61,7 +61,7 @@ fn refuse_init_target(target: &Path, no_vcs: bool) -> Option<String> {
     Some(format!(
         "{} is not inside a version-controlled tree — no {} here or above; pass --no-vcs to scaffold anyway",
         resolved.display(),
-        format_alternatives(&INIT_VCS_MARKERS),
+        format_list(&INIT_VCS_MARKERS, "or"),
     ))
 }
 
@@ -139,12 +139,13 @@ fn resolve_for_target_compare(path: &Path) -> PathBuf {
     path.to_path_buf()
 }
 
-/// `a`, `b`, `c`, or `d` — the marker list spelled the way the message reads.
-fn format_alternatives(items: &[&str]) -> String {
+/// `a`, `b`, `c`, or `d` — a list spelled the way the message reads, joined by
+/// the `conjunction` that message wants before the last item.
+fn format_list(items: &[&str], conjunction: &str) -> String {
     match items {
         [] => String::new(),
         [only] => (*only).to_string(),
-        [first, second] => format!("{first} or {second}"),
-        [rest @ .., last] => format!("{}, or {last}", rest.join(", ")),
+        [first, second] => format!("{first} {conjunction} {second}"),
+        [rest @ .., last] => format!("{}, {conjunction} {last}", rest.join(", ")),
     }
 }

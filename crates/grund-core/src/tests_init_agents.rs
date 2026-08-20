@@ -302,13 +302,17 @@ mod tests_init_agents {
 
     #[test]
     fn init_discovers_missing_aliases_for_existing_agent_workspaces() {
+        // §FS-init.2.1.1: `.claude/` proves Claude is in use, which is one fact
+        // and so one alias — the root-visible `CLAUDE.md`, not both of Claude's
+        // entrypoints.
         let root = test_root("init_discovers_missing_aliases_for_existing_agent_workspaces");
         fs::create_dir_all(root.join(".claude")).expect("create .claude");
         fs::create_dir_all(root.join(".gemini")).expect("create .gemini");
         fs::create_dir_all(root.join(".pi")).expect("create pi");
         fs::create_dir_all(root.join(".github/workflows")).expect("create github metadata");
 
-        let companions = workspace_init_companion_agent_entrypoints(&root);
+        let companions =
+            workspace_init_companion_agent_entrypoints(&root).expect("discover workspace aliases");
         let rels = companions
             .iter()
             .map(|entrypoint| match entrypoint {
@@ -321,14 +325,46 @@ mod tests_init_agents {
             })
             .collect::<Vec<_>>();
 
+        assert_eq!(rels, vec!["CLAUDE.md", "GEMINI.md", ".pi/AGENTS.md"]);
+    }
+
+    #[test]
+    fn init_requests_one_entrypoint_per_agent() {
+        // §FS-init.2.1.1: an explicit flag updates every entrypoint the agent has
+        // and creates one only for an agent that has none — the block is the same
+        // bytes in each, so a second file is the same guidance read twice.
+        let root = test_root("init_requests_one_entrypoint_per_agent");
+        write(&root.join(".claude/CLAUDE.md"), "# Claude project notes\n");
+        let selection = InitAgentEntrypointSelection {
+            claude: true,
+            gemini: true,
+            ..InitAgentEntrypointSelection::default()
+        };
+
+        let (canonical_by_symlink, companions) =
+            requested_init_companion_agent_entrypoints(&root, &selection).expect("select requested");
+
+        assert!(!canonical_by_symlink);
+        let planned = companions
+            .iter()
+            .map(|entrypoint| {
+                let rel = entrypoint
+                    .path()
+                    .strip_prefix(&root)
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                let created = matches!(entrypoint, InitCompanionAgentEntrypoint::MissingAlias(_));
+                (rel, created)
+            })
+            .collect::<Vec<_>>();
         assert_eq!(
-            rels,
+            planned,
             vec![
-                "CLAUDE.md",
-                ".claude/CLAUDE.md",
-                "GEMINI.md",
-                ".pi/AGENTS.md"
-            ]
+                (".claude/CLAUDE.md".to_string(), false),
+                ("GEMINI.md".to_string(), true),
+            ],
+            "the Claude entrypoint on disk should be updated and no second one created"
         );
     }
 
