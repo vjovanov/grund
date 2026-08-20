@@ -19,7 +19,7 @@ The categories are:
 - **list** — declaration catalog query rendering.
 - **fmt** — citation normalization and cross-reference planning/writing.
 - **id** — ID allocation, slug derivation, and ID rendering.
-- **init** — scaffold/template rendering and managed agent-entrypoint updates.
+- **init** — scaffold/template rendering, agent-entrypoint selection ([§FS-init.2.1](../functional-spec/FS-init.md#21-files-written-updated-or-left-in-place): which files a run writes, appends to, or updates), and managed agent-entrypoint updates.
 - **completions** — shell completion scripts and dynamic completion helpers.
 - **api** — public embedding API that runs the engine without CLI argument parsing or stdout/stderr rendering.
 

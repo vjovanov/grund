@@ -499,7 +499,8 @@ agent's block keeps plain `path:line`, the form it already had
 The same gate applies to the repository entrypoints: `CLAUDE.md` teaches the
 link form, `AGENTS.md` does not — so if your `CLAUDE.md` is a symlink to
 `AGENTS.md`, it is one file and it keeps the plain form. Run
-`grund init --claude` to write real Claude entrypoints instead.
+`grund init --claude` to write a real Claude entrypoint instead — with the
+symlink holding `CLAUDE.md`, that is `.claude/CLAUDE.md`.
 
 ### 5.3 Codex, specifically
 
