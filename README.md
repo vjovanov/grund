@@ -288,7 +288,7 @@ grund init           # writes AGENTS.md and grund.toml in the cwd
 grund init --docs    # also scaffolds docs/ and e2e/ trees
 ```
 
-`init` is non-interactive and idempotent: re-running never errors on existing files. See [`FS-init`](docs/functional-spec/FS-init.md) for the full state table.
+`init` is non-interactive and idempotent: re-running never errors on existing files. It also checks *where* it was pointed before writing anything: a target no `.git`, `.hg`, `.jj`, or `.svn` marker covers is refused unless you pass `--no-vcs` — use it to scaffold a directory before `git init` — and the home directory and the machine-global agent instruction files are refused outright. See [`FS-init`](docs/functional-spec/FS-init.md) for the full state table.
 
 ## Pre-commit
 
