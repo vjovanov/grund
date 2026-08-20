@@ -283,13 +283,14 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     // repository that already carries two keeps both, and this run is where that
     // shows; and the fix the symlink note names depends on whether this run is
     // the one giving Claude an entrypoint of its own.
-    let mut notes = duplicate_agent_entrypoint_notes(&target, &agent_entrypoints.companions, dry_run);
-    let claude_entrypoint = agent_entrypoints
-        .companions
-        .iter()
-        .map(|companion| companion.path())
-        .find(|path| ConversationSurface::for_entrypoint(path) == ConversationSurface::Linked)
-        .map(|path| format_path(path.strip_prefix(&target).unwrap_or(path)));
+    let claude_companions = agent_entrypoints.companions_of_claude(&target);
+    let mut notes = duplicate_agent_entrypoint_notes(
+        &target,
+        &agent_entrypoints.companions,
+        agent_entrypoints.canonical,
+        linked_conversation,
+        dry_run,
+    );
     let mut workflow_entrypoint = None;
     // Track whether any path changed (or, under --dry-run, *would* change).
     // The `next:` block is suppressed when every reported path is `exists `,
@@ -452,7 +453,8 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     // file — which every other agent reads too, so it must keep the plain form.
     // Silence here would read as the opinion simply not working.
     if linked_conversation
-        && let Some(note) = shadowed_claude_entrypoint_note(&target, claude_entrypoint.as_deref())
+        && let Some(note) =
+            shadowed_claude_entrypoint_note(&target, &claude_companions, dry_run)
     {
         notes.push(note);
     }
@@ -563,6 +565,18 @@ struct SelectedInitAgentEntrypoints {
 }
 
 impl SelectedInitAgentEntrypoints {
+    /// The `<path>`-relative entrypoints in this plan that Claude reads
+    /// (§FS-init.2.3.4.17) — what tells the shadowed-entrypoint note whether
+    /// this run is the one giving Claude a file of its own, and which file.
+    fn companions_of_claude(&self, target: &Path) -> Vec<String> {
+        self.companions
+            .iter()
+            .map(|companion| companion.path())
+            .filter(|path| ConversationSurface::for_entrypoint(path) == ConversationSurface::Linked)
+            .map(|path| format_path(path.strip_prefix(target).unwrap_or(path)))
+            .collect()
+    }
+
     /// Every entrypoint path this plan would write, append to, or update — what
     /// §FS-init.1.2's user-global rule has to be asked about. The canonical
     /// entrypoint is as `<path>`-relative as any companion, but it is carried

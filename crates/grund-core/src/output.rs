@@ -352,7 +352,7 @@ fn redundant_config_warning(config: &Config) -> Option<Diagnostic> {
 /// `a`, `b`, `c`, or `d` — a list spelled the way the message reads, joined by
 /// the `conjunction` that message wants before the last item. Lives with the
 /// other shared renderers rather than beside any one message: the refusals in
-/// `init_target.rs` and the duplicate-entrypoint note in `init_entrypoints.rs`
+/// `init_target.rs` and the duplicate-entrypoint note in `init_notes.rs`
 /// both spell a list, and neither owns the spelling (§AR-core-module-layout.1).
 fn format_list(items: &[&str], conjunction: &str) -> String {
     match items {

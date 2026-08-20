@@ -1,10 +1,13 @@
-//! §FS-init.2.1 / §FS-init.2.1.1 — which agent entrypoint files one `grund init`
-//! run selects: the existing ones it updates, the one it creates for an agent
-//! that has none, and the companion symlink that stands for the canonical file
-//! instead of the agent's own.
+//! §FS-init.2.1 — automatic mode: which agent entrypoint files `grund init`
+//! selects when no agent flag is passed. The repo's existing entrypoints are
+//! preserved and updated, a missing alias is created only where the agent's
+//! workspace directory shows the tool is in use, and a companion symlinked to
+//! `AGENTS.md` stands for the canonical file rather than for itself
+//! (§FS-init.2.1.1).
 //!
-//! Split out of `init.rs`, which keeps the scaffold-and-report cases; both build
-//! their targets with the shared fixture in `support/init_fixture.rs`.
+//! The explicit-flag half of the same behavior is `init_agent_flags.rs`; the
+//! scaffold and its report are `init.rs`. All three build their targets with
+//! the shared fixture in `support/init_fixture.rs`.
 
 use std::fs;
 
@@ -46,220 +49,6 @@ fn init_updates_existing_agent_entrypoint_without_creating_agents_md() {
             "# Claude notes\n\n<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v7)\n"
         ),
         "CLAUDE.md should keep existing notes and append the managed block:\n{claude}"
-    );
-}
-
-#[test]
-fn init_agent_flags_create_requested_entrypoints() {
-    // §FS-init.1 / §FS-init.2.1: explicit agent flags create exactly the requested
-    // entrypoint families and do not add the automatic AGENTS.md fallback.
-    // §FS-init.2.1.1: one entrypoint per agent — Claude reads two files and gets
-    // the root-visible one, not both.
-    let target = workdir("init_agent_flags_create_requested_entrypoints");
-
-    let output = run_grund(
-        &[
-            "init",
-            target.to_str().unwrap(),
-            "--claude",
-            "--gemini",
-            "--copilot",
-        ],
-        manifest_dir(),
-    );
-    assert!(
-        output.status.success(),
-        "init failed: stderr={}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    for rel in ["CLAUDE.md", "GEMINI.md", ".github/copilot-instructions.md"] {
-        assert!(
-            target.join(rel).is_file(),
-            "explicit init should create {rel}"
-        );
-        assert!(
-            stderr.contains(&format!("wrote {rel}")),
-            "stderr should report writing {rel}, got:\n{stderr}"
-        );
-    }
-    assert!(
-        !target.join(".claude").exists(),
-        "--claude should write one Claude entrypoint, not a second under .claude/"
-    );
-    assert!(
-        !stderr.contains(".claude/CLAUDE.md"),
-        "stderr should not mention a second Claude entrypoint, got:\n{stderr}"
-    );
-    assert!(
-        !target.join("AGENTS.md").exists(),
-        "explicit companion-agent init should not add AGENTS.md"
-    );
-}
-
-#[test]
-fn init_claude_flag_updates_the_entrypoint_the_repo_already_has() {
-    // §FS-init.2.1.1: the block is the same bytes in both Claude entrypoints, so
-    // a repo that has one keeps one — `--claude` updates it and creates nothing
-    // beside it, on the first run and on every re-run.
-    let target = workdir("init_claude_flag_updates_the_entrypoint_the_repo_already_has");
-    fs::write(target.join("CLAUDE.md"), "# Claude notes\n").expect("write CLAUDE.md");
-
-    let output = run_grund(
-        &["init", target.to_str().unwrap(), "--claude"],
-        manifest_dir(),
-    );
-    assert!(
-        output.status.success(),
-        "init failed: stderr={}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("appended CLAUDE.md"),
-        "--claude should append to the existing Claude entrypoint, got:\n{stderr}"
-    );
-    assert!(
-        !target.join(".claude/CLAUDE.md").exists() && !stderr.contains(".claude/CLAUDE.md"),
-        "--claude must not create a second Claude entrypoint, got:\n{stderr}"
-    );
-
-    let second = run_grund(
-        &["init", target.to_str().unwrap(), "--claude", "--dry-run"],
-        manifest_dir(),
-    );
-    assert!(second.status.success());
-    let second_stderr = String::from_utf8_lossy(&second.stderr);
-    assert!(
-        second_stderr.contains("exists CLAUDE.md") && !second_stderr.contains(".claude/CLAUDE.md"),
-        "a --dry-run re-run should preview one current entrypoint, got:\n{second_stderr}"
-    );
-}
-
-#[test]
-fn init_claude_flag_reports_a_repo_that_carries_both_entrypoints() {
-    // §FS-init.2.1.1: `init` maintains what it finds, so a repo that already has
-    // both Claude entrypoints keeps both — and hears that the block reaches
-    // Claude twice, since this run is the only place that is visible.
-    let target = workdir("init_claude_flag_reports_a_repo_that_carries_both_entrypoints");
-    fs::write(target.join("CLAUDE.md"), "# Claude notes\n").expect("write CLAUDE.md");
-    fs::create_dir_all(target.join(".claude")).expect("create .claude");
-    fs::write(target.join(".claude/CLAUDE.md"), "# Claude project notes\n")
-        .expect("write .claude/CLAUDE.md");
-
-    let output = run_grund(
-        &["init", target.to_str().unwrap(), "--claude"],
-        manifest_dir(),
-    );
-    assert!(
-        output.status.success(),
-        "init failed: stderr={}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("appended CLAUDE.md") && stderr.contains("appended .claude/CLAUDE.md"),
-        "both existing Claude entrypoints should be updated, got:\n{stderr}"
-    );
-    assert!(
-        stderr.contains(
-            "note: CLAUDE.md and .claude/CLAUDE.md both carry the managed block, so Claude reads it twice;"
-        ),
-        "the duplicated entrypoint should be reported, got:\n{stderr}"
-    );
-}
-
-#[test]
-fn init_cursor_flag_updates_existing_legacy_cursorrules() {
-    // §FS-init.2.1 / §FS-init.2.3: explicit --cursor updates legacy .cursorrules
-    // when it already exists, and never creates the legacy file for new adopters.
-    // §FS-init.2.1.1: Cursor reads both rule surfaces, so the repo's existing one
-    // is updated rather than a second one added beside it.
-    let target = workdir("init_cursor_flag_updates_existing_legacy_cursorrules");
-    fs::write(target.join(".cursorrules"), "# Legacy Cursor notes\n").expect("write .cursorrules");
-
-    let output = run_grund(
-        &["init", target.to_str().unwrap(), "--cursor"],
-        manifest_dir(),
-    );
-    assert!(
-        output.status.success(),
-        "init failed: stderr={}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        !target.join(".cursor").exists() && !stderr.contains(".cursor/rules/grund.mdc"),
-        "--cursor should not add a second Cursor entrypoint beside .cursorrules, got:\n{stderr}"
-    );
-    assert!(
-        stderr.contains("appended .cursorrules"),
-        "--cursor should update existing legacy .cursorrules, got:\n{stderr}"
-    );
-    assert!(
-        !target.join("AGENTS.md").exists(),
-        "explicit Cursor init should not add AGENTS.md"
-    );
-
-    let legacy = fs::read_to_string(target.join(".cursorrules")).expect("read .cursorrules");
-    assert!(
-        legacy.starts_with("# Legacy Cursor notes\n\n<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v7)\n"),
-        ".cursorrules should keep existing notes and append the managed block:\n{legacy}"
-    );
-
-    let target2 = workdir("init_cursor_flag_does_not_create_legacy_cursorrules");
-    let output2 = run_grund(
-        &["init", target2.to_str().unwrap(), "--cursor"],
-        manifest_dir(),
-    );
-    assert!(
-        output2.status.success(),
-        "init failed: stderr={}",
-        String::from_utf8_lossy(&output2.stderr)
-    );
-    assert!(
-        !target2.join(".cursorrules").exists(),
-        "--cursor must not create legacy .cursorrules"
-    );
-}
-
-#[cfg(unix)]
-#[test]
-fn init_agent_flag_updates_canonical_target_for_symlinked_entrypoint() {
-    // §FS-init.2.1 / §FS-init.2.3: a requested companion symlink to AGENTS.md is
-    // covered by updating the canonical target, even when --agents-md was not
-    // passed explicitly — and §FS-init.2.1.1: covered means covered, so nothing
-    // is created beside it while the block both files would carry is the same.
-    let target = workdir("init_agent_flag_updates_canonical_target_for_symlinked_entrypoint");
-    std::os::unix::fs::symlink("AGENTS.md", target.join("CLAUDE.md"))
-        .expect("create CLAUDE.md symlink");
-
-    let output = run_grund(
-        &["init", target.to_str().unwrap(), "--claude"],
-        manifest_dir(),
-    );
-    assert!(
-        output.status.success(),
-        "init failed: stderr={}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("wrote AGENTS.md"),
-        "init should update the symlink target, got:\n{stderr}"
-    );
-    assert!(
-        !target.join(".claude").exists(),
-        "the symlink already feeds Claude this block; a second file would be the same bytes twice"
-    );
-    assert!(
-        !stderr.contains("wrote CLAUDE.md") && !stderr.contains("appended CLAUDE.md"),
-        "init should not write through the CLAUDE.md symlink separately, got:\n{stderr}"
-    );
-    let agents = fs::read_to_string(target.join("AGENTS.md")).expect("read AGENTS.md");
-    assert!(
-        agents.contains("## Grounding with grund (v7)"),
-        "AGENTS.md should receive the managed block:\n{agents}"
     );
 }
 
@@ -307,55 +96,6 @@ fn init_workspace_symlinked_alias_writes_canonical_target() {
     assert!(
         agents.starts_with("# init_workspace_symlinked_alias_writes_canonical_target"),
         "AGENTS.md should be the full canonical entrypoint with an H1, got:\n{agents}"
-    );
-}
-
-#[cfg(unix)]
-#[test]
-fn init_claude_flag_writes_the_real_entrypoint_a_link_repo_symlinked_away() {
-    // §FS-init.2.1.1 / §FS-init.2.3.4.17: the one case where a symlinked
-    // companion leaves its agent uncovered. With `conversation = "link"` the
-    // canonical file carries the plain form — the one Claude is not meant to
-    // read — so `--claude` writes the Claude entrypoint the symlink left free,
-    // and that file is the only one carrying the linked sentence.
-    let target = workdir("init_claude_flag_writes_the_real_entrypoint_a_link_repo_symlinked_away");
-    fs::write(
-        target.join("grund.toml"),
-        "grund_config_version = 1\nproject_name = \"demo\"\n\n[reference]\nconversation = \"link\"\n",
-    )
-    .expect("write config");
-    std::os::unix::fs::symlink("AGENTS.md", target.join("CLAUDE.md"))
-        .expect("create CLAUDE.md symlink");
-
-    let output = run_grund(
-        &["init", target.to_str().unwrap(), "--claude"],
-        manifest_dir(),
-    );
-    assert!(
-        output.status.success(),
-        "init failed: stderr={}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("wrote .claude/CLAUDE.md"),
-        "--claude should write the Claude entrypoint the symlink left free, got:\n{stderr}"
-    );
-    assert!(
-        stderr.contains("note: CLAUDE.md is a symlink to AGENTS.md"),
-        "the shadowed entrypoint should still be reported, got:\n{stderr}"
-    );
-
-    let scoped =
-        fs::read_to_string(target.join(".claude/CLAUDE.md")).expect("read .claude/CLAUDE.md");
-    assert!(
-        scoped.contains("as a Markdown link whose visible text is the citation itself"),
-        ".claude/CLAUDE.md should carry the linked form:\n{scoped}"
-    );
-    let agents = fs::read_to_string(target.join("AGENTS.md")).expect("read AGENTS.md");
-    assert!(
-        !agents.contains("as a Markdown link whose visible text is the citation itself"),
-        "the canonical file keeps the plain form, which is why the second file exists:\n{agents}"
     );
 }
 
@@ -581,5 +321,33 @@ fn init_preserves_lone_override_entrypoint_without_creating_agents_md() {
             "# Local override\n\n<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v7)\n"
         ),
         "AGENTS.override.md should keep existing notes and append the managed block:\n{override_contents}"
+    );
+}
+#[cfg(unix)]
+#[test]
+fn init_reports_a_symlink_that_duplicates_a_real_entrypoint() {
+    // §FS-init.2.1.1 / §FS-init.3: `init` created neither file, but the symlink
+    // resolves to the canonical entrypoint this run also writes, so Claude reads
+    // the same block twice — the state §FS-init.3 promises is never left
+    // invisible, reached without a `conversation` key in sight.
+    let target = workdir("init_reports_a_symlink_that_duplicates_a_real_entrypoint");
+    fs::write(target.join("AGENTS.md"), "# notes\n").expect("write AGENTS.md");
+    fs::create_dir_all(target.join(".claude")).expect("create .claude");
+    std::os::unix::fs::symlink("AGENTS.md", target.join("CLAUDE.md")).expect("symlink CLAUDE.md");
+    fs::write(target.join(".claude/CLAUDE.md"), "# project notes\n")
+        .expect("write .claude/CLAUDE.md");
+
+    let output = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
+    assert!(
+        output.status.success(),
+        "init failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(
+            "note: CLAUDE.md and .claude/CLAUDE.md both carry the managed block, so Claude reads it twice;"
+        ),
+        "a symlink to the canonical file is one of Claude's copies, got:\n{stderr}"
     );
 }
