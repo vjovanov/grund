@@ -40,6 +40,7 @@ include!("list.rs");
 include!("completions.rs");
 include!("integrations.rs");
 include!("init_templates.rs");
+include!("init_entrypoints.rs");
 include!("init_target.rs");
 include!("init.rs");
 include!("api.rs");
