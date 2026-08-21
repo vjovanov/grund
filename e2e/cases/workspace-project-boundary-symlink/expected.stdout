@@ -1,0 +1,3 @@
+docs/FS-001-alpha.md:1: declared but never cited: FS-001-alpha
+packages/other/docs/notes.md:1: unknown reference FS-999-ghost
+packages/sub/docs/functional-spec/FS-001-alpha.md:1: declared but never cited: FS-001-alpha
