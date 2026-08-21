@@ -236,6 +236,8 @@ cargo install grund
 
 That installs the `grund` binary from the [`grund` crate on crates.io](https://crates.io/crates/grund) onto your `PATH`. npm and PyPI bindings are planned — see [`FS-distribution`](docs/functional-spec/FS-distribution.md).
 
+This README is itself under spec: [§REQ-readme](docs/requirements/REQ-readme.md#req-readme-the-readme-is-the-grounded-shop-window) — every example above is captured from this repository, and the citations here are checked by `grund check` like any other scanned file's.
+
 ## Make citations clickable
 
 Turn a `§<ID>` in your terminal into something you click, landing at the exact line it cites:

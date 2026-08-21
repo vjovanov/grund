@@ -38,6 +38,11 @@ folder = "docs/functional-spec"
 title = "What: behavior, requirements, and constraints"
 
 [[kinds]]
+prefix = "REQ"
+folder = "docs/requirements"
+title = "Requirements the repository holds itself to"
+
+[[kinds]]
 prefix = "AR"
 folder = "docs/architecture"
 title = "How: high-level implementation, structure, and design"
@@ -69,7 +74,9 @@ folder = "docs/discussions"
 title = "Design discussions and proposals"
 
 [scan]
-include = ["docs", "e2e", "src", "crates"]
+# README.md and AGENTS.md are cited surfaces too (REQ-grund.2) — scanned so
+# their citations are checked, not decorative (REQ-readme.3, REQ-agents-md.4).
+include = ["docs", "e2e", "src", "crates", "README.md", "AGENTS.md"]
 # `repo` / `expected.repo`: the e2e fixture trees under `e2e/cases/*/` are test
 # inputs, not this project's code — keep them out of the host scan so strict mode
 # and `require_grounding` (above) apply to grund's own sources, not the fixtures.
