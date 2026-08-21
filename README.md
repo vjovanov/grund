@@ -7,6 +7,8 @@
 
 > **Keep your agents grounded** — specs, docs, and code as one knowledge graph, always in sync.
 
+`grund` is three things. A way to always understand every line of your code — each line cites the spec point that says why it exists ([§GRUND-grund.1.1](docs/grund.md#11-every-line-of-code-stays-understood)). A way to structure a project's long-term memory in minimal tokens — every fact has a stable ID, fetched on demand instead of re-read from whole files ([§GRUND-grund.1.2](docs/grund.md#12-the-projects-long-term-memory-reads-in-minimal-tokens)). And the tool that maintains that structure — `grund check` fails the build the moment code and spec drift apart ([§GRUND-grund.1.3](docs/grund.md#13-the-structure-stays-consistent)).
+
 `grund` is built around one workflow:
 
 0. **Specify your intent.** Declare the goal, spec, or decision as a `# <ID>: …` heading before any code or doc cites it.
