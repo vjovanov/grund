@@ -221,6 +221,29 @@ member roots directly ([§AR-scanner.1](AR-scanner.md#1-tree-walk)). That is the
 one case that pays a syscall, it is paid per link-reached directory rather than
 per entry, and a tree with no directory symlink in it pays nothing.
 
+The member-root list answers the question only in one direction, and the harm
+[§FS-workspace.6](../functional-spec/FS-workspace.md#6-nested-project-boundary)
+names is mutual: a leaf member has no members of its own, so its list is empty
+and a link inside it walks straight into a sibling's tree or back up into the
+root project's. So expansion also stamps every project's config with the
+**canonical root of every project the run loaded**, and the link-reached
+directory is asked which of them owns it — the innermost project root that
+contains it, since a nested member's root sits inside the block that listed it.
+Out of bounds is "owned by a project that is not this one"; owned by no project
+at all is not a boundary, because content outside every project is content the
+repository linked in deliberately
+([§FS-config.3.5](../functional-spec/FS-config.md#35-scan--what-gets-walked)).
+The innermost-owner rule is what keeps a member's own subtree readable while its
+parent project's is not, and it subsumes the member-root list for the root scan
+rather than replacing it: the list still prunes a member of a *nested* workspace
+whose grouping directory is not itself a project.
+
+The list is empty for a run that never loaded a workspace, which is a member
+checked on its own — an independent project by
+[§FS-workspace.5](../functional-spec/FS-workspace.md#5-command-scope), and one
+that cannot be told where the other projects are without loading the workspace
+it deliberately does not load.
+
 Members are scanned recursively as independent projects. A member that declares
 its own `[workspace]` block contributes its whole subtree instead of one
 project (§6.1).

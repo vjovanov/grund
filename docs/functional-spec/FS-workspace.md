@@ -175,6 +175,26 @@ inside a member. The member is scanned separately under its own config and alias
 This prevents a child project declaration from accidentally becoming a duplicate
 or dependency of the root namespace.
 
+**The boundary is mutual, and it belongs to the directory rather than to the path
+that reaches it.** A member's own scan stops at every *other* project in the
+workspace exactly as the root scan stops at the members — at a sibling member's
+files, and at the root project's. Ordinary descent cannot cross the line, since
+no project root contains another except along the workspace tree itself, but a
+symlink can, and a symlink is followed ([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)).
+So the directory a link resolves to is asked which project owns it — the
+innermost project root that contains it — and a directory owned by another
+project is not descended into, whichever project's walk met it and under
+whatever name. The harm is the same in every direction: `packages/a/docs/b ->
+../../b` files `b`'s declarations under `a`'s namespace and reports them as
+duplicates of themselves, which is what this section forbids of the root scan. A
+directory that belongs to **no** project in the workspace is not a boundary: it
+is outside content the repository deliberately linked into the tree, and it is
+read there like any other ([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)).
+
+A member checked on its own is an independent project (§5) and does not load the
+workspace, so it cannot know where the other projects are; this boundary is a
+property of a run that loaded them, not of the member's own config.
+
 ### 6.1 Nested workspaces
 
 A member may itself declare `[workspace]`. Its `members` are paths under *that*
