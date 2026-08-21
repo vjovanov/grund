@@ -201,6 +201,26 @@ mod tests_scanner_walk {
     }
 
     #[test]
+    fn a_broken_link_an_ignore_file_covers_is_not_reported() {
+        let root = linked_repo("a_broken_link_an_ignore_file_covers_is_not_reported");
+        // `.ignore` rather than `.gitignore`: the `ignore` crate honours the
+        // former with no repository around the fixture (§AR-scanner.1.1).
+        write(&root.join(".ignore"), "generated.md\n");
+        symlink("gone.md", &root.join("docs/generated.md"));
+        symlink("gone.md", &root.join("docs/functional-spec/FS-002-gone.md"));
+
+        let run = check_run(&root, false);
+
+        assert_eq!(
+            scan_errors(&run),
+            vec![
+                "docs/functional-spec/FS-002-gone.md: broken symlink: the target does not exist"
+            ],
+            "§FS-config.3.5: the walk was never going to read an ignored path, so its broken link is not a hole it has to report"
+        );
+    }
+
+    #[test]
     fn a_symlink_loop_is_reported_and_the_walk_carries_on() {
         let root = linked_repo("a_symlink_loop_is_reported_and_the_walk_carries_on");
         write(
