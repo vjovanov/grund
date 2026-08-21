@@ -29,32 +29,14 @@ fn walk_error_report(
 ) -> Option<ScanError> {
     if let Some((child, ancestor)) = walk_error_loop(err) {
         // §FS-config.3.5: the finding names the link, and the path the walker
-        // hands back is not always it. A link that leaves the walk root —
-        // `docs/up -> ..` under `include = ["docs"]` — is not an ancestor when it
-        // is met, so the walker descends a second copy of the tree and only
-        // notices at `docs/up/docs/up`. The link the user has to fix is the first
-        // one on that path.
-        let link = shortest_link_spelling(child, scan_root).unwrap_or(child);
-        let name = link.file_name().and_then(|name| name.to_str())?;
-        if is_hidden(link)
-            || config.exclude.iter().any(|item| item == name)
-            || !walk_would_have_read(link, config)
-        {
-            return None;
-        }
-        // Naming the ancestor is the useful half of the message — `docs/self -> .`
-        // reads "the target is the ancestor directory docs" — but it says nothing
-        // when the ancestor *is* the link: the target then reaches back over the
-        // walk root, which no in-tree name below it describes.
-        let reason = if ancestor.starts_with(link) {
-            "symlink loop: the target contains the link".to_string()
-        } else {
-            format!(
-                "symlink loop: the target is the ancestor directory {}",
-                display_path(config, ancestor)
-            )
-        };
-        return Some((link.to_path_buf(), reason));
+        // hands back is not always it — a loop met one link deep is reported at
+        // the doubled spelling the descent produced.
+        let link = shortest_link_spelling(child, scan_root).unwrap_or_else(|| child.to_path_buf());
+        // Naming the ancestor is the useful half of the message, but it says
+        // nothing when the ancestor *is* the link: the target then reaches back
+        // over the walk root, which no in-tree name below it describes.
+        let ancestor = (!ancestor.starts_with(&link)).then_some(ancestor);
+        return symlink_loop_report(&link, ancestor, config);
     }
     let path = walk_error_path(err).unwrap_or(scan_root);
     if !fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink()) {
@@ -72,30 +54,63 @@ fn walk_error_report(
     Some((path.to_path_buf(), reason))
 }
 
-/// The shortest path below `scan_root` that names the same **link** as `path`
-/// (§FS-config.3.5). A walk that descends through a link can reach one link under
-/// two spellings — `docs/up -> ..` is met again as `docs/up/docs/up` — and the
-/// one to report is the one the user has to fix.
+/// The scan error a looping directory link earns (§FS-config.3.5), or `None`
+/// where the walk was never going to read through it: the hidden-name and
+/// `[scan] exclude` tests the walker's own directory filter never applies to an
+/// error entry, and the ignore files, which reach a link the walker could not
+/// resolve no other way.
 ///
-/// A link two spellings deep is a different link, not the same one under a longer
-/// name: with `docs/shared -> ../shared-docs` and a `self -> .` inside it, the
-/// loop is at `docs/shared/self` and `docs/shared` is innocent. So the test is
-/// identity, not "is any prefix a symlink": the canonical *directory* holding the
-/// link, plus its name. Only the error path pays for it.
-fn shortest_link_spelling<'a>(path: &'a Path, scan_root: &Path) -> Option<&'a Path> {
-    let identity = link_identity(path)?;
-    let relative = path.strip_prefix(scan_root).ok()?;
-    let depth = relative.components().count();
-    let mut prefix = scan_root.to_path_buf();
-    for (index, component) in relative.components().enumerate() {
-        prefix.push(component);
-        if link_identity(&prefix).is_some_and(|candidate| candidate == identity) {
-            // Re-derived as a slice of the caller's path, so the report is spelled
-            // the way the walk spelled it.
-            return path.ancestors().nth(depth - index - 1);
-        }
+/// `ancestor` is the directory the link reaches back into, and `None` where the
+/// target reaches over the walk root, which no in-tree name below it describes. Shared by the two ways a loop is found: the walker's
+/// own detection, and the filter pruning a link whose target is at or above the
+/// walk root — which the walker cannot see without descending a second copy of
+/// the tree first (§AR-scanner.1).
+fn symlink_loop_report(link: &Path, ancestor: Option<&Path>, config: &Config) -> Option<ScanError> {
+    let name = link.file_name().and_then(|name| name.to_str())?;
+    if is_hidden(link)
+        || config.exclude.iter().any(|item| item == name)
+        || !walk_would_have_read(link, config)
+    {
+        return None;
     }
-    None
+    // Naming the directory is the useful half of the message, and it is available
+    // only where that directory has a name *in the report*: the config root
+    // renders as nothing at all (§FS-config.3.6), and a target at or above the
+    // walk root has no in-tree name below it either. Both read the same way — the
+    // target is not somewhere inside the tree, it is the tree.
+    let ancestor = ancestor
+        .map(|ancestor| display_path(config, ancestor))
+        .filter(|name| !name.is_empty());
+    let reason = match ancestor {
+        Some(name) => format!("symlink loop: the target is the ancestor directory {name}"),
+        None => "symlink loop: the target contains the link".to_string(),
+    };
+    Some((link.to_path_buf(), reason))
+}
+
+/// The link `path` names, spelled as the walk root reaches it (§FS-config.3.5).
+/// A walk that descends through a link meets one link under two spellings —
+/// `docs/up -> ..` is met again as `docs/up/docs/up`, and `docs/a/link -> ../b`
+/// with `docs/b/link -> ../a` is met as `docs/a/link/link` — and the one to
+/// report is the name the user can go and fix.
+///
+/// The link is identified by the canonical *directory* holding it plus its own
+/// name, so a link two spellings deep is recognized as the different link it is:
+/// with `docs/shared -> ../shared-docs` and a `self -> .` inside it, the loop is
+/// at `docs/shared/self` and `docs/shared` is innocent. That identity is then
+/// re-expressed under the walk root, which is what finds the *sibling* spelling
+/// a prefix search cannot: `docs/a/link/link` is `docs/b/link`, and no prefix of
+/// the reported path is. A link whose canonical directory lies outside the walk
+/// root has no in-tree name of its own, so the reported path stands. Only the
+/// error path pays for any of it.
+fn shortest_link_spelling(path: &Path, scan_root: &Path) -> Option<PathBuf> {
+    let identity = link_identity(path)?;
+    let canonical_root = fs::canonicalize(scan_root).ok()?;
+    let relative = identity.strip_prefix(&canonical_root).ok()?;
+    let candidate = scan_root.join(relative);
+    // The canonical directory may be reached under several in-tree names; this
+    // one is the walk root's own, and it counts only if it really is the link.
+    (link_identity(&candidate)? == identity).then_some(candidate)
 }
 
 /// Which directory entry a path names, independent of how the walk spelled the
