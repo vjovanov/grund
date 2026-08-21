@@ -6,7 +6,7 @@
 
 `grund` exists so you always know *why* — why your agents did what they did, why a line is the way it is: all work stays grounded in the spec that called for it ([§GRUND-grund](docs/grund.md#grund-grund-agents-stay-grounded-in-the-spec)). It keeps three promises:
 
-- **The why behind every change stays known** — work cites the spec point that says why it is done ([§GRUND-understanding](docs/grund.md#grund-understanding-the-why-behind-every-change-stays-known)).
+- **The why stays known** — everything in the project cites the spec point that says why it is the way it is ([§GRUND-understanding](docs/grund.md#grund-understanding-the-why-stays-known)).
 - **The project's long-term memory stays organized** — every fact has a stable ID, fetched on demand in minimal tokens instead of re-read from whole files ([§GRUND-structure](docs/grund.md#grund-structure-the-projects-long-term-memory-stays-organized)).
 - **The structure stays consistent** — `grund check` fails the build the moment work and memory drift apart ([§GRUND-consistency](docs/grund.md#grund-consistency-the-structure-stays-consistent)).
 
