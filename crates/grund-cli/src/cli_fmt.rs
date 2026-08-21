@@ -45,6 +45,12 @@ fn command_fmt(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // §FS-fmt.2.3.2: a file the walk read and the rewrite would not write through,
+    // named once, exit code untouched — the refusal is the intended behavior and
+    // not a failure of the run.
+    for path in &output.refused_writes {
+        eprintln!("warning: {path}: not rewritten: the symlink target is outside the config root");
+    }
     if write {
         let mut files = output
             .changes

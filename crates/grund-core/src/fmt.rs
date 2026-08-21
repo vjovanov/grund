@@ -32,10 +32,19 @@ fn scope_contains_markdown(
 /// either write the changes back (`--write`) or just collect `(path, line, label)`
 /// for `--check`/dry-run (§FS-fmt.3). `--cross-refs` needs the full `Findings` first
 /// so a link is only emitted when its target resolves (§FS-fmt.6.3).
-/// What one `fmt` walk produced: the lines it rewrote — or, in a dry run, would
-/// have — as `(path, line, label)`, and the paths it could not read at all
-/// (§FS-fmt.3).
-type FmtTreeOutcome = (Vec<(PathBuf, usize, String)>, Vec<ApiScanError>);
+/// What one `fmt` walk produced (§FS-fmt.3). Every path here is already rendered
+/// against the run's config, because that is where the config naming it is at
+/// hand; the command surface prints them and maps the exit code.
+struct FmtTreeOutcome {
+    /// The lines it rewrote — or, in a dry run, would have.
+    changes: Vec<(PathBuf, usize, String)>,
+    /// The paths it could not read at all (§FS-check.2).
+    scan_errors: Vec<ApiScanError>,
+    /// The files it read and would not rewrite, because a link reaches them from
+    /// outside the config root (§FS-fmt.2.3.2). Named in both modes: `--write`
+    /// did not write them, and the dry run is saying `--write` will not.
+    refused_writes: Vec<String>,
+}
 
 /// What `fmt_tree` rewrites and against what context — grouped so the walk
 /// inputs (config + scope) and the rewrite knobs travel separately.
@@ -64,6 +73,7 @@ fn fmt_tree(
     opts: &FmtRunOpts<'_>,
 ) -> Result<FmtTreeOutcome> {
     let mut changes = Vec::new();
+    let mut refused_writes = Vec::new();
     let add_marker = opts.add_marker;
     let cross_refs = opts.cross_refs;
     let write = opts.write;
@@ -127,10 +137,7 @@ fn fmt_tree(
         // perform is one no edit can clear: `fmt --check` would exit `1` on this
         // tree forever, so a gate built on it could never pass (§FS-fmt.3).
         if walked.outside_root.contains(&path) {
-            eprintln!(
-                "warning: {}: not rewritten: the symlink target is outside the config root",
-                display_path(opts.render, &path)
-            );
+            refused_writes.push(display_path(opts.render, &path));
             continue;
         }
         let original =
@@ -169,7 +176,11 @@ fn fmt_tree(
             fs::write(&path, output).with_context(|| format!("write {}", path.display()))?;
         }
     }
-    Ok((changes, scan_errors))
+    Ok(FmtTreeOutcome {
+        changes,
+        scan_errors,
+        refused_writes,
+    })
 }
 
 

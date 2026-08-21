@@ -64,6 +64,10 @@ fn command_fmt(args: &[String]) -> ExitCode {
     // §FS-fmt.3: a path the walk could not read, already rendered against the
     // project whose walk met it. Reported after the report, exit `2`.
     let mut scan_errors: Vec<ApiScanError> = Vec::new();
+    // §FS-fmt.2.3.2: the files the rewrite would not write through, named on
+    // stderr here rather than from the engine — the same place every other path
+    // this command prints is turned into a line.
+    let mut refused_writes: Vec<String> = Vec::new();
     // §FS-workspace.8.5: in workspace mode with no explicit path (or with
     // `path == workspace root`), walk every project so cross-project wraps
     // are emitted across the whole repo. An explicit path inside one
@@ -102,9 +106,10 @@ fn command_fmt(args: &[String]) -> ExitCode {
                 true,
                 &opts,
             ) {
-                Ok((mut project_changes, mut project_errors)) => {
-                    changes.append(&mut project_changes);
-                    scan_errors.append(&mut project_errors);
+                Ok(mut walked) => {
+                    changes.append(&mut walked.changes);
+                    scan_errors.append(&mut walked.scan_errors);
+                    refused_writes.append(&mut walked.refused_writes);
                 }
                 Err(err) => {
                     eprintln!("error: {err:#}");
@@ -139,15 +144,19 @@ fn command_fmt(args: &[String]) -> ExitCode {
             precomputed_findings: reusable_findings,
         };
         match fmt_tree(&config, Some(&path), path_provided, &opts) {
-            Ok((project_changes, project_errors)) => {
-                changes = project_changes;
-                scan_errors = project_errors;
+            Ok(walked) => {
+                changes = walked.changes;
+                scan_errors = walked.scan_errors;
+                refused_writes = walked.refused_writes;
             }
             Err(err) => {
                 eprintln!("error: {err:#}");
                 return ExitCode::from(2);
             }
         }
+    }
+    for path in &refused_writes {
+        eprintln!("warning: {path}: not rewritten: the symlink target is outside the config root");
     }
     // §FS-fmt.3 / §FS-errors.1: the report is `fmt`'s output — on stdout, the
     // same stream `grund check`'s findings use, not the stderr transcript shape
