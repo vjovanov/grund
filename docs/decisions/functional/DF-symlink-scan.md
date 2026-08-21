@@ -13,7 +13,7 @@ The spec had discussed symlinks only as `[scan] include` **roots** ([§FS-check.
 
 ### 2.1 Follow the link, do not report and skip it
 
-A symlink is followed, file and directory alike ([§FS-config.3.5](../../functional-spec/FS-config.md#35-scan--what-gets-walked)). The alternative — keep the walk as it is and emit a finding naming the skipped link — is the smaller change and it does close the *silent* half of the bug, but it leaves the other half standing: the citations in the linked file are still unread, so the declaration it cites is still falsely reported unused, and the user's only remedy is to stop using a symlink. A tool whose answer to "this file is a link" is "then I will not check it" is a tool that a repository has to be laid out around.
+A symlink is followed, file and directory alike ([§FS-config.3.5.1](../../functional-spec/FS-config.md#351-a-symlink-in-the-tree-is-followed)). The alternative — keep the walk as it is and emit a finding naming the skipped link — is the smaller change and it does close the *silent* half of the bug, but it leaves the other half standing: the citations in the linked file are still unread, so the declaration it cites is still falsely reported unused, and the user's only remedy is to stop using a symlink. A tool whose answer to "this file is a link" is "then I will not check it" is a tool that a repository has to be laid out around.
 
 Following also makes the two spellings of one file agree. `CLAUDE.md -> AGENTS.md` is a link precisely so that one set of bytes has two names; a checker that reads one name and refuses the other reports on half a repository.
 
