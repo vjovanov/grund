@@ -88,7 +88,7 @@ fn fmt_tree(
     // (§GOAL-fast-feedback). Instead the walk below starts without findings and
     // scans on the first candidate it meets.
     let owned_findings = if cross_refs && precomputed_findings.is_none() {
-        Some(scan_tree_strict(config, None, false)?)
+        Some(fmt_findings_or_abort(config, opts.render)?)
     } else {
         None
     };
@@ -149,7 +149,7 @@ fn fmt_tree(
         // already walked is final, because having no candidate is exactly why
         // the scan had not happened by then.
         if rewritten.saw_shorthand_candidate && findings.is_none() {
-            shorthand_findings = Some(scan_tree_strict(config, None, false)?);
+            shorthand_findings = Some(fmt_findings_or_abort(config, opts.render)?);
             findings = shorthand_findings.as_ref();
             shorthand_targets = ShorthandTargets::new(findings, workspace);
             changes.truncate(file_changes_start);
@@ -172,6 +172,28 @@ fn fmt_tree(
     Ok((changes, scan_errors))
 }
 
+
+/// The whole project's declarations for a run that cannot rewrite anything
+/// without them — `--cross-refs`, or a shorthand to expand (§FS-fmt.2.4) — with
+/// an unreadable path fatal up front (§FS-fmt.3).
+///
+/// The refusal names itself. Both `fmt` failures exit `2` and both print one
+/// `error: <path>: <reason>` line, but the partial-scan one means every readable
+/// file was rewritten and this one means nothing was, and `--write` reaches this
+/// path in the ordinary case rather than the exceptional one — it turns
+/// `--cross-refs` on by itself wherever the scope holds Markdown (§FS-fmt.6.6).
+/// Rendered against the run's config, like every other path `fmt` prints.
+fn fmt_findings_or_abort(config: &Config, render: &Config) -> Result<Findings> {
+    let (findings, errors) = scan_tree(config, None, false)?;
+    if let Some((path, message)) = errors.into_iter().next() {
+        return Err(anyhow!(
+            "nothing was rewritten: {}: {}",
+            display_path(render, &path),
+            message
+        ));
+    }
+    Ok(findings)
+}
 
 /// One file's rewritten lines plus what the walk needs to decide afterwards:
 /// whether anything changed, and whether a shorthand expansion was wanted but

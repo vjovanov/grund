@@ -1,0 +1,3 @@
+# `--write` turns `--cross-refs` on by itself here, so the whole declaration set
+# is needed before anything is rewritten and this path is fatal up front.
+docs/functional-spec/FS-002-gone.md -> FS-002-gone-target.md
