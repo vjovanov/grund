@@ -10,9 +10,17 @@ Citations live wherever they are useful — including inside Java doc-comments, 
 
 `grund` owns the scheme end to end. It defines the IDs and citation grammar, ships the config in `grund.toml`, and scans every `.md` file and every source file in the repo ([§AR-scanner.4](architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)) to guarantee three things:
 
-1. **No dangling reference ships.** Every cited ID is checked across prose and code alike — Javadoc, Rustdoc, Python docstrings, Go blocks, JSDoc. Dangling refs, broken section coordinates, duplicate declarations, and broken stub links all fail the build.
-2. **Citations survive refactors.** IDs are location-independent: `§FS-<user-login>.3.1` keeps resolving when files move or headings reword. Markdown anchors break; grund citations don't.
-3. **Grounding is cheap.** `grund FS-<user-login>.3.1` returns just that subsection — under 200 lines per [§GOAL-friendliness-first.1](goals.md#1-hard-requirements) — so a human or LLM pulls one fact into context instead of a whole file.
+### 1.1 Every line of code stays understood
+
+Every code unit cites the spec point that says why it exists — on its doc-comment for a whole behavior, inline beside the clause it enforces — so "the why" is readable at the line, not reconstructed from git history or someone's memory.
+
+### 1.2 The project's long-term memory reads in minimal tokens
+
+Every fact has one stable, location-independent ID: `§FS-<user-login>.3.1` keeps resolving when files move or headings reword — Markdown anchors break; grund citations don't. `grund FS-<user-login>.3.1` returns just that subsection — under 200 lines per [§GOAL-friendliness-first.1](goals.md#1-hard-requirements) — so a human or LLM pulls one fact into context instead of a whole file.
+
+### 1.3 The structure stays consistent
+
+Every cited ID is checked across prose and code alike — Javadoc, Rustdoc, Python docstrings, Go blocks, JSDoc. Dangling refs, broken section coordinates, duplicate declarations, and broken stub links all fail the build; no dangling reference ships.
 
 This serves [§GOAL-agent-grounding](goals.md#goal-agent-grounding-agents-stay-cited-as-they-work) — the headline goal that every other goal exists in service of — and the mechanisms that make it viable: [§GOAL-no-dangling-refs](goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration), [§GOAL-fast-feedback](goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible), [§GOAL-friendliness-first](goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible), and [§GOAL-polyglot-citation](goals.md#goal-polyglot-citation-ids-cite-cleanly-from-anywhere-they-are-useful).
 
