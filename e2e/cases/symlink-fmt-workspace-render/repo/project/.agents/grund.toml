@@ -1,0 +1,10 @@
+grund_config_version = 1
+
+[workspace]
+members = ["packages/sub"]
+
+[scan]
+include = ["docs"]
+
+[fmt.cross_refs]
+enabled = false

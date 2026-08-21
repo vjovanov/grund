@@ -43,6 +43,13 @@ struct FmtRunOpts<'a> {
     add_marker: bool,
     cross_refs: bool,
     write: bool,
+    /// The config every path in the *report* is rendered against — the workspace
+    /// root's, where `check` renders too (§FS-fmt.3). Each project is walked and
+    /// rewritten under its own config, and rendering against that one instead
+    /// spelled a member's file from the member root: `docs/FS-003.md` for
+    /// `packages/sub/docs/FS-003.md`, which is a different real file in the same
+    /// run's output.
+    render: &'a Config,
     workspace: Option<&'a WorkspaceContext>,
     /// Whole-project findings, when the caller has already produced them
     /// (workspace-root `fmt` reuses each project's `WorkspaceContext` scan).
@@ -106,7 +113,7 @@ fn fmt_tree(
     let scan_errors: Vec<ApiScanError> = walked
         .errors
         .iter()
-        .map(|(file, message)| api_scan_error(config, file, message))
+        .map(|(file, message)| api_scan_error(opts.render, file, message))
         .collect();
     for path in walked.files {
         // §FS-fmt.2.3.2: the walk reads a file reached through a link that leaves
@@ -122,7 +129,7 @@ fn fmt_tree(
         if walked.outside_root.contains(&path) {
             eprintln!(
                 "warning: {}: not rewritten: the symlink target is outside the config root",
-                display_path(config, &path)
+                display_path(opts.render, &path)
             );
             continue;
         }
