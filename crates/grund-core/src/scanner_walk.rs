@@ -173,8 +173,14 @@ fn walk_scannable_files_reporting(
     files.dedup();
     // §FS-errors.4: the walk meets its unreadable paths in readdir order, which is
     // the filesystem's; the text report sorts before printing, the API surface
-    // hands the list over as it stands, so it is sorted once here for both.
+    // hands the list over as it stands, so it is sorted once here for both. Then
+    // deduplicated for the same reason the file list is: overlapping roots meet
+    // the same broken link once per root, and under `--full` every `include` root
+    // is walked beside the config root that contains it, so every scan error
+    // would be printed twice — which the additivity rule of §FS-check.1.3 forbids
+    // as much for an `error:` line as for a finding.
     errors.sort_by_key(|(path, message)| (sort_path_key(path), message.clone()));
+    errors.dedup();
     // §FS-fmt.2.3.2: a file whose physical path is not under the config root is in
     // this tree only by the link that reaches it. The resolution is already paid
     // for above, so this is a prefix test over the links and nothing more.
