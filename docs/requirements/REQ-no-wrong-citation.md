@@ -4,8 +4,12 @@ A citation resolves to exactly the declaration its ID names, or it is reported �
 
 ## 1. No wrong resolution
 
-Ambiguity is an error, not a choice: a number-only shorthand matching more than one declaration is rejected with the candidate list (§FS-check.1.2), and a section coordinate resolves to the declaration's recorded heading or fails. The resolver never substitutes a near miss.
+Ambiguity is an error, not a choice: a number-only shorthand matching more than one declaration is rejected with the candidate list (§FS-check.1.2), duplicate declarations are reported rather than ranked (§FS-check.3.3), and a section coordinate resolves to the declaration's recorded heading or fails (§FS-check.3.2). The resolver never substitutes a near miss — a "did you mean" hint is message text, and the citation still dangles and still fails the run.
+
+Where a lookup *can* be satisfied two ways, the rule that picks must be written down. Silently preferring the first of two identical section paths is the shape of a guess even when it is deterministic.
 
 ## 2. No false alarms
 
-A correct citation is never flagged. A checker that cries wolf trains its users to ignore it, which unwinds the whole loop (§GOAL-agent-grounding); a false positive is treated with the same severity as a false negative.
+A citation that resolves and is written in canonical form is never reported as broken. A checker that cries wolf trains its users to ignore it, which unwinds the whole loop (§GOAL-agent-grounding), so a false positive is treated with the same severity as a false negative.
+
+Three classes are deliberately *not* false alarms, because each reports something true about a citation that resolves. A **non-canonical form** is flagged for what it is, not for failing to resolve: a shorthand that resolves uniquely is still an error naming the form to write (§FS-check.3.13). A **policy** finding — the citation-direction rules a repository opted into — judges whether a citation should have been made, not whether it points at anything (§FS-check.3.12). And a finding the spec **knowingly scopes**, like the unused-declaration warning that `--full` leaves standing for a declaration cited only from outside `[scan] include` (§FS-check.1.3), is a stated cost of additivity rather than a mistake. Each must stay legible as such in its message; a true statement filed under the wrong name is how a report loses trust.
