@@ -1,6 +1,6 @@
-# AR-goal-measurement: goal meters live outside goals
+# AR-goal-measurement: goal and requirement meters live outside goals
 
-Goals say what matters; this page names where each goal is measured. Keep measurement details here, in functional specs, e2e cases, CI specs, and benchmark reports so [§GOAL-token-economy](../goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file) stays true for the always-read goal page.
+Goals say what matters and requirements say what must never break; this page names where each is measured. An unmeasured requirement is a wish, so every entry below points at the behavior spec, fixture, or gate that would catch the violation. Keep measurement details here, in functional specs, e2e cases, CI specs, and benchmark reports so [§GOAL-token-economy](../goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file) stays true for the always-read goal page.
 
 ## 1. Rule
 
@@ -24,3 +24,14 @@ Goals say what matters; this page names where each goal is measured. Keep measur
 | [§GOAL-configurable](../goals.md#goal-configurable-every-default-is-overridable) | Config schema and custom-config fixtures ([§FS-config](../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)). |
 | [§GOAL-no-silent-breakage](../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) | Stable output specs, changelog discipline, deprecation fixtures, and release rules ([§FS-errors](../functional-spec/FS-errors.md#fs-errors-grund-emits-messages-in-fixed-shapes), [§FS-distribution.4](../functional-spec/FS-distribution.md#4-release-process)). |
 | [§GOAL-small-and-large](../goals.md#goal-small-and-large-start-small-configure-for-big) | Tiny conformant fixtures, configured large fixtures, and the 10k-file benchmark input ([§AR-benchmarks.1](AR-benchmarks.md#1-what-is-benched)). |
+
+## 3. Requirement meters
+
+| Requirement | Meter |
+|---|---|
+| [§REQ-backwards-compatibility](../requirements/REQ-backwards-compatibility.md#req-backwards-compatibility-an-upgrade-never-changes-a-verdict-quietly) | Block-version upgrade fixtures ([§FS-init.2.3.6](../functional-spec/FS-init.md#236-block-version-history)), the frozen exit mapping ([§FS-cli.5](../functional-spec/FS-cli.md#5-exit-code-mapping-is-fixed)), config version gate ([§FS-config.5](../functional-spec/FS-config.md#5-schema-versioning)), and release discipline ([§FS-distribution.4](../functional-spec/FS-distribution.md#4-release-process)). |
+| [§REQ-no-missed-citation](../requirements/REQ-no-missed-citation.md#req-no-missed-citation-every-citation-the-run-reads-is-checked) | Per-host-language dangling fixtures ([§AR-scanner.4](AR-scanner.md#4-inline-declarations-in-language-doc-comments)), scope-tier cases ([§FS-check.1.3](../functional-spec/FS-check.md#13-the-full-tree-scope---full)), and the unreadable-file continuation case ([§FS-check.2](../functional-spec/FS-check.md#2-outputs)). |
+| [§REQ-no-wrong-citation](../requirements/REQ-no-wrong-citation.md#req-no-wrong-citation-a-citation-never-resolves-to-a-guess) | Ambiguity fixtures ([§FS-check.3.13](../functional-spec/FS-check.md#313-number-only-shorthand-citation)), duplicate-declaration cases ([§FS-check.3.3](../functional-spec/FS-check.md#33-duplicate-declaration)), and the recognition carve-outs ([§FS-check.1.1](../functional-spec/FS-check.md#11-recognized-citations)). |
+| [§REQ-no-data-loss](../requirements/REQ-no-data-loss.md#req-no-data-loss-grund-never-eats-user-content) | Idempotent re-run and `--force` fixtures ([§FS-init.3](../functional-spec/FS-init.md#3-non-intrusive-guarantees)), the never-rewritten list ([§FS-fmt.2.3](../functional-spec/FS-fmt.md#23-what-is-never-rewritten)), and install/uninstall cases ([§FS-integrations.4](../functional-spec/FS-integrations.md#4-install)). |
+| [§REQ-deterministic-output](../requirements/REQ-deterministic-output.md#req-deterministic-output-same-input-same-bytes) | Byte-compared e2e goldens ([§FS-errors.4](../functional-spec/FS-errors.md#4-determinism)) and the cross-platform build/test matrix ([§FS-distribution.2](../functional-spec/FS-distribution.md#2-cli-parity)). |
+| [§REQ-never-crashes](../requirements/REQ-never-crashes.md#req-never-crashes-garbage-in-diagnostic-out) | Malformed-input and unreadable-file cases ([§FS-check.2](../functional-spec/FS-check.md#2-outputs)) and the per-command exit-code matrix ([§FS-output-shapes](../functional-spec/FS-output-shapes.md#fs-output-shapes-machine-readable-output-shapes)). |
