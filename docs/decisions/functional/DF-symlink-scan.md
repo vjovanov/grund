@@ -33,7 +33,9 @@ Because one physical file can now be reached under two spellings within a single
 
 A broken link and a symlink loop are files the scan cannot read, and [§FS-check.2](../../functional-spec/FS-check.md#2-outputs) already says what happens to one of those: reported at its path, the walk continuing past it, exit `2`. Aborting the whole scan on the first one would be worse than the bug being fixed — a single dangling link would take the entire report with it.
 
-The report is owed only where the walk would otherwise have read through the link. A loop is a directory the walk was descending into, so it is always owed one; a broken link is judged by `[scan] extensions`, so a dangling `docs/logo.png -> nowhere` stays silent. Without that gate a repository full of links to build outputs — none of which were ever going to be scanned — turns red for reasons that have nothing to do with citations, and a mode that cries wolf about links is one whose scan errors get ignored.
+The report is owed only where the walk would otherwise have read through the link, and that question is asked of the link the same way it is asked of any other entry. An ignore file that covers the link answers it for both kinds: a `.gitignore`d `docs/self -> .` is a path the ordinary walk was never going to descend into, so a loop there is not a hole in what was scanned. A broken link is judged by `[scan] extensions` as well, since a dangling `docs/logo.png -> nowhere` was never going to be read either; a loop is a directory and has no extension to judge, so the ignore rules are the whole of its gate.
+
+Without that gate a repository full of links to build outputs — none of which were ever going to be scanned — turns red for reasons that have nothing to do with citations, and a mode that cries wolf about links is one whose scan errors get ignored. An earlier draft of this decision said a loop "is always owed one" and made exactly that trade against its own rationale: a repository whose `.gitignore` covers a looping link exited `2` for a directory no scan would have entered.
 
 ### 2.5 `fmt --write` refuses a link that leaves the config root, and nothing else
 

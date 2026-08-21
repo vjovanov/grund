@@ -302,14 +302,17 @@ impl WalkDirFilter {
 ///
 /// `follow_links` hands back an error in place of the entry for a link it cannot
 /// resolve — a broken target, or a loop, which the `ignore` crate detects and
-/// reports rather than recursing into. The walker's own directory filter never
-/// sees an error, so the hidden-name and `[scan] exclude` tests a looping
-/// directory would have faced are applied here instead; a broken link is judged
-/// by `[scan] extensions` like any other file, which is what keeps a dangling
-/// `docs/logo.png` silent. Anything else — an unreadable directory, a malformed
-/// ignore file — is reported as it stands, at the walk root when the error names
-/// no path of its own: it is a hole in the walk either way, and a silent one is
-/// what §REQ-no-missed-citation.1 rules out.
+/// reports rather than recursing into. The walker applies neither its directory
+/// filter nor its ignore files to an error entry, so the tests the link would
+/// have faced are applied here by hand: the hidden-name and `[scan] exclude`
+/// tests for a looping directory, the ignore files for either kind, and
+/// `[scan] extensions` as well for a broken link, which names a file where a loop
+/// names a directory. That is what keeps a dangling `docs/logo.png`, and a link
+/// of either kind that `.gitignore` covers, silent — the walk was never going to
+/// read them. Anything else — an unreadable directory, a malformed ignore file —
+/// is reported as it stands, at the walk root when the error names no path of its
+/// own: it is a hole in the walk either way, and a silent one is what
+/// §REQ-no-missed-citation.1 rules out.
 fn walk_error_report(
     err: &ignore::Error,
     config: &Config,
@@ -317,7 +320,10 @@ fn walk_error_report(
 ) -> Option<ScanError> {
     if let Some((link, ancestor)) = walk_error_loop(err) {
         let name = link.file_name().and_then(|name| name.to_str())?;
-        if is_hidden(link) || config.exclude.iter().any(|item| item == name) {
+        if is_hidden(link)
+            || config.exclude.iter().any(|item| item == name)
+            || !walk_would_have_read(link, config)
+        {
             return None;
         }
         let reason = format!(
