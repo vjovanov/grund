@@ -106,10 +106,27 @@ fn symlinks_supported(manifest_dir: &Path) -> bool {
         if fs::create_dir_all(&work).is_err() {
             return false;
         }
-        let probe = work.join("symlink-support-probe");
+        // The probe link must be the *kind of link the cases write*, not the
+        // easiest one to write. A `.` target has no separator and no `..`, so it
+        // answered `true` on a platform where every real manifest target — all of
+        // them multi-segment and `/`-separated — produced a link resolving to
+        // nothing, and the cases then failed one at a time as golden mismatches.
+        // This one crosses a directory and comes back, which is the shape of
+        // `docs/shared -> ../shared-docs`.
+        let probe_root = work.join("symlink-support-probe");
+        let _ = fs::remove_dir_all(&probe_root);
+        if fs::create_dir_all(probe_root.join("target-dir/inner")).is_err()
+            || fs::create_dir_all(probe_root.join("nest")).is_err()
+        {
+            return false;
+        }
+        let probe = probe_root.join("nest/link");
+        let made = create_symlink(Path::new("../target-dir/inner"), &probe, true).is_ok()
+            // Creation succeeding is not the question — resolving is. Windows
+            // reports success for a link it will never follow.
+            && probe.exists();
         remove_symlink(&probe);
-        let made = create_symlink(Path::new("."), &probe, true).is_ok();
-        remove_symlink(&probe);
+        let _ = fs::remove_dir_all(&probe_root);
         made
     })
 }
@@ -139,10 +156,17 @@ fn create_symlink(target: &Path, link: &Path, target_is_dir: bool) -> std::io::R
     }
     #[cfg(windows)]
     {
+        // A manifest target is `/`-separated (`e2e/README.md`), and Windows stores
+        // the target *string* in the reparse point rather than resolving it at
+        // creation: `symlink_dir` accepts `../shared-docs` and produces a link that
+        // resolves to nothing. The separator is the whole of the difference, which
+        // is why the slash-free targets (`.`, `..`) this harness carried before
+        // multi-segment ones arrived worked here for years.
+        let target = PathBuf::from(target.to_string_lossy().replace('/', "\\"));
         if target_is_dir {
-            std::os::windows::fs::symlink_dir(target, link)
+            std::os::windows::fs::symlink_dir(&target, link)
         } else {
-            std::os::windows::fs::symlink_file(target, link)
+            std::os::windows::fs::symlink_file(&target, link)
         }
     }
 }
