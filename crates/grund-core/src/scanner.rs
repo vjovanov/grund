@@ -1248,8 +1248,9 @@ fn scan_tree_with_workspace_threshold(
     overlays: &TextOverlays,
 ) -> Result<(Findings, Vec<ScanError>)> {
     let mut findings = Findings::default();
-    let mut errors = Vec::new();
-    let mut files = walk_scannable_files(config, scope, explicit_scope)?;
+    // §FS-config.3.5: a link the walk could not resolve is already a scan failure
+    // before a single file is opened — it joins the per-file ones (§FS-check.2).
+    let (mut files, mut errors) = walk_scannable_files_reporting(config, scope, explicit_scope)?;
     add_overlay_scan_files(config, scope, explicit_scope, overlays, &mut files)?;
     if files.len() >= parallel_min_files {
         for (file, result) in scan_file_results(&files, config, workspace_targets, overlays) {
