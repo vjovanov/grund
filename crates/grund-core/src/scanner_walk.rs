@@ -186,10 +186,11 @@ fn walk_error_report(err: &ignore::Error, config: &Config) -> Option<ScanError> 
         if is_hidden(link) || config.exclude.iter().any(|item| item == name) {
             return None;
         }
-        return Some((link.to_path_buf(), format!(
+        let reason = format!(
             "symlink loop: the target is the ancestor directory {}",
             display_path(config, ancestor)
-        )));
+        );
+        return Some((link.to_path_buf(), reason));
     }
     let path = walk_error_path(err)?;
     if !fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink()) {
@@ -198,10 +199,13 @@ fn walk_error_report(err: &ignore::Error, config: &Config) -> Option<ScanError> 
     if !is_scannable(path, config) {
         return None;
     }
-    Some((path.to_path_buf(), match err.io_error().map(std::io::Error::kind) {
-        Some(std::io::ErrorKind::NotFound) => "broken symlink: the target does not exist".to_string(),
+    let reason = match err.io_error().map(std::io::Error::kind) {
+        Some(std::io::ErrorKind::NotFound) => {
+            "broken symlink: the target does not exist".to_string()
+        }
         _ => format!("unreadable symlink: {}", walk_error_reason(err)),
-    }))
+    };
+    Some((path.to_path_buf(), reason))
 }
 
 /// The `(link, ancestor)` of a symlink loop, at any nesting depth of the error.
