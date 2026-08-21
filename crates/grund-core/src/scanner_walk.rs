@@ -199,12 +199,16 @@ fn walk_scannable_files_reporting(
     // §FS-fmt.2.3.2: a file whose physical path is not under the config root is in
     // this tree only by the link that reaches it. The resolution is already paid
     // for above, so this is a prefix test over the links and nothing more.
+    // The comparison is physical on both sides: a config root reached through a
+    // link would otherwise contain none of the paths its own files resolve to,
+    // and `--write` would refuse to rewrite the whole repository.
+    let physical_root = canonical_config_root(config);
     let outside_root = files
         .iter()
         .filter(|file| {
             resolved
                 .get(file.as_path())
-                .is_some_and(|physical| !physical.starts_with(&config.root))
+                .is_some_and(|physical| !physical.starts_with(&physical_root))
         })
         .cloned()
         .collect();
@@ -428,6 +432,7 @@ fn scan_roots_for(
             return Err(anyhow!("path does not exist: {}", scope.display()));
         }
         let scope = fs::canonicalize(scope).unwrap_or_else(|_| scope.to_path_buf());
+        let scope = walk_root_under_config_root(config, &scope);
         if scope.is_file() {
             return Ok(vec![scope]);
         }
@@ -437,6 +442,33 @@ fn scan_roots_for(
         return Ok(vec![scope]);
     }
     Ok(root_scope_roots(config, full))
+}
+
+/// A resolved scope re-expressed under the spelling `config.root` wears
+/// (§FS-config.3.5). Resolving the scope above answers "which directory is
+/// this", and on a root that is itself reached through a link — a symlinked
+/// `~/work`, macOS resolving `/var` to `/private/var` — it throws away the
+/// answer to "what is it called here": the walk would start at the physical
+/// path, every finding would be spelled physically, and `relative_paths` could
+/// not strip a root those paths no longer begin with (§FS-config.3.6). A root
+/// that is already canonical — every root `grund` discovers for itself — takes
+/// the first branch and the whole question costs one `stat` per run.
+fn walk_root_under_config_root(config: &Config, resolved: &Path) -> PathBuf {
+    let canonical_root = canonical_config_root(config);
+    if canonical_root == config.root {
+        return resolved.to_path_buf();
+    }
+    match resolved.strip_prefix(&canonical_root) {
+        Ok(rest) => config.root.join(rest),
+        Err(_) => resolved.to_path_buf(),
+    }
+}
+
+/// Where the config root physically is, for the comparisons that have to be made
+/// against a resolved path. Equal to `config.root` for every root `grund`
+/// discovers, which is canonical already (§FS-config.1).
+fn canonical_config_root(config: &Config) -> PathBuf {
+    fs::canonicalize(&config.root).unwrap_or_else(|_| config.root.clone())
 }
 
 /// The roots a walk of the whole config root starts from (§FS-config.3.5).

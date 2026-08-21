@@ -440,4 +440,28 @@ mod tests_scanner_walk {
             "an excluded directory is not a hole the walk has to report"
         );
     }
+
+    /// §FS-config.3.5: a repository whose own path is reached through a link is
+    /// walked and reported under the path the run was handed. Resolving the scope
+    /// is how the walk recognizes that it *is* the config root; it is not a
+    /// decision about what the report calls it. macOS is where CI meets this —
+    /// `$TMPDIR` lives under `/var/folders`, a link to `/private/var/folders` —
+    /// and the fixture builds the same shape on any platform.
+    #[test]
+    fn a_config_root_reached_through_a_link_is_reported_under_that_name() {
+        let real = linked_repo("a_config_root_reached_through_a_link_is_reported_under_that_name-target");
+        let link = test_root("a_config_root_reached_through_a_link_is_reported_under_that_name")
+            .join("repo");
+        symlink(real.to_str().expect("a utf-8 test root"), &link);
+
+        let mut config = Config::default_for(link.clone());
+        config.include = Some(vec!["docs".into()]);
+        let (findings, _) = scan_tree(&config, Some(&link), true).expect("scan root");
+
+        assert_eq!(
+            scanned(&config, &findings),
+            vec!["docs/functional-spec/FS-001-alpha.md"],
+            "§FS-config.3.5: the walked spelling is what the report names, not the physical one"
+        );
+    }
 }
