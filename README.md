@@ -1,13 +1,14 @@
 # grund
 
-[![CI](https://github.com/vjovanov/grund/actions/workflows/ci.yml/badge.svg)](https://github.com/vjovanov/grund/actions/workflows/ci.yml)
-[![grund check: ~722k LoC/s](https://img.shields.io/badge/grund%20check-~722k%20LoC%2Fs-brightgreen.svg)](docs/benchmarks.md)
-[![crates.io](https://img.shields.io/crates/v/grund.svg)](https://crates.io/crates/grund)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/vjovanov/grund/actions/workflows/ci.yml/badge.svg)](https://github.com/vjovanov/grund/actions/workflows/ci.yml) [![grund check: ~722k LoC/s](https://img.shields.io/badge/grund%20check-~722k%20LoC%2Fs-brightgreen.svg)](docs/benchmarks.md) [![crates.io](https://img.shields.io/crates/v/grund.svg)](https://crates.io/crates/grund) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > **Keep your agents grounded** — specs, docs, and code as one knowledge graph, always in sync.
 
-`grund` exists so you always know *why* — why your agents did what they did, why a line is the way it is: all work stays grounded in the spec that called for it ([§GRUND-grund](docs/grund.md#grund-grund-agents-stay-grounded-in-the-spec)). It keeps three promises. Every line of code stays understood — each cites the spec point that says why it exists ([§GRUND-every-line-understood](docs/grund.md#grund-every-line-understood-every-line-of-code-stays-understood)). The project's long-term memory reads in minimal tokens — every fact has a stable ID, fetched on demand instead of re-read from whole files ([§GRUND-token-cheap-memory](docs/grund.md#grund-token-cheap-memory-the-projects-long-term-memory-reads-in-minimal-tokens)). And the structure stays consistent — `grund check` fails the build the moment work and spec drift apart ([§GRUND-consistent-structure](docs/grund.md#grund-consistent-structure-the-structure-stays-consistent)).
+`grund` exists so you always know *why* — why your agents did what they did, why a line is the way it is: all work stays grounded in the spec that called for it ([§GRUND-grund](docs/grund.md#grund-grund-agents-stay-grounded-in-the-spec)). It keeps three promises:
+
+- **The why behind every change stays known** — work cites the spec point that says why it is done ([§GRUND-understanding](docs/grund.md#grund-understanding-the-why-behind-every-change-stays-known)).
+- **The project's long-term memory stays organized** — every fact has a stable ID, fetched on demand in minimal tokens instead of re-read from whole files ([§GRUND-structure](docs/grund.md#grund-structure-the-projects-long-term-memory-stays-organized)).
+- **The structure stays consistent** — `grund check` fails the build the moment work and memory drift apart ([§GRUND-consistency](docs/grund.md#grund-consistency-the-structure-stays-consistent)).
 
 `grund` is built around one workflow:
 
@@ -17,8 +18,6 @@
 3. **No dangling pointers.** `grund check` validates that every cited ID resolves — in `.md`, Rust `///`, Java doc-comments, Python docstrings, Go `//`, JSDoc, every doc-comment form `grund` knows about.
 
 Off-the-shelf Markdown link checkers (`lychee`, `markdown-link-check`) only handle `.md` and only validate `[text](url)`. A `§`-marked citation of `FS-check.3.2` in `crates/grund-core/src/checker_references.rs` is invisible to them. That gap is what `grund` exists to close: Lychee checks whether Markdown links still open; `grund` checks whether your code still knows why it exists. Lychee is the link checker; `grund` is the intent checker. Both belong in CI; they guard different failure modes. [§GRUND-grund.1](docs/grund.md#1-what-grund-does-about-it)
-
-`grund` measures CI performance by instruction count, not stopwatch time: the current snapshot is 299,672,739 Callgrind `Ir` for `grund check .` and 1,055,099,244 `Ir` for the generated 10k-file fixture, with pull requests gated at 5% growth.
 
 ## 0. Specify your intent
 

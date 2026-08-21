@@ -4,7 +4,7 @@ Goals state direction. Measurement details live in specs, e2e, CI, and benchmark
 
 ## GOAL-agent-grounding: agents stay cited as they work
 
-Keep specs, decisions, tests, and code cited while work happens — every line understood ([§GRUND-every-line-understood](grund.md#grund-every-line-understood-every-line-of-code-stays-understood)), out of a project memory read in minimal tokens ([§GRUND-token-cheap-memory](grund.md#grund-token-cheap-memory-the-projects-long-term-memory-reads-in-minimal-tokens)), held consistent by the check ([§GRUND-consistent-structure](grund.md#grund-consistent-structure-the-structure-stays-consistent)). This is the headline outcome from [§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec); every other goal exists to keep that loop correct, cheap, and easy.
+Keep specs, decisions, tests, and code cited while work happens — the why understood ([§GRUND-understanding](grund.md#grund-understanding-the-why-behind-every-change-stays-known)), out of an organized long-term memory ([§GRUND-structure](grund.md#grund-structure-the-projects-long-term-memory-stays-organized)), held consistent by the check ([§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent)). This is the headline outcome from [§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec); every other goal exists to keep that loop correct, cheap, and easy.
 
 ### 1. The three layers
 
@@ -28,7 +28,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-no-dangling-refs: every cited ID resolves to a declaration
 
-A passing repo has zero dangling references and zero broken section coordinates. False negatives are bugs. This is the correctness floor under [§GRUND-consistent-structure](grund.md#grund-consistent-structure-the-structure-stays-consistent): a citation an agent cannot trust grounds nothing.
+A passing repo has zero dangling references and zero broken section coordinates. False negatives are bugs. This is the correctness floor under [§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent): a citation an agent cannot trust grounds nothing.
 
 ### 1. What "resolves" means
 
@@ -40,7 +40,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-polyglot-citation: IDs cite cleanly from anywhere they are useful
 
-One citation grammar works in Markdown and source comments, across docs/code boundaries, through one resolver. This is the reason `grund` is more than a Markdown link checker: [§GRUND-every-line-understood](grund.md#grund-every-line-understood-every-line-of-code-stays-understood) has to hold in every language a line is written in.
+One citation grammar works in Markdown and source comments, across docs/code boundaries, through one resolver. This is the reason `grund` is more than a Markdown link checker: [§GRUND-understanding](grund.md#grund-understanding-the-why-behind-every-change-stays-known) has to hold in every language a line is written in.
 
 ### 1. What "cleanly" means
 
@@ -60,7 +60,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-fast-feedback: grund must be as fast as possible
 
-Speed is an ordering principle. `grund` runs in editors, save loops, commits, and CI; anything slower than the loop gets routed around. A consistency check ([§GRUND-consistent-structure](grund.md#grund-consistent-structure-the-structure-stays-consistent)) that is too slow to run on every save is one that stops being run.
+Speed is an ordering principle. `grund` runs in editors, save loops, commits, and CI; anything slower than the loop gets routed around. A consistency check ([§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent)) that is too slow to run on every save is one that stops being run.
 
 ### 1. Performance targets
 
@@ -110,7 +110,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-friendliness-first: as user- and agent-friendly as possible
 
-Friendliness is an ordering principle beside speed: prefer output and workflows humans and agents can act on directly. Grounding ([§GRUND-every-line-understood](grund.md#grund-every-line-understood-every-line-of-code-stays-understood)) only sticks if staying cited is the path of least resistance.
+Friendliness is an ordering principle beside speed: prefer output and workflows humans and agents can act on directly. Grounding ([§GRUND-understanding](grund.md#grund-understanding-the-why-behind-every-change-stays-known)) only sticks if staying cited is the path of least resistance.
 
 ### 1. Hard requirements
 
@@ -132,7 +132,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-token-economy: give an agent the right amount of spec, not the whole file
 
-Return the smallest deterministic slice that answers the grounding question; make escalation explicit. Cheap reads are how [§GRUND-token-cheap-memory](grund.md#grund-token-cheap-memory-the-projects-long-term-memory-reads-in-minimal-tokens) is kept: affordable enough that an agent grounds every change, not just the cheap ones.
+Return the smallest deterministic slice that answers the grounding question; make escalation explicit. Cheap reads keep the organized memory ([§GRUND-structure](grund.md#grund-structure-the-projects-long-term-memory-stays-organized)) affordable enough that an agent grounds every change, not just the cheap ones.
 
 ### 1. What this requires
 
@@ -168,7 +168,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-no-silent-breakage: changes ship through a deprecation path
 
-Anything user-visible stays backward-compatible or crosses a named deprecation window. Silent semantic change is a release blocker. A grounding contract ([§GRUND-consistent-structure](grund.md#grund-consistent-structure-the-structure-stays-consistent)) that shifts under a repo without warning is one nobody can rely on.
+Anything user-visible stays backward-compatible or crosses a named deprecation window. Silent semantic change is a release blocker. A grounding contract ([§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent)) that shifts under a repo without warning is one nobody can rely on.
 
 ### 1. What counts as user-visible
 
