@@ -3,7 +3,7 @@
 <!-- BEGIN GRUND MANAGED BLOCK -->
 ## Grounding with grund (v7)
 
-This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, AR, DF, DA, E2E, RM, DISC}`), cited with the marker `§` — e.g. `<§>FS-user-login.3.1` (the `FS-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `grund.toml`, so only `§`-prefixed citations are checked.
+This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, REQ, AR, DF, DA, E2E, RM, DISC}`), cited with the marker `§` — e.g. `<§>FS-user-login.3.1` (the `FS-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `grund.toml`, so only `§`-prefixed citations are checked.
 
 ### Grounding from a citation
 
@@ -21,6 +21,7 @@ A `§<ID>` is a pointer to a fact, not a file path. Resolve it with `grund` and 
 - [GRUND](docs/grund.md): Why: project motivation
 - [GOAL](docs/goals.md): Where: project direction and outcomes
 - [FS](docs/functional-spec): What: behavior, requirements, and constraints
+- [REQ](docs/requirements): Requirements the repository holds itself to
 - [AR](docs/architecture): How: high-level implementation, structure, and design
 - [DF](docs/decisions/functional): Product behavior decisions and tradeoffs
 - [DA](docs/decisions/architectural): Architecture decisions and tradeoffs
@@ -67,6 +68,7 @@ On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the rev
 ## Repository workflow
 
 - Every PR for this repository needs a `docs/changelog.md` `## Unreleased` bullet that mentions its PR number (`PR #N`); the pre-push hook checks this once the branch has a PR (§FS-distribution.4).
+- The repository's own conformance is specced: layout and scan set in §REQ-grund, this entrypoint in §REQ-agents-md (edit `AGENTS.md`, never the `CLAUDE.md` symlink), the README's contract in §REQ-readme.
 
 ## Keeping Files Small With fissile (v1)
 
