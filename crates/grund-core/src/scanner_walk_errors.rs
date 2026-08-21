@@ -7,7 +7,7 @@
 // one hands the other.
 
 /// The per-file scan failure a walker error becomes (§FS-check.2), or `None` when
-/// the walk was never going to read through the path it names (§FS-config.3.5).
+/// the walk was never going to read through the path it names (§FS-config.3.5.6).
 ///
 /// `follow_links` hands back an error in place of the entry for a link it cannot
 /// resolve — a broken target, or a loop, which the `ignore` crate detects and
@@ -28,7 +28,7 @@ fn walk_error_report(
     scan_root: &Path,
 ) -> Option<ScanError> {
     if let Some((child, ancestor)) = walk_error_loop(err) {
-        // §FS-config.3.5: the finding names the link, and the path the walker
+        // §FS-config.3.5.2: the finding names the link, and the path the walker
         // hands back is not always it — a loop met one link deep is reported at
         // the doubled spelling the descent produced.
         let link = shortest_link_spelling(child, scan_root).unwrap_or_else(|| child.to_path_buf());
@@ -54,7 +54,7 @@ fn walk_error_report(
     Some((path.to_path_buf(), reason))
 }
 
-/// The scan error a looping directory link earns (§FS-config.3.5), or `None`
+/// The scan error a looping directory link earns (§FS-config.3.5.5), or `None`
 /// where the walk was never going to read through it: the hidden-name and
 /// `[scan] exclude` tests the walker's own directory filter never applies to an
 /// error entry, and the ignore files, which reach a link the walker could not
@@ -88,7 +88,7 @@ fn symlink_loop_report(link: &Path, ancestor: Option<&Path>, config: &Config) ->
     Some((link.to_path_buf(), reason))
 }
 
-/// The link `path` names, spelled as the walk root reaches it (§FS-config.3.5).
+/// The link `path` names, spelled as the walk root reaches it (§FS-config.3.5.2).
 /// A walk that descends through a link meets one link under two spellings —
 /// `docs/up -> ..` is met again as `docs/up/docs/up`, and `docs/a/link -> ../b`
 /// with `docs/b/link -> ../a` is met as `docs/a/link/link` — and the one to
@@ -124,7 +124,7 @@ fn link_identity(path: &Path) -> Option<PathBuf> {
 
 /// Whether the walk would have read the file at `path` had the link resolved —
 /// the ignore-file half of that question, which `is_scannable` cannot answer
-/// (§FS-config.3.5, §AR-scanner.1.1).
+/// (§FS-config.3.5.6, §AR-scanner.1.1).
 ///
 /// `.gitignore` and friends are applied to the entries the walker *yields*, and a
 /// link it cannot resolve arrives as an error instead, so an ignored generated
