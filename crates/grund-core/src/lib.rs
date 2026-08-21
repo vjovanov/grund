@@ -33,6 +33,7 @@ include!("output.rs");
 include!("show.rs");
 include!("show_render.rs");
 include!("fmt.rs");
+include!("fmt_cmd.rs");
 include!("fmt_links.rs");
 include!("id.rs");
 include!("refs.rs");

@@ -1,165 +1,9 @@
-fn command_fmt(args: &[String]) -> ExitCode {
-    let mut path = PathBuf::from(".");
-    let mut path_provided = false;
-    let mut write = false;
-    let mut check_flag = false;
-    let mut marker = false;
-    let mut cross_refs = false;
-    for arg in args {
-        match arg.as_str() {
-            "--check" => check_flag = true,
-            "--write" => write = true,
-            "--marker" => marker = true,
-            "--cross-refs" => cross_refs = true,
-            other if other.starts_with('-') => {
-                eprintln!("error: unknown flag `{other}`");
-                return ExitCode::from(2);
-            }
-            other => {
-                if path_provided {
-                    eprintln!("error: fmt takes at most one path argument");
-                    return ExitCode::from(2);
-                }
-                path = PathBuf::from(other);
-                path_provided = true;
-            }
-        }
-    }
-    if write && check_flag {
-        eprintln!("error: --check and --write cannot be used together");
-        return ExitCode::from(2);
-    }
-    // §FS-workspace.8.5: a workspace-root run loads every member so that
-    // qualified `§<alias>/<ID>` citations can be wrapped; a member-local
-    // run (or a single-project repo) collapses to one project and the
-    // wrapper preserves any existing qualified wraps unchanged.
-    let context = match load_workspace_context(&path, path_provided) {
-        Ok(context) => context,
-        Err(err) => {
-            eprintln!("error: {err:#}");
-            return ExitCode::from(2);
-        }
-    };
-    let config = context.render_config().clone();
-    let explicit_cross_refs = cross_refs;
-    // §FS-workspace.8.5: a workspace-root run wraps qualified citations in
-    // *every* project's files — a heading rename in `api` must trigger a
-    // `fmt` diff in any sibling project that wrapped a citation of the
-    // renamed declaration. Walk each project's tree under its own config
-    // (each project's `[scan] include`, `[scan] exclude`, and anchor
-    // profile applies to its own files) but share one workspace handle so
-    // a qualified `§<alias>/<ID>` resolves through `WorkspaceContext`.
-    let workspace_for_wrap = if context.workspace_loaded {
-        Some(&context)
-    } else {
-        None
-    };
-    let mut changes: Vec<(PathBuf, usize, String)> = Vec::new();
-    // §FS-workspace.8.5: in workspace mode with no explicit path (or with
-    // `path == workspace root`), walk every project so cross-project wraps
-    // are emitted across the whole repo. An explicit path inside one
-    // project's tree narrows the walk to that project; the workspace
-    // context still lets `<§>alias/<ID>` resolve.
-    let walk_all_projects = context.workspace_loaded
-        && (!path_provided
-            || fs::canonicalize(&path)
-                .map(|canonical| canonical == config.root)
-                .unwrap_or(false));
-    if walk_all_projects {
-        // Each project's findings were already produced by
-        // `load_workspace_context` at project.root (§AR-workspace.8) — pass
-        // them through so `fmt --cross-refs` does not re-scan every project.
-        for project in &context.projects {
-            let auto_cross_refs =
-                match auto_cross_refs_for_scope(&project.config, Some(&project.config.root), true, write) {
-                    Ok(enabled) => enabled,
-                    Err(err) => {
-                        eprintln!("error: {err:#}");
-                        return ExitCode::from(2);
-                    }
-                };
-            let cross_refs = explicit_cross_refs || auto_cross_refs;
-            let opts = FmtRunOpts {
-                add_marker: marker,
-                cross_refs,
-                write,
-                workspace: workspace_for_wrap,
-                precomputed_findings: Some(&project.findings),
-            };
-            match fmt_tree(
-                &project.config,
-                Some(&project.config.root),
-                true,
-                &opts,
-            ) {
-                Ok(mut project_changes) => changes.append(&mut project_changes),
-                Err(err) => {
-                    eprintln!("error: {err:#}");
-                    return ExitCode::from(2);
-                }
-            }
-        }
-    } else {
-        // Single-project / member-local / scope-narrowed: only reuse the
-        // context's findings when they cover the whole project (the
-        // implicit "." scope). A scope-narrow context scan is too thin for
-        // cross-file wrap targets, so let `fmt_tree` scan the project
-        // itself in that case.
-        let reusable_findings = (!path_provided)
-            .then(|| context.current_project().map(|project| &project.findings))
-            .flatten();
-        let auto_cross_refs =
-            match auto_cross_refs_for_scope(&config, Some(&path), path_provided, write) {
-                Ok(enabled) => enabled,
-                Err(err) => {
-                    eprintln!("error: {err:#}");
-                    return ExitCode::from(2);
-                }
-            };
-        let cross_refs = explicit_cross_refs || auto_cross_refs;
-        let opts = FmtRunOpts {
-            add_marker: marker,
-            cross_refs,
-            write,
-            workspace: workspace_for_wrap,
-            precomputed_findings: reusable_findings,
-        };
-        match fmt_tree(&config, Some(&path), path_provided, &opts) {
-            Ok(project_changes) => changes = project_changes,
-            Err(err) => {
-                eprintln!("error: {err:#}");
-                return ExitCode::from(2);
-            }
-        }
-    }
-    // §FS-fmt.3 / §FS-errors.1: the report is `fmt`'s output — on stdout, the
-    // same stream `grund check`'s findings use, not the stderr transcript shape
-    // `grund init` uses (§FS-errors.6). Only CLI-level `error:` lines go to stderr.
-    if write {
-        let mut files: Vec<PathBuf> = changes.iter().map(|(path, _, _)| path.clone()).collect();
-        files.sort_by_key(|path| sort_path_key(path));
-        files.dedup();
-        println!(
-            "rewrote {} reference{}{}",
-            changes.len(),
-            if changes.len() == 1 { "" } else { "s" },
-            if files.is_empty() { "" } else { ":" }
-        );
-        for path in &files {
-            let count = changes.iter().filter(|(p, _, _)| p == path).count();
-            println!("  {} ({})", display_path(&config, path), count);
-        }
-    } else {
-        for (path, line, label) in &changes {
-            println!("{}:{}: {}", display_path(&config, path), line, label);
-        }
-    }
-    if write || changes.is_empty() {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::FAILURE
-    }
-}
+// Citation normalization: one pass over a document that rewrites triggers to
+// markers, marks bare citations, expands shorthands, and keeps cross-reference
+// links current (§FS-fmt.2). The modes share the traversal — each line is asked
+// every question once — so what lives here is the walk and the per-line
+// decisions inside it. The command surface around it is `fmt_cmd.rs`, and the
+// link construction §FS-fmt.6 needs is `fmt_links.rs`.
 
 fn auto_cross_refs_for_scope(
     config: &Config,
@@ -206,7 +50,7 @@ fn fmt_tree(
     scope: Option<&Path>,
     explicit_scope: bool,
     opts: &FmtRunOpts<'_>,
-) -> Result<Vec<(PathBuf, usize, String)>> {
+) -> Result<(Vec<(PathBuf, usize, String)>, Vec<ApiScanError>)> {
     let mut changes = Vec::new();
     let add_marker = opts.add_marker;
     let cross_refs = opts.cross_refs;
@@ -249,6 +93,16 @@ fn fmt_tree(
     // `ShorthandTargets`. Rebuilt at most once, when the deferred scan lands.
     let mut shorthand_targets = ShorthandTargets::new(findings, workspace);
     let walked = walk_scannable_files_reporting(config, scope, explicit_scope)?;
+    // §FS-fmt.3: the paths this walk could not read, rendered here while the
+    // config that names them is at hand. `fmt` walks the tree `check` walks and
+    // owes the same account of it (§FS-check.2) — the alternative is the one
+    // command that edits files in place also being the one that will not say
+    // which files it never saw.
+    let scan_errors: Vec<ApiScanError> = walked
+        .errors
+        .iter()
+        .map(|(file, message)| api_scan_error(config, file, message))
+        .collect();
     for path in walked.files {
         // §FS-fmt.2.3.2: the walk reads a file reached through a link that leaves
         // the config root, and the rewrite stops there — editing it would put this
@@ -298,7 +152,7 @@ fn fmt_tree(
             fs::write(&path, output).with_context(|| format!("write {}", path.display()))?;
         }
     }
-    Ok(changes)
+    Ok((changes, scan_errors))
 }
 
 
