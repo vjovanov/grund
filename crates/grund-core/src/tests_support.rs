@@ -317,6 +317,8 @@ mod tests_support {
 
     /// The graph findings — everything the report prints on stdout as
     /// `path:line: message` (§FS-check.2.1).
+    /// Unix only: every caller is a symlink case and so `#[cfg(unix)]` too.
+    #[cfg(unix)]
     pub(crate) fn findings(run: &CheckRun) -> Vec<String> {
         let mut diagnostics = run
             .report
@@ -334,6 +336,8 @@ mod tests_support {
     /// The files the walk handed to the scanner, in report spelling — what a case
     /// about *where the walk went* asserts on, independent of which of them
     /// happened to declare anything.
+    /// Unix only: every caller is a symlink case and so `#[cfg(unix)]` too.
+    #[cfg(unix)]
     pub(crate) fn scanned(config: &Config, findings: &Findings) -> Vec<String> {
         let mut files: Vec<String> = findings
             .scanned_files
@@ -346,6 +350,8 @@ mod tests_support {
 
     /// The `error: <path>: <reason>` lines a file the scan could not read earns
     /// (§FS-check.2, §FS-errors.2.2).
+    /// Unix only: every caller is a symlink case and so `#[cfg(unix)]` too.
+    #[cfg(unix)]
     pub(crate) fn scan_errors(run: &CheckRun) -> Vec<String> {
         run.report
             .errors
