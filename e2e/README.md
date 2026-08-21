@@ -98,6 +98,11 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - stub-link target is a directory
 - stub-link target has an unsupported extension
 - skipped output/hidden directories
+- a symlinked Markdown file whose target sits outside `[scan] include`: its dangling citation reported at the link path, and the in-tree declaration it cites no longer reported unused
+- a symlinked directory, with the dangling citation inside it reported under the link's name
+- one file reached under two names read once: no duplicate declaration, and the lexicographically first spelling is the one reported
+- a symlink loop (`docs/self -> .`) reported at its own path while the walk carries on to the findings past it
+- a broken symlink with a scanned extension reported and exiting 2, beside one without that stays silent
 - nested e2e fixture repos ignored during ordinary scans
 - unsupported extension ignored
 - deterministic multiple-error output

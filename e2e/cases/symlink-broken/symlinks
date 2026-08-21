@@ -1,0 +1,5 @@
+# A name `[scan] extensions` covers: the walk was going to read it, so its
+# absence is a hole and is reported.
+docs/functional-spec/FS-002-gone.md -> FS-002-gone-target.md
+# A name it does not cover: never going to be read, so nothing is said.
+docs/logo.png -> logo-target.png
