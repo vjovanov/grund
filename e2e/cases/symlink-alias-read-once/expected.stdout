@@ -1,0 +1,2 @@
+docs/functional-spec/FS-000-alias.md:1: declared but never cited: FS-001-alpha
+docs/functional-spec/FS-000-alias.md:3: unknown reference FS-999-ghost
