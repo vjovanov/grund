@@ -29,7 +29,7 @@ Keep agents grounded in the spec — fewer bugs, cheaper LLM context,
 faster onboarding. …
 ```
 
-That heading lives in the configured home for its kind (`GRUND` → `docs/grund.md`, `FS` → `requirements.md`, `GOAL` → `docs/goals.md`, and so on — see [§4](#4-the-structure-that-gets-cited)). Once it's declared, any code, doc, or test can cite `§GRUND-grund` and `grund check` will resolve it.
+That heading lives in the configured home for its kind (`GRUND` → `docs/grund.md`, `FS` → `requirements.md`, `GOAL` → `docs/goals.md`, and so on — see [§4](#4-the-structure-that-gets-cited)). Once it's declared, any code, doc, or test can cite `§GRUND-grund` and `grund check` will resolve it. A declaration can live in code too: drop the `#` in a doc-comment — `grund`'s own architecture spec [`AR-checker`](crates/grund-core/src/checker.rs) opens with `/// AR-checker: how grund validates the scanner's findings`, right on the code it describes ([§4](#4-the-structure-that-gets-cited) shows the wiring).
 
 ## 1. Cite as you write
 
