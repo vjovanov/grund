@@ -379,6 +379,13 @@ pub struct Config {
     pub workspace_section_source: Option<ConfigLocation>,
     pub workspace_include_root: bool,
     pub workspace_boundary_roots: Vec<PathBuf>,
+    /// §AR-workspace.6: the canonical root of **every** project this run loaded.
+    /// `workspace_boundary_roots` above says what lies *below* this project, so a
+    /// leaf member has none; this says where the *others* are, which is how a
+    /// member's walk tells a link into a sibling — or back up into the root
+    /// project — from a link into ordinary outside content. Empty for a run that
+    /// loaded no workspace, a member checked on its own included (§FS-workspace.6).
+    pub workspace_project_roots: Vec<PathBuf>,
     /// §FS-workspace.6.1: the alias path of the *run's* own workspace root, read
     /// from the outermost workspace and stamped onto every project the run loaded.
     /// Empty at the outermost root and for a single-project run; non-empty exactly
@@ -513,6 +520,7 @@ impl Config {
             workspace_scope_path: String::new(),
             workspace_include_root: true,
             workspace_boundary_roots: Vec::new(),
+            workspace_project_roots: Vec::new(),
             citations: CitationRules::default(),
             // On by default so `grund check` (and tests) classify; the read-only
             // commands turn it off (§AR-scanner.2.4, §AR-benchmarks).

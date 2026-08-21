@@ -342,7 +342,10 @@ fn qualify_alias(prefix: &str, alias: &str) -> String {
 ///
 /// Also sets `workspace_boundary_roots` on `root_config` and on every nested
 /// workspace config, so each block's scan stops at its own members
-/// (§AR-workspace.6) rather than absorbing them into its namespace.
+/// (§AR-workspace.6) rather than absorbing them into its namespace, and
+/// `workspace_project_roots` on every project the walk reached, so each of them
+/// stops at the others in the directions the downward list cannot see
+/// (§FS-workspace.6).
 ///
 /// Every launch-time invariant fires here, before any scan: the alias grammar,
 /// the per-block "something in scope" rule, alias uniqueness among siblings,
@@ -395,12 +398,23 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
     if entries.is_empty() {
         return Err(empty_workspace_error(root_config));
     }
+    // §AR-workspace.6: every project the run loaded learns where the others are.
+    // `workspace_boundary_roots` above points only downward, so a leaf member has
+    // no boundary at all and a symlink inside it carries its walk into a sibling's
+    // namespace — or back up into the root project's — which §FS-workspace.6
+    // forbids in every direction, not just from the root down.
+    let project_roots: Vec<PathBuf> = entries
+        .iter()
+        .map(|entry| entry.config.root.clone())
+        .collect();
     // §FS-check.3.8: every project the run loaded carries the run's own scope, so
     // the diagnostic that would re-spell a citation knows whether it is looking at
     // the whole tree or a slice of it.
     for entry in &mut entries {
         entry.config.workspace_scope_path = self_path.clone();
+        entry.config.workspace_project_roots = project_roots.clone();
     }
+    root_config.workspace_project_roots = project_roots;
     Ok(entries)
 }
 

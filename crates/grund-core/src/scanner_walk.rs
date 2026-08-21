@@ -61,11 +61,14 @@ fn walk_scannable_files_reporting(
         let canonical_scan_root =
             fs::canonicalize(&scan_root).unwrap_or_else(|_| scan_root.to_path_buf());
         // §AR-workspace.6: a root scan starts outside member namespaces; an
-        // included path at or below a member boundary belongs to the member scan.
+        // included path at or below a member boundary belongs to the member scan,
+        // and one inside any *other* project of the run belongs to that project
+        // (§FS-workspace.6).
         if config
             .workspace_boundary_roots
             .iter()
             .any(|root| canonical_scan_root.starts_with(root))
+            || owned_by_another_project(config, &canonical_scan_root)
         {
             continue;
         }
@@ -162,6 +165,18 @@ fn walk_scannable_files_reporting(
     // while the list is still in walk order and first-seen wins; then the
     // byte-identical ones, which the sort has just brought together.
     let resolved = resolve_aliasable(&aliasable);
+    // §FS-workspace.6: the directory filter stops a *directory* link at another
+    // project's root, and a link straight onto one of its files is the same
+    // crossing one entry lower down. The resolution is already paid for, so the
+    // boundary costs a prefix test over the files that can wear a second name and
+    // nothing at all for a run that loaded no workspace.
+    if !config.workspace_project_roots.is_empty() {
+        files.retain(|file| {
+            !resolved
+                .get(file.as_path())
+                .is_some_and(|physical| owned_by_another_project(config, physical))
+        });
+    }
     if !resolved.is_empty() {
         dedup_by_file_identity(&mut files, &resolved);
     }
@@ -246,7 +261,7 @@ impl WalkDirFilter {
         let path = entry.path();
         let resolved = self.resolved_link_dir(entry);
         let resolved = resolved.as_deref();
-        if self.is_workspace_member_dir(path, resolved) || is_hidden(path) {
+        if self.crosses_a_project_boundary(path, resolved) || is_hidden(path) {
             return false;
         }
         if self.is_e2e_case_dir(path) || resolved.is_some_and(|path| self.is_e2e_case_dir(path)) {
@@ -281,8 +296,10 @@ impl WalkDirFilter {
 
     /// §AR-workspace.6: a member root is out of bounds for the root scan under
     /// every name it wears — the precomputed suffix for an ordinary descent, the
-    /// canonical member root for a directory reached through a link.
-    fn is_workspace_member_dir(&self, path: &Path, resolved: Option<&Path>) -> bool {
+    /// canonical member root for a directory reached through a link — and so is
+    /// any directory another project of the run owns, which is the same boundary
+    /// read in the directions the member list cannot see (§FS-workspace.6).
+    fn crosses_a_project_boundary(&self, path: &Path, resolved: Option<&Path>) -> bool {
         if let Ok(relative) = path.strip_prefix(&self.scan_root)
             && self
                 .boundary_suffixes
@@ -295,12 +312,28 @@ impl WalkDirFilter {
             self.boundary_roots
                 .iter()
                 .any(|root| resolved.starts_with(root))
+                || owned_by_another_project(&self.config, resolved)
         })
     }
 
     fn is_e2e_case_dir(&self, path: &Path) -> bool {
         is_direct_e2e_case_dir(path, self.e2e_cases_root.as_deref(), &self.config)
     }
+}
+
+/// Whether a canonical path belongs to a project of this run that is **not** the
+/// one doing the walking (§FS-workspace.6, §AR-workspace.6). The owner is the
+/// innermost project root containing it, since a nested member's root sits inside
+/// the block that listed it; a path no project owns is not a boundary at all, but
+/// outside content the tree linked in deliberately (§FS-config.3.5). Empty list —
+/// every run that loaded no workspace — answers `false` without a comparison.
+fn owned_by_another_project(config: &Config, canonical: &Path) -> bool {
+    config
+        .workspace_project_roots
+        .iter()
+        .filter(|root| canonical.starts_with(root))
+        .max_by_key(|root| root.components().count())
+        .is_some_and(|owner| owner != &config.root)
 }
 
 /// Whether the walk reached this path *through* one of the directory links it

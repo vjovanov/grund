@@ -1,0 +1,7 @@
+grund_config_version = 1
+
+[workspace]
+members = ["packages/other", "packages/sub"]
+
+[scan]
+include = ["docs"]

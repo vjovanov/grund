@@ -1,0 +1,7 @@
+# Inside this project but outside its `[scan] include`: the link is what puts the
+# file in the tree, so it is read there and its dangling citation is reported.
+packages/other/docs/notes.md -> ../notes.md
+# Into a sibling project: `sub` owns those files, so `other`'s walk stops here.
+packages/other/docs/blink -> ../../sub
+# Back up into the root project: the same boundary, read upwards.
+packages/sub/docs/rootdocs -> ../../../docs
