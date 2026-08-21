@@ -248,7 +248,20 @@ fn fmt_tree(
     // §FS-fmt.2.4: built once for the whole walk, not once per line — see
     // `ShorthandTargets`. Rebuilt at most once, when the deferred scan lands.
     let mut shorthand_targets = ShorthandTargets::new(findings, workspace);
-    for path in walk_scannable_files(config, scope, explicit_scope)? {
+    let walked = walk_scannable_files_reporting(config, scope, explicit_scope)?;
+    for path in walked.files {
+        // §FS-fmt.2.3.2: the walk reads a file reached through a link that leaves
+        // the config root, and the rewrite stops there — editing it would put this
+        // project's bytes into a file the project does not own
+        // (§REQ-no-data-loss.2). Named once, on stderr, exit code untouched: the
+        // refusal is the intended behavior and not a failure of the run.
+        if write && walked.outside_root.contains(&path) {
+            eprintln!(
+                "warning: {}: not rewritten: the symlink target is outside the config root",
+                display_path(config, &path)
+            );
+            continue;
+        }
         let original =
             fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
         let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");

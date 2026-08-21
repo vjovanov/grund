@@ -1250,7 +1250,8 @@ fn scan_tree_with_workspace_threshold(
     let mut findings = Findings::default();
     // §FS-config.3.5: a link the walk could not resolve is already a scan failure
     // before a single file is opened — it joins the per-file ones (§FS-check.2).
-    let (mut files, mut errors) = walk_scannable_files_reporting(config, scope, explicit_scope)?;
+    let walked = walk_scannable_files_reporting(config, scope, explicit_scope)?;
+    let (mut files, mut errors) = (walked.files, walked.errors);
     add_overlay_scan_files(config, scope, explicit_scope, overlays, &mut files)?;
     if files.len() >= parallel_min_files {
         for (file, result) in scan_file_results(&files, config, workspace_targets, overlays) {

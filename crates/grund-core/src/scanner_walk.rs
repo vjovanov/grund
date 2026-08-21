@@ -13,7 +13,20 @@ fn walk_scannable_files(
     scope: Option<&Path>,
     explicit_scope: bool,
 ) -> Result<Vec<PathBuf>> {
-    Ok(walk_scannable_files_reporting(config, scope, explicit_scope)?.0)
+    Ok(walk_scannable_files_reporting(config, scope, explicit_scope)?.files)
+}
+
+/// What one walk of the tree produced (§AR-scanner.1).
+struct WalkedTree {
+    /// The scannable files, sorted, one entry per physical file (§FS-errors.4).
+    files: Vec<PathBuf>,
+    /// The paths the walk could not read, for the caller to report (§FS-check.2).
+    errors: Vec<ScanError>,
+    /// The files that are in this tree only by a link: their physical path is
+    /// outside the config root. Read like any other file (§FS-config.3.5) —
+    /// `fmt --write` is the caller that treats them differently, because
+    /// rewriting one edits a file the project does not own (§FS-fmt.2.3.2).
+    outside_root: BTreeSet<PathBuf>,
 }
 
 /// The tree walk (§AR-scanner.1): from each scan root, descend skipping hidden and
@@ -26,7 +39,7 @@ fn walk_scannable_files_reporting(
     config: &Config,
     scope: Option<&Path>,
     explicit_scope: bool,
-) -> Result<(Vec<PathBuf>, Vec<ScanError>)> {
+) -> Result<WalkedTree> {
     let roots = scan_roots(config, scope, explicit_scope)?;
     // §FS-config.3.5: an aliased root, or a symlink met on the way down, is what
     // hands the same file to the walk under two spellings — nothing else does, so
@@ -145,8 +158,9 @@ fn walk_scannable_files_reporting(
     // One file, one read (§FS-check.1.3, §FS-config.3.5). Two spellings first,
     // while the list is still in walk order and first-seen wins; then the
     // byte-identical ones, which the sort has just brought together.
-    if !aliasable.is_empty() {
-        dedup_by_file_identity(&mut files, &aliasable);
+    let resolved = resolve_aliasable(&aliasable);
+    if !resolved.is_empty() {
+        dedup_by_file_identity(&mut files, &resolved);
     }
     files.sort_by_key(|path| sort_path_key(path));
     // The roots may overlap — `include = ["docs", "docs/api"]` names one subtree
@@ -158,7 +172,23 @@ fn walk_scannable_files_reporting(
     // the filesystem's; the text report sorts before printing, the API surface
     // hands the list over as it stands, so it is sorted once here for both.
     errors.sort_by_key(|(path, message)| (sort_path_key(path), message.clone()));
-    Ok((files, errors))
+    // §FS-fmt.2.3.2: a file whose physical path is not under the config root is in
+    // this tree only by the link that reaches it. The resolution is already paid
+    // for above, so this is a prefix test over the links and nothing more.
+    let outside_root = files
+        .iter()
+        .filter(|file| {
+            resolved
+                .get(file.as_path())
+                .is_some_and(|physical| !physical.starts_with(&config.root))
+        })
+        .cloned()
+        .collect();
+    Ok(WalkedTree {
+        files,
+        errors,
+        outside_root,
+    })
 }
 
 /// The directory filter the walk runs on every entry it meets: the workspace
@@ -381,6 +411,22 @@ fn under_link(link_roots: &std::sync::Mutex<Vec<PathBuf>>, path: &Path) -> bool 
         .any(|root| path.starts_with(root))
 }
 
+/// Where each file that can wear a second name physically is: the in-tree path it
+/// was walked under, mapped to the path `canonicalize` resolves it to.
+type AliasTargets = std::collections::HashMap<PathBuf, PathBuf>;
+
+/// Resolve the files the walk saw arrive under a spelling that is not their own —
+/// a link, a file below a directory link, or any file of an aliased root. This is
+/// the only `canonicalize` the walk spends: everything else is answered by
+/// comparing a path against what these resolved to (§AR-scanner.1,
+/// §GOAL-fast-feedback).
+fn resolve_aliasable(aliasable: &BTreeSet<PathBuf>) -> AliasTargets {
+    aliasable
+        .iter()
+        .map(|file| (file.clone(), physical_path_key(file)))
+        .collect()
+}
+
 /// Collapse the files reached under two spellings, keeping the **first**
 /// (§FS-check.1.3, §FS-config.3.5). `root_scope_roots` walks the `include` roots
 /// before the config root `--full` adds, so the surviving spelling is the one the
@@ -389,19 +435,13 @@ fn under_link(link_roots: &std::sync::Mutex<Vec<PathBuf>>, path: &Path) -> bool 
 /// root the caller has already sorted, so "first" there is the lexicographically
 /// first path rather than whatever readdir happened to say (§FS-errors.4).
 ///
-/// `aliasable` is the subset the walk saw arrive under a spelling that is not its
-/// own — a link, a file below a directory link, or any file of an aliased root —
-/// and it is the only subset `canonicalize` is spent on. The paths those resolve
-/// to are the only ones another file can turn out to be, so every other file is
-/// answered by a lookup in that small target set and is never resolved at all: a
-/// repository with one symlink pays one `realpath`, not one per file, which is
-/// what a flag saying "this tree has a link in it" could not do
+/// `resolved` covers the files that can wear a second name, and the paths they
+/// resolve to are the only ones another file can turn out to be — so every other
+/// file is answered by a lookup in that small target set and is never resolved at
+/// all. A repository with one symlink pays one `realpath` and not one per file,
+/// which is what a flag saying "this tree has a link in it" could not do
 /// (§GOAL-fast-feedback, §AR-scanner.1).
-fn dedup_by_file_identity(files: &mut Vec<PathBuf>, aliasable: &BTreeSet<PathBuf>) {
-    let resolved: std::collections::HashMap<PathBuf, PathBuf> = aliasable
-        .iter()
-        .map(|file| (file.clone(), physical_path_key(file)))
-        .collect();
+fn dedup_by_file_identity(files: &mut Vec<PathBuf>, resolved: &AliasTargets) {
     let targets: std::collections::HashSet<&Path> =
         resolved.values().map(PathBuf::as_path).collect();
     let mut seen = BTreeSet::new();
