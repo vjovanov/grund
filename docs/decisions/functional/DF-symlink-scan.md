@@ -35,11 +35,20 @@ A broken link and a symlink loop are files the scan cannot read, and [§FS-check
 
 The report is owed only where the walk would otherwise have read through the link. A loop is a directory the walk was descending into, so it is always owed one; a broken link is judged by `[scan] extensions`, so a dangling `docs/logo.png -> nowhere` stays silent. Without that gate a repository full of links to build outputs — none of which were ever going to be scanned — turns red for reasons that have nothing to do with citations, and a mode that cries wolf about links is one whose scan errors get ignored.
 
+### 2.5 `fmt --write` refuses a link that leaves the config root, and nothing else
+
+Following a link means `grund fmt --write` can now reach a file the project does not own, and in the first cut it wrote through one: a `docs/FS-beta.md -> ../../outside/FS-beta.md` was rewritten on disk at the target, outside the root, with a relative cross-reference that is broken where the file actually lives. Reading foreign bytes and *editing* them are different acts — the first is what §2.2 decided and is recoverable by reading, the second is not ([§REQ-no-data-loss.2](../../requirements/REQ-no-data-loss.md#2-writers-touch-only-what-they-own)).
+
+So the write, and only the write, stops at the config root: `--write` skips a file reached through a link whose target resolves outside it and says so ([§FS-fmt.2.3.2](../../functional-spec/FS-fmt.md#232-a-link-that-leaves-the-config-root-is-not-written-through)). Refusing to *read* those files instead would be §2.2 reversed, and refusing every symlink would take `CLAUDE.md -> AGENTS.md` — a link into the project's own root — with it.
+
+A link whose target is inside the root is written through, which leaves one residue that is accepted rather than fixed. The file is read once, under the surviving spelling (§2.3), so `--cross-refs` anchors its relative links to that spelling: the link is right where grund read the file and wrong at its other name. There is no anchor that is right at both — a relative path resolves against the directory the reader opened, and the file has two — so the only real fix is one name per file. Naming it beats a rule that pretends to solve it.
+
 ## 3. Consequences
 
 - A repository whose specs are reached through a symlink is checked for the first time. That can turn a green run red, which is the correct direction: the findings were always there and were being dropped.
 - Files reached through a link may live outside the config root, so a run can now read bytes the project does not own (§2.2). `[scan] exclude` is the fence.
 - A broken or looping link with a scannable name is a new source of exit `2` on a tree that used to exit `0` silently.
+- `grund fmt --write` reads a file reached through a link that leaves the config root and does not write it, naming it on stderr instead (§2.5). Inside the root it writes through, with the cross-reference anchoring residue §2.5 records.
 - The identity pass that `--full` used for aliased roots now also runs whenever the walk met a symlink — over the linked files alone. A tree with no symlink pays nothing, and a tree with one symlink pays one `realpath` rather than one per file, which is what keeps [§GOAL-fast-feedback](../../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) intact.
 
 ## 4. Alternatives considered

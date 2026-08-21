@@ -198,9 +198,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 until = "a mode stops sharing the traversal"
-max_accepted = { value = 451, unit = "lines" }
+max_accepted = { value = 459, unit = "lines" }
 reason = """
-Citation normalization as a single pass over a document, 101 lines over budget. The modes are one traversal with per-mode decisions inside it, so the only split available today duplicates the walk — two files that must stay in step. The seam appears the day a mode needs its own traversal, and not from growth alone. The ceiling rose by 14 when the report learned to name the text a shorthand expansion writes (FS-fmt.3): that is the traversal reporting more about what it did, in the same pass, not a second concern arriving.
+Citation normalization as a single pass over a document, 101 lines over budget. The modes are one traversal with per-mode decisions inside it, so the only split available today duplicates the walk — two files that must stay in step. The seam appears the day a mode needs its own traversal, and not from growth alone. The ceiling rose by 14 when the report learned to name the text a shorthand expansion writes (FS-fmt.3): that is the traversal reporting more about what it did, in the same pass, not a second concern arriving. It rose by 8 for the write boundary of FS-fmt.2.3.2 — the same traversal deciding, about the file it is already holding, that this one is not ours to write.
 """
 [[exceptions]]
 path = "crates/grund-core/src/list.rs"
