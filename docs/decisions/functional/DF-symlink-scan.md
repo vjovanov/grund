@@ -45,6 +45,8 @@ Following a link means `grund fmt --write` can now reach a file the project does
 
 So the write, and only the write, stops at the config root: `--write` skips a file reached through a link whose target resolves outside it and says so ([§FS-fmt.2.3.2](../../functional-spec/FS-fmt.md#232-a-link-that-leaves-the-config-root-is-not-written-through)). Refusing to *read* those files instead would be §2.2 reversed, and refusing every symlink would take `CLAUDE.md -> AGENTS.md` — a link into the project's own root — with it.
 
+The dry run reports the refusal too, rather than the rewrite it would have made there. The first cut had it list the rewrite — "it reports what the tree contains" — which made `fmt --check` exit `1` on such a tree permanently: it named a pending edit that `--write` was never going to perform and no author could clear. A check mode whose job is to predict the write has to predict this part of it as well, or it stops being a gate anyone can put in CI.
+
 A link whose target is inside the root is written through, which leaves one residue that is accepted rather than fixed. The file is read once, under the surviving spelling (§2.3), so `--cross-refs` anchors its relative links to that spelling: the link is right where grund read the file and wrong at its other name. There is no anchor that is right at both — a relative path resolves against the directory the reader opened, and the file has two — so the only real fix is one name per file. Naming it beats a rule that pretends to solve it.
 
 ## 3. Consequences

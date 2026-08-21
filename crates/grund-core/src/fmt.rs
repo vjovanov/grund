@@ -114,7 +114,12 @@ fn fmt_tree(
         // project's bytes into a file the project does not own
         // (§REQ-no-data-loss.2). Named once, on stderr, exit code untouched: the
         // refusal is the intended behavior and not a failure of the run.
-        if write && walked.outside_root.contains(&path) {
+        //
+        // The dry run refuses it too, and reports no rewrite for it. A dry run
+        // predicts what `--write` does, and a pending rewrite `--write` will never
+        // perform is one no edit can clear: `fmt --check` would exit `1` on this
+        // tree forever, so a gate built on it could never pass (§FS-fmt.3).
+        if walked.outside_root.contains(&path) {
             eprintln!(
                 "warning: {}: not rewritten: the symlink target is outside the config root",
                 display_path(config, &path)

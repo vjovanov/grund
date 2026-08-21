@@ -1,0 +1,3 @@
+# The one pending rewrite in this tree is in the file `--write` refuses, so a dry
+# run that listed it would be a `fmt --check` that can never go green.
+project/docs/functional-spec/FS-002-beta.md -> ../../../outside/FS-002-beta.md
