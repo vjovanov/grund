@@ -1,0 +1,3 @@
+# The file is in the tree by this path; its bytes are outside the config root,
+# which is `project/`. The walk reads it and `--write` does not write it.
+project/docs/functional-spec/FS-002-beta.md -> ../../../outside/FS-002-beta.md
