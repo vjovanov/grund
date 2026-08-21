@@ -8,4 +8,4 @@ An input the scanner cannot handle yields an error naming the path (§FS-errors.
 
 ## 2. Exit codes are the API
 
-`0` means checked and clean, `1` means findings, `2` means the run cannot be trusted — and nothing else ever maps onto them (§FS-cli.5). CI trusts the exit code before it reads a byte of output; a wrong `0` is the worst bug the tool can ship.
+The mapping is frozen and not configurable (§FS-cli.5): `0` clean or printed, `1` findings or a failed query — a well-formed request that yielded nothing (§FS-errors.5) — `2` a scan or CLI-level failure. A command may leave a code unused, never redefine one. CI trusts the exit code before it reads a byte of output, so a wrong `0` is the worst bug the tool can ship; the one place a failed run is allowed to exit `0` is the shell completion helper, where a hidden hot-path command must stay silent on a keystroke rather than spray errors into the user's prompt (§FS-completions.2).
