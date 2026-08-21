@@ -1197,6 +1197,10 @@ pub struct FmtOutput {
     /// The paths the walk could not read (§FS-fmt.3) — the CLI prints these and
     /// exits `2`. Non-empty means the rewrite ran over less than the whole tree.
     pub scan_errors: Vec<ApiScanError>,
+    /// The files read but not rewritten, because a link reaches them from outside
+    /// the config root (§FS-fmt.2.3.2). The CLI names each one on stderr; the
+    /// exit code is untouched, because the refusal is the intended behavior.
+    pub refused_writes: Vec<String>,
 }
 
 /// Programmatic `fmt`: run the normalizer and return the changed locations
@@ -1212,6 +1216,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
     };
     let mut changes: Vec<(PathBuf, usize, String)> = Vec::new();
     let mut scan_errors: Vec<ApiScanError> = Vec::new();
+    let mut refused_writes: Vec<String> = Vec::new();
     let walk_all_projects = context.workspace_loaded
         && (!opts.path_provided
             || fs::canonicalize(&opts.path)
@@ -1233,14 +1238,15 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 workspace: workspace_for_wrap,
                 precomputed_findings: Some(&project.findings),
             };
-            let (mut project_changes, mut project_errors) = fmt_tree(
+            let mut walked = fmt_tree(
                 &project.config,
                 Some(&project.config.root),
                 true,
                 &run_opts,
             )?;
-            changes.append(&mut project_changes);
-            scan_errors.append(&mut project_errors);
+            changes.append(&mut walked.changes);
+            scan_errors.append(&mut walked.scan_errors);
+            refused_writes.append(&mut walked.refused_writes);
         }
     } else {
         let reusable_findings = (!opts.path_provided)
@@ -1256,12 +1262,10 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             workspace: workspace_for_wrap,
             precomputed_findings: reusable_findings,
         };
-        (changes, scan_errors) = fmt_tree(
-            &config,
-            Some(&opts.path),
-            opts.path_provided,
-            &run_opts,
-        )?;
+        let walked = fmt_tree(&config, Some(&opts.path), opts.path_provided, &run_opts)?;
+        changes = walked.changes;
+        scan_errors = walked.scan_errors;
+        refused_writes = walked.refused_writes;
     }
 
     Ok(FmtOutput {
@@ -1274,6 +1278,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             })
             .collect(),
         scan_errors,
+        refused_writes,
     })
 }
 
