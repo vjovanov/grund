@@ -1,6 +1,6 @@
 # Goals
 
-Goals state direction. Measurement details live in specs, e2e, CI, and benchmark pages; the map is [AR-goal-measurement](architecture/AR-goal-measurement.md#ar-goal-measurement-goal-meters-live-outside-goals).
+Goals state direction. Measurement details live in specs, e2e, CI, and benchmark pages; the map is [AR-goal-measurement](architecture/AR-goal-measurement.md#ar-goal-measurement-goal-and-requirement-meters-live-outside-goals).
 
 ## GOAL-agent-grounding: agents stay cited as they work
 
