@@ -68,7 +68,7 @@ On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the rev
 ## Repository workflow
 
 - Every PR for this repository needs a `docs/changelog.md` `## Unreleased` bullet that mentions its PR number (`PR #N`); the pre-push hook checks this once the branch has a PR (§FS-distribution.4).
-- Hard requirements — what `grund` must never break — live in `docs/requirements`: §REQ-backwards-compatibility, §REQ-no-missed-citation, §REQ-no-wrong-citation. This entrypoint's contract is §REQ-agents-md (edit `AGENTS.md`, never the `CLAUDE.md` symlink); the README's is §REQ-readme.
+- Hard requirements — what `grund` must never break — live in `docs/requirements`: §REQ-backwards-compatibility, §REQ-no-missed-citation, §REQ-no-wrong-citation, §REQ-no-data-loss, §REQ-deterministic-output, §REQ-never-crashes. This entrypoint's contract is §REQ-agents-md (edit `AGENTS.md`, never the `CLAUDE.md` symlink); the README's is §REQ-readme.
 
 ## Keeping Files Small With fissile (v1)
 
