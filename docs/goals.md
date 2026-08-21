@@ -4,7 +4,7 @@ Goals state direction. Measurement details live in specs, e2e, CI, and benchmark
 
 ## GOAL-agent-grounding: agents stay cited as they work
 
-Keep specs, decisions, tests, and code cited while work happens — the why understood ([§GRUND-understanding](grund.md#grund-understanding-the-why-behind-every-change-stays-known)), out of an organized long-term memory ([§GRUND-structure](grund.md#grund-structure-the-projects-long-term-memory-stays-organized)), held consistent by the check ([§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent)). This is the headline outcome from [§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec); every other goal exists to keep that loop correct, cheap, and easy.
+Keep specs, decisions, tests, and code cited while work happens — the why understood ([§GRUND-understanding](grund.md#grund-understanding-the-why-stays-known)), out of an organized long-term memory ([§GRUND-structure](grund.md#grund-structure-the-projects-long-term-memory-stays-organized)), held consistent by the check ([§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent)). This is the headline outcome from [§GRUND-grund](grund.md#grund-grund-agents-stay-grounded-in-the-spec); every other goal exists to keep that loop correct, cheap, and easy.
 
 ### 1. The three layers
 
@@ -40,7 +40,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-polyglot-citation: IDs cite cleanly from anywhere they are useful
 
-One citation grammar works in Markdown and source comments, across docs/code boundaries, through one resolver. This is the reason `grund` is more than a Markdown link checker: [§GRUND-understanding](grund.md#grund-understanding-the-why-behind-every-change-stays-known) has to hold in every language a line is written in.
+One citation grammar works in Markdown and source comments, across docs/code boundaries, through one resolver. This is the reason `grund` is more than a Markdown link checker: [§GRUND-understanding](grund.md#grund-understanding-the-why-stays-known) has to hold in every language a line is written in.
 
 ### 1. What "cleanly" means
 
@@ -110,7 +110,7 @@ See [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-friendliness-first: as user- and agent-friendly as possible
 
-Friendliness is an ordering principle beside speed: prefer output and workflows humans and agents can act on directly. Grounding ([§GRUND-understanding](grund.md#grund-understanding-the-why-behind-every-change-stays-known)) only sticks if staying cited is the path of least resistance.
+Friendliness is an ordering principle beside speed: prefer output and workflows humans and agents can act on directly. Grounding ([§GRUND-understanding](grund.md#grund-understanding-the-why-stays-known)) only sticks if staying cited is the path of least resistance.
 
 ### 1. Hard requirements
 

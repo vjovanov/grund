@@ -8,7 +8,7 @@ Citations live wherever they are useful — including inside Java doc-comments, 
 
 ## 1. What grund does about it
 
-`grund` owns the scheme end to end. It defines the IDs and citation grammar, ships the config in `grund.toml`, and scans every `.md` file and every source file in the repo ([§AR-scanner.4](architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)) to keep three promises, each its own ground: [§GRUND-understanding](grund.md#grund-understanding-the-why-behind-every-change-stays-known), [§GRUND-structure](grund.md#grund-structure-the-projects-long-term-memory-stays-organized), and [§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent).
+`grund` owns the scheme end to end. It defines the IDs and citation grammar, ships the config in `grund.toml`, and scans every `.md` file and every source file in the repo ([§AR-scanner.4](architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)) to keep three promises, each its own ground: [§GRUND-understanding](grund.md#grund-understanding-the-why-stays-known), [§GRUND-structure](grund.md#grund-structure-the-projects-long-term-memory-stays-organized), and [§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent).
 
 This serves [§GOAL-agent-grounding](goals.md#goal-agent-grounding-agents-stay-cited-as-they-work) — the headline goal that every other goal exists in service of — and the mechanisms that make it viable: [§GOAL-no-dangling-refs](goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration), [§GOAL-fast-feedback](goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible), [§GOAL-friendliness-first](goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible), and [§GOAL-polyglot-citation](goals.md#goal-polyglot-citation-ids-cite-cleanly-from-anywhere-they-are-useful).
 
@@ -21,9 +21,9 @@ This serves [§GOAL-agent-grounding](goals.md#goal-agent-grounding-agents-stay-c
 
 If a project does not use a grund-style ID scheme, `grund` has nothing to offer it. We deliberately do not generalize.
 
-# GRUND-understanding: the why behind every change stays known
+# GRUND-understanding: the why stays known
 
-Everything the agents produce — code, docs, decisions, tests — cites the point that says why it is done: a behavior on its doc-comment, a clause inline beside the line that enforces it. The why is readable where the work sits, not reconstructed from git history or someone's memory.
+Everything in the project — code, docs, decisions, tests — cites the point that says why it is the way it is: a behavior on its doc-comment, a clause inline beside the line that enforces it. The why holds for the work as it stands, not just the change that made it — readable in place, never reconstructed from git history or someone's memory.
 
 # GRUND-structure: the project's long-term memory stays organized
 
