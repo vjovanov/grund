@@ -70,20 +70,12 @@ fn walk_scannable_files_reporting(
                 .git_exclude(false)
                 .parents(false);
         }
-        let excluded = config.exclude.clone();
-        let e2e_cases_root = config
-            .kinds
-            .iter()
-            .find(|kind| kind.prefix == "E2E")
-            .and_then(|kind| kind.folder.as_deref())
-            .map(|folder| config.root.join(folder));
-        let e2e_config = config.clone();
         // §AR-workspace.6: precompute the boundary path components once,
         // expressed relative to the canonical scan root. The walker filter is
         // then a single component-suffix compare — no per-entry `canonicalize`
         // syscall, no allocation in the hot path. `strip_prefix` only removes
         // the root, so the descendant suffix is invariant under symlink
-        // resolution — comparing against `scan_root_for_filter` works even if
+        // resolution — comparing against the filter's `scan_root` works even if
         // `scan_root` itself is a symlink.
         let boundary_suffixes: Vec<PathBuf> = config
             .workspace_boundary_roots
@@ -91,33 +83,21 @@ fn walk_scannable_files_reporting(
             .filter_map(|root| root.strip_prefix(&canonical_scan_root).ok())
             .map(Path::to_path_buf)
             .collect();
-        let scan_root_for_filter = scan_root.clone();
-        builder.filter_entry(move |e| {
-            if e.depth() == 0 {
-                return true;
-            }
-            if e.file_type().is_some_and(|file_type| file_type.is_dir())
-                && let Ok(relative) = e.path().strip_prefix(&scan_root_for_filter)
-                && boundary_suffixes
-                    .iter()
-                    .any(|suffix| relative == suffix.as_path())
-            {
-                return false;
-            }
-            if e.file_type().is_some_and(|file_type| file_type.is_dir()) {
-                if is_hidden(e.path()) {
-                    return false;
-                }
-                if is_direct_e2e_case_dir(e.path(), e2e_cases_root.as_deref(), &e2e_config) {
-                    return false;
-                }
-                let Some(name) = e.path().file_name().and_then(|name| name.to_str()) else {
-                    return true;
-                };
-                return !excluded.iter().any(|item| item == name);
-            }
-            true
-        });
+        let filter = WalkDirFilter {
+            scan_root: scan_root.clone(),
+            boundary_suffixes,
+            boundary_roots: config.workspace_boundary_roots.clone(),
+            excluded: config.exclude.clone(),
+            e2e_cases_root: config
+                .kinds
+                .iter()
+                .find(|kind| kind.prefix == "E2E")
+                .and_then(|kind| kind.folder.as_deref())
+                .map(|folder| config.root.join(folder)),
+            config: config.clone(),
+            link_roots: std::sync::Mutex::default(),
+        };
+        builder.filter_entry(move |entry| filter.keep(entry));
         let walker = builder.build();
         let mut root_files = Vec::new();
         for entry in walker {
@@ -166,6 +146,109 @@ fn walk_scannable_files_reporting(
     // hands the list over as it stands, so it is sorted once here for both.
     errors.sort_by_key(|(path, message)| (sort_path_key(path), message.clone()));
     Ok((files, errors))
+}
+
+/// The directory filter the walk runs on every entry it meets: the workspace
+/// boundary (§AR-workspace.6), hidden names and `[scan] exclude`
+/// (§FS-config.3.5), and the E2E case directories the manifest pass owns
+/// (§AR-scanner.6).
+///
+/// The **name** tests read the in-tree path, so a followed link is pruned under
+/// the name it wears in the tree — `docs/node_modules -> ../../node_modules` is
+/// excluded exactly as a real directory of that name would be. The two
+/// **boundary** tests read the canonical path as well, because a member root and
+/// a case directory are properties of the directory rather than of the name it
+/// is reached under (§AR-scanner.1): reached through a link they match neither
+/// the precomputed suffix nor the parent compare, and the walk would descend
+/// into a namespace that is not its to read.
+///
+/// `link_roots` is how a link-reached directory is recognized without a syscall
+/// per entry. The sequential walker filters a directory before its children, so
+/// every directory link the walk meets is recorded here before anything below it
+/// is asked about, and a prefix test then answers for the whole subtree; a link
+/// already covered by one is not recorded again, so the list holds the disjoint
+/// link subtrees and nothing more.
+struct WalkDirFilter {
+    scan_root: PathBuf,
+    boundary_suffixes: Vec<PathBuf>,
+    boundary_roots: Vec<PathBuf>,
+    excluded: Vec<String>,
+    e2e_cases_root: Option<PathBuf>,
+    config: Config,
+    link_roots: std::sync::Mutex<Vec<PathBuf>>,
+}
+
+impl WalkDirFilter {
+    /// Whether the walk keeps this entry — and, for a directory, descends into
+    /// it. Files are never filtered here; the extension test is the caller's.
+    fn keep(&self, entry: &ignore::DirEntry) -> bool {
+        if entry.depth() == 0 {
+            return true;
+        }
+        if !entry
+            .file_type()
+            .is_some_and(|file_type| file_type.is_dir())
+        {
+            return true;
+        }
+        let path = entry.path();
+        let resolved = self.resolved_link_dir(entry);
+        let resolved = resolved.as_deref();
+        if self.is_workspace_member_dir(path, resolved) || is_hidden(path) {
+            return false;
+        }
+        if self.is_e2e_case_dir(path) || resolved.is_some_and(|path| self.is_e2e_case_dir(path)) {
+            return false;
+        }
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            return true;
+        };
+        !self.excluded.iter().any(|item| item == name)
+    }
+
+    /// The canonical path of a directory the walk reached **through** a symlink
+    /// — the link itself, or anything below one — and `None` for a directory
+    /// reached under its own name, which is the ordinary case and pays no
+    /// syscall (§AR-scanner.1, §GOAL-fast-feedback).
+    fn resolved_link_dir(&self, entry: &ignore::DirEntry) -> Option<PathBuf> {
+        let path = entry.path();
+        let mut link_roots = self
+            .link_roots
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let is_link = entry.path_is_symlink();
+        let covered = link_roots.iter().any(|root| path.starts_with(root));
+        if is_link && !covered {
+            link_roots.push(path.to_path_buf());
+        }
+        drop(link_roots);
+        (is_link || covered)
+            .then(|| fs::canonicalize(path).ok())
+            .flatten()
+    }
+
+    /// §AR-workspace.6: a member root is out of bounds for the root scan under
+    /// every name it wears — the precomputed suffix for an ordinary descent, the
+    /// canonical member root for a directory reached through a link.
+    fn is_workspace_member_dir(&self, path: &Path, resolved: Option<&Path>) -> bool {
+        if let Ok(relative) = path.strip_prefix(&self.scan_root)
+            && self
+                .boundary_suffixes
+                .iter()
+                .any(|suffix| relative == suffix.as_path())
+        {
+            return true;
+        }
+        resolved.is_some_and(|resolved| {
+            self.boundary_roots
+                .iter()
+                .any(|root| resolved.starts_with(root))
+        })
+    }
+
+    fn is_e2e_case_dir(&self, path: &Path) -> bool {
+        is_direct_e2e_case_dir(path, self.e2e_cases_root.as_deref(), &self.config)
+    }
 }
 
 /// The per-file scan failure a walker error becomes (§FS-check.2), or `None` when
