@@ -1194,6 +1194,9 @@ pub struct FmtChange {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct FmtOutput {
     pub changes: Vec<FmtChange>,
+    /// The paths the walk could not read (§FS-fmt.3) — the CLI prints these and
+    /// exits `2`. Non-empty means the rewrite ran over less than the whole tree.
+    pub scan_errors: Vec<ApiScanError>,
 }
 
 /// Programmatic `fmt`: run the normalizer and return the changed locations
@@ -1208,6 +1211,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
         None
     };
     let mut changes: Vec<(PathBuf, usize, String)> = Vec::new();
+    let mut scan_errors: Vec<ApiScanError> = Vec::new();
     let walk_all_projects = context.workspace_loaded
         && (!opts.path_provided
             || fs::canonicalize(&opts.path)
@@ -1228,12 +1232,14 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 workspace: workspace_for_wrap,
                 precomputed_findings: Some(&project.findings),
             };
-            changes.append(&mut fmt_tree(
+            let (mut project_changes, mut project_errors) = fmt_tree(
                 &project.config,
                 Some(&project.config.root),
                 true,
                 &run_opts,
-            )?);
+            )?;
+            changes.append(&mut project_changes);
+            scan_errors.append(&mut project_errors);
         }
     } else {
         let reusable_findings = (!opts.path_provided)
@@ -1248,7 +1254,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             workspace: workspace_for_wrap,
             precomputed_findings: reusable_findings,
         };
-        changes = fmt_tree(
+        (changes, scan_errors) = fmt_tree(
             &config,
             Some(&opts.path),
             opts.path_provided,
@@ -1265,6 +1271,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 label,
             })
             .collect(),
+        scan_errors,
     })
 }
 

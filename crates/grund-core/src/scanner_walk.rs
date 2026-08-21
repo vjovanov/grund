@@ -4,10 +4,13 @@
 // line-by-line pass over a file's text, this one is a directory traversal — and
 // they meet only at the file list one hands the other.
 
-/// The tree walk for callers with nowhere to put a path the walk could not read
-/// — `fmt`, whose job is rewriting the files it *can* read. `check` and `refs`
-/// use `walk_scannable_files_reporting` so an unresolvable link reaches the
-/// report instead (§FS-config.3.5, §FS-check.2).
+/// The tree walk for the callers that ask a yes/no question about the tree and
+/// nothing else — today the `--cross-refs` auto-enable probe, which wants to know
+/// whether the scope holds any Markdown (§FS-fmt.6.6). Every caller that *reports*
+/// takes `walk_scannable_files_reporting`, so an unresolvable link reaches the
+/// report rather than being dropped here (§FS-config.3.5, §FS-check.2): this one
+/// is walking a tree that the reporting walk is about to walk again and account
+/// for, so repeating its errors would print each of them twice.
 fn walk_scannable_files(
     config: &Config,
     scope: Option<&Path>,

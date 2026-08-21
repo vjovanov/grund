@@ -72,6 +72,16 @@ fn command_fmt(args: &[String]) -> ExitCode {
             println!("{}:{}: {}", change.path, change.line, change.label);
         }
     }
+    if !output.scan_errors.is_empty() {
+        // §FS-fmt.3: `fmt` walks the tree `check` walks and owes the same account
+        // of the paths in it that could not be read (§FS-check.2). What it did
+        // rewrite is real and, under `--write`, already on disk — the `2` says the
+        // tree it ran over was not the whole tree.
+        for error in &output.scan_errors {
+            eprintln!("error: {}: {}", error.path, error.message);
+        }
+        return ExitCode::from(2);
+    }
     if write || output.changes.is_empty() {
         ExitCode::SUCCESS
     } else {
