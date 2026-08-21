@@ -78,7 +78,7 @@ A number-only shorthand argument ([§FS-check.1.2](FS-check.md#12-the-number-onl
 ambiguous ID: FS-042 (matches FS-042-user-login, FS-042-user-logout)
 ```
 
-Candidates are listed in ID order, and the repo needs no fixing: the caller does, by passing one of the full IDs. Nothing is guessed at ([§DF-number-only-citation-shorthand.2.7](../decisions/functional/DF-number-only-citation-shorthand.md#27-ambiguity-is-reported-never-guessed)). This shape matches the bare-message form used for `ID not found` and `section not found` ([§FS-show.3](FS-show.md#3-outputs)): all three are queries that found something other than exactly one body.
+Candidates are listed in ID order, and the repo needs no fixing: the caller does, by passing one of the full IDs. Nothing is guessed at ([§DF-number-only-citation-shorthand.2.7](../decisions/functional/DF-number-only-citation-shorthand.md#27-ambiguity-is-reported-never-guessed), [§REQ-no-wrong-citation.1](../requirements/REQ-no-wrong-citation.md#1-no-wrong-resolution)). This shape matches the bare-message form used for `ID not found` and `section not found` ([§FS-show.3](FS-show.md#3-outputs)): all three are queries that found something other than exactly one body.
 
 ### 2.3 Inline declarations in code and doc-comments
 

@@ -93,7 +93,7 @@ Severity (`error` vs `warning`) is **implicit in the rule**, not in the line. [Â
 
 ## 4. Determinism
 
-Two runs of the same subcommand on the same input must produce byte-identical stdout *and* stderr. This rules out:
+Two runs of the same subcommand on the same input must produce byte-identical stdout *and* stderr ([Â§REQ-deterministic-output](../requirements/REQ-deterministic-output.md#req-deterministic-output-same-input-same-bytes)). This rules out:
 
 - Wall-clock timestamps in messages.
 - Process IDs, hostnames, or absolute paths outside the configured root.
