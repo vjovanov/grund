@@ -66,6 +66,7 @@ include!("tests_inline_note_layout.rs");
 include!("tests_inline_note_layout_check.rs");
 include!("tests_scanner.rs");
 include!("tests_scanner_walk.rs");
+include!("tests_scanner_walk_errors.rs");
 include!("tests_shorthand.rs");
 include!("tests_shorthand_rewrite.rs");
 include!("tests_shorthand_numeric_run.rs");
