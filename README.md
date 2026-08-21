@@ -95,7 +95,7 @@ docs/requirements/REQ-no-wrong-citation.md:7: missing section FS-check.3.2
 5. The `AGENTS.md` / `CLAUDE.md` entry-point block is up to date. *(stale init)*
 6. Declared-but-uncited IDs are flagged. *(unused — warning, not error; `E2E-` cases are exempt)*
 7. *(opt-in)* With `[reference] require_grounding = true`: every source file carries at least one citation. *(ungrounded source file)*
-8. *(workspace)* Alias-qualified citations resolve across configured sub-projects. *(cross-project references — see [§FS-workspace](docs/functional-spec/FS-workspace.md))*
+8. *(workspace)* Alias-qualified citations resolve across configured sub-projects. *(cross-project references — see [§FS-workspace](docs/functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace))*
 
 `grund check` reads what `[scan] include` names, so a citation in a directory the config never mentioned is invisible rather than merely unchecked — it neither resolves nor dangles. `grund check --full` ([§FS-check.1.3](docs/functional-spec/FS-check.md#13-the-full-tree-scope---full)) walks the whole repository past that key and reports the references that resolve to nothing out there, and only those: a directory nobody configured is never judged against conventions it never adopted. It is purely additive, so it can only turn a green run red.
 
@@ -136,10 +136,10 @@ a `grund.toml` of their own use the canonical defaults, and a member that declar
 own `[workspace]` block is rejected in v1. Each project can also set a one-line
 `project_description` next to `project_name`; `grund init` renders it beside
 the alias in the generated workspace member list (see
-[§FS-config](docs/functional-spec/FS-config.md)). Cross-repository aliases — an
+[§FS-config](docs/functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)). Cross-repository aliases — an
 alias like `payments/FS-refunds` resolving to a neighboring repo — are not yet
 supported.
-See [§FS-workspace](docs/functional-spec/FS-workspace.md).
+See [§FS-workspace](docs/functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace).
 
 ## 4. The structure that gets cited
 
@@ -251,7 +251,7 @@ Supported clients are `codium`, `iterm2`, `kitty`, `tmux`, `vscode`, and `wezter
 
 **`~/.local/bin` must be on your `PATH`** — that is where the resolver is installed, and it is not there by default on macOS, where a missing `PATH` entry makes every click silently do nothing.
 
-**[Clickable citations](docs/user-facing/clickable-citations.md)** is the full setup guide: the per-client reload each one needs, the manual step WezTerm and iTerm2 require, how to check it works, what to do when a click does nothing, and how to control the citations agents write in conversations. See also [§FS-integrations](docs/functional-spec/FS-integrations.md).
+**[Clickable citations](docs/user-facing/clickable-citations.md)** is the full setup guide: the per-client reload each one needs, the manual step WezTerm and iTerm2 require, how to check it works, what to do when a click does nothing, and how to control the citations agents write in conversations. See also [§FS-integrations](docs/functional-spec/FS-integrations.md#fs-integrations-grund-prints-and-installs-its-rendering-layer-integrations).
 
 ## 🧑‍💻 Editor Support via [LSP](https://microsoft.github.io/language-server-protocol/)
 
@@ -267,7 +267,7 @@ The server speaks LSP over stdio and has no daemon or socket. The [setup guide](
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lsp/hover-preview.png">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/lsp/hover-preview-light.png">
-    <img src="docs/assets/lsp/hover-preview-light.png" width="96%" alt="Hover preview of §FS-check.3.7 shown directly above the grund code that implements the misplaced-declaration check">
+    <img src="docs/assets/lsp/hover-preview-light.png" width="96%" alt="Hover preview of [§FS-check.3.7](docs/functional-spec/FS-check.md#37-misplaced-declaration-configured-kind-home) shown directly above the grund code that implements the misplaced-declaration check">
   </picture>
   <br><sub><strong>Hover previews</strong> — the spec and the code that satisfies it, in one frame.</sub>
 </p>

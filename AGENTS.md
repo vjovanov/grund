@@ -68,8 +68,8 @@ On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the rev
 
 ## Repository workflow
 
-- Every PR for this repository needs a `docs/changelog.md` `## Unreleased` bullet that mentions its PR number (`PR #N`); the pre-push hook checks this once the branch has a PR (§FS-distribution.4).
-- Hard requirements — what `grund` must never break — live in `docs/requirements`: §REQ-backwards-compatibility, §REQ-no-missed-citation, §REQ-no-wrong-citation, §REQ-no-data-loss, §REQ-deterministic-output, §REQ-never-crashes. This entrypoint's contract is §REQ-agents-md (edit `AGENTS.md`, never the `CLAUDE.md` symlink); the README's is §REQ-readme.
+- Every PR for this repository needs a `docs/changelog.md` `## Unreleased` bullet that mentions its PR number (`PR #N`); the pre-push hook checks this once the branch has a PR ([§FS-distribution.4](docs/functional-spec/FS-distribution.md#4-release-process)).
+- Hard requirements — what `grund` must never break — live in `docs/requirements`: [§REQ-backwards-compatibility](docs/requirements/REQ-backwards-compatibility.md#req-backwards-compatibility-an-upgrade-never-changes-a-verdict-quietly), [§REQ-no-missed-citation](docs/requirements/REQ-no-missed-citation.md#req-no-missed-citation-every-citation-the-run-reads-is-checked), [§REQ-no-wrong-citation](docs/requirements/REQ-no-wrong-citation.md#req-no-wrong-citation-a-citation-never-resolves-to-a-guess), [§REQ-no-data-loss](docs/requirements/REQ-no-data-loss.md#req-no-data-loss-grund-never-eats-user-content), [§REQ-deterministic-output](docs/requirements/REQ-deterministic-output.md#req-deterministic-output-same-input-same-bytes), [§REQ-never-crashes](docs/requirements/REQ-never-crashes.md#req-never-crashes-garbage-in-diagnostic-out). This entrypoint's contract is [§REQ-agents-md](docs/requirements/REQ-agents-md.md#req-agents-md-the-agent-entrypoint-stays-managed-and-grounded) (edit `AGENTS.md`, never the `CLAUDE.md` symlink); the README's is [§REQ-readme](docs/requirements/REQ-readme.md#req-readme-the-readme-is-the-grounded-shop-window).
 
 ## Keeping Files Small With fissile (v1)
 
