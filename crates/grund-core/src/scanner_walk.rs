@@ -128,7 +128,7 @@ fn walk_scannable_files_reporting(
                 // it (§FS-check.2). Failing the whole scan here would let one broken
                 // link take the entire report with it.
                 Err(err) => {
-                    errors.extend(walk_error_report(&err, config));
+                    errors.extend(walk_error_report(&err, config, &scan_root));
                     continue;
                 }
             };
@@ -178,9 +178,14 @@ fn walk_scannable_files_reporting(
 /// directory would have faced are applied here instead; a broken link is judged
 /// by `[scan] extensions` like any other file, which is what keeps a dangling
 /// `docs/logo.png` silent. Anything else — an unreadable directory, a malformed
-/// ignore file — is reported as it stands: it is a hole in the walk either way,
-/// and a silent one is what §REQ-no-missed-citation.1 rules out.
-fn walk_error_report(err: &ignore::Error, config: &Config) -> Option<ScanError> {
+/// ignore file — is reported as it stands, at the walk root when the error names
+/// no path of its own: it is a hole in the walk either way, and a silent one is
+/// what §REQ-no-missed-citation.1 rules out.
+fn walk_error_report(
+    err: &ignore::Error,
+    config: &Config,
+    scan_root: &Path,
+) -> Option<ScanError> {
     if let Some((link, ancestor)) = walk_error_loop(err) {
         let name = link.file_name().and_then(|name| name.to_str())?;
         if is_hidden(link) || config.exclude.iter().any(|item| item == name) {
@@ -192,7 +197,7 @@ fn walk_error_report(err: &ignore::Error, config: &Config) -> Option<ScanError> 
         );
         return Some((link.to_path_buf(), reason));
     }
-    let path = walk_error_path(err)?;
+    let path = walk_error_path(err).unwrap_or(scan_root);
     if !fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink()) {
         return Some((path.to_path_buf(), walk_error_reason(err)));
     }
