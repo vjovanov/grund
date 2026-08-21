@@ -14,7 +14,7 @@
 2. **Re-read before you edit.** `grund <ID>.<section>` pulls just that subsection into context — no full-file reads, no token bloat.
 3. **No dangling pointers.** `grund check` validates that every cited ID resolves — in `.md`, Rust `///`, Java doc-comments, Python docstrings, Go `//`, JSDoc, every doc-comment form `grund` knows about.
 
-Off-the-shelf Markdown link checkers (`lychee`, `markdown-link-check`) only handle `.md` and only validate `[text](url)`. A `§`-marked citation of `FS-events.4` in `src/bus.rs` is invisible to them. That gap is what `grund` exists to close: Lychee checks whether Markdown links still open; `grund` checks whether your code still knows why it exists. Lychee is the link checker; `grund` is the intent checker. Both belong in CI; they guard different failure modes. [§GRUND-grund.1](docs/grund.md#1-what-grund-does-about-it)
+Off-the-shelf Markdown link checkers (`lychee`, `markdown-link-check`) only handle `.md` and only validate `[text](url)`. A `§`-marked citation of `FS-check.3.2` in `crates/grund-core/src/checker_references.rs` is invisible to them. That gap is what `grund` exists to close: Lychee checks whether Markdown links still open; `grund` checks whether your code still knows why it exists. Lychee is the link checker; `grund` is the intent checker. Both belong in CI; they guard different failure modes. [§GRUND-grund.1](docs/grund.md#1-what-grund-does-about-it)
 
 `grund` measures CI performance by instruction count, not stopwatch time: the current snapshot is 299,672,739 Callgrind `Ir` for `grund check .` and 1,055,099,244 `Ir` for the generated 10k-file fixture, with pull requests gated at 5% growth.
 
@@ -33,17 +33,19 @@ That heading lives in the configured home for its kind (`GRUND` → `docs/grund.
 
 ## 1. Cite as you write
 
-When code realizes a named behavior, it carries a `§<ID>` citation — on its doc-comment for a whole behavior, or inline beside the line that enforces one clause:
+When code realizes a named behavior, it carries a `§<ID>` citation — on its doc-comment for a whole behavior, or inline beside the line that enforces one clause. From `grund`'s own source — the code implementing the missing-section check is grounded in [`FS-check.3.2`](docs/functional-spec/FS-check.md#32-missing-section), the spec section that defines that very check:
 
 ```rust
-// src/bus.rs
+// crates/grund-core/src/checker_references.rs
 
-/// AR-event-bus: In-process event broadcaster
-///
-/// Implements the publish-subscribe contract from §FS-events.
-pub struct EventBus {
-    receivers: Vec<Receiver<Event>>, // §FS-events.4 — slow receivers are dropped silently
-}
+/// The reference-resolution rule family — dangling citations (§FS-check.3.1),
+/// missing sections (§FS-check.3.2), unknown project aliases (§FS-check.3.8), …
+
+    // …
+    // §FS-check.3.2: the ID resolves but no declaration has a heading at the
+    // cited section path.
+    if let Some(sec) = &cite.section {
+        let any_match = decls.iter().any(|d| d.sections.contains_key(sec));
 ```
 
 `grund` doesn't invent these citations — that's the contributor's call. What `grund` does is make sure the ones you wrote *resolve*. With `[reference] require_grounding = true`, it also fails scanned source files that carry no resolving citation; the stronger diff-aware "implementation changed with its spec or test" gate is tracked separately in [§RM-cochange-gate](docs/roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test).
@@ -53,9 +55,10 @@ pub struct EventBus {
 A citation is a pointer to a fact, not a file path. Resolve it without opening files:
 
 ```bash
-$ grund FS-events.4
-A receiver that falls behind the broadcaster is disconnected, not blocked.
-The sender never waits on a slow consumer.
+$ grund FS-check.3.2
+### 3.2 Missing section
+
+A citation with a section suffix (`§FS-<user-login>.3.1`) where the declaration exists but the requested section heading does not.
 ```
 
 `grund <ID>` returns *just* the useful slice — well under 200 lines for the common case — so the agent pulls one fact into context instead of an entire file. Its ladder:
@@ -70,12 +73,15 @@ The sender never waits on a slow consumer.
 
 ## 3. Check for dangling pointers
 
-Rename the heading `FS-events` to `FS-event-stream` and `grund check` flags both sides of the boundary in one resolver:
+Renumber the heading `### 3.2 Missing section` in [`FS-check.md`](docs/functional-spec/FS-check.md) and `grund check` flags every site that leaned on it — code and decision docs alike, in one resolver:
 
 ```
 $ grund check
-src/bus.rs:5: unknown reference FS-events
-src/bus.rs:7: unknown reference FS-events.4
+crates/grund-core/src/checker.rs:49: missing section FS-check.3.2
+crates/grund-core/src/checker.rs:301: missing section FS-check.3.2
+crates/grund-core/src/checker_references.rs:2: missing section FS-check.3.2
+crates/grund-core/src/checker_references.rs:256: missing section FS-check.3.2
+docs/decisions/functional/DF-require-grounding.md:8: missing section FS-check.3.2
 ```
 
 `grund <path>` scans `<path>`; with no path it scans the canonical layout (`requirements.md`, `docs/`, `e2e/`, `src/`). In the scanned tree it enforces:
@@ -203,9 +209,10 @@ pub struct EventBus { /* … */ }
 Before changing or removing a declaration, see what leans on it:
 
 ```bash
-$ grund refs FS-events.4
-docs/architecture/AR-event-bus.md:6: §FS-events.4
-src/bus.rs:7: §FS-events.4
+$ grund refs FS-check.3.2 --summary
+crates/grund-core/src/checker.rs: 2 (lines 49, 301)
+crates/grund-core/src/checker_references.rs: 2 (lines 2, 256)
+docs/decisions/functional/DF-require-grounding.md: 1 (line 8)
 ```
 
 (The citation list goes to stdout — pipe it like `grund list`. Add `--format=json` for NDJSON.)
@@ -213,7 +220,7 @@ src/bus.rs:7: §FS-events.4
 Before reviewing a diff, group the citation graph by file so you can join changed files to the specs they touch:
 
 ```bash
-$ grund cover --format json | jq -c 'select(.path | startswith("src/bus"))'
+$ grund cover --format json | jq -c 'select(.path | startswith("crates/grund-core"))'
 ```
 
 (`grund cover --format json` is NDJSON — one `{"path":…,"citations":[…]}` record per scanned file.)
