@@ -1,11 +1,17 @@
 # REQ-deterministic-output: same input, same bytes
 
-Same tree plus same config produces byte-identical output — across runs, across supported operating systems, and across the cargo, npm, and PyPI bindings (§GOAL-multi-language.1). Agents cache and diff `grund` output, and CI compares it; a report that wobbles is a report nobody can build on (§GOAL-friendliness-first.1).
+The tree-reading commands — `check`, ID queries, `list`, `refs`, `cover`, `fmt`, `id` — produce byte-identical output for the same input, across runs, across supported operating systems, and across the cargo, npm, and PyPI bindings of the same release (§GOAL-multi-language.1, §FS-non-goals.13). Agents cache and diff `grund` output and CI compares it; a report that wobbles is a report nobody can build on (§GOAL-friendliness-first.1).
 
 ## 1. What determinism requires
 
-Fixed report ordering (§FS-errors.4), stable JSON shapes, no timestamps, and no dependence on directory walk order, thread scheduling, or locale.
+Fixed report ordering (§FS-errors.4), stable JSON shapes, no timestamps, process IDs or hostnames, and no dependence on directory walk order or thread scheduling — however the work is divided, the report must read as though the tree had been walked in sorted order. Sorting is over the bytes of the path, not a locale collation.
 
-## 2. No environment leaks
+## 2. "Input" is the tree, the config, and the invocation
 
-The compared bytes never vary with anything outside the tree and the config. Where the terminal adds presentation — `color = "auto"` — piped output stays the plain, stable form; decoration is rendering, never content.
+Three inputs decide the bytes, and all three must be held fixed before two runs are compared. The **tree** includes the ignore state that selects what is walked, which reaches `.git/info/exclude` and git's global `core.excludesFile` under the default `respect_gitignore = true` (§FS-config.3.5). The **config** is the one discovery found, which walks upward and may be found above the tree (§FS-config.1). The **invocation** matters wherever paths are rendered relative to it: under `relative_paths = false` the base is the path argument or the working directory (§FS-config.3.6), so two runs compared from different directories are not the same input.
+
+Naming these is the point. Each is a legitimate input; none may be a *hidden* one, and a difference that cannot be traced to one of the three is a bug.
+
+## 3. Presentation is not content
+
+Output carries no ANSI styling today (§FS-config.3.6). When colored output lands, `auto` must mean "only when the stream is a terminal", so piped and redirected bytes stay the plain, stable form that tooling compares; `always` is the caller asking for decoration and owning the consequence. Environment-driven commands are outside this requirement by construction: `grund integrations` detects from ambient variables and says so — only its explicit-`<client>` form is byte-stable across machines (§FS-integrations.6).
