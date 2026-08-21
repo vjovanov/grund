@@ -4,12 +4,12 @@ The root `README.md` is the first surface a human or an agent reads, and it sell
 
 ## 1. What it must say
 
-The README opens with what `grund` is: the three promises, one bullet each, every bullet citing the GRUND declaration that makes it (§GRUND-understanding, §GRUND-structure, §GRUND-consistency). The walkthrough then follows the workflow in order — specify, cite, re-read, check — one numbered section per step, and ends with how to install. The README is read whole, so depth lives in `docs/` behind links, not inline (§GOAL-token-economy); it stays within the repository's entrypoint line budget.
+The README opens with what `grund` is: the three promises, one bullet each, every bullet citing the GRUND declaration that makes it ([§GRUND-understanding](../grund.md#grund-understanding-the-why-stays-known), [§GRUND-structure](../grund.md#grund-structure-the-projects-long-term-memory-stays-organized), [§GRUND-consistency](../grund.md#grund-consistency-the-structure-stays-consistent)). The walkthrough then follows the workflow in order — specify, cite, re-read, check — one numbered section per step, and ends with how to install. The README is read whole, so depth lives in `docs/` behind links, not inline ([§GOAL-token-economy](../goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file)); it stays within the repository's entrypoint line budget.
 
 ## 2. Every example is real
 
-Code excerpts are verbatim from this repository, with elisions marked. Command output is captured from actually running the command against this tree — no invented IDs, no invented paths, no invented output. A change that invalidates a captured excerpt or output updates the README in the same change, per the co-change contract in §FS-examples.4.
+Code excerpts are verbatim from this repository, with elisions marked. Command output is captured from actually running the command against this tree — no invented IDs, no invented paths, no invented output. A change that invalidates a captured excerpt or output updates the README in the same change, per the co-change contract in [§FS-examples.4](../functional-spec/FS-examples.md#4-maintenance-contract).
 
 ## 3. The README's citations are checked
 
-`README.md` is named in `[scan] include` (§FS-config.3.5), so every `§`-marked citation in its prose resolves under `grund check` like any other scanned file's. Illustrations that must not resolve stay inside fenced code blocks, which the scanner ignores.
+`README.md` is named in `[scan] include` ([§FS-config.3.5](../functional-spec/FS-config.md#35-scan--what-gets-walked)), so every `§`-marked citation in its prose resolves under `grund check` like any other scanned file's. Illustrations that must not resolve stay inside fenced code blocks, which the scanner ignores.
