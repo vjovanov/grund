@@ -28,6 +28,8 @@ When `--marker` is given, every recognized bare citation is also rewritten to it
 
 ### 2.3 What is never rewritten
 
+This list is the ownership boundary for the one command that edits files in place ([§REQ-no-data-loss.2](../requirements/REQ-no-data-loss.md#2-writers-touch-only-what-they-own)): everything outside it keeps its bytes.
+
 - Declaration headings (the line that names the ID). The marker is for *citations*, not declarations.
 - Citations inside string literals on a source line (where rewriting would change runtime behavior).
 - Citations inside Markdown inline code spans (where rewriting would change a literal command, path, or example).

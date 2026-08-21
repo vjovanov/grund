@@ -18,7 +18,7 @@ An unknown client is a CLI-level error: `error: unknown integration client \`<cl
 
 ## 2. Detection
 
-With no `<client>`, grund inspects the environment to decide which integrations apply. Detection reads only these variables, in this fixed order, and never writes or scans:
+With no `<client>`, grund inspects the environment to decide which integrations apply. Detection reads only these variables, in this fixed order, and never writes or scans ([§REQ-no-data-loss.1](../requirements/REQ-no-data-loss.md#1-the-query-surface-never-writes)):
 
 - `WEZTERM_EXECUTABLE` → `wezterm`
 - `KITTY_WINDOW_ID` → `kitty`
