@@ -103,6 +103,13 @@ default = "may"
 [citations.GOAL]
 should = ["GRUND|GOAL"]
 
+# A hard requirement with no why is a preference, so every REQ names the ground
+# it protects; and a promise that must outlive every rewrite of the
+# implementation cannot be phrased in terms of it.
+[citations.REQ]
+should = ["GRUND|GOAL"]
+must-not = ["AR"]
+
 [citations.FS]
 should = ["GOAL|FS"]
 must-not = ["AR"]

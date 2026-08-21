@@ -53,6 +53,7 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 
 - **GOAL** should cite GRUND or GOAL.
 - **FS** should cite GOAL or FS; never cite AR.
+- **REQ** should cite GRUND or GOAL; never cite AR.
 - **AR** should cite FS or GOAL.
 - **DF** should cite FS or GOAL.
 - **DA** should cite AR or FS.

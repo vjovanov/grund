@@ -1,6 +1,6 @@
 # REQ-never-crashes: garbage in, diagnostic out
 
-`grund` runs in save hooks, pre-commit hooks, and CI; a panic there blocks work that has nothing to do with `grund`. Malformed input is the tool's daily bread, never a crash: broken UTF-8, unreadable files, pathological markdown, and huge inputs produce located errors and truthful exit codes.
+`grund` runs in save hooks, pre-commit hooks, and CI (§GOAL-fast-feedback); a panic there blocks work that has nothing to do with `grund`, and a stack trace is the opposite of an error a reader can act on (§GOAL-friendliness-first.1). Malformed input is the tool's daily bread, never a crash: broken UTF-8, unreadable files, pathological markdown, and huge inputs produce located errors and truthful exit codes.
 
 ## 1. Every failure is a diagnostic
 
