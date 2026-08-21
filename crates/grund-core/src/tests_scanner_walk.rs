@@ -1,84 +1,14 @@
 /// Test module: the tree walk's symlink policy (§FS-config.3.5, §AR-scanner.1,
 /// §DF-symlink-scan) — what the walk follows, which spelling of an aliased file
-/// it reports, and what a link it cannot resolve does to the run. Unix-only: the
-/// cases are about symlinks, and creating one on Windows needs developer mode.
+/// it reports, and the boundaries a link may not carry it across. What it does
+/// with a link it *cannot* read is `tests_scanner_walk_errors.rs`. Unix-only:
+/// the cases are about symlinks, and creating one on Windows needs developer
+/// mode.
 #[cfg(unix)]
 #[cfg(test)]
 mod tests_scanner_walk {
     use super::*;
     use super::tests_support::*;
-
-    fn symlink(target: &str, link: &Path) {
-        if let Some(parent) = link.parent() {
-            std::fs::create_dir_all(parent).expect("create parent");
-        }
-        std::os::unix::fs::symlink(target, link).expect("create symlink");
-    }
-
-    /// A repo scoped to `docs`, with one declaration inside it. Every case here
-    /// adds the link it is about.
-    fn linked_repo(name: &str) -> PathBuf {
-        let root = test_root(name);
-        write(
-            &root.join("grund.toml"),
-            "grund_config_version = 1\n\n[scan]\ninclude = [\"docs\"]\n",
-        );
-        write(
-            &root.join("docs/functional-spec/FS-001-alpha.md"),
-            "# FS-001-alpha: Alpha\n",
-        );
-        root
-    }
-
-    /// The graph findings — everything the report prints on stdout as
-    /// `path:line: message` (§FS-check.2.1).
-    fn findings(run: &CheckRun) -> Vec<String> {
-        let mut diagnostics = run
-            .report
-            .errors
-            .iter()
-            .chain(run.report.warnings.iter())
-            .filter(|diagnostic| diagnostic.code != "io")
-            .collect::<Vec<_>>();
-        // The order the report prints in (§FS-errors.4), so a case can read as
-        // the lines a user would see.
-        diagnostics.sort_by(|a, b| diagnostic_cmp(a, b));
-        located_diagnostics(&run.config, diagnostics)
-    }
-
-    /// The files the walk handed to the scanner, in report spelling — what a case
-    /// about *where the walk went* asserts on, independent of which of them
-    /// happened to declare anything.
-    fn scanned(config: &Config, findings: &Findings) -> Vec<String> {
-        let mut files: Vec<String> = findings
-            .scanned_files
-            .iter()
-            .map(|file| display_path(config, file))
-            .collect();
-        files.sort();
-        files
-    }
-
-    /// The `error: <path>: <reason>` lines a file the scan could not read earns
-    /// (§FS-check.2, §FS-errors.2.2).
-    fn scan_errors(run: &CheckRun) -> Vec<String> {
-        run.report
-            .errors
-            .iter()
-            .filter(|diagnostic| diagnostic.code == "io")
-            .map(|diagnostic| {
-                format!(
-                    "{}: {}",
-                    diagnostic
-                        .path
-                        .as_ref()
-                        .map(|path| display_path(&run.config, path))
-                        .unwrap_or_default(),
-                    diagnostic.message
-                )
-            })
-            .collect()
-    }
 
     #[test]
     fn a_symlinked_file_is_read_at_the_path_the_link_occupies() {
@@ -192,71 +122,6 @@ mod tests_scanner_walk {
         );
     }
 
-    #[test]
-    fn a_broken_link_is_reported_only_where_the_walk_would_have_read_it() {
-        let root = linked_repo("a_broken_link_is_reported_only_where_the_walk_would_have_read_it");
-        symlink("gone.md", &root.join("docs/functional-spec/FS-002-gone.md"));
-        symlink("gone.png", &root.join("docs/logo.png"));
-
-        let run = check_run(&root, false);
-
-        assert_eq!(
-            scan_errors(&run),
-            vec![
-                "docs/functional-spec/FS-002-gone.md: broken symlink: the target does not exist"
-            ],
-            "§FS-config.3.5: a name `[scan] extensions` covers is a hole worth reporting; `logo.png` was never going to be read"
-        );
-        assert!(
-            run.had_scan_errors,
-            "§FS-check.2: a file the scan could not read makes the run exit 2"
-        );
-    }
-
-    #[test]
-    fn a_broken_link_an_ignore_file_covers_is_not_reported() {
-        let root = linked_repo("a_broken_link_an_ignore_file_covers_is_not_reported");
-        // `.ignore` rather than `.gitignore`: the `ignore` crate honours the
-        // former with no repository around the fixture (§AR-scanner.1.1).
-        write(&root.join(".ignore"), "generated.md\n");
-        symlink("gone.md", &root.join("docs/generated.md"));
-        symlink("gone.md", &root.join("docs/functional-spec/FS-002-gone.md"));
-
-        let run = check_run(&root, false);
-
-        assert_eq!(
-            scan_errors(&run),
-            vec![
-                "docs/functional-spec/FS-002-gone.md: broken symlink: the target does not exist"
-            ],
-            "§FS-config.3.5: the walk was never going to read an ignored path, so its broken link is not a hole it has to report"
-        );
-    }
-
-    #[test]
-    fn a_symlink_loop_is_reported_and_the_walk_carries_on() {
-        let root = linked_repo("a_symlink_loop_is_reported_and_the_walk_carries_on");
-        write(
-            &root.join("docs/functional-spec/FS-001-alpha.md"),
-            "# FS-001-alpha: Alpha\n\nCites §FS-999-ghost.\n",
-        );
-        symlink(".", &root.join("docs/self"));
-
-        let run = check_run(&root, false);
-
-        assert_eq!(
-            scan_errors(&run),
-            vec!["docs/self: symlink loop: the target is the ancestor directory docs"],
-            "§FS-config.3.5: a loop is reported at the link's own path, once"
-        );
-        assert!(
-            findings(&run)
-                .iter()
-                .any(|line| line.ends_with("unknown reference FS-999-ghost")),
-            "§FS-check.2: the walk continues past the loop, so the findings it had already collected are still printed"
-        );
-    }
-
     /// §AR-workspace.6: the boundary compare is a path suffix, which a member
     /// reached under a *link* name never matches — so the root scan walked into
     /// the member namespace and reported its declarations as duplicates.
@@ -335,44 +200,6 @@ mod tests_scanner_walk {
         );
     }
 
-    /// §DF-symlink-scan.2.4: the loop branch asked only the hidden-name and
-    /// `[scan] exclude` tests, so an ignored looping link still turned the run red.
-    #[test]
-    fn a_looping_link_an_ignore_file_covers_is_not_reported() {
-        let root = linked_repo("a_looping_link_an_ignore_file_covers_is_not_reported");
-        write(&root.join(".ignore"), "self\n");
-        symlink(".", &root.join("docs/self"));
-        symlink(".", &root.join("docs/functional-spec/loop"));
-
-        let run = check_run(&root, false);
-
-        assert_eq!(
-            scan_errors(&run),
-            vec![
-                "docs/functional-spec/loop: symlink loop: the target is the ancestor directory docs/functional-spec"
-            ],
-            "§FS-config.3.5: the walk was never going to descend an ignored path, so its loop is not a hole it has to report"
-        );
-    }
-
-    /// §FS-check.1.3: `--full` walks every `include` root beside the config root
-    /// that already contains it, so an error met once per root printed twice.
-    #[test]
-    fn a_scan_error_is_reported_once_under_full_scope() {
-        let root = linked_repo("a_scan_error_is_reported_once_under_full_scope");
-        symlink("gone.md", &root.join("docs/functional-spec/FS-002-gone.md"));
-
-        let full = check_run(&root, true);
-
-        assert_eq!(
-            scan_errors(&full),
-            vec![
-                "docs/functional-spec/FS-002-gone.md: broken symlink: the target does not exist"
-            ],
-            "§FS-check.1.3: overlapping roots meet one broken link once each, and the report names it once"
-        );
-    }
-
     /// §DF-symlink-scan §3: the identity pass no longer waits for `--full`, so a
     /// plain run stops reporting the duplicate two spellings of one root produced.
     #[test]
@@ -394,23 +221,6 @@ mod tests_scanner_walk {
             findings(&run),
             vec!["docs/functional-spec/FS-001-alpha.md:1: declared but never cited: FS-001-alpha"],
             "§FS-check.1.3: one physical file read once, under the earlier root's spelling — no duplicate of itself"
-        );
-    }
-
-    /// §FS-config.3.5: a link whose target is above the walk root is not an
-    /// ancestor when the walker meets it, so the loop surfaces a full copy of the
-    /// tree later — at `docs/up/docs/up`, which is not the link to fix.
-    #[test]
-    fn a_loop_that_escapes_the_walk_root_is_reported_at_the_link() {
-        let root = linked_repo("a_loop_that_escapes_the_walk_root_is_reported_at_the_link");
-        symlink("..", &root.join("docs/up"));
-
-        let run = check_run(&root, false);
-
-        assert_eq!(
-            scan_errors(&run),
-            vec!["docs/up: symlink loop: the target contains the link"],
-            "§FS-config.3.5: the finding names the link, and says what is wrong with it rather than naming the reader's own directory"
         );
     }
 
@@ -463,5 +273,96 @@ mod tests_scanner_walk {
             vec!["docs/functional-spec/FS-001-alpha.md"],
             "§FS-config.3.5: the walked spelling is what the report names, not the physical one"
         );
+    }
+
+    /// §FS-workspace.6: a leaf member has no members of its own, so the downward
+    /// boundary list is empty and a link inside it walked straight into a
+    /// sibling's tree — re-declaring that project's IDs in this one's namespace.
+    #[test]
+    fn a_link_into_a_sibling_project_stays_out_of_this_scan() {
+        let root = test_root("a_link_into_a_sibling_project_stays_out_of_this_scan");
+        write(
+            &root.join("packages/other/docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        write(
+            &root.join("packages/sub/docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        symlink("../../sub", &root.join("packages/other/docs/blink"));
+
+        let (config, findings) = member_scan(&root, "packages/other");
+
+        assert_eq!(
+            scanned(&config, &findings),
+            vec!["docs/functional-spec/FS-001-alpha.md"],
+            "§FS-workspace.6: the sibling owns its files, so this walk stops at its root"
+        );
+    }
+
+    /// The same boundary one entry lower down: a link onto another project's
+    /// *file* crosses exactly as a link onto its directory does.
+    #[test]
+    fn a_link_onto_another_projects_file_is_not_read() {
+        let root = test_root("a_link_onto_another_projects_file_is_not_read");
+        write(
+            &root.join("packages/other/docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        write(
+            &root.join("packages/sub/docs/functional-spec/FS-002-beta.md"),
+            "# FS-002-beta: Beta\n",
+        );
+        symlink(
+            "../../../sub/docs/functional-spec/FS-002-beta.md",
+            &root.join("packages/other/docs/functional-spec/FS-002-beta.md"),
+        );
+
+        let (config, findings) = member_scan(&root, "packages/other");
+
+        assert_eq!(
+            scanned(&config, &findings),
+            vec!["docs/functional-spec/FS-001-alpha.md"],
+            "§FS-workspace.6: a file another project owns is not this project's to declare"
+        );
+    }
+
+    /// A directory no project owns is not a boundary — the walk was handed it by
+    /// a link the repository wrote, and that is §FS-config.3.5.1's whole point.
+    #[test]
+    fn a_link_to_content_no_project_owns_is_still_followed() {
+        let root = test_root("a_link_to_content_no_project_owns_is_still_followed");
+        write(
+            &root.join("packages/other/docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        write(&root.join("packages/sub/docs/functional-spec/FS-002-beta.md"), "# FS-002-beta: Beta\n");
+        write(&root.join("shared/notes.md"), "Cites §FS-001-alpha.\n");
+        symlink("../../../shared", &root.join("packages/other/docs/shared"));
+
+        let (config, findings) = member_scan(&root, "packages/other");
+
+        assert_eq!(
+            scanned(&config, &findings),
+            vec![
+                "docs/functional-spec/FS-001-alpha.md",
+                "docs/shared/notes.md",
+            ],
+            "§FS-config.3.5.1: outside content is read at the path the link gives it"
+        );
+    }
+
+    /// A member's scan, with the run's other project roots on the config — what
+    /// workspace expansion stamps onto every project it loaded (§AR-workspace.6).
+    fn member_scan(root: &Path, member: &str) -> (Config, Findings) {
+        let mut config = Config::default_for(root.join(member));
+        config.include = Some(vec!["docs".into()]);
+        config.workspace_project_roots = vec![
+            canonical_test_path(&root.join("packages/other")),
+            canonical_test_path(&root.join("packages/sub")),
+        ];
+        let scope = root.join(member);
+        let (findings, _) = scan_tree(&config, Some(&scope), true).expect("scan member");
+        (config, findings)
     }
 }

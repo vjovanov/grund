@@ -54,6 +54,10 @@ fn walk_scannable_files_reporting(
     let mut aliasable = BTreeSet::new();
     let mut files = Vec::new();
     let mut errors = Vec::new();
+    // Where this project physically is, for every comparison below that reads a
+    // resolved path. Equal to `config.root` for the roots `grund` discovers, which
+    // are canonical already (§FS-config.1) — one `stat` per run either way.
+    let physical_root = canonical_config_root(config);
     for scan_root in roots {
         if !scan_root.exists() {
             continue;
@@ -68,7 +72,7 @@ fn walk_scannable_files_reporting(
             .workspace_boundary_roots
             .iter()
             .any(|root| canonical_scan_root.starts_with(root))
-            || owned_by_another_project(config, &canonical_scan_root)
+            || owned_by_another_project(config, &physical_root, &canonical_scan_root)
         {
             continue;
         }
@@ -126,6 +130,7 @@ fn walk_scannable_files_reporting(
                 .find(|kind| kind.prefix == "E2E")
                 .and_then(|kind| kind.folder.as_deref())
                 .map(|folder| config.root.join(folder)),
+            physical_root: physical_root.clone(),
             config: config.clone(),
             link_roots: std::sync::Arc::clone(&link_roots),
             looping_links: std::sync::Arc::clone(&looping_links),
@@ -196,7 +201,7 @@ fn walk_scannable_files_reporting(
         files.retain(|file| {
             !resolved
                 .get(file.as_path())
-                .is_some_and(|physical| owned_by_another_project(config, physical))
+                .is_some_and(|physical| owned_by_another_project(config, &physical_root, physical))
         });
     }
     if !resolved.is_empty() {
@@ -224,7 +229,6 @@ fn walk_scannable_files_reporting(
     // The comparison is physical on both sides: a config root reached through a
     // link would otherwise contain none of the paths its own files resolve to,
     // and `--write` would refuse to rewrite the whole repository.
-    let physical_root = canonical_config_root(config);
     let outside_root = files
         .iter()
         .filter(|file| {
@@ -264,6 +268,7 @@ fn walk_scannable_files_reporting(
 struct WalkDirFilter {
     scan_root: PathBuf,
     canonical_scan_root: PathBuf,
+    physical_root: PathBuf,
     boundary_suffixes: Vec<PathBuf>,
     boundary_roots: Vec<PathBuf>,
     excluded: Vec<String>,
@@ -361,7 +366,7 @@ impl WalkDirFilter {
             self.boundary_roots
                 .iter()
                 .any(|root| resolved.starts_with(root))
-                || owned_by_another_project(&self.config, resolved)
+                || owned_by_another_project(&self.config, &self.physical_root, resolved)
         })
     }
 
@@ -376,13 +381,13 @@ impl WalkDirFilter {
 /// the block that listed it; a path no project owns is not a boundary at all, but
 /// outside content the tree linked in deliberately (§FS-config.3.5.1). Empty list —
 /// every run that loaded no workspace — answers `false` without a comparison.
-fn owned_by_another_project(config: &Config, canonical: &Path) -> bool {
+fn owned_by_another_project(config: &Config, own_root: &Path, canonical: &Path) -> bool {
     config
         .workspace_project_roots
         .iter()
         .filter(|root| canonical.starts_with(root))
         .max_by_key(|root| root.components().count())
-        .is_some_and(|owner| owner != &config.root)
+        .is_some_and(|owner| owner.as_path() != own_root)
 }
 
 /// Whether the walk reached this path *through* one of the directory links it
