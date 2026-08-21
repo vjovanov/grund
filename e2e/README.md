@@ -104,6 +104,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - a workspace where a link inside one member reaches a sibling project and another reaches the root project's docs: neither crosses, while a link to content no project owns is still followed
 - one file reached under two names read once: no duplicate declaration, and the lexicographically first spelling is the one reported
 - a symlink loop (`docs/self -> .`) reported at its own path while the walk carries on to the findings past it
+- a loop whose target is above the walk root (`docs/up -> ..`) reported at the link and not descended into: no finding out of the second copy of the tree, and `[scan] include` still bounds the scan
 - a broken symlink with a scanned extension reported and exiting 2, beside one without that stays silent
 - `fmt --write` reading a file reached through a link that leaves the config root and refusing to write it: the target keeps its bytes, the in-root file is rewritten, and the refusal is one `warning:` line
 - `fmt --check` refusing the same link `--write` refuses instead of listing a rewrite nobody can perform: the one pending edit in the tree is inside it, so the dry run is green with a `warning:` and not red forever

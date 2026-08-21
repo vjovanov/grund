@@ -110,8 +110,13 @@ fn walk_scannable_files_reporting(
         // under one of them is reached under a spelling that is not its own, the
         // same as a file that is a link itself (§AR-scanner.1).
         let link_roots = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        // §FS-config.3.5: the directory links the filter pruned as loops, for the
+        // report to be raised from without the descent the walker would need to
+        // notice them (§AR-scanner.1).
+        let looping_links = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let filter = WalkDirFilter {
             scan_root: scan_root.clone(),
+            canonical_scan_root: canonical_scan_root.clone(),
             boundary_suffixes,
             boundary_roots: config.workspace_boundary_roots.clone(),
             excluded: config.exclude.clone(),
@@ -123,6 +128,7 @@ fn walk_scannable_files_reporting(
                 .map(|folder| config.root.join(folder)),
             config: config.clone(),
             link_roots: std::sync::Arc::clone(&link_roots),
+            looping_links: std::sync::Arc::clone(&looping_links),
         };
         builder.filter_entry(move |entry| filter.keep(entry));
         // A root that resolves elsewhere reaches every one of its files under a
@@ -153,6 +159,22 @@ fn walk_scannable_files_reporting(
                 aliasable.insert(entry.path().to_path_buf());
             }
             root_files.push(entry.path().to_path_buf());
+        }
+        // §FS-config.3.5: the loops the filter pruned. The link is owed the same
+        // report a loop the walker found earns, and by the same gates — it is the
+        // descent, not the report, that pruning removes.
+        for (link, target) in looping_links
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .drain(..)
+        {
+            // The in-tree name of the directory the link reaches back into, or
+            // nothing where the target reaches over the walk root.
+            let ancestor = target
+                .strip_prefix(&canonical_scan_root)
+                .ok()
+                .map(|rest| scan_root.join(rest));
+            errors.extend(symlink_loop_report(&link, ancestor.as_deref(), config));
         }
         // §FS-errors.4: within one root the order is the filesystem's, and the
         // first-seen rule below turns that order into a choice of *spelling*. Sort
@@ -241,12 +263,14 @@ fn walk_scannable_files_reporting(
 /// link subtrees and nothing more.
 struct WalkDirFilter {
     scan_root: PathBuf,
+    canonical_scan_root: PathBuf,
     boundary_suffixes: Vec<PathBuf>,
     boundary_roots: Vec<PathBuf>,
     excluded: Vec<String>,
     e2e_cases_root: Option<PathBuf>,
     config: Config,
     link_roots: std::sync::Arc<std::sync::Mutex<Vec<PathBuf>>>,
+    looping_links: std::sync::Arc<std::sync::Mutex<Vec<(PathBuf, PathBuf)>>>,
 }
 
 impl WalkDirFilter {
@@ -274,7 +298,28 @@ impl WalkDirFilter {
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             return true;
         };
-        !self.excluded.iter().any(|item| item == name)
+        if self.excluded.iter().any(|item| item == name) {
+            return false;
+        }
+        // §FS-config.3.5: a directory link whose target is at or above the walk
+        // root is a loop, and the one kind the walker cannot see: it compares a
+        // target against the directories it is *inside*, and this one is not one
+        // of them, so `docs/up -> ..` sends it down a complete second copy of the
+        // tree before it notices at `docs/up/docs/up`. That descent reports
+        // findings from a tree the run has just called unreadable and reads past
+        // `[scan] include`, so the link is pruned here and the report raised
+        // afterwards from `looping_links` (§AR-scanner.1).
+        if entry.path_is_symlink()
+            && let Some(resolved) = resolved
+            && self.canonical_scan_root.starts_with(resolved)
+        {
+            self.looping_links
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .push((path.to_path_buf(), resolved.to_path_buf()));
+            return false;
+        }
+        true
     }
 
     /// The canonical path of a directory the walk reached **through** a symlink
