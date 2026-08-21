@@ -1,8 +1,15 @@
 # Requirements
 
-What the `grund` repository holds itself to — the tree that ships the scheme is the first tree checked by it. Each requirement lives in its own file; the H1 declares a `REQ-<slug>` ID.
+What `grund` must never break — the hard invariants a release is blocked on — plus the contracts the repository's own surfaces keep. Each requirement lives in its own file; the H1 declares a `REQ-<slug>` ID.
 
-- [§REQ-grund](REQ-grund.md#req-grund-the-repository-practices-what-it-ships) — layout, scan coverage, grounded source, ship discipline
+## The tool
+
+- [§REQ-backwards-compatibility](REQ-backwards-compatibility.md#req-backwards-compatibility-a-passing-tree-keeps-passing) — a passing tree keeps passing across upgrades
+- [§REQ-no-missed-citation](REQ-no-missed-citation.md#req-no-missed-citation-every-citation-is-seen) — every citation is seen; false negatives are bugs
+- [§REQ-no-wrong-citation](REQ-no-wrong-citation.md#req-no-wrong-citation-a-citation-never-resolves-to-a-guess) — no guessed resolution, no false alarms
+
+## This repository
+
 - [§REQ-readme](REQ-readme.md#req-readme-the-readme-is-the-grounded-shop-window) — the README: real examples, checked citations
 - [§REQ-agents-md](REQ-agents-md.md#req-agents-md-the-agent-entrypoint-stays-managed-and-grounded) — the agent entrypoint: managed block, grounded rules
 

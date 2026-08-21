@@ -12,7 +12,7 @@ The versioned `grund init` block is kept at the version the pinned `grund` binar
 
 ## 3. Rules outside the block are grounded
 
-Every repository rule below the managed block cites the spec point that owns it — the changelog gate cites §FS-distribution.4, the layout contract is §REQ-grund — so an agent resolves the why of an instruction the same way it resolves the why of a line of code.
+Every repository rule below the managed block cites the spec point that owns it — the changelog gate cites §FS-distribution.4 — so an agent resolves the why of an instruction the same way it resolves the why of a line of code.
 
 ## 4. Scanned like everything else
 

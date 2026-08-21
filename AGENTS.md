@@ -21,7 +21,7 @@ A `§<ID>` is a pointer to a fact, not a file path. Resolve it with `grund` and 
 - [GRUND](docs/grund.md): Why: project motivation
 - [GOAL](docs/goals.md): Where: project direction and outcomes
 - [FS](docs/functional-spec): What: behavior, requirements, and constraints
-- [REQ](docs/requirements): Requirements the repository holds itself to
+- [REQ](docs/requirements): Hard requirements: what grund must never break
 - [AR](docs/architecture): How: high-level implementation, structure, and design
 - [DF](docs/decisions/functional): Product behavior decisions and tradeoffs
 - [DA](docs/decisions/architectural): Architecture decisions and tradeoffs
@@ -68,7 +68,7 @@ On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the rev
 ## Repository workflow
 
 - Every PR for this repository needs a `docs/changelog.md` `## Unreleased` bullet that mentions its PR number (`PR #N`); the pre-push hook checks this once the branch has a PR (§FS-distribution.4).
-- The repository's own conformance is specced: layout and scan set in §REQ-grund, this entrypoint in §REQ-agents-md (edit `AGENTS.md`, never the `CLAUDE.md` symlink), the README's contract in §REQ-readme.
+- Hard requirements — what `grund` must never break — live in `docs/requirements`: §REQ-backwards-compatibility, §REQ-no-missed-citation, §REQ-no-wrong-citation. This entrypoint's contract is §REQ-agents-md (edit `AGENTS.md`, never the `CLAUDE.md` symlink); the README's is §REQ-readme.
 
 ## Keeping Files Small With fissile (v1)
 
