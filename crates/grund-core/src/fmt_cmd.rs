@@ -92,6 +92,7 @@ fn command_fmt(args: &[String]) -> ExitCode {
                 add_marker: marker,
                 cross_refs,
                 write,
+                render: &config,
                 workspace: workspace_for_wrap,
                 precomputed_findings: Some(&project.findings),
             };
@@ -133,6 +134,7 @@ fn command_fmt(args: &[String]) -> ExitCode {
             add_marker: marker,
             cross_refs,
             write,
+            render: &config,
             workspace: workspace_for_wrap,
             precomputed_findings: reusable_findings,
         };

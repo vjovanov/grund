@@ -1,0 +1,2 @@
+warning: packages/sub/docs/FS-004-out.md: not rewritten: the symlink target is outside the config root
+error: packages/sub/docs/FS-003-gone.md: broken symlink: the target does not exist

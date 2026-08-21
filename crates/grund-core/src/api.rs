@@ -1229,6 +1229,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 add_marker: opts.add_marker,
                 cross_refs: explicit_cross_refs || auto_cross_refs,
                 write: opts.write,
+                render: &config,
                 workspace: workspace_for_wrap,
                 precomputed_findings: Some(&project.findings),
             };
@@ -1251,6 +1252,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             add_marker: opts.add_marker,
             cross_refs: explicit_cross_refs || auto_cross_refs,
             write: opts.write,
+            render: &config,
             workspace: workspace_for_wrap,
             precomputed_findings: reusable_findings,
         };

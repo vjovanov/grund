@@ -1,0 +1,4 @@
+# A path the member's walk cannot read, and one it reads but will not rewrite.
+# Both are the member's, and both are named from the workspace root.
+project/packages/sub/docs/FS-003-gone.md -> FS-003-gone-target.md
+project/packages/sub/docs/FS-004-out.md -> ../../../../outside/FS-004-out.md
