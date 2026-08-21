@@ -32,6 +32,11 @@ fn scope_contains_markdown(
 /// either write the changes back (`--write`) or just collect `(path, line, label)`
 /// for `--check`/dry-run (§FS-fmt.3). `--cross-refs` needs the full `Findings` first
 /// so a link is only emitted when its target resolves (§FS-fmt.6.3).
+/// What one `fmt` walk produced: the lines it rewrote — or, in a dry run, would
+/// have — as `(path, line, label)`, and the paths it could not read at all
+/// (§FS-fmt.3).
+type FmtTreeOutcome = (Vec<(PathBuf, usize, String)>, Vec<ApiScanError>);
+
 /// What `fmt_tree` rewrites and against what context — grouped so the walk
 /// inputs (config + scope) and the rewrite knobs travel separately.
 struct FmtRunOpts<'a> {
@@ -50,7 +55,7 @@ fn fmt_tree(
     scope: Option<&Path>,
     explicit_scope: bool,
     opts: &FmtRunOpts<'_>,
-) -> Result<(Vec<(PathBuf, usize, String)>, Vec<ApiScanError>)> {
+) -> Result<FmtTreeOutcome> {
     let mut changes = Vec::new();
     let add_marker = opts.add_marker;
     let cross_refs = opts.cross_refs;
