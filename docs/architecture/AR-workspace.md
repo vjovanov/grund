@@ -209,6 +209,18 @@ matches a boundary. Boundary roots are computed once per workspace run, not per
 directory entry, so the per-entry cost is one path comparison and no
 `canonicalize` syscall.
 
+The relative-path compare answers the question only while the tree spells a
+member one way. A **symlink** gives it a second spelling — `docs/link -> ../sub`,
+or `docs/link -> ../packages` with the member one level below it — and a member
+reached under a link name matches no precomputed suffix, so the root scan
+descends into the member namespace this section forbids and reports the member's
+own declarations as duplicates of themselves. The boundary is a property of the
+directory, not of the name it is reached under, so a directory the walk reached
+**through a link** is resolved with `canonicalize` and compared against the
+member roots directly ([§AR-scanner.1](AR-scanner.md#1-tree-walk)). That is the
+one case that pays a syscall, it is paid per link-reached directory rather than
+per entry, and a tree with no directory symlink in it pays nothing.
+
 Members are scanned recursively as independent projects. A member that declares
 its own `[workspace]` block contributes its whole subtree instead of one
 project (§6.1).
