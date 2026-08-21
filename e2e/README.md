@@ -103,6 +103,8 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - one file reached under two names read once: no duplicate declaration, and the lexicographically first spelling is the one reported
 - a symlink loop (`docs/self -> .`) reported at its own path while the walk carries on to the findings past it
 - a broken symlink with a scanned extension reported and exiting 2, beside one without that stays silent
+- `fmt --write` reading a file reached through a link that leaves the config root and refusing to write it: the target keeps its bytes, the in-root file is rewritten, and the refusal is one `warning:` line
+- `fmt --check` naming the broken symlink it walked past, in the same shape and with the same exit `2` `check` uses for it
 - nested e2e fixture repos ignored during ordinary scans
 - unsupported extension ignored
 - deterministic multiple-error output

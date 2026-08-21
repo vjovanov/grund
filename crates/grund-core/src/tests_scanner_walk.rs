@@ -46,6 +46,19 @@ mod tests_scanner_walk {
         located_diagnostics(&run.config, diagnostics)
     }
 
+    /// The files the walk handed to the scanner, in report spelling — what a case
+    /// about *where the walk went* asserts on, independent of which of them
+    /// happened to declare anything.
+    fn scanned(config: &Config, findings: &Findings) -> Vec<String> {
+        let mut files: Vec<String> = findings
+            .scanned_files
+            .iter()
+            .map(|file| display_path(config, file))
+            .collect();
+        files.sort();
+        files
+    }
+
     /// The `error: <path>: <reason>` lines a file the scan could not read earns
     /// (§FS-check.2, §FS-errors.2.2).
     fn scan_errors(run: &CheckRun) -> Vec<String> {
@@ -241,6 +254,163 @@ mod tests_scanner_walk {
                 .iter()
                 .any(|line| line.ends_with("unknown reference FS-999-ghost")),
             "§FS-check.2: the walk continues past the loop, so the findings it had already collected are still printed"
+        );
+    }
+
+    /// §AR-workspace.6: the boundary compare is a path suffix, which a member
+    /// reached under a *link* name never matches — so the root scan walked into
+    /// the member namespace and reported its declarations as duplicates.
+    #[test]
+    fn a_member_reached_through_a_link_stays_out_of_the_root_scan() {
+        let root = test_root("a_member_reached_through_a_link_stays_out_of_the_root_scan");
+        write(
+            &root.join("docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        write(
+            &root.join("packages/sub/docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        symlink("../packages/sub", &root.join("docs/member-link"));
+
+        let mut config = Config::default_for(root.clone());
+        config.include = Some(vec!["docs".into()]);
+        config.workspace_boundary_roots = vec![canonical_test_path(&root.join("packages/sub"))];
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+
+        assert_eq!(
+            scanned(&config, &findings),
+            vec!["docs/functional-spec/FS-001-alpha.md"],
+            "§AR-workspace.6: a member is out of bounds under every name it wears, the link's included"
+        );
+    }
+
+    /// The same escape one level up: the link names a directory that *contains*
+    /// the member, so no prefix of the entry's in-tree path is the member either.
+    #[test]
+    fn a_link_above_a_member_does_not_carry_the_root_scan_into_it() {
+        let root = test_root("a_link_above_a_member_does_not_carry_the_root_scan_into_it");
+        write(
+            &root.join("docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        write(
+            &root.join("packages/sub/docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        symlink("../packages", &root.join("docs/packages-link"));
+
+        let mut config = Config::default_for(root.clone());
+        config.include = Some(vec!["docs".into()]);
+        config.workspace_boundary_roots = vec![canonical_test_path(&root.join("packages/sub"))];
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+
+        assert_eq!(
+            scanned(&config, &findings),
+            vec!["docs/functional-spec/FS-001-alpha.md"],
+            "§AR-workspace.6: the boundary is the directory, so it holds however many links are above it"
+        );
+    }
+
+    /// §AR-scanner.6: the case-directory test compares an entry's parent with the
+    /// cases root exactly, which a link onto that root does not match — and the
+    /// fixture repos the manifest pass owns were scanned as repo content.
+    #[test]
+    fn an_e2e_case_directory_reached_through_a_link_is_not_scanned() {
+        let root = linked_repo("an_e2e_case_directory_reached_through_a_link_is_not_scanned");
+        write(&root.join("e2e/cases/001-case/expected.exit"), "0\n");
+        write(
+            &root.join("e2e/cases/001-case/repo/docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        symlink("../e2e/cases", &root.join("docs/cases-link"));
+
+        let run = check_run(&root, false);
+
+        assert!(
+            !findings(&run)
+                .iter()
+                .any(|line| line.contains("duplicate declaration")),
+            "§AR-scanner.6: a case directory is a manifest boundary under every name it is reached by"
+        );
+    }
+
+    /// §DF-symlink-scan.2.4: the loop branch asked only the hidden-name and
+    /// `[scan] exclude` tests, so an ignored looping link still turned the run red.
+    #[test]
+    fn a_looping_link_an_ignore_file_covers_is_not_reported() {
+        let root = linked_repo("a_looping_link_an_ignore_file_covers_is_not_reported");
+        write(&root.join(".ignore"), "self\n");
+        symlink(".", &root.join("docs/self"));
+        symlink(".", &root.join("docs/functional-spec/loop"));
+
+        let run = check_run(&root, false);
+
+        assert_eq!(
+            scan_errors(&run),
+            vec![
+                "docs/functional-spec/loop: symlink loop: the target is the ancestor directory docs/functional-spec"
+            ],
+            "§FS-config.3.5: the walk was never going to descend an ignored path, so its loop is not a hole it has to report"
+        );
+    }
+
+    /// §FS-check.1.3: `--full` walks every `include` root beside the config root
+    /// that already contains it, so an error met once per root printed twice.
+    #[test]
+    fn a_scan_error_is_reported_once_under_full_scope() {
+        let root = linked_repo("a_scan_error_is_reported_once_under_full_scope");
+        symlink("gone.md", &root.join("docs/functional-spec/FS-002-gone.md"));
+
+        let full = check_run(&root, true);
+
+        assert_eq!(
+            scan_errors(&full),
+            vec![
+                "docs/functional-spec/FS-002-gone.md: broken symlink: the target does not exist"
+            ],
+            "§FS-check.1.3: overlapping roots meet one broken link once each, and the report names it once"
+        );
+    }
+
+    /// §DF-symlink-scan §3: the identity pass no longer waits for `--full`, so a
+    /// plain run stops reporting the duplicate two spellings of one root produced.
+    #[test]
+    fn a_plain_run_collapses_an_aliased_root() {
+        let root = test_root("a_plain_run_collapses_an_aliased_root");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n[scan]\ninclude = [\"docs\", \"docs-link\"]\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        symlink("docs", &root.join("docs-link"));
+
+        let run = check_run(&root, false);
+
+        assert_eq!(
+            findings(&run),
+            vec!["docs/functional-spec/FS-001-alpha.md:1: declared but never cited: FS-001-alpha"],
+            "§FS-check.1.3: one physical file read once, under the earlier root's spelling — no duplicate of itself"
+        );
+    }
+
+    /// §FS-config.3.5: a link whose target is above the walk root is not an
+    /// ancestor when the walker meets it, so the loop surfaces a full copy of the
+    /// tree later — at `docs/up/docs/up`, which is not the link to fix.
+    #[test]
+    fn a_loop_that_escapes_the_walk_root_is_reported_at_the_link() {
+        let root = linked_repo("a_loop_that_escapes_the_walk_root_is_reported_at_the_link");
+        symlink("..", &root.join("docs/up"));
+
+        let run = check_run(&root, false);
+
+        assert_eq!(
+            scan_errors(&run),
+            vec!["docs/up: symlink loop: the target contains the link"],
+            "§FS-config.3.5: the finding names the link, and says what is wrong with it rather than naming the reader's own directory"
         );
     }
 
