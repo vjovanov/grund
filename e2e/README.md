@@ -22,6 +22,7 @@ An optional `symlinks` file adds links the fixture cannot carry in git — git o
 
 - One link per line, `<link> -> <target>`, with `->` appearing **exactly once**. Blank lines and lines starting with `#` are ignored.
 - Both paths are relative to the fixture repo, `/`-separated. The **link** path must stay inside the copy: no absolute form, no `..`, and no `\`. The **target** is free to leave it — `link -> ..` is exactly what one case tests.
+- The **kind** of link is not written down: the harness resolves the target against the link's own directory and creates a directory link where it lands on a directory, a file link otherwise (a target that does not exist is a file link). Unix has one kind and ignores this; Windows stores the kind in the link, and one made with the wrong kind does not resolve, so a fixture's file links looked like unreadable paths to `grund` and the case exited `2` where its golden said `1`. A link whose target existed and still does not resolve fails the case at creation, naming the fixture rather than the golden.
 - The manifest must declare at least one link. An empty one used to yield no links, no diagnostic, and no skip, so a case could be green with a dead manifest.
 - The case must run against `{repo_copy}`. Only that branch copies the fixture and creates the links, so a manifest case written against `{repo}` tested the committed tree while claiming to test a symlinked one.
 
