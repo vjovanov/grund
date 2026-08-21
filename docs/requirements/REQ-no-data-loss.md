@@ -1,6 +1,6 @@
 # REQ-no-data-loss: grund never eats user content
 
-A wrong verdict can be re-run; destroyed content cannot. `grund` writes only what it owns, only when it was asked to — a `grund` invocation must never be the reason a repository lost work.
+A wrong verdict can be re-run; destroyed content cannot. `grund` writes only what it owns, only when it was asked to — a `grund` invocation must never be the reason a repository lost work. The tool that organizes a project's long-term memory (§GRUND-structure) is the last thing that should be able to destroy it.
 
 ## 1. The query surface never writes
 
@@ -8,7 +8,7 @@ A wrong verdict can be re-run; destroyed content cannot. `grund` writes only wha
 
 ## 2. Writers touch only what they own
 
-Three invocations write, each bounded by a stated ownership marker: `fmt --write` rewrites the citation tokens it names and no other byte (§FS-fmt); `init` owns the managed entrypoint block, delimited by its markers, plus the files it scaffolds (§FS-init.3); `integrations --write` owns its comment-delimited blocks in editor and terminal config, its fixed resolver path, and its own extension directory (§FS-integrations.4). The editor transform is held to the same rule in the user's buffer (§FS-lsp.1.4). Ownership is what makes a re-run safe: everything outside the marker survives, however many times the command runs.
+Three invocations write, each bounded by a stated ownership marker: `fmt --write` rewrites the citation tokens it names and no other byte (§FS-fmt.2.3); `init` owns the managed entrypoint block, delimited by its markers, plus the files it scaffolds (§FS-init.3); `integrations --write` owns its comment-delimited blocks in editor and terminal config, its fixed resolver path, and its own extension directory (§FS-integrations.4). The editor transform is held to the same rule in the user's buffer (§FS-lsp.1.4). Ownership is what makes a re-run safe: everything outside the marker survives, however many times the command runs.
 
 ## 3. Destructive is opt-in and never a side effect
 
