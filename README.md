@@ -83,6 +83,7 @@ crates/grund-core/src/checker.rs:301: missing section FS-check.3.2
 crates/grund-core/src/checker_references.rs:2: missing section FS-check.3.2
 crates/grund-core/src/checker_references.rs:256: missing section FS-check.3.2
 docs/decisions/functional/DF-require-grounding.md:8: missing section FS-check.3.2
+docs/requirements/REQ-no-wrong-citation.md:7: missing section FS-check.3.2
 ```
 
 `grund <path>` scans `<path>`; with no path it scans the canonical layout (`requirements.md`, `docs/`, `e2e/`, `src/`). In the scanned tree it enforces:
@@ -214,17 +215,15 @@ $ grund refs FS-check.3.2 --summary
 crates/grund-core/src/checker.rs: 2 (lines 49, 301)
 crates/grund-core/src/checker_references.rs: 2 (lines 2, 256)
 docs/decisions/functional/DF-require-grounding.md: 1 (line 8)
+docs/requirements/REQ-no-wrong-citation.md: 1 (line 7)
 ```
-
-(The citation list goes to stdout — pipe it like `grund list`. Add `--format=json` for NDJSON.)
 
 Before reviewing a diff, group the citation graph by file so you can join changed files to the specs they touch:
 
 ```bash
-$ grund cover --format json | jq -c 'select(.path | startswith("crates/grund-core"))'
+$ grund cover --format json | jq -c 'select(.path == "crates/grund-core/src/checker_references.rs") | .citations |= map(select(.id == "FS-check" and .section == "3.2"))'
+{"path":"crates/grund-core/src/checker_references.rs","citations":[{"path":"crates/grund-core/src/checker_references.rs","line":2,"column":23,"id":"FS-check","section":"3.2","marker":true,"text":"§FS-check.3.2"},{"path":"crates/grund-core/src/checker_references.rs","line":256,"column":12,"id":"FS-check","section":"3.2","marker":true,"text":"§FS-check.3.2"}]}
 ```
-
-(`grund cover --format json` is NDJSON — one `{"path":…,"citations":[…]}` record per scanned file.)
 
 For an agent reviewing a code change, the loop is mechanical: list the `§…` citations in the changed files, run `grund <ID>` on each, and ask "does the code still match what the spec claims?"
 
@@ -310,7 +309,7 @@ pip install pre-commit && cargo install lychee && pre-commit install
 
 ## Commands
 
-`grund --help` is one screen; `grund <command> --help` is one page with flags, examples, and exit codes.
+`grund --help` is one screen; `grund <command> --help` is one page with flags, examples, and exit codes. The full surface is in [`docs/functional-spec/`](docs/functional-spec/).
 
 - **`grund check`** — validate every reference in the tree.
 - **`grund <ID>[.<section>]`** — print one declaration body, for pulling spec content into agent prompts.
@@ -323,8 +322,6 @@ pip install pre-commit && cargo install lychee && pre-commit install
 - **`grund config`** — validate or print the effective `grund.toml`.
 - **`grund completions`** — print bash, zsh, or fish completion scripts.
 - **`grund agent-setup-instructions`** — print the guided setup workflow for AI agents.
-
-Full surface (flags, JSON shapes, exit codes) in [`docs/functional-spec/`](docs/functional-spec/).
 
 ## Agent prompt pattern
 
