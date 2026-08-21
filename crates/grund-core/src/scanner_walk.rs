@@ -201,7 +201,7 @@ fn walk_error_report(
     if !fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink()) {
         return Some((path.to_path_buf(), walk_error_reason(err)));
     }
-    if !is_scannable(path, config) {
+    if !is_scannable(path, config) || !walk_would_have_read(path, config) {
         return None;
     }
     let reason = match err.io_error().map(std::io::Error::kind) {
@@ -211,6 +211,34 @@ fn walk_error_report(
         _ => format!("unreadable symlink: {}", walk_error_reason(err)),
     };
     Some((path.to_path_buf(), reason))
+}
+
+/// Whether the walk would have read the file at `path` had the link resolved —
+/// the ignore-file half of that question, which `is_scannable` cannot answer
+/// (§FS-config.3.5, §AR-scanner.1.1).
+///
+/// `.gitignore` and friends are applied to the entries the walker *yields*, and a
+/// link it cannot resolve arrives as an error instead, so an ignored generated
+/// file would otherwise earn a scan error about a path the ordinary walk was
+/// never going to look at. Re-walking the link's own directory one level deep,
+/// without following links, answers it: there the link is an ordinary entry and
+/// the ignore rules do apply to it. Only a positive "the walker filtered this
+/// out" suppresses the report — an unreadable parent or no parent at all reports,
+/// because a silent skip is the failure §REQ-no-missed-citation.1 rules out. The
+/// cost is one directory read, and only for a link that is already broken.
+fn walk_would_have_read(path: &Path, config: &Config) -> bool {
+    if !config.respect_gitignore {
+        return true;
+    }
+    let Some(parent) = path.parent() else {
+        return true;
+    };
+    let mut builder = WalkBuilder::new(parent);
+    builder.hidden(false).max_depth(Some(1)).follow_links(false);
+    builder
+        .build()
+        .filter_map(std::result::Result::ok)
+        .any(|entry| entry.path() == path)
 }
 
 /// The `(link, ancestor)` of a symlink loop, at any nesting depth of the error.
