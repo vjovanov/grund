@@ -31,7 +31,11 @@ fn walk_scannable_files_reporting(
     // §FS-config.3.5: an aliased root, or a symlink met on the way down, is what
     // hands the same file to the walk under two spellings — nothing else does, so
     // a tree with neither never pays for the identity pass (§GOAL-fast-feedback).
-    let mut can_alias = roots_can_alias(&roots);
+    // This is the *list* of those files rather than a flag saying one exists: the
+    // pass resolves what is in it and compares everything else by path, so one
+    // link in a repository costs one `realpath` and not one per file
+    // (§AR-scanner.1).
+    let mut aliasable = BTreeSet::new();
     let mut files = Vec::new();
     let mut errors = Vec::new();
     for scan_root in roots {
@@ -83,6 +87,10 @@ fn walk_scannable_files_reporting(
             .filter_map(|root| root.strip_prefix(&canonical_scan_root).ok())
             .map(Path::to_path_buf)
             .collect();
+        // The directory links the filter met, shared with the loop below: a file
+        // under one of them is reached under a spelling that is not its own, the
+        // same as a file that is a link itself (§AR-scanner.1).
+        let link_roots = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let filter = WalkDirFilter {
             scan_root: scan_root.clone(),
             boundary_suffixes,
@@ -95,9 +103,12 @@ fn walk_scannable_files_reporting(
                 .and_then(|kind| kind.folder.as_deref())
                 .map(|folder| config.root.join(folder)),
             config: config.clone(),
-            link_roots: std::sync::Mutex::default(),
+            link_roots: std::sync::Arc::clone(&link_roots),
         };
         builder.filter_entry(move |entry| filter.keep(entry));
+        // A root that resolves elsewhere reaches every one of its files under a
+        // spelling that is not the file's own, so all of them can alias (§FS-check.1.3).
+        let root_is_aliased = canonical_scan_root != scan_root;
         let walker = builder.build();
         let mut root_files = Vec::new();
         for entry in walker {
@@ -112,13 +123,15 @@ fn walk_scannable_files_reporting(
                     continue;
                 }
             };
-            can_alias |= entry.path_is_symlink();
             if !entry
                 .file_type()
                 .is_some_and(|file_type| file_type.is_file())
                 || !is_scannable(entry.path(), config)
             {
                 continue;
+            }
+            if root_is_aliased || entry.path_is_symlink() || under_link(&link_roots, entry.path()) {
+                aliasable.insert(entry.path().to_path_buf());
             }
             root_files.push(entry.path().to_path_buf());
         }
@@ -132,8 +145,8 @@ fn walk_scannable_files_reporting(
     // One file, one read (§FS-check.1.3, §FS-config.3.5). Two spellings first,
     // while the list is still in walk order and first-seen wins; then the
     // byte-identical ones, which the sort has just brought together.
-    if can_alias {
-        dedup_by_file_identity(&mut files);
+    if !aliasable.is_empty() {
+        dedup_by_file_identity(&mut files, &aliasable);
     }
     files.sort_by_key(|path| sort_path_key(path));
     // The roots may overlap — `include = ["docs", "docs/api"]` names one subtree
@@ -175,7 +188,7 @@ struct WalkDirFilter {
     excluded: Vec<String>,
     e2e_cases_root: Option<PathBuf>,
     config: Config,
-    link_roots: std::sync::Mutex<Vec<PathBuf>>,
+    link_roots: std::sync::Arc<std::sync::Mutex<Vec<PathBuf>>>,
 }
 
 impl WalkDirFilter {
@@ -357,22 +370,15 @@ fn walk_error_reason(err: &ignore::Error) -> String {
     }
 }
 
-/// Whether two of these walk *roots* can reach one file under two *different*
-/// spellings (§FS-check.1.3). Only a root whose canonical form differs from the
-/// path the walk starts at can: a symlink to a directory inside the config root,
-/// or a case alias of one on a case-insensitive filesystem. Every other pair of
-/// overlapping roots yields byte-identical descendant paths, which the exact-path
-/// `dedup()` after the sort already collapses.
-///
-/// This is one of the two ways a file gets two names; the other is a symlink met
-/// *below* a root, which the walk notices per entry (§FS-config.3.5). Together
-/// they are what keeps a tree with neither from canonicalizing a file at a time
-/// — a `realpath` syscall per file is not a price the ordinary walk should pay
-/// (§GOAL-fast-feedback).
-fn roots_can_alias(roots: &[PathBuf]) -> bool {
-    roots
+/// Whether the walk reached this path *through* one of the directory links it
+/// recorded — which makes the file's spelling not its own, exactly as being a
+/// link itself would (§AR-scanner.1).
+fn under_link(link_roots: &std::sync::Mutex<Vec<PathBuf>>, path: &Path) -> bool {
+    link_roots
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .iter()
-        .any(|root| fs::canonicalize(root).is_ok_and(|canonical| canonical != *root))
+        .any(|root| path.starts_with(root))
 }
 
 /// Collapse the files reached under two spellings, keeping the **first**
@@ -382,9 +388,29 @@ fn roots_can_alias(roots: &[PathBuf]) -> bool {
 /// lines and never restates an in-scope one under a second name. Within a single
 /// root the caller has already sorted, so "first" there is the lexicographically
 /// first path rather than whatever readdir happened to say (§FS-errors.4).
-fn dedup_by_file_identity(files: &mut Vec<PathBuf>) {
+///
+/// `aliasable` is the subset the walk saw arrive under a spelling that is not its
+/// own — a link, a file below a directory link, or any file of an aliased root —
+/// and it is the only subset `canonicalize` is spent on. The paths those resolve
+/// to are the only ones another file can turn out to be, so every other file is
+/// answered by a lookup in that small target set and is never resolved at all: a
+/// repository with one symlink pays one `realpath`, not one per file, which is
+/// what a flag saying "this tree has a link in it" could not do
+/// (§GOAL-fast-feedback, §AR-scanner.1).
+fn dedup_by_file_identity(files: &mut Vec<PathBuf>, aliasable: &BTreeSet<PathBuf>) {
+    let resolved: std::collections::HashMap<PathBuf, PathBuf> = aliasable
+        .iter()
+        .map(|file| (file.clone(), physical_path_key(file)))
+        .collect();
+    let targets: std::collections::HashSet<&Path> =
+        resolved.values().map(PathBuf::as_path).collect();
     let mut seen = BTreeSet::new();
-    files.retain(|file| seen.insert(physical_path_key(file)));
+    files.retain(|file| {
+        let key = resolved
+            .get(file.as_path())
+            .map_or(file.as_path(), PathBuf::as_path);
+        !targets.contains(key) || seen.insert(key.to_path_buf())
+    });
 }
 
 /// Direct `e2e/cases/<name>/` directories are E2E manifest declarations

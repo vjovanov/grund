@@ -40,7 +40,7 @@ The report is owed only where the walk would otherwise have read through the lin
 - A repository whose specs are reached through a symlink is checked for the first time. That can turn a green run red, which is the correct direction: the findings were always there and were being dropped.
 - Files reached through a link may live outside the config root, so a run can now read bytes the project does not own (§2.2). `[scan] exclude` is the fence.
 - A broken or looping link with a scannable name is a new source of exit `2` on a tree that used to exit `0` silently.
-- The identity pass that `--full` used for aliased roots now also runs whenever the walk met a symlink. A tree with no symlink pays nothing, which is what keeps [§GOAL-fast-feedback](../../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) intact.
+- The identity pass that `--full` used for aliased roots now also runs whenever the walk met a symlink — over the linked files alone. A tree with no symlink pays nothing, and a tree with one symlink pays one `realpath` rather than one per file, which is what keeps [§GOAL-fast-feedback](../../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) intact.
 
 ## 4. Alternatives considered
 
@@ -51,4 +51,5 @@ The report is owed only where the walk would otherwise have read through the lin
 | Follow links inside the config root, refuse those that escape it | The link is in the tree by the path the repository wrote; refusing it by where its target lands re-creates the false alarm for the one case a user is most likely to have written deliberately (§2.2). |
 | Report findings at the resolved target path | Unjumpable, unrenderable under `relative_paths`, and it breaks the `--full` additivity rule, which requires the in-scope lines to be identical spelling included (§2.3). |
 | Canonicalize every walked file so aliases always collapse | A `realpath` per file on every run of every repository, to serve the trees that have a symlink in them. The walk is where [§GOAL-fast-feedback](../../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) is set (§3). |
+| Arm the identity pass with a flag the first symlink raises | The same `realpath` per file as the row above, bought by one link anywhere in the tree — and real repositories have one, `CLAUDE.md -> AGENTS.md` among them. Measured at ~2.7x on a 20 000-file tree with a single link. What the walk records instead is the *list* of files that can wear a second name, so the cost tracks the links rather than the repository (§3).
 | Abort the scan on the first unresolvable link | One dangling link takes the whole report with it, which is the opposite of what [§FS-check.2](../../functional-spec/FS-check.md#2-outputs) promises about a file the walk cannot read (§2.4). |
