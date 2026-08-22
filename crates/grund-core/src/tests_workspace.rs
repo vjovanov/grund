@@ -153,7 +153,7 @@ mod tests_workspace {
             ),
         ]);
         let root_report =
-            check_with_workspace(&root_findings, &root_config, Some("root"), &workspace);
+            check_with_workspace(&root_findings, &root_config, &root_config, Some("root"), &workspace);
         assert!(
             !root_report.errors.iter().any(|error| error.code == "dangling"),
             "target-shaped cross-project citation must resolve: {:?}",
@@ -163,7 +163,7 @@ mod tests_workspace {
                 .map(|error| (&error.code, &error.message))
                 .collect::<Vec<_>>()
         );
-        let api_report = check_with_workspace(&api_findings, &api_config, Some("api"), &workspace);
+        let api_report = check_with_workspace(&api_findings, &api_config, &root_config, Some("api"), &workspace);
         assert!(
             !api_report
                 .warnings
@@ -263,7 +263,7 @@ mod tests_workspace {
                 },
             ),
         ]);
-        let report = check_with_workspace(&root_findings, &root_config, Some("root"), &workspace);
+        let report = check_with_workspace(&root_findings, &root_config, &root_config, Some("root"), &workspace);
         assert!(
             report.errors.iter().any(|error| {
                 error.code == "dangling"

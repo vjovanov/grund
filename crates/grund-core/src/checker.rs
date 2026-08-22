@@ -174,13 +174,20 @@
 /// ### 2.15 Duplicate section paths (§FS-check.3.16, §DF-duplicate-section-path)
 ///
 /// One pass over the declarations. The scanner records a section path once, by
-/// the first heading that claims it, and appends every later claimant to
-/// `duplicate_sections` (§AR-scanner.2.2); this rule groups that list by path and
-/// emits one error per collided path, anchored at the first heading with the rest
-/// named in the message — §2.1's shape for declarations, one level down. The
-/// heading-level rule above reads only the map, so a duplicate heading is not
-/// additionally judged for depth: nothing resolves to it, and the run has already
-/// said it should not exist (§DF-duplicate-section-path.2.4).
+/// the first heading that claims it, and appends every later claimant *inside the
+/// declaration's own body* to `duplicate_sections` (§AR-scanner.2.2); this rule
+/// groups that list by path and emits one error per collided path, anchored at
+/// the first heading with the rest named in the message — §2.1's shape for
+/// declarations, one level down. The heading-level rule above reads only the map,
+/// so a duplicate heading is not additionally judged for depth: nothing resolves
+/// to it, and the run has already said it should not exist
+/// (§DF-duplicate-section-path.2.4).
+///
+/// Nothing here re-derives *which* headings a declaration owns — the scan
+/// answered that once, which is what makes `show`'s refusal (§FS-show.2.2.2) name
+/// exactly the coordinates this rule reports. A heading in the next item's
+/// doc-comment and a stub's prose are outside the body and never reach the list,
+/// so neither is filtered here (§FS-check.3.16).
 ///
 /// ## 3. Error format
 ///
@@ -204,7 +211,7 @@
 ///   dangling references on the active file's citations) against a cached scan.
 /// - Tests can feed synthetic `Findings` directly to the checker without disk I/O.
 fn check_findings(findings: &Findings, config: &Config) -> CheckReport {
-    check_with_workspace(findings, config, None, &BTreeMap::new())
+    check_with_workspace(findings, config, config, None, &BTreeMap::new())
 }
 
 struct WorkspaceCheckTarget<'a> {
@@ -212,9 +219,16 @@ struct WorkspaceCheckTarget<'a> {
     config: &'a Config,
 }
 
+/// `path_config` is the config the finished report renders paths against
+/// (§FS-workspace.8.1) — the workspace root's in workspace mode, `config` itself
+/// otherwise. A path baked *into* a message must use it, or in a workspace it
+/// would be spelled from the member's root while the finding's own anchor is
+/// spelled from the workspace's, and neither the reader nor an editor could
+/// follow it (§FS-config.3.6).
 fn check_with_workspace(
     findings: &Findings,
     config: &Config,
+    path_config: &Config,
     current_alias: Option<&str>,
     workspace: &BTreeMap<String, WorkspaceCheckTarget<'_>>,
 ) -> CheckReport {
@@ -349,7 +363,7 @@ fn check_with_workspace(
     // section headings — the depth each writes and whether two claim one path.
     // They live in `checker_sections.rs`, one file per invariant family
     // (§AR-checker.2.15, §AR-core-module-layout.1).
-    check_section_headings(findings, config, &mut report);
+    check_section_headings(findings, config, path_config, &mut report);
 
     // §FS-inline-citation-style.4: inline source-comment citation sites are
     // checked from scanner-provided site metadata; Markdown citations and
