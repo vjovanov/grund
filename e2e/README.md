@@ -40,7 +40,10 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - dangling Markdown citation
 - missing Markdown section
 - duplicate Markdown declaration
-- two headings claiming one dotted section path: `check` naming both lines, `show` refusing the coordinate rather than merging the two bodies, and `--toc` still mapping both
+- two headings claiming one dotted section path: `check` naming both lines, `show` refusing the coordinate rather than merging the two bodies, and `--toc` over the whole declaration still mapping both while `--toc` on the ambiguous coordinate itself refuses
+- the same two headings written inside a fenced Markdown example: `check` silent and `show` returning the section whole, fence included — the shape every document in this repository is made of
+- the ambiguous-section refusal in JSON, under its own `ambiguous-section` code rather than the ambiguous-ID `ambiguous`
+- two headings claiming one path inside one Rust doc-comment, beside a heading in the *next* item's doc-comment and a stub whose prose repeats one: only the collision inside the declaration's own body is reported
 - fenced Markdown examples ignored
 - marker-prefixed citations
 - optional-mode bare citations
