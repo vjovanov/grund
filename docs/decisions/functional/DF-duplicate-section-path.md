@@ -31,7 +31,7 @@ The `--toc` map, meanwhile, listed both headings as section `1`, so the one surf
 
 ## 2. Decision
 
-### 2.1 The collision is an error, in §FS-check.3.3's shape
+### 2.1 The collision is an error, in [§FS-check.3.3](../../functional-spec/FS-check.md#33-duplicate-declaration)'s shape
 
 Two headings claiming one path inside one declaration is [§FS-check.3.16](../../functional-spec/FS-check.md#316-duplicate-section-path), a `duplicate-section` error anchored at the first heading and naming the rest.
 
