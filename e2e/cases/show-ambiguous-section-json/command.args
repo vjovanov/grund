@@ -1,0 +1,1 @@
+show --format=json FS-001-a.1 {repo}

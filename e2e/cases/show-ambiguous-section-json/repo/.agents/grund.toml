@@ -1,0 +1,11 @@
+grund_config_version = 1
+
+[reference]
+strict = false
+
+[scan]
+include = ["d"]
+
+[[kinds]]
+prefix = "FS"
+folder = "d"
