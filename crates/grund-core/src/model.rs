@@ -25,9 +25,15 @@ pub struct Declaration {
     pub heading_level: usize,
     pub sections: BTreeMap<String, SectionInfo>,
     /// Every later heading that claimed a section path `sections` already holds,
-    /// in file order (§AR-scanner.2.2). Inert to every lookup — the map is what
-    /// resolution, `--toc`, completions, and §FS-check.3.9 read — and exists so
-    /// §FS-check.3.16 can name each colliding line.
+    /// in file order, narrowed to the ones inside this declaration's own body
+    /// span (§AR-scanner.2.2).
+    ///
+    /// Nothing *resolves* through it: a `§<ID>.<path>` citation, the completion
+    /// candidates, and §FS-check.3.9 all read the map. It exists for the two
+    /// commands that have to say the coordinate is ambiguous — §FS-check.3.16
+    /// names each colliding line, and §FS-show.2.2.2 refuses a query for a path
+    /// it holds. `--toc` reads neither: it re-scans the source, which is what
+    /// §FS-show.2.2.2 exempts it for.
     pub duplicate_sections: Vec<(String, SectionInfo)>,
     pub is_stub: bool,
     pub defined_in: Option<PathBuf>,

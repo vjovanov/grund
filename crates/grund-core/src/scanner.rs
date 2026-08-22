@@ -111,7 +111,12 @@ fn scan_file_text(
         if in_fence {
             continue;
         }
-        if classify && is_md && let Some(level) = markdown_heading_level(line) {
+        // Collected for every Markdown file, not just a classifying run: the
+        // duplicate-section prune below needs the same body spans (§AR-scanner.2.2)
+        // and cannot ask for them after the single pass is over. `trimmed` is
+        // already computed for the fence test, so a non-heading line costs one
+        // character comparison.
+        if is_md && let Some(level) = markdown_heading_level(trimmed) {
             md_headings.push((lineno, level));
         }
         let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
@@ -178,7 +183,9 @@ fn scan_file_text(
                 };
                 // §AR-scanner.2.2: a path is recorded once, by the first heading
                 // that claims it; later claimants go to `duplicate_sections` so
-                // §FS-check.3.16 can name every colliding line.
+                // §FS-check.3.16 can name every colliding line. That list is
+                // narrowed to the declaration's own body after the pass — see
+                // `retain_in_body_duplicate_sections`.
                 match decl.sections.entry(path.clone()) {
                     std::collections::btree_map::Entry::Vacant(slot) => {
                         slot.insert(info);
@@ -301,13 +308,48 @@ fn scan_file_text(
     // §AR-scanner.2.4: now that every declaration and (for Markdown) every
     // heading on the file is known, fix each declaration's body span and
     // classify each citation's citing side. `scan_one_file` gives this call a
-    // fresh `Findings`, so `findings` holds exactly this file's records. Skipped
-    // unless the project declares `[citations]` — nothing else reads the result.
-    if classify {
+    // fresh `Findings`, so `findings` holds exactly this file's records.
+    //
+    // Two readers want the spans. The citation classifier asks only when the
+    // project declares `[citations]`. The duplicate-section prune below asks
+    // whenever this file recorded a duplicate at all — an error condition, so
+    // the extra pass is off the hot path (§AR-benchmarks).
+    let has_duplicate_sections = findings
+        .declarations
+        .values()
+        .flatten()
+        .any(|decl| !decl.duplicate_sections.is_empty());
+    if classify || has_duplicate_sections {
         assign_declaration_bodies(findings, is_md, is_py, config, &text, &md_headings, total_lines);
+    }
+    if has_duplicate_sections {
+        retain_in_body_duplicate_sections(findings);
+    }
+    if classify {
         classify_citation_sources(findings, config, path);
     }
     Ok(())
+}
+
+/// §AR-scanner.2.2: the scan's "current declaration" runs to the next
+/// declaration line or end of file, which is wider than the body span §2.4
+/// computes — a `## 1.` in the *next* item's doc-comment, or under a later
+/// unrelated Markdown heading, is recorded against the declaration above it. A
+/// heading outside the body is not one of the declaration's sections, so it is
+/// not a duplicate of one either: drop it before §FS-check.3.16 reports a
+/// collision `grund <ID>.<path>` could never have reached. A stub spans its
+/// single link line (§AR-scanner.2.4), so this is also what keeps its prose out
+/// of the rule.
+///
+/// Only `duplicate_sections` is narrowed. The `sections` map is the
+/// citation-resolution surface every other rule reads, and changing what it
+/// holds is a separate decision (§AR-scanner.2.2).
+fn retain_in_body_duplicate_sections(findings: &mut Findings) {
+    for decl in findings.declarations.values_mut().flatten() {
+        let body = decl.body_start..=decl.body_end;
+        decl.duplicate_sections
+            .retain(|(_, info)| body.contains(&info.line));
+    }
 }
 
 /// The level of a Markdown ATX heading line (`#` count), or `None` when the line
