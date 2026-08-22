@@ -84,7 +84,71 @@ fn show_declaration_with_overlays(
             ));
         }
     }
+    if let Some(section) = section
+        && let Some(refusal) = ambiguous_section_refusal(config, path_config, decls, decl, &file, id, section)
+    {
+        return Err(refusal);
+    }
     extract_declaration_body(&file, id, section, mode, include_heading, config, overlays)
+}
+
+/// §FS-show.2.2.2: refuse a section coordinate two headings claim, before the
+/// body is read.
+///
+/// The claimants are the ones the *scan* recorded (§AR-scanner.2.2) — the same
+/// record §FS-check.3.16 reports from — so `show` refuses exactly the
+/// coordinates `check` names and no others. Re-detecting them while extracting
+/// the body would be a second, weaker reader: it would have to redo the fence
+/// tracking, the heading-level gate, and the body bounds, and any of the three
+/// getting a different answer is a coordinate one command calls clean and the
+/// other will not resolve.
+///
+/// For a stub the sections belong to the **inline home**, which is the file the
+/// body comes out of; a stub's own prose declares none (§FS-check.3.16). Paths
+/// in the message use `path_config`, the report-path config named on
+/// `show_declaration_with_overlays`.
+fn ambiguous_section_refusal(
+    config: &Config,
+    path_config: &Config,
+    decls: &[Declaration],
+    decl: &Declaration,
+    file: &Path,
+    id: &Id,
+    section: &str,
+) -> Option<anyhow::Error> {
+    let body_decl = if decl.is_stub {
+        decls
+            .iter()
+            .find(|other| paths_same_location(&other.file, file))
+            .unwrap_or(decl)
+    } else {
+        decl
+    };
+    let mut lines: Vec<usize> = body_decl
+        .duplicate_sections
+        .iter()
+        .filter(|(path, _)| path == section)
+        .map(|(_, info)| info.line)
+        .collect();
+    if lines.is_empty() {
+        return None;
+    }
+    // The map holds the first claimant (§AR-scanner.2.2); the list holds the
+    // rest. Sorted so the sites read in file order, as §FS-show.2.2.1 requires.
+    lines.extend(body_decl.sections.get(section).map(|first| first.line));
+    lines.sort_unstable();
+    let rendered = display_path(path_config, file);
+    let sites = lines
+        .iter()
+        .map(|line| format!("{rendered}:{line}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(anyhow!(
+        "ambiguous section: {}{}{} (declared at {sites})",
+        render_id(config, id),
+        config.section_separator,
+        section
+    ))
 }
 
 /// Render an e2e case as an ID-query body: the invocation, expected exit, and
