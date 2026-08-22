@@ -187,6 +187,9 @@ fn run_workspace_check(
         let mut project_report = check_with_workspace(
             &project.findings,
             &project.config,
+            // §FS-workspace.8.1: the report is rendered from the workspace root,
+            // so a path a member's message names is spelled from there too.
+            &root_config,
             Some(&project.alias),
             &workspace,
         );

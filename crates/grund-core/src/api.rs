@@ -831,6 +831,9 @@ fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: 
             check_with_workspace(
                 &project.findings,
                 &config,
+                // §FS-workspace.8.1: paths inside a message are spelled from the
+                // render root, like the anchors beside them.
+                context.render_config(),
                 Some(&project.alias),
                 &workspace,
             )
