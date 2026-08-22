@@ -64,6 +64,7 @@ include!("tests_id_grammar.rs");
 include!("tests_check_full.rs");
 include!("tests_check_full_scope.rs");
 include!("tests_duplicate_sections.rs");
+include!("tests_section_body_scope.rs");
 include!("tests_grounding_style.rs");
 include!("tests_inline_note_layout.rs");
 include!("tests_inline_note_layout_check.rs");

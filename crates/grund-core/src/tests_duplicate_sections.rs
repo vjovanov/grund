@@ -26,24 +26,9 @@ mod tests_duplicate_sections {
                 "# FS-001-alpha: Alpha\n\nLead.\n\n## 1. First\n\nFirst body.\n\n## 1. Second\n\nSecond body.\n{extra}"
             ),
         );
-        write(&root.join("src/alpha.rs"), "// Implements FS-001-alpha.1\n");
+        write(&root.join("src/alpha.rs"), "// Implements \u{a7}FS-001-alpha.1\n");
         let config = legacy_fs_folder_config(root.clone());
         (root, config)
-    }
-
-    /// The findings as `code@line` — `Diagnostic` is not `Debug`, and a case
-    /// asserting *which rules fired* wants exactly this much of it.
-    fn codes(report: &CheckReport) -> Vec<String> {
-        report
-            .errors
-            .iter()
-            .map(|error| format!("{}@{}", error.code, error.line.unwrap_or(0)))
-            .collect()
-    }
-
-    fn scan(root: &Path, config: &Config) -> Findings {
-        let (findings, _) = scan_tree(config, Some(root), true).expect("scan tree");
-        findings
     }
 
     /// §AR-scanner.2.2: the path is recorded once, by the first heading, and the
@@ -51,7 +36,7 @@ mod tests_duplicate_sections {
     #[test]
     fn scanner_records_the_first_heading_and_keeps_the_rest_beside_it() {
         let (root, config) = duplicated_repo("duplicate_sections_scanner_records_first", "");
-        let findings = scan(&root, &config);
+        let findings = scan_findings(&config, &root);
 
         let decl = &findings.declarations[&alpha()][0];
         assert_eq!(
@@ -73,7 +58,7 @@ mod tests_duplicate_sections {
     #[test]
     fn check_reports_the_collision_anchored_at_the_first_heading() {
         let (root, config) = duplicated_repo("duplicate_sections_check_reports", "");
-        let findings = scan(&root, &config);
+        let findings = scan_findings(&config, &root);
         let report = check_findings(&findings, &config);
 
         let errors: Vec<&Diagnostic> = report
@@ -81,7 +66,7 @@ mod tests_duplicate_sections {
             .iter()
             .filter(|error| error.code == "duplicate-section")
             .collect();
-        assert_eq!(errors.len(), 1, "one finding per collided path: {:?}", codes(&report));
+        assert_eq!(errors.len(), 1, "one finding per collided path: {:?}", error_codes(&report));
         assert_eq!(
             located_diagnostics(&config, errors.clone()),
             vec![
@@ -98,6 +83,18 @@ mod tests_duplicate_sections {
             vec![5, 9],
             "§FS-errors.5: a multi-site finding carries every site"
         );
+        // The rest of the report is the assertion too: a rule that fires once
+        // correctly and once spuriously is still a rule that turns a tree red for
+        // the wrong reason, and filtering by code hides exactly that.
+        assert_eq!(
+            error_codes(&report),
+            vec!["duplicate-section@5"],
+            "the collision is the only error this tree earns"
+        );
+        assert!(
+            report.warnings.iter().all(|warning| warning.code != "unused"),
+            "fixture keeps the declaration cited so the report is only the rule"
+        );
     }
 
     /// A third claimant joins the message rather than opening a second finding.
@@ -107,7 +104,7 @@ mod tests_duplicate_sections {
             "duplicate_sections_third_heading",
             "\n## 1. Third\n\nThird body.\n",
         );
-        let findings = scan(&root, &config);
+        let findings = scan_findings(&config, &root);
         let report = check_findings(&findings, &config);
 
         assert_eq!(
@@ -137,13 +134,13 @@ mod tests_duplicate_sections {
             "# FS-002-beta: Beta\n\n## 1. Inputs\n\nBody.\n",
         );
         let config = legacy_fs_folder_config(root.clone());
-        let findings = scan(&root, &config);
+        let findings = scan_findings(&config, &root);
         let report = check_findings(&findings, &config);
 
         assert!(
             report.errors.iter().all(|error| error.code != "duplicate-section"),
             "two declarations each owning a `1.` are two coordinates: {:?}",
-            codes(&report)
+            error_codes(&report)
         );
     }
 
@@ -159,7 +156,7 @@ mod tests_duplicate_sections {
         );
         let mut config = legacy_fs_folder_config(root.clone());
         config.section_heading_levels = "loose".to_string();
-        let findings = scan(&root, &config);
+        let findings = scan_findings(&config, &root);
         let report = check_findings(&findings, &config);
 
         assert_eq!(
@@ -185,7 +182,7 @@ mod tests_duplicate_sections {
             "# FS-001-alpha: Alpha\n\n## 1. First\n\nBody.\n\n#### 1. Second\n\nBody.\n",
         );
         let config = legacy_fs_folder_config(root.clone());
-        let findings = scan(&root, &config);
+        let findings = scan_findings(&config, &root);
         let report = check_findings(&findings, &config);
 
         assert!(
@@ -194,12 +191,12 @@ mod tests_duplicate_sections {
                 .iter()
                 .all(|error| error.code != "section-heading-level"),
             "the depth of a heading the tool is reporting away is not a second finding: {:?}",
-            codes(&report)
+            error_codes(&report)
         );
         assert!(
             report.errors.iter().any(|error| error.code == "duplicate-section"),
             "the pair is still reported, at both lines: {:?}",
-            codes(&report)
+            error_codes(&report)
         );
     }
 
@@ -208,12 +205,15 @@ mod tests_duplicate_sections {
     #[test]
     fn show_refuses_the_ambiguous_section_in_every_slice() {
         let (root, config) = duplicated_repo("duplicate_sections_show_refuses", "");
-        let findings = scan(&root, &config);
+        let findings = scan_findings(&config, &root);
 
+        // §FS-show.2.2.2: `--toc` is exempt only over the *whole* declaration.
+        // Selected onto the ambiguous coordinate it is one more slice of it.
         for mode in [
             ShowRenderMode::Default,
             ShowRenderMode::Brief,
             ShowRenderMode::Outline,
+            ShowRenderMode::Toc,
             ShowRenderMode::Full,
         ] {
             let Err(err) = show_declaration(&config, &config, &findings, &alpha(), Some("1"), mode, false)
@@ -237,7 +237,7 @@ mod tests_duplicate_sections {
             "duplicate_sections_untouched_section",
             "\n## 2. Third\n\nThird body.\n",
         );
-        let findings = scan(&root, &config);
+        let findings = scan_findings(&config, &root);
 
         let shown = show_declaration(&config, &config, &findings, &alpha(), Some("2"), ShowRenderMode::Default, false)
             .expect("a path no second heading claims answers normally");
@@ -248,6 +248,64 @@ mod tests_duplicate_sections {
         assert_eq!(
             toc.body, "## 1. First\n## 1. Second\n## 2. Third\n",
             "§FS-show.2.2.2: the map shows the collision rather than refusing"
+        );
+    }
+
+    /// §FS-workspace.8.1 / §FS-config.3.6: in a workspace the report is rendered
+    /// from the workspace root, so the path *inside* the message is spelled from
+    /// there too. Member-relative text beside a workspace-relative anchor is a line
+    /// no editor can follow to the heading it names.
+    #[test]
+    fn a_workspace_names_the_other_heading_from_the_workspace_root() {
+        let root = test_root("duplicate_sections_workspace_paths");
+        write(
+            &root.join("apps/api/docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n\n## 1. First\n\nBody.\n\n## 1. Second\n\nBody.\n",
+        );
+        let mut root_config = legacy_fs_folder_config(root.clone());
+        root_config.workspace_boundary_roots = vec![canonical_test_path(&root.join("apps/api"))];
+        let api_config = legacy_fs_folder_config(root.join("apps/api"));
+        let (api_findings, _) =
+            scan_tree(&api_config, Some(&api_config.root), true).expect("scan member");
+        let workspace = BTreeMap::from([(
+            "api".to_string(),
+            WorkspaceCheckTarget {
+                findings: &api_findings,
+                config: &api_config,
+            },
+        )]);
+
+        let report =
+            check_with_workspace(&api_findings, &api_config, &root_config, Some("api"), &workspace);
+        assert_eq!(
+            located_diagnostics(
+                &root_config,
+                report.errors.iter().filter(|e| e.code == "duplicate-section")
+            ),
+            vec![
+                "apps/api/docs/functional-spec/FS-001-alpha.md:3: duplicate section \
+                 FS-001-alpha.1 (also declared at \
+                 apps/api/docs/functional-spec/FS-001-alpha.md:7)"
+            ]
+        );
+
+        // The `show` twin of the same rule: `path_config` renders the sites.
+        let Err(err) = show_declaration(
+            &api_config,
+            &root_config,
+            &api_findings,
+            &alpha(),
+            Some("1"),
+            ShowRenderMode::Default,
+            false,
+        ) else {
+            panic!("the coordinate is ambiguous whichever root it is spelled from");
+        };
+        assert_eq!(
+            format!("{err:#}"),
+            "ambiguous section: FS-001-alpha.1 (declared at \
+             apps/api/docs/functional-spec/FS-001-alpha.md:3, \
+             apps/api/docs/functional-spec/FS-001-alpha.md:7)"
         );
     }
 }

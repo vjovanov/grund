@@ -277,6 +277,24 @@ mod tests_support {
 
     /// Every diagnostic in the `path:line: message` shape the text report
     /// prints (§FS-check.2.1), so a test can compare two runs as text.
+    /// The whole tree scanned with `path_provided`, which is what a test means by
+    /// "point grund at this fixture". Shared by every suite that asserts over
+    /// `Findings` rather than over a rendered report.
+    pub(crate) fn scan_findings(config: &Config, root: &Path) -> Findings {
+        let (findings, _) = scan_tree(config, Some(root), true).expect("scan tree");
+        findings
+    }
+
+    /// A report's errors as `code@line`. `Diagnostic` is not `Debug`, and a case
+    /// asserting *which rules fired, and no others* wants exactly this much of it.
+    pub(crate) fn error_codes(report: &CheckReport) -> Vec<String> {
+        report
+            .errors
+            .iter()
+            .map(|error| format!("{}@{}", error.code, error.line.unwrap_or(0)))
+            .collect()
+    }
+
     pub(crate) fn located_diagnostics<'a>(
         config: &Config,
         diagnostics: impl IntoIterator<Item = &'a Diagnostic>,
