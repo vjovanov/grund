@@ -169,10 +169,11 @@ fn show_query_error_code(message: &str) -> &'static str {
         "invalid-id"
     } else if message.starts_with("ambiguous ID:") {
         "ambiguous"
-    // §FS-show.2.2.2: the section-level twin of the ambiguous-ID refusal, and the
-    // same code — one query, two possible bodies (§DF-duplicate-section-path.2.5).
+    // §FS-show.2.2.2: the section-level twin of the ambiguous-ID refusal, under
+    // its own code — the two need different edits, and a JSON consumer should not
+    // have to read the prose to tell them apart (§DF-duplicate-section-path.2.5).
     } else if message.starts_with("ambiguous section:") {
-        "ambiguous"
+        "ambiguous-section"
     } else if message.starts_with("broken stub:") {
         "broken-stub"
     } else {
