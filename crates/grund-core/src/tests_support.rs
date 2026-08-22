@@ -100,6 +100,19 @@ mod tests_support {
                         info.heading_level
                     ));
                 }
+                // §AR-scanner.2.2: a later heading claiming a recorded path is
+                // kept beside the map, so the signature has to carry it too — a
+                // signature blind to a recorded field cannot see it change.
+                for (section, info) in &declaration.duplicate_sections {
+                    rows.push(format!(
+                        "duplicate-section|{}|{}|{}|{}|{}",
+                        render_id(config, id),
+                        section,
+                        info.title,
+                        info.line,
+                        info.heading_level
+                    ));
+                }
                 if let Some(case) = &declaration.e2e_case {
                     rows.push(format!(
                         "e2e|{}|{}|{}|{}|{}",

@@ -40,6 +40,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - dangling Markdown citation
 - missing Markdown section
 - duplicate Markdown declaration
+- two headings claiming one dotted section path: `check` naming both lines, `show` refusing the coordinate rather than merging the two bodies, and `--toc` still mapping both
 - fenced Markdown examples ignored
 - marker-prefixed citations
 - optional-mode bare citations

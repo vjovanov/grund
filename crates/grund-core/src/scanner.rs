@@ -150,6 +150,7 @@ fn scan_file_text(
                 line: lineno,
                 heading_level: heading_level_for_line(scan_line, is_md || scan.in_py_docstring, &caps),
                 sections: BTreeMap::new(),
+                duplicate_sections: Vec::new(),
                 is_stub,
                 defined_in,
                 e2e_case: None,
@@ -169,14 +170,23 @@ fn scan_file_text(
         {
             let heading_level = heading_level_for_line(scan_line, is_md || scan.in_py_docstring, &caps);
             if heading_level > decl.heading_level {
-                decl.sections.insert(
-                    sec.as_str().to_string(),
-                    SectionInfo {
-                        title: section_anchor_text(scan_line, sec.as_str()),
-                        line: lineno,
-                        heading_level,
-                    },
-                );
+                let path = sec.as_str().to_string();
+                let info = SectionInfo {
+                    title: section_anchor_text(scan_line, sec.as_str()),
+                    line: lineno,
+                    heading_level,
+                };
+                // §AR-scanner.2.2: a path is recorded once, by the first heading
+                // that claims it; later claimants go to `duplicate_sections` so
+                // §FS-check.3.16 can name every colliding line.
+                match decl.sections.entry(path.clone()) {
+                    std::collections::btree_map::Entry::Vacant(slot) => {
+                        slot.insert(info);
+                    }
+                    std::collections::btree_map::Entry::Occupied(_) => {
+                        decl.duplicate_sections.push((path, info));
+                    }
+                }
             }
         }
 
@@ -997,6 +1007,7 @@ fn scan_e2e_cases(
                 line: 1,
                 heading_level: 1,
                 sections: BTreeMap::new(),
+                duplicate_sections: Vec::new(),
                 is_stub: false,
                 defined_in: None,
                 e2e_case: Some(case),
