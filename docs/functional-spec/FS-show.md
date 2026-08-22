@@ -90,7 +90,13 @@ ambiguous section: FS-001-login.1 (declared at docs/functional-spec/FS-001-login
 
 Sites are in `path:line` order, as in §2.2.1, and the exit is `1` with the bare stderr line of [§FS-errors.2.3](FS-errors.md#23-bare-query-failure). The repo must be fixed before `show` will return a body.
 
-What this replaces is worse than a pick: the reader used to get *both* headings and both bodies concatenated into one slice, a body no heading in the file spans ([§DF-duplicate-section-path.1](../decisions/functional/DF-duplicate-section-path.md#1-context)). `--toc` (§2.1.2) is the exception and still lists both heading lines — it is a map of what is written, and seeing the collision is the point.
+The code is `ambiguous-section`, not §2.2.1's `ambiguous` ([§FS-distribution.3.0](FS-distribution.md#30-language-neutral-data-shapes)). The two failures need different edits — one ID with two homes is fixed in whichever file should not have declared it, one declaration with two `1.` headings is fixed by renumbering inside it — and the check side already spells that difference `duplicate` versus `duplicate-section` (§FS-check.3.16). Reusing one code would leave a JSON consumer parsing the message prose to tell them apart, the cost [§FS-check.3.14](FS-check.md#314-out-of-scope-unresolvable-citation---full-only) refused to pay for its own four rules. Nothing regresses by adding it: before this rule the query returned a body and exit `0`, so no consumer ever saw `ambiguous` here to filter on.
+
+Which headings count is [§FS-check.3.16](FS-check.md#316-duplicate-section-path)'s question, answered once: `show` refuses exactly the coordinates that rule reports, from the same recorded section set, so no coordinate is clean in `check` and unresolvable in `show`. For a stub (§2.3.4) that set is the **inline home's** — the file the query reads — never the stub's own prose.
+
+What this replaces is worse than a pick: the reader used to get *both* headings and both bodies concatenated into one slice, a body no heading in the file spans ([§DF-duplicate-section-path.1](../decisions/functional/DF-duplicate-section-path.md#1-context)).
+
+`--toc` over the **whole declaration** (§2.1.2) is the exception and still lists both heading lines — it is a map of what is written, and seeing the collision is the point. `grund FS-001-login.1 --toc` is not that map: it selects the ambiguous coordinate, so it refuses like every other slice. The exemption is for the query that asks what the declaration contains, not for the one that asks which of two headings section `1` is.
 
 A duplicate elsewhere in the declaration is not this error: only a collision on the **requested** path can make the query ambiguous, so `grund FS-001-login.2` answers normally while `grund FS-001-login.1` refuses. `grund check` reports the file either way.
 
@@ -177,10 +183,18 @@ fixtures:
 
 The first line is the invocation (`grund check` when the case has no `command.args`); then an `expected exit: <code>` line; then a `fixtures:` line followed by one `- <path>` line per file in the case directory, paths relative to that directory, sorted lexicographically — deterministic for a given tree. `--full` produces this output. The default and `--toc` produce the same output (an E2E manifest has no heading tree, so the default's "lead" *is* the manifest). `--brief` prints only the first line (the invocation). Section paths are not defined for E2E cases (the manifest is not a numbered-heading tree); `grund E2E-<name>.1` is a section-not-found error. `--format=json` emits a single object `{"id":"E2E-<name>","kind":"E2E","path":"e2e/cases/<name>","args":[…],"expected_exit":<code>,"fixtures":[…]}` — `args` is the parsed `command.args` (empty when there is none), `fixtures` the same sorted relative-path list; `--brief` / `--toc` / default over a case do not change this object (the manifest has no headings or lead prose to slice further).
 
+### 2.5 A heading inside a fenced code block is an example
+
+In a Markdown body, a line inside a fenced block (```` ``` ````, `~~~`) is content, never structure. It does not end a lead (§2.1), does not bound a section (§2.2), does not appear in a `--toc` map (§2.1.2), and does not open or close a declaration — the fence delimiters and everything between them are printed verbatim as part of whatever slice contains them.
+
+This is the carve-out [§FS-check.1.1](FS-check.md#11-recognized-citations) already makes for citations, applied to headings for the same reason and for one more: the scan bounds a declaration's sections by exactly this rule, so a slice that disagreed would cut a body where the recorded section map says no section starts. A spec whose §1 opens with a fenced `# FS-001-login: …` example — the shape these documents are written in — would otherwise print three lines and stop.
+
+The rule is Markdown's. Inside a code or docstring comment block (§2.3) a fence is not tracked, on either side: the scan does not track it there either, so the two still agree.
+
 ## 3. Outputs
 
 - `0` — printed successfully.
-- `1` — ID not found, ambiguous ID (multiple homes — [§FS-show.2.2.1](FS-show.md#221-ambiguous-id)), broken stub ([§FS-show.2.3.4](FS-show.md#234-broken-stub)), or section not found in declaration.
+- `1` — ID not found, ambiguous ID (multiple homes — [§FS-show.2.2.1](FS-show.md#221-ambiguous-id)), ambiguous section (two headings claiming the requested path — [§FS-show.2.2.2](FS-show.md#222-ambiguous-section)), broken stub ([§FS-show.2.3.4](FS-show.md#234-broken-stub)), or section not found in declaration.
 - `2` — I/O error, or a CLI-level failure that stops the query before it runs: the commonest is a qualified ID naming a project this run does not hold, which exits `2` with `error: unknown project alias` however many segments the path has ([§FS-workspace.8.1](FS-workspace.md#81-grund-aliasid)). An ID the grammar rejects is *not* one of these — `invalid ID` is a failed query, `1` (below).
 
 Stdout carries the body (or, with `--format=json`, the result object — one JSON object, never NDJSON, per [§FS-errors.5](FS-errors.md#5-json-format)). Stderr carries errors. Stdout is empty on error.
@@ -191,7 +205,7 @@ A failed query (`1`) prints the bare result line and, where the next step is obv
 - `section not found: <ID>.<s>` → `hint: run \`grund <ID> --toc\` to print the lead with the section map`
 - a `<ID>` argument that does not match the configured `[id] format` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) is rejected before the scan with `invalid ID \`<arg>\``, followed by `hint: this repo's [id] format is \`<format>\` (run \`grund config show\`); \`grund list\` shows the IDs that exist` — this is the common surprise in a repo whose format differs from the `{kind}-{slug}` `grund` itself uses.
 
-`ambiguous ID` and `broken stub` get no hint: the fix (run `grund check`, then edit the duplicate or the stub) is already stated in §2.2.1 / §2.3.4 and the message names the sites.
+`ambiguous ID`, `ambiguous section` and `broken stub` get no hint: the fix (run `grund check`, then edit the duplicate, renumber one of the two headings, or repair the stub) is already stated in §2.2.1 / §2.2.2 / §2.3.4 and the message names the sites.
 
 ### 3.1 Format variants
 
