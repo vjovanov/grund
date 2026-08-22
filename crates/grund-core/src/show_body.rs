@@ -77,12 +77,11 @@ fn extract_declaration_body(
     let mut line_style_comment = false;
     let mut py_docstring = PythonDocstringScanState::default();
     let mut found_section = section.is_none();
-    let mut section_line = 0;
-    let mut duplicate_section_lines: Vec<usize> = Vec::new();
     let mut target_depth = usize::MAX;
     let mut lines = Vec::new();
     let mut sections = Vec::new();
     let mut output_line = 1;
+    let mut in_fence = false;
 
     for (idx, line) in text.lines().enumerate() {
         let lineno = idx + 1;
@@ -91,8 +90,22 @@ fn extract_declaration_body(
         if in_decl && scan.in_py_docstring && scan.closed_py_docstring && scan_line.trim().is_empty() {
             break;
         }
-        if let Some(caps) =
-            declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
+        // §FS-show.2.5: inside a Markdown fence nothing is structure — not a
+        // section heading, not a declaration heading. The delimiters and their
+        // contents are body text and still reach `lines` below. Tracked exactly
+        // as §AR-scanner.2.2's scan tracks it, Markdown only, so the section map
+        // `check` reads and the body this returns are bounded by the same lines.
+        let fence_delimiter = is_md && {
+            let trimmed = line.trim_start();
+            trimmed.starts_with("```") || trimmed.starts_with("~~~")
+        };
+        let fenced = in_fence || fence_delimiter;
+        if fence_delimiter {
+            in_fence = !in_fence;
+        }
+        if !fenced
+            && let Some(caps) =
+                declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
         {
             let found = parse_id(&caps);
             if in_decl && found.as_ref() != Some(id) {
@@ -133,7 +146,9 @@ fn extract_declaration_body(
                 break;
             }
         }
-        if let Some(caps) = config.grammar.section_re.captures(scan_line) {
+        if !fenced
+            && let Some(caps) = config.grammar.section_re.captures(scan_line)
+        {
             let sec = caps.name("sec").map(|m| m.as_str()).unwrap_or("");
             let depth = sec.split('.').count();
             match section {
@@ -155,18 +170,15 @@ fn extract_declaration_body(
                     }
                 }
                 Some(target) => {
-                    if sec == target {
-                        // §FS-show.2.2.2: a second heading claiming the requested
-                        // path makes the coordinate ambiguous — the duplicate-section
-                        // error of §FS-check.3.16 seen from the query side. Collect
-                        // every claimant and refuse below rather than merge them into
-                        // a body no heading spans (§DF-duplicate-section-path.2.5).
-                        if found_section {
-                            duplicate_section_lines.push(lineno);
-                            continue;
-                        }
+                    // `!found_section`: a *second* heading claiming the requested
+                    // path does not continue the section — it terminates it, the
+                    // way the sibling test below terminates it, so the two bodies
+                    // are never merged into a slice no heading spans
+                    // (§DF-duplicate-section-path.1). Such a query does not reach
+                    // here at all: §FS-show.2.2.2 refuses it from the scanner's
+                    // record before the body is read (`ambiguous_section_refusal`).
+                    if sec == target && !found_section {
                         found_section = true;
-                        section_line = lineno;
                         target_depth = depth;
                         output_line = lineno;
                         if mode != ShowRenderMode::Outline {
@@ -206,19 +218,6 @@ fn extract_declaration_body(
 
     if !in_decl {
         return Err(anyhow!("ID not found: {}", render_id(config, id)));
-    }
-    if !duplicate_section_lines.is_empty() {
-        let sites = std::iter::once(section_line)
-            .chain(duplicate_section_lines)
-            .map(|line| format!("{}:{}", display_path(config, path), line))
-            .collect::<Vec<_>>()
-            .join(", ");
-        return Err(anyhow!(
-            "ambiguous section: {}{}{} (declared at {sites})",
-            render_id(config, id),
-            config.section_separator,
-            section.unwrap_or("")
-        ));
     }
     if !found_section {
         return Err(anyhow!(
