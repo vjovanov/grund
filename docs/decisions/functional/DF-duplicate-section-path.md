@@ -45,15 +45,19 @@ Renumbering one heading clears it, and the finding names both lines, so the fix 
 
 A section path is addressed as `<ID>.<path>`, so `1.` under `FS-001-login` and `1.` under `FS-002-session` are two coordinates that never met. Only headings sharing a declaration collide.
 
+Scoped to that declaration's **body**, too, and this needed saying because the scan does not stop there on its own: its "current declaration" runs to the next declaration line or the end of the file, so a `## 1.` in the next function's doc-comment, or under a later unrelated Markdown heading, lands on the declaration above it. Those headings are not sections of it — [§FS-show.2.1](../../functional-spec/FS-show.md#21-whole-declaration-default) and [§FS-show.2.3.1](../../functional-spec/FS-show.md#231-what-counts-as-the-comment-block) end the body before them, and `grund <ID>.1` never reads them — so a collision reported against them would ask an author to renumber a heading nothing points at, and would be a run turning red for a reason the tool cannot explain from what it printed. The same sentence disposes of a stub ([§FS-check.3.4](../../functional-spec/FS-check.md#34-broken-inline-spec-stub)): its heading tail is a path, its body is one line, and the prose under it belongs to no declaration's sections — the headings that count are the inline home's, which is the file the query reads.
+
 The `[id] section_heading_levels` mode ([§FS-config.3.3](../../functional-spec/FS-config.md#33-section-paths--arbitrary-nesting-depth)) does not gate the rule. That mode governs how deep a heading must sit for the path it writes — a different fact, judged by [§FS-check.3.9](../../functional-spec/FS-check.md#39-section-heading-level-mismatch). Under `"loose"`, where `## 1.1` and `### 1.1` both declare `1.1`, the collision is if anything easier to write by accident, so exempting the mode that most needs the rule would be backwards.
 
 ### 2.3 The map keeps the first heading, and that is now written down
 
 Resolution has to answer while the tree is red — `check` still has to say whether every *other* citation resolves, `list` and completions still have to run — so the recorded section map still holds exactly one heading per path. It is now the **first** one.
 
-Last-wins was not a decision anyone made; it was `insert` overwriting. First-wins is the answer that agrees with everything around it: the first heading is the one a reader scrolling to section `1` meets, the one `show`'s re-scan already reached, and the one [§FS-check.2.1](../../functional-spec/FS-check.md#21-report-format) anchors a multi-site finding at. One heading recorded, one heading anchored, one heading a human sees first.
+Last-wins was not a decision anyone made; it was `insert` overwriting. First-wins is the answer that agrees with everything around it: the first heading is the one a reader scrolling to section `1` meets, the one `show`'s body extraction started the slice at, and the one [§FS-check.2.1](../../functional-spec/FS-check.md#21-report-format) anchors a multi-site finding at. One heading recorded, one heading anchored, one heading a human sees first.
 
-The later headings are kept in a parallel list so the error can name their lines, and that list is inert to every lookup.
+That the two readers *disagreed* about it is the point, not a detail: `show`'s slice began at the first heading, but the `line` it reported was the second's, because its "found the target" branch re-fired there and moved the reported position with it. Neither answer was chosen. First-wins is now the one recorded fact both of them read.
+
+The later headings are kept in a parallel list. Nothing resolves through it — the map answers every lookup — and the two commands that read it are the ones that have to name or refuse the collision (§2.5).
 
 ### 2.4 The heading-level rule judges only the heading the path resolves to
 
@@ -61,7 +65,7 @@ The later headings are kept in a parallel list so the error can name their lines
 
 They are not section targets. Nothing resolves to them, and the run has already said they should not exist; measuring the depth of a heading against a path the tool is reporting it does not own is a finding about a line that is about to be renumbered or deleted, and whose correct depth depends on which of those the author chooses. One cause, one finding — the rule [§FS-check.3.13](../../functional-spec/FS-check.md#313-number-only-shorthand-citation) already follows for a site two rules could both claim.
 
-No tree loses a finding to this: wherever §3.9 stops reporting the second heading, §3.16 reports the pair, at the same lines, in the same run.
+No tree loses a *finding* to this, though it does not keep the same one: where §3.9 used to emit a located error at the second heading's line, §3.16 now emits one located error at the first, carrying every colliding line — the second's included — in its `sites` list and in its message. The run still fails, still on the same pair of lines, and the message still names the line §3.9 used to anchor at; what moves is which line the finding is anchored to, and it moves to the one the section resolves to.
 
 ### 2.5 `show` refuses the ambiguous section instead of printing a pick
 
@@ -69,17 +73,23 @@ No tree loses a finding to this: wherever §3.9 stops reporting the second headi
 
 Printing the first heading's body would be defensible if the query were the only thing at stake. It is not: the caller of `show` is usually an agent pulling a fact into context to act on, and a slice that is *silently one of two* is a fact it cannot audit. The refusal costs a `grund check` run and returns the same body afterwards.
 
-`--toc` is deliberately exempt and still lists both heading lines. It is a map of what the file contains, not a resolution of a coordinate, and a reader who ran `--toc` on a declaration they are about to cite should see the collision rather than a refusal that hides which headings caused it.
+`--toc` **over the whole declaration** is deliberately exempt and still lists both heading lines. It is a map of what the file contains, not a resolution of a coordinate, and a reader who ran `--toc` on a declaration they are about to cite should see the collision rather than a refusal that hides which headings caused it. `grund <ID>.<dup> --toc` is not that query: it selects the ambiguous coordinate and then maps it, so it refuses like every other slice. A selected ambiguous coordinate is ambiguous in every slice, `--toc` included; the exemption belongs to the query that asks what a declaration contains.
+
+The refusal reads the recorded duplicate list rather than deciding for itself. That is the difference between the two readers of §1 and one reader with two commands: a coordinate is ambiguous because the scan recorded two claimants, so `grund check` reporting `<ID>.<path>` and `grund <ID>.<path>` refusing are the same fact stated twice, and neither a fenced example nor a heading past the end of the body can make one of them see a claimant the other does not.
+
+It carries its own code, `ambiguous-section`, rather than reusing the ambiguous-ID `ambiguous` ([§FS-show.2.2.2](../../functional-spec/FS-show.md#222-ambiguous-section)). The check side already distinguishes `duplicate` from `duplicate-section` for the same pair of facts, the two need different edits, and before this decision the query returned a body with exit `0` — so there is no consumer whose `code == "ambiguous"` filter changes meaning.
 
 This also retires the merged-body answer of §1, which no option here preserves and none should.
 
 ### 2.6 Nothing that worked stops working
 
-Adding an error moves verdicts, so [§REQ-backwards-compatibility](../../requirements/REQ-backwards-compatibility.md#req-backwards-compatibility-an-upgrade-never-changes-a-verdict-quietly) has to be answered rather than assumed. This lands under its §4: a construct that **had no defined meaning** was not a working feature.
+Adding an error moves verdicts, so [§REQ-backwards-compatibility](../../requirements/REQ-backwards-compatibility.md#req-backwards-compatibility-an-upgrade-never-changes-a-verdict-quietly) has to be answered rather than assumed. It is **not** answered by that requirement's §4. That clause covers a construct that had no defined meaning *and produced no output*; this one produced output — the merged body of §1, printed to whoever asked for the section. Claiming the clause would mean reading past the half of it that does not fit, which is a worse habit than owning the verdict change.
 
-No spec described a duplicate section path; no rule accepted it deliberately; the two readers of the section map disagreed about which heading it named, and the one a user actually sees returned a body assembled out of both. There was no behavior here to preserve — only an unspecified region that produced a wrong answer. That is the [§DF-number-only-citation-shorthand](DF-number-only-citation-shorthand.md#df-number-only-citation-shorthand-the-number-only-shorthand-is-authoring-sugar-and-a-persisted-one-is-a-check-error) precedent §4 was written from.
+Own it, then. The requirement's own opening is the ground this stands on: it is about **silence**, not stasis — "a verdict may move, but only where the release says it will and the finding says what to do". Both halves are met here, and the move is in the direction the requirement exists to protect. What a repository loses is a green run over a construct whose output was *wrong*: `grund <ID>.1` handed a caller a body no heading in the file spans, assembled by the query, while `grund check` said `success`. A guarantee that "nothing that worked stops working" cannot be spent on a thing that did not work. Preserving that green run would mean keeping [§GOAL-no-dangling-refs](../../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration)'s worst failure — a citation resolving to the wrong thing while the run reports clean — because it was already shipping, which inverts the requirement into a ratchet on defects.
 
-The finding is also mechanical in the sense [§REQ-backwards-compatibility.3](../../requirements/REQ-backwards-compatibility.md#3-loud-mechanical-migrations) cares about — it names every colliding line, and the fix is renumbering one heading — so a repository that upgrades into it can clear it without reading a changelog. No `grund_config_version` bump and no `AGENTS.md` block bump: the rule adds no key and changes nothing an agent is told to write.
+The move qualifies under [§REQ-backwards-compatibility.3](../../requirements/REQ-backwards-compatibility.md#3-loud-mechanical-migrations) on the terms §3 actually sets, which is where a verdict is allowed to flip in the release that introduces it: the finding names every colliding line, so the repository is told exactly what to edit; the fix is renumbering one heading, which is smaller than the "one documented command" §3 asks for and needs no tool to perform; and the release notes it. A repository that upgrades into a red run can clear it without reading a changelog — the property §3 is protecting — and this changelog says so anyway.
+
+No `grund_config_version` bump and no `AGENTS.md` block bump: the rule adds no key and changes nothing an agent is told to write. The JSON `code` values gain `duplicate-section` and `ambiguous-section` ([§FS-distribution.3.0](../../functional-spec/FS-distribution.md#30-language-neutral-data-shapes)), which is additive — the shape gains no field, and no existing code changes what it means, including `ambiguous`, which never fired on this construct.
 
 ## 3. Rejected alternative: specify first-wins and leave it legal
 
@@ -98,6 +108,6 @@ The verdict-change worry is real and §2.6 answers it on its own terms. Paying f
 ## 5. Consequences
 
 - A new `duplicate-section` error code ([§FS-check.3.16](../../functional-spec/FS-check.md#316-duplicate-section-path)), carrying the multi-site `sites` list [§FS-errors.5](../../functional-spec/FS-errors.md#5-json-format) defines for a duplicate declaration.
-- `Declaration` gains a `duplicate_sections` list beside `sections`, and the scanner's section insert becomes first-wins ([AR-scanner.2.2](../../architecture/AR-scanner.md#22-section-detection)).
-- `show` gains the ambiguous-section refusal ([§FS-show.2.2.2](../../functional-spec/FS-show.md#222-ambiguous-section)) and loses the merged-body answer; `--toc` is unchanged.
+- `Declaration` gains a `duplicate_sections` list beside `sections`, and the scanner's section insert becomes first-wins ([AR-scanner.2.2](../../architecture/AR-scanner.md#22-section-detection)). The list is pruned to the declaration's own body span, so a stub's prose and a later item's doc-comment contribute nothing (§2.2).
+- `show` gains the ambiguous-section refusal ([§FS-show.2.2.2](../../functional-spec/FS-show.md#222-ambiguous-section)), under its own `ambiguous-section` code, and loses the merged-body answer. It reads the recorded list rather than re-detecting the collision while it re-scans, which is what makes it agree with `check` on every tree. `--toc` over a whole declaration is unchanged.
 - Every other reader of the section map — resolution, completions, the heading-level rule, `fmt`'s anchor emission — is unchanged in shape and now reads the first heading rather than the last.
