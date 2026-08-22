@@ -80,6 +80,20 @@ ambiguous ID: FS-042 (matches FS-042-user-login, FS-042-user-logout)
 
 Candidates are listed in ID order, and the repo needs no fixing: the caller does, by passing one of the full IDs. Nothing is guessed at ([§DF-number-only-citation-shorthand.2.7](../decisions/functional/DF-number-only-citation-shorthand.md#27-ambiguity-is-reported-never-guessed), [§REQ-no-wrong-citation.1](../requirements/REQ-no-wrong-citation.md#1-no-wrong-resolution)). This shape matches the bare-message form used for `ID not found` and `section not found` ([§FS-show.3](FS-show.md#3-outputs)): all three are queries that found something other than exactly one body.
 
+#### 2.2.2 Ambiguous section
+
+The same refusal one level down. If two numbered headings inside the selected declaration claim the requested dotted path — the duplicate-section error of [§FS-check.3.16](FS-check.md#316-duplicate-section-path) — `show` does not pick one either:
+
+```
+ambiguous section: FS-001-login.1 (declared at docs/functional-spec/FS-001-login.md:5, docs/functional-spec/FS-001-login.md:9)
+```
+
+Sites are in `path:line` order, as in §2.2.1, and the exit is `1` with the bare stderr line of [§FS-errors.2.3](FS-errors.md#23-bare-query-failure). The repo must be fixed before `show` will return a body.
+
+What this replaces is worse than a pick: the reader used to get *both* headings and both bodies concatenated into one slice, a body no heading in the file spans ([§DF-duplicate-section-path.1](../decisions/functional/DF-duplicate-section-path.md#1-context)). `--toc` (§2.1.2) is the exception and still lists both heading lines — it is a map of what is written, and seeing the collision is the point.
+
+A duplicate elsewhere in the declaration is not this error: only a collision on the **requested** path can make the query ambiguous, so `grund FS-001-login.2` answers normally while `grund FS-001-login.1` refuses. `grund check` reports the file either way.
+
 ### 2.3 Inline declarations in code and doc-comments
 
 When the ID's home is in code (per [§FS-check.3.4](FS-check.md#34-broken-inline-spec-stub) stub semantics), `show` extracts the comment block surrounding the inline declaration, strips comment markers, and prints the resulting prose. The same section logic applies — and so do the `--brief` / (default) / `--toc` / `--full` slices, computed over the stripped block exactly as over a `.md` body (the lead is what precedes the first `## N.` heading inside the comment; the section map is the numbered headings recorded within it, per §2.3.3).

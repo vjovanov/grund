@@ -171,6 +171,17 @@
 /// annotates from, rather than here — one file per invariant, the arrangement
 /// §2.12's shorthand rule already uses for the same reason.
 ///
+/// ### 2.15 Duplicate section paths (§FS-check.3.16, §DF-duplicate-section-path)
+///
+/// One pass over the declarations. The scanner records a section path once, by
+/// the first heading that claims it, and appends every later claimant to
+/// `duplicate_sections` (§AR-scanner.2.2); this rule groups that list by path and
+/// emits one error per collided path, anchored at the first heading with the rest
+/// named in the message — §2.1's shape for declarations, one level down. The
+/// heading-level rule above reads only the map, so a duplicate heading is not
+/// additionally judged for depth: nothing resolves to it, and the run has already
+/// said it should not exist (§DF-duplicate-section-path.2.4).
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and
@@ -334,42 +345,11 @@ fn check_with_workspace(
         }
     }
 
-    // §FS-check.3.9 / §FS-config.3.3: in strict mode, the Markdown heading level
-    // must mirror the dotted section depth so `## 1`, `### 1.1`, ...
-    // communicate the same tree that `§ID.1.1` addresses.
-    if matches!(config.section_heading_levels.as_str(), "strict" | "warn") {
-        let target = if config.section_heading_levels == "strict" {
-            &mut report.errors
-        } else {
-            &mut report.warnings
-        };
-        for (id, decls) in &findings.declarations {
-            for decl in decls {
-                for (section_path, section) in &decl.sections {
-                    let expected_level = decl.heading_level + section_depth(section_path);
-                    if section.heading_level != expected_level {
-                        target.push(Diagnostic {
-                            code: "section-heading-level",
-                            path: Some(decl.file.clone()),
-                            line: Some(section.line),
-                            column: None,
-                            message: format!(
-                                "section {}{}{} heading level mismatch: expected {} (level {}), found {} (level {})",
-                                render_id(config, id),
-                                config.section_separator,
-                                section_path,
-                                heading_marks(expected_level),
-                                expected_level,
-                                heading_marks(section.heading_level),
-                                section.heading_level
-                            ),
-                            sites: Vec::new(),
-                        });
-                    }
-                }
-            }
-        }
-    }
+    // §FS-check.3.9 and §FS-check.3.16: the two rules about a declaration's own
+    // section headings — the depth each writes and whether two claim one path.
+    // They live in `checker_sections.rs`, one file per invariant family
+    // (§AR-checker.2.15, §AR-core-module-layout.1).
+    check_section_headings(findings, config, &mut report);
 
     // §FS-inline-citation-style.4: inline source-comment citation sites are
     // checked from scanner-provided site metadata; Markdown citations and

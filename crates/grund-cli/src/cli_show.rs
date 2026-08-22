@@ -208,6 +208,10 @@ fn show_query_error_code(message: &str) -> Option<&'static str> {
         Some("invalid-id")
     } else if message.starts_with("ambiguous ID:") {
         Some("ambiguous")
+    // §FS-show.2.2.2: the section-level twin of the ambiguous-ID refusal shares
+    // its code — one query, two possible bodies (§DF-duplicate-section-path.2.5).
+    } else if message.starts_with("ambiguous section:") {
+        Some("ambiguous")
     } else if message.starts_with("broken stub:") {
         Some("broken-stub")
     } else {

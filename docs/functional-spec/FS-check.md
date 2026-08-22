@@ -304,6 +304,20 @@ This is §3.13's site with a different verdict, so it takes §3.13's place there
 - **Withheld out of scope.** Under `--full` (§1.3) the site is outside `[scan] include`, where §3.14 withholds the mechanical shorthand rewrite for the same reason: `fmt` scopes by `include` too, so the finding would name an edit no run in that scope is asking for.
 - **Code:** `shorthand-numeric-run` ([§FS-errors.5](FS-errors.md#5-json-format)).
 
+### 3.16 Duplicate section path
+
+Two or more numbered section headings inside one declaration claiming the same dotted path ([AR-scanner.2.2](../architecture/AR-scanner.md#22-section-detection)) — `## 1. Inputs` and `## 1. Outputs` under one `# FS-001-login`. Reported per §2.1 in §3.3's shape: one error anchored at the first heading in file order, with every other heading line named in the message.
+
+```
+docs/functional-spec/FS-001-login.md:5: duplicate section FS-001-login.1 (also declared at docs/functional-spec/FS-001-login.md:9)
+```
+
+This is §3.3 one level down. A section path is a citation target, so two headings claiming it give `§FS-001-login.1` two destinations, and picking one silently is the guess [§REQ-no-wrong-citation.1](../requirements/REQ-no-wrong-citation.md#1-no-wrong-resolution) forbids by name. Decided in [§DF-duplicate-section-path](../decisions/functional/DF-duplicate-section-path.md#df-duplicate-section-path-a-section-coordinate-names-one-heading-or-the-run-says-so).
+
+- **Scoped to one declaration.** Section paths are addressed as `<ID>.<path>`, so the same `1.` under two different declarations is two distinct coordinates and not a finding. Only headings sharing a declaration collide.
+- **Independent of `[id] section_heading_levels`.** The mode (§FS-config.3.3) governs how deep a heading must sit for the path it writes, which is a different fact; `## 1.` and `### 1.` under an H1 declaration both claim path `1` and are a duplicate in every mode, `"loose"` included. A heading that is both misplaced and duplicated yields §3.9's finding and this one — two facts, two findings.
+- **Code:** `duplicate-section` ([§FS-errors.5](FS-errors.md#5-json-format)), carrying the same multi-site `sites` list §3.3 carries.
+
 ## 4. Warnings
 
 ### 4.1 Unused declaration

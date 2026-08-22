@@ -24,6 +24,11 @@ pub struct Declaration {
     pub line: usize,
     pub heading_level: usize,
     pub sections: BTreeMap<String, SectionInfo>,
+    /// Every later heading that claimed a section path `sections` already holds,
+    /// in file order (§AR-scanner.2.2). Inert to every lookup — the map is what
+    /// resolution, `--toc`, completions, and §FS-check.3.9 read — and exists so
+    /// §FS-check.3.16 can name each colliding line.
+    pub duplicate_sections: Vec<(String, SectionInfo)>,
     pub is_stub: bool,
     pub defined_in: Option<PathBuf>,
     pub e2e_case: Option<E2eCase>,

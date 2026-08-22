@@ -248,6 +248,7 @@ members = ["packages/*"]
                 line: 1,
                 heading_level: 1,
                 sections: BTreeMap::new(),
+                duplicate_sections: Vec::new(),
                 is_stub: false,
                 defined_in: None,
                 e2e_case: None,
