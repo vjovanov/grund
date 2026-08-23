@@ -71,39 +71,12 @@ On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the rev
 - Every PR for this repository needs a `docs/changelog.md` `## Unreleased` bullet that mentions its PR number (`PR #N`); the pre-push hook checks this once the branch has a PR ([§FS-distribution.4](docs/functional-spec/FS-distribution.md#4-release-process)).
 - Hard requirements — what `grund` must never break — live in `docs/requirements`: [§REQ-backwards-compatibility](docs/requirements/REQ-backwards-compatibility.md#req-backwards-compatibility-an-upgrade-never-changes-a-verdict-quietly), [§REQ-no-missed-citation](docs/requirements/REQ-no-missed-citation.md#req-no-missed-citation-every-citation-the-run-reads-is-checked), [§REQ-no-wrong-citation](docs/requirements/REQ-no-wrong-citation.md#req-no-wrong-citation-a-citation-never-resolves-to-a-guess), [§REQ-no-data-loss](docs/requirements/REQ-no-data-loss.md#req-no-data-loss-grund-never-eats-user-content), [§REQ-deterministic-output](docs/requirements/REQ-deterministic-output.md#req-deterministic-output-same-input-same-bytes), [§REQ-never-crashes](docs/requirements/REQ-never-crashes.md#req-never-crashes-garbage-in-diagnostic-out). This entrypoint's contract is [§REQ-agents-md](docs/requirements/REQ-agents-md.md#req-agents-md-the-agent-entrypoint-stays-managed-and-grounded) (edit `AGENTS.md`, never the `CLAUDE.md` symlink); the README's is [§REQ-readme](docs/requirements/REQ-readme.md#req-readme-the-readme-is-the-grounded-shop-window).
 
-## Keeping Files Small With fissile (v2)
+<!-- BEGIN FISSILE MANAGED BLOCK -->
+## Keeping Files Small With fissile (v3)
 
-This repository uses [`fissile`](https://github.com/vjovanov/fissile) to keep
-files small so agents spend fewer tokens reading them, while respecting the
-architecture. It is a simple guard, not a style police.
-
-- Run `fissile check --staged` before claiming work is done.
-- Findings are grouped: the block header names the severity, rule, and limit,
-  and the guidance under it is this repository's configured remediation for
-  every file listed below it.
-- A **soft** overflow means *should split*: if you changed the file, split it
-  the way the guidance says — along a seam that already exists, never at the
-  line count, never breaking apart code that belongs together.
-- A **hard** overflow means *must split*: stop the line. Do not commit unless a
-  structured exception already accepts the file.
-- Never damage the design to fit a budget. If no split leaves the code better,
-  record a soft overflow with `fissile exception add --severity soft`; for a
-  hard overflow, ask a human — `--severity hard` is theirs to add, not yours.
-- An exception's `--reason` is a claim, not a description of the file. Say
-  either what makes splitting illegal (`--kind structural`, never expires) or
-  which boundary is missing and what has to exist first (`--kind deferred`,
-  with `--until` naming what retires it). Restating the finding is not a reason.
-- Ask `fissile measure <path>` how large a file is and how much room is left
-  before deciding where new code goes. The count is fissile's own — comments
-  count, blank lines do not — so `wc -l` does not answer the question.
-- When a file already carries an exception and has outgrown its ceiling, the
-  reason usually still holds and only the number is wrong. Move it with
-  `fissile exception retune <path> --severity <severity> --rule <rule>` and let
-  the command pick the value: do not hand-pick a ceiling, do not pass `--max`
-  to shave the bump, and never hand-edit a registry. This holds at both
-  severities — retuning an existing hard entry is bookkeeping on a decision a
-  human already made, unlike adding one.
-- Run `fissile audit --stale-exceptions` before removing or moving large files.
-  It also reports ceilings that have drifted far above the file they accept;
-  lower those with the same `retune`.
-
+This repository caps file size with [`fissile`](https://github.com/vjovanov/fissile)
+so that agents spend fewer tokens reading. Run `fissile check --staged` before
+claiming work is done; its findings say what to split and how. Where the
+pre-commit hook is installed it runs that same check — never get past it with
+`--no-verify`.
+<!-- END FISSILE MANAGED BLOCK -->
