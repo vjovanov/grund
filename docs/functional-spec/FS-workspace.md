@@ -545,10 +545,13 @@ Rationale and the discarded project-local alternative: [§DF-cover-workspace-sco
   workspace too — a qualified citation in a standalone project is still a
   citation the file carries, and it is `check`'s job, not `cover`'s, to call
   the alias unknown (§8.1).
-- **The rendered `id` carries the alias it was written with.** `api/FS-login`
-  for a qualified citation, the bare ID for a local one, so a recipe can feed
-  the field straight back to `grund <ID>`. The ID is rendered under the
-  **target** project's `[id]` config, matching `refs` (§8.2); `text` stays the
+- **The rendered `id` says what the token says**, canonically: `api/FS-login`
+  for a citation written qualified, the bare ID for a local one, rendered under
+  the **target** project's `[id]` config exactly as `refs` renders it (§8.2).
+  Qualifying a local `<§>FS-login` would report something other than what the
+  file wrote, and reporting what the file wrote is the whole job. The target a
+  row names is therefore `id` when it carries a `/`, and `<project>/<id>`
+  otherwise — one join against the field on the same object. `text` stays the
   verbatim source token either way.
 - **Paths render from the workspace root** when a workspace is loaded, so a
   member's file is spelled the way `[workspace] members` spells it and the
