@@ -6,14 +6,6 @@ mod tests_shorthand {
     use super::tests_support::*;
     use super::*;
 
-    /// The default `grund init` config: `{kind}-{number}-{slug}`, which is the
-    /// only shape that has a shorthand at all (§FS-check.1.2).
-    fn numbered_config(root: PathBuf) -> Config {
-        let config = legacy_fs_folder_config(root);
-        assert_eq!(config.id_format, "{kind}-{number}-{slug}");
-        config
-    }
-
     fn messages(report: &CheckReport) -> Vec<String> {
         report
             .errors

@@ -10,14 +10,6 @@ mod tests_shorthand_surfaces {
     use super::tests_support::*;
     use super::*;
 
-    /// The default `grund init` config: `{kind}-{number}-{slug}`, which is the
-    /// only shape that has a shorthand at all (§FS-check.1.2).
-    fn numbered_config(root: PathBuf) -> Config {
-        let config = legacy_fs_folder_config(root);
-        assert_eq!(config.id_format, "{kind}-{number}-{slug}");
-        config
-    }
-
     // §AR-scanner.2.6: `render_id` reduces a partial `Id` by the same rule the
     // shorthand pattern is derived from, so an unresolved shorthand prints as
     // `FS-042` rather than leaking the raw `{slug}` placeholder into a report.
