@@ -1,5 +1,9 @@
 const SEC_GROUP: &str = r"(?P<sec>\d+(?:\.\d+)*)";
 const DEFAULT_INCLUDE: &[&str] = &["requirements.md", "docs", "e2e", "src"];
+const DEFAULT_SCAN_EXTENSIONS: &[&str] = &[
+    "md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala",
+    "rb", "php", "cs", "lisp", "scm", "clj", "sql", "hs", "lhs", "lua", "ada", "adb", "ads",
+];
 const DEFAULT_COMMENT_PREFIXES: &[&str] = &["//", "#", ";", "--", "*", "/*"];
 static STUB_LINK_HEADING: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\s*:\s*\[[^\]]*\]\(\s*(?P<path>[^)\s]+)\s*\)\s*$").unwrap());

@@ -74,14 +74,14 @@ folder = "docs/discussions"
 title = "Design discussions and proposals"
 
 [scan]
-# README.md and AGENTS.md are cited surfaces too — scanned so their
-# citations are checked, not decorative (REQ-readme.3, REQ-agents-md.4).
-include = ["docs", "e2e", "src", "crates", "README.md", "AGENTS.md"]
+# README.md, AGENTS.md, and the workflow YAML are cited surfaces too — scanned
+# so their citations are checked, not decorative (REQ-readme.3, REQ-agents-md.4).
+include = ["docs", "e2e", "src", "crates", ".github/workflows", "README.md", "AGENTS.md"]
 # `repo` / `expected.repo`: the e2e fixture trees under `e2e/cases/*/` are test
 # inputs, not this project's code — keep them out of the host scan so strict mode
 # and `require_grounding` (above) apply to grund's own sources, not the fixtures.
 exclude = ["target", "node_modules", ".git", "dist", "build", ".venv", "repo", "expected.repo", "assets"]
-extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs"]
+extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs", "lisp", "scm", "clj", "sql", "hs", "lhs", "lua", "ada", "adb", "ads", "yml", "yaml"]
 comment_prefixes = ["//", "#", ";", "--", "*", "/*"]
 docstring_python = true
 respect_gitignore = true

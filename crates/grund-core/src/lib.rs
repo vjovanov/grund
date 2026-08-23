@@ -22,6 +22,7 @@ include!("config.rs");
 include!("config_cmd.rs");
 include!("comment_line.rs");
 include!("inline_note_layout.rs");
+include!("markdown_fence.rs");
 include!("scanner_walk.rs");
 include!("scanner_walk_errors.rs");
 include!("scanner.rs");

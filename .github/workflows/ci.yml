@@ -79,8 +79,8 @@ jobs:
         shell: bash
         run: |
           # `--full` (§FS-check.1.3) walks past `[scan] include` as well, so a citation
-          # this repository's own config forgot to cover — README.md and examples/ are
-          # both outside it — fails CI instead of accumulating unseen. The flag is
+          # this repository's own config forgot to cover — examples/ is deliberately
+          # outside it — fails CI instead of accumulating unseen. The flag is
           # purely additive, so this step still asserts exactly what it did before plus
           # the wider reference search.
           #

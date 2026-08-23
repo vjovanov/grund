@@ -116,18 +116,16 @@ pub fn on_type_line_edits(
 /// transform that ignored these would silently rewrite an illustration inside a
 /// fence, or a citation in the title of a declaration.
 fn line_is_rewritable(config: &Config, text: &str, line_index: usize, is_md: bool) -> bool {
-    let mut in_fence = false;
+    let mut markdown_fence = None;
     for (index, line) in text.lines().enumerate() {
-        let trimmed = line.trim_start();
-        if is_md && (trimmed.starts_with("```") || trimmed.starts_with("~~~")) {
+        if is_md && markdown_fence_delimiter(&mut markdown_fence, line) {
             if index == line_index {
                 return false;
             }
-            in_fence = !in_fence;
             continue;
         }
         if index == line_index {
-            return !in_fence
+            return markdown_fence.is_none()
                 && declaration_captures(&config.grammar, line, false, is_md).is_none();
         }
     }

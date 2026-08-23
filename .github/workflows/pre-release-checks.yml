@@ -1,3 +1,4 @@
+# The manually dispatched release gate complements §AR-ci.
 name: Pre-release checks
 
 on:
