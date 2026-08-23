@@ -96,7 +96,7 @@ With `--format=json`, the findings are emitted as NDJSON on stdout instead — s
 
 #### 2.1.1 CLI-level messages
 
-Lines that are about the run rather than a finding at a site in the repo — unknown subcommand, malformed flag, invalid `grund.toml` schema (when the config itself parses but a value is wrong), a per-file read failure mid-walk (§2), the empty-scan caution (§2.2) — are emitted on **stderr**, never on stdout, as:
+Lines that are about the run rather than a finding at a site in the repo — unknown subcommand, malformed flag, invalid `grund.toml` schema (when the config itself parses but a value is wrong), a per-file read failure mid-walk (§2), the empty-scan caution (§2.2), the nothing-recognized caution (§4.5) — are emitted on **stderr**, never on stdout, as:
 
 ```
 error: <message>
@@ -352,11 +352,31 @@ Off by default. When `[reference] inline_note_layout` names a layout and `[refer
 
 Off by default because a layout is a house style rather than a correctness property, and the two levels exist so a repository can migrate on `warn` before it gates on `error` — the same ladder §4.2 gives the soft cap.
 
+### 4.5 Nothing recognized
+
+A walk that read at least one file and recognized **nothing in it** — no declaration and no citation — is §2.2's empty scan one step further in: the scope was right and the files were read, and the grammar matched none of their content. The usual cause is a docs tree whose headings are written for a different `[id] format` than the one configured ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) — `# FS-login: …` under the default `{kind}-{number}-{slug}` — which leaves every heading in the tree a non-declaration and the run's verdict `success` over a repository where nothing is grounded. Decided in [§DF-nothing-recognized](../decisions/functional/DF-nothing-recognized.md#df-nothing-recognized-a-run-that-recognized-nothing-says-so-and-says-it-as-a-warning).
+
+`check` emits one CLI-level `warning:` line (§2.1.1) on **stderr**, naming how many files were read, the shape a declaration heading and a citation take under the configured format, and the configured `[[kinds]]` prefixes:
+
+```
+warning: nothing recognized — grund read 3 files and found no declaration and no citation in them. A declaration heading reads `# <KIND>-<NNN>-<slug>: <title>` and a citation `<marker><KIND>-<NNN>-<slug>`, under [id] format = "{kind}-{number}-{slug}" with <KIND> one of {AR, FS}. Check [id] format and [[kinds]] in grund.toml against how the headings are written.
+```
+
+The shapes are rendered from the `[id] format` template, the same substitution [§FS-init.2.3](FS-init.md#2-outputs) makes for the managed entrypoint block, and the citation shape carries the configured marker ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). No example ID is built from `[id] number_pattern` and `[id] slug_pattern` and no corrected ID is proposed for any heading: `check` reports facts about the tree and the config (§3 vs §4), and an ID assembled from those patterns would be a guess at what they accept.
+
+The question is asked **per project**, like §2.2: in a workspace ([§FS-workspace.5](FS-workspace.md#5-command-scope)) each member is judged against its own config, since one member's grammar mismatch says nothing about another's. It asks *recognized*, not *declared* — a member that only cites another member's specs declares nothing and is working as intended, so a citation anywhere in the project answers the question.
+
+Like §2.2 it is a warning, and like §2.2 it is withheld from a run that has any other finding: the exit code stays `0` (a tree with nothing in it yet is the ordinary first day of a repository), and a report that already says something is not the silent verdict this rule exists to break. What it buys is the `success` marker — a warning stands in its place (§2.1), so the run that recognized nothing stops printing the same word as the run that checked everything.
+
+The per-heading half — naming each heading that looks like a declaration and does not match — is [§RM-declaration-near-miss](../roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format) and §5, a different rule that needs a judgement about what any one line meant; this one is arithmetic over what the scan already recorded.
+
+- **Code:** `nothing-recognized` ([§FS-errors.5](FS-errors.md#5-json-format)), with `path` and `line` null like every CLI-level diagnostic.
+
 ## 5. What grund does not check
 
 See [§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) — in particular [§FS-non-goals.1](FS-non-goals.md#1-markdown-link-validation) (markdown links / URLs), [§FS-non-goals.2](FS-non-goals.md#2-spelling-grammar-prose-quality) (spelling/grammar), and the convention that ID numbers are stable handles, not ordinal positions.
 
-One near-miss `check` does not flag *today*: a heading shaped like `# <KIND>-…: <title>` whose ID does not match the configured `[id] format` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) is simply not a declaration — invisible to `check`, to `grund list`, and to citation resolution, with no warning that something heading-shaped was ignored (the classic stumble: `# FS-login: …` under the default `{kind}-{number}-{slug}`). A non-heuristic "looks like a declaration" warning for it is tracked under [§RM-declaration-near-miss](../roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format) — it would surface the mismatch, never guess the corrected ID (`check` reports facts about the tree, §3 vs §4). That is the *declaration*-side near miss; the citation-side one — a `§`-marked token in the shorthand shape — is no longer in this section, because §1.2 and §3.13 now recognize and report it.
+One near-miss `check` does not flag *today*: a heading shaped like `# <KIND>-…: <title>` whose ID does not match the configured `[id] format` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) is simply not a declaration — invisible to `check`, to `grund list`, and to citation resolution, with no warning that something heading-shaped was ignored (the classic stumble: `# FS-login: …` under the default `{kind}-{number}-{slug}`). A tree in which *every* heading misses that way no longer passes silently — the run recognized nothing and says so (§4.5) — but the per-heading half, a non-heuristic "looks like a declaration" warning naming each one, is tracked under [§RM-declaration-near-miss](../roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format) — it would surface the mismatch, never guess the corrected ID (`check` reports facts about the tree, §3 vs §4). That is the *declaration*-side near miss; the citation-side one — a `§`-marked token in the shorthand shape — is no longer in this section, because §1.2 and §3.13 now recognize and report it.
 
 ## 6. Watch mode (`--watch`)
 
