@@ -223,6 +223,36 @@ The default `comment_prefixes` set is broader than the languages tabulated in [A
 
 `respect_gitignore` (default `true`) makes the scanner honor every form of ignore file the `ignore` crate recognizes — `.gitignore` at any depth, `.git/info/exclude`, the global `core.excludesFile`, and `.ignore` files. Set to `false` only when you genuinely need to scan ignored paths. The directory-level `exclude` list above is applied **in addition** to ignore-file rules, never instead of them. See [AR-scanner.1.1](../architecture/AR-scanner.md#11-respecting-gitignore-and-friends).
 
+**Symlinks (§3.5.1–§3.5.6).** Decided in [§DF-symlink-scan](../decisions/functional/DF-symlink-scan.md#df-symlink-scan-a-symlink-in-the-scanned-tree-is-followed-and-the-report-names-the-link).
+
+#### 3.5.1 A symlink in the tree is followed
+
+A **symlink inside a walked tree is followed**, file and directory alike: the link is part of the tree by the path you wrote, so what it points at is read there and its citations are checked — including when the target resolves outside the config root, because the tree is what the walk was handed and the file is in it.
+
+#### 3.5.2 A finding names the in-tree link path
+
+Every finding from a link met **inside a walked tree** is reported at the in-tree link path, never the target's: that is the path a reader can act on, and it is what keeps `relative_paths` output (§3.6) and the additivity rule of [§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full) meaningful. (A path argument is a different case — it is resolved before the walk starts, so `grund check docs/beta.md` on a symlink reports at the target: the scope you named is that file, not a tree that contains it.)
+
+The same rule reaches the **walk root itself**: a repository whose own path is reached through a link — a symlinked `~/work`, macOS resolving `/var` to `/private/var` — is walked and reported under the path the run was handed, never the physical one it resolves to. Resolving a root is how a run recognizes that a scope *is* the config root; it is not a decision about what the report calls it, and a finding spelled physically is one [`relative_paths`](#36-output--report-format) cannot render and no reader of that repository ever wrote.
+
+#### 3.5.3 The directory rules apply under the link name
+
+The directory rules above still apply to a followed directory under its **link** name, so `docs/node_modules -> ../../node_modules` is excluded exactly as a real directory of that name would be. The one boundary that is *not* a name rule is another project's root, which a link may not carry a walk across in any direction ([§FS-workspace.6](FS-workspace.md#6-nested-project-boundary)).
+
+#### 3.5.4 One physical file is read once
+
+One **physical** file is read once however many spellings reach it; when two do, the surviving spelling is the earlier root's, and within a single root the lexicographically first one ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full), [§FS-errors.4](FS-errors.md#4-determinism)).
+
+#### 3.5.5 A link the walk cannot resolve is reported, and not walked into
+
+A link the walk cannot resolve is not a silent skip: a broken target, or a loop such as `docs/self -> .`, is the per-file scan failure of [§FS-check.2](FS-check.md#2-outputs) — reported at the link's own path, the walk continuing past it, the run exiting `2` ([§REQ-no-missed-citation.1](../requirements/REQ-no-missed-citation.md#1-no-silent-skips)). Past it, and never *into* it: a loop is pruned where it is met, including the kind whose target reaches back over the walk root itself (`docs/up -> ..`), so the run never reports findings out of a tree it has just called unreadable and `include` still bounds what was read.
+
+#### 3.5.6 Which unresolvable links are owed a report
+
+That report is owed only where the walk would otherwise have read through the link, judged by the same rules as any other entry: the ignore files for both kinds, and `extensions` as well for a broken link, which names a file where a loop names a directory. So a dangling `docs/logo.png -> nowhere`, and a link of either kind that `.gitignore` covers, stay silent — the walk was never going to read them.
+
+A broken link with **no extension at all** is silent for the same reason and is worth naming, because it is the one case where that answer can be wrong: `docs/shared -> ../nonexistent-dir` would have been a directory to descend into had it resolved. Nothing on disk distinguishes it from `bin/tool -> nowhere`, since the target does not exist and only the target could have said which it was, and reporting every extensionless dangling link is the noise this gate exists to prevent. That is a declared, bounded blind spot ([§REQ-no-missed-citation.2](../requirements/REQ-no-missed-citation.md#2-every-blind-spot-is-declared-and-bounded)) and not a silent one: a link you need scanned is one you need to resolve.
+
 ### 3.6 `[output]` — report format
 
 ```toml

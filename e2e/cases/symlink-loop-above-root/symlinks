@@ -1,0 +1,3 @@
+# The target is above the walk root, so the walker cannot see the loop without
+# descending a whole second copy of the tree first. It is pruned before that.
+docs/up -> ..

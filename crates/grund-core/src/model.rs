@@ -24,6 +24,17 @@ pub struct Declaration {
     pub line: usize,
     pub heading_level: usize,
     pub sections: BTreeMap<String, SectionInfo>,
+    /// Every later heading that claimed a section path `sections` already holds,
+    /// in file order, narrowed to the ones inside this declaration's own body
+    /// span (§AR-scanner.2.2).
+    ///
+    /// Nothing *resolves* through it: a `§<ID>.<path>` citation, the completion
+    /// candidates, and §FS-check.3.9 all read the map. It exists for the two
+    /// commands that have to say the coordinate is ambiguous — §FS-check.3.16
+    /// names each colliding line, and §FS-show.2.2.2 refuses a query for a path
+    /// it holds. `--toc` reads neither: it re-scans the source, which is what
+    /// §FS-show.2.2.2 exempts it for.
+    pub duplicate_sections: Vec<(String, SectionInfo)>,
     pub is_stub: bool,
     pub defined_in: Option<PathBuf>,
     pub e2e_case: Option<E2eCase>,
@@ -136,6 +147,13 @@ pub struct Citation {
 pub struct InlineCitationSite {
     pub first_line: usize,
     pub last_line: usize,
+    /// Width of the site's longest line in **characters** — Unicode scalar
+    /// values, one column each (§FS-inline-citation-style.2.3). Not the byte
+    /// length, and not the display width: `é`, `—`, and the `§` marker itself
+    /// cost one column apiece, and so does a tab
+    /// (§DF-note-columns-are-characters). This is a different measure from the
+    /// byte-addressed start column a `Citation` records (§AR-scanner.3); the
+    /// two agree only on a line of pure ASCII.
     pub max_columns: usize,
     pub has_note: bool,
     /// The site's judged lines that deviate from
@@ -379,6 +397,13 @@ pub struct Config {
     pub workspace_section_source: Option<ConfigLocation>,
     pub workspace_include_root: bool,
     pub workspace_boundary_roots: Vec<PathBuf>,
+    /// §AR-workspace.6: the canonical root of **every** project this run loaded.
+    /// `workspace_boundary_roots` above says what lies *below* this project, so a
+    /// leaf member has none; this says where the *others* are, which is how a
+    /// member's walk tells a link into a sibling — or back up into the root
+    /// project — from a link into ordinary outside content. Empty for a run that
+    /// loaded no workspace, a member checked on its own included (§FS-workspace.6).
+    pub workspace_project_roots: Vec<PathBuf>,
     /// §FS-workspace.6.1: the alias path of the *run's* own workspace root, read
     /// from the outermost workspace and stamped onto every project the run loaded.
     /// Empty at the outermost root and for a single-project run; non-empty exactly
@@ -513,6 +538,7 @@ impl Config {
             workspace_scope_path: String::new(),
             workspace_include_root: true,
             workspace_boundary_roots: Vec::new(),
+            workspace_project_roots: Vec::new(),
             citations: CitationRules::default(),
             // On by default so `grund check` (and tests) classify; the read-only
             // commands turn it off (§AR-scanner.2.4, §AR-benchmarks).

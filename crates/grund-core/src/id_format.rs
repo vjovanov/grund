@@ -484,3 +484,20 @@ fn id_token_end_at(line: &str, at: usize, grammar: &Grammar) -> Option<usize> {
         .filter(|found| grammar.id_token_ends_cleanly(rest, found.end()))
         .map(|found| at + found.end())
 }
+
+/// The `[id] format` template with each placeholder replaced by the schematic
+/// name of what it accepts — `{kind}-{number}-{slug}` reads `<KIND>-<NNN>-<slug>`
+/// (§FS-init.2.3, §FS-check.4.5). A substitution over the template's literal
+/// text, so it is a fact about the config rather than a guess at what
+/// `[id] number_pattern` and `[id] slug_pattern` accept: an ID assembled from
+/// those patterns would be wrong for every project that narrows them, printed by
+/// the tool in the message whose job is to say what the grammar wants.
+///
+/// Shared by the managed entrypoint block and the nothing-recognized caution so
+/// the shape a user is taught and the shape a diagnostic names are one string.
+fn id_shape(id_format: &str) -> String {
+    id_format
+        .replace("{kind}", "<KIND>")
+        .replace("{number}", "<NNN>")
+        .replace("{slug}", "<slug>")
+}

@@ -263,11 +263,15 @@ impl<'a> ShorthandTargets<'a> {
 ///
 /// Qualified `§<alias>/FS-042` is left to the workspace pass, which parses the ID
 /// tail with the *target* project's grammar — the citing project's shorthand
-/// shape would be the wrong one to apply across a namespace boundary.
+/// shape would be the wrong one to apply across a namespace boundary. Outside
+/// workspace mode there is no such pass to defer to unconditionally, so the
+/// deferral is by record: `qualified_claimed` holds the markers a qualified pass
+/// actually emitted at, and only those are skipped.
 fn scan_shorthand_citations(
     line: &CitationLine<'_>,
     workspace_mode: bool,
     claimed_markers: &[usize],
+    qualified_claimed: &BTreeSet<usize>,
     findings: &mut Findings,
 ) {
     let Some(shorthand) = &line.config.grammar.shorthand else {
@@ -306,16 +310,27 @@ fn scan_shorthand_citations(
             rest,
             match_end,
         );
+        // §AR-scanner.2.6: a qualified marker a qualified pass already claimed
+        // belongs to that pass alone — the workspace one, which claims every
+        // `§<alias>/...` on the line, or the loose fallback outside it
+        // (§FS-workspace.5), which records each token it parsed. Without the
+        // record the shorthand pattern matched the same token a second time and
+        // it became two identical citations: a duplicated row in `cover` and a
+        // diagnostic `check` printed twice. Skipping unconditionally instead
+        // would delete the citation wherever the loose parser declines a shape
+        // this project's `[id] format` accepts (§REQ-no-missed-citation.1).
+        // §AR-scanner.2.3: and the qualified form collides with a path, so a
+        // marked qualified token inside inline code or a string literal is not
+        // a citation at all — the same carve-out the other passes apply.
         let namespace = caps.name("namespace").map(|m| m.as_str().to_string());
-        if workspace_mode && namespace.is_some() {
-            continue;
-        }
-        let Some(id) = parse_id(&caps) else { continue };
         if namespace.is_some()
-            && qualified_suppressed_in_source(line.scan_line, line.is_md, marker_start)
+            && (workspace_mode
+                || qualified_claimed.contains(&marker_start)
+                || qualified_suppressed_in_source(line.scan_line, line.is_md, marker_start))
         {
             continue;
         }
+        let Some(id) = parse_id(&caps) else { continue };
         let token_end = token_start + match_end;
         findings.citations.push(Citation {
             namespace,

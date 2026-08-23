@@ -22,6 +22,7 @@ An optional `symlinks` file adds links the fixture cannot carry in git — git o
 
 - One link per line, `<link> -> <target>`, with `->` appearing **exactly once**. Blank lines and lines starting with `#` are ignored.
 - Both paths are relative to the fixture repo, `/`-separated. The **link** path must stay inside the copy: no absolute form, no `..`, and no `\`. The **target** is free to leave it — `link -> ..` is exactly what one case tests.
+- The **kind** of link is not written down: the harness resolves the target against the link's own directory and creates a directory link where it lands on a directory, a file link otherwise (a target that does not exist is a file link). Unix has one kind and ignores this; Windows stores the kind in the link, and one made with the wrong kind does not resolve, so a fixture's file links looked like unreadable paths to `grund` and the case exited `2` where its golden said `1`. A link whose target existed and still does not resolve fails the case at creation, naming the fixture rather than the golden.
 - The manifest must declare at least one link. An empty one used to yield no links, no diagnostic, and no skip, so a case could be green with a dead manifest.
 - The case must run against `{repo_copy}`. Only that branch copies the fixture and creates the links, so a manifest case written against `{repo}` tested the committed tree while claiming to test a symlinked one.
 
@@ -39,6 +40,10 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - dangling Markdown citation
 - missing Markdown section
 - duplicate Markdown declaration
+- two headings claiming one dotted section path: `check` naming both lines, `show` refusing the coordinate rather than merging the two bodies, and `--toc` over the whole declaration still mapping both while `--toc` on the ambiguous coordinate itself refuses
+- the same two headings written inside a fenced Markdown example: `check` silent and `show` returning the section whole, fence included — the shape every document in this repository is made of
+- the ambiguous-section refusal in JSON, under its own `ambiguous-section` code rather than the ambiguous-ID `ambiguous`
+- two headings claiming one path inside one Rust doc-comment, beside a heading in the *next* item's doc-comment and a stub whose prose repeats one: only the collision inside the declaration's own body is reported
 - fenced Markdown examples ignored
 - marker-prefixed citations
 - optional-mode bare citations
@@ -47,8 +52,10 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - config unknown-key failure
 - config unsupported-version failure (newer `grund_config_version` refused, with upgrade hint)
 - config custom marker in strict mode
-- config discovered as a bare root `grund.toml` from a subdirectory
-- config redundant pair (the bare `grund.toml` wins, the `.agents/` file is warned about)
+- config discovered as a bare root `grund.toml` from a subdirectory — which is also the case that pins the nothing-recognized caution to whole-project runs, since its one file holds neither a declaration nor a citation and its narrowed run must stay silent about that
+- config redundant pair (the bare `grund.toml` wins, the `.agents/` file is warned about) — and, beside it, the nothing-recognized caution the same run earns, the two cautions being independent facts about it
+- a docs tree written for a different `[id] format` than the one configured: every heading heading-shaped, nothing declared, nothing cited, and the run naming the shapes the grammar wanted instead of printing `success`
+- a qualified shorthand under an `[id] format` the member-local fallback parser cannot read (`{kind}{number}-{slug}`): the shorthand pass is the only producer there, so the token stays a citation and the run still reports the unknown alias rather than reading the file as recognizing nothing
 - workspace mixing both config discovery forms across its members
 - a `[workspace]` member that escapes the block listing it, both ways a symlink can do it: pointing back at the block's own root (`self -> .`) and out of its tree (`link -> ..`)
 - nested workspaces: whole-alias-path naming, per-level alias uniqueness, the grouping node as a project, subtree scope, the short-leaf-name hint, an enclosing workspace whose own member list fails to expand, one whose config does not load at all and still owes the subtree its own error, one cross-branch citation checked at both scopes, and an empty nested block with no `members` key at all
@@ -98,6 +105,18 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - stub-link target is a directory
 - stub-link target has an unsupported extension
 - skipped output/hidden directories
+- a symlinked Markdown file whose target sits outside `[scan] include`: its dangling citation reported at the link path, and the in-tree declaration it cites no longer reported unused
+- a symlinked directory, with the dangling citation inside it reported under the link's name
+- a workspace where a link inside one member reaches a sibling project and another reaches the root project's docs: neither crosses, while a link to content no project owns is still followed
+- one file reached under two names read once: no duplicate declaration, and the lexicographically first spelling is the one reported
+- a symlink loop (`docs/self -> .`) reported at its own path while the walk carries on to the findings past it
+- a loop whose target is above the walk root (`docs/up -> ..`) reported at the link and not descended into: no finding out of the second copy of the tree, and `[scan] include` still bounds the scan
+- a broken symlink with a scanned extension reported and exiting 2, beside one without that stays silent
+- `fmt --write` reading a file reached through a link that leaves the config root and refusing to write it: the target keeps its bytes, the in-root file is rewritten, and the refusal is one `warning:` line
+- `fmt --check` refusing the same link `--write` refuses instead of listing a rewrite nobody can perform: the one pending edit in the tree is inside it, so the dry run is green with a `warning:` and not red forever
+- `fmt` in a workspace naming a member's unreadable path and its refused write from the **workspace root**, the way `check` names them, not from the member's own root where the same spelling is a different file
+- `fmt --write` aborting on a path it could not read, in the shape that says so — `nothing was rewritten:` — rather than the bare line the partial run prints after rewriting everything readable
+- `fmt --check` naming the broken symlink it walked past, in the same shape and with the same exit `2` `check` uses for it
 - nested e2e fixture repos ignored during ordinary scans
 - unsupported extension ignored
 - deterministic multiple-error output
@@ -110,6 +129,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - inline citation style: a citation-only site carrying prose, and a soft-cap overrun surfacing as a warning
 - inline note layout (`citation-first-colon`): one error per nonconforming line under `inline_note_layout_check = "error"`, the same lines as warnings under `warn`, silence at the default `off`, and silence under `inline_note_layout = "any"` whatever the check level
 - config invalid-value failures for `inline_note_layout` and `inline_note_layout_check`, and for a soft cap above the hard cap
+- `inline_note_max_columns` counted in characters, not bytes: at a cap of 40, a 40-character ASCII note and a 40-character accented one both pass though each is over 40 bytes — the `§` marker alone puts the ASCII line there — while a 47-character note is the only one reported
 - config ID-grammar failure for a `slug_pattern` that admits the alias separator `/`
 
 Warning coverage is partial. The inline-citation-style family pins its warning channel here — the soft-cap overrun and the `inline_note_layout_check = "warn"` case both assert the warning text and the exit code it must not move. Other warning tiers are not covered yet; they are lower priority than the error, retrieval, formatting, and configuration contracts.

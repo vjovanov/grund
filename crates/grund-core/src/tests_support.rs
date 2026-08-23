@@ -50,6 +50,17 @@ mod tests_support {
         config
     }
 
+    /// The default `grund init` config: `{kind}-{number}-{slug}`, the only shape
+    /// that has a shorthand at all (§FS-check.1.2). Shared by the four shorthand
+    /// suites, which each had a byte-identical copy — including the assertion,
+    /// which is the point of the helper: a change to the default format must
+    /// fail here rather than quietly leave those suites testing no shorthand.
+    pub(crate) fn numbered_config(root: PathBuf) -> Config {
+        let config = legacy_fs_folder_config(root);
+        assert_eq!(config.id_format, "{kind}-{number}-{slug}");
+        config
+    }
+
     /// A tree with a configured inline note layout, gate still `off`
     /// (§FS-inline-citation-style.3.3). Shared because the classifier suite and
     /// the check suite configure the same two keys from opposite ends.
@@ -93,6 +104,19 @@ mod tests_support {
                 for (section, info) in &declaration.sections {
                     rows.push(format!(
                         "section|{}|{}|{}|{}|{}",
+                        render_id(config, id),
+                        section,
+                        info.title,
+                        info.line,
+                        info.heading_level
+                    ));
+                }
+                // §AR-scanner.2.2: a later heading claiming a recorded path is
+                // kept beside the map, so the signature has to carry it too — a
+                // signature blind to a recorded field cannot see it change.
+                for (section, info) in &declaration.duplicate_sections {
+                    rows.push(format!(
+                        "duplicate-section|{}|{}|{}|{}|{}",
                         render_id(config, id),
                         section,
                         info.title,
@@ -264,6 +288,24 @@ mod tests_support {
 
     /// Every diagnostic in the `path:line: message` shape the text report
     /// prints (§FS-check.2.1), so a test can compare two runs as text.
+    /// The whole tree scanned with `path_provided`, which is what a test means by
+    /// "point grund at this fixture". Shared by every suite that asserts over
+    /// `Findings` rather than over a rendered report.
+    pub(crate) fn scan_findings(config: &Config, root: &Path) -> Findings {
+        let (findings, _) = scan_tree(config, Some(root), true).expect("scan tree");
+        findings
+    }
+
+    /// A report's errors as `code@line`. `Diagnostic` is not `Debug`, and a case
+    /// asserting *which rules fired, and no others* wants exactly this much of it.
+    pub(crate) fn error_codes(report: &CheckReport) -> Vec<String> {
+        report
+            .errors
+            .iter()
+            .map(|error| format!("{}@{}", error.code, error.line.unwrap_or(0)))
+            .collect()
+    }
+
     pub(crate) fn located_diagnostics<'a>(
         config: &Config,
         diagnostics: impl IntoIterator<Item = &'a Diagnostic>,
@@ -287,5 +329,87 @@ mod tests_support {
 
     pub(crate) fn check_run(root: &Path, full: bool) -> CheckRun {
         run_check(root, true, false, full).expect("check run")
+    }
+
+    /// A symlink, for the cases that are about one. Unix only: creating one on
+    /// Windows needs developer mode, and every caller is `#[cfg(unix)]` too.
+    #[cfg(unix)]
+    pub(crate) fn symlink(target: &str, link: &Path) {
+        if let Some(parent) = link.parent() {
+            std::fs::create_dir_all(parent).expect("create parent");
+        }
+        std::os::unix::fs::symlink(target, link).expect("create symlink");
+    }
+
+    /// A repo scoped to `docs`, with one declaration inside it. Every symlink
+    /// case adds the link it is about.
+    #[cfg(unix)]
+    pub(crate) fn linked_repo(name: &str) -> PathBuf {
+        let root = test_root(name);
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n[scan]\ninclude = [\"docs\"]\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-001-alpha.md"),
+            "# FS-001-alpha: Alpha\n",
+        );
+        root
+    }
+
+    /// The graph findings — everything the report prints on stdout as
+    /// `path:line: message` (§FS-check.2.1).
+    /// Unix only: every caller is a symlink case and so `#[cfg(unix)]` too.
+    #[cfg(unix)]
+    pub(crate) fn findings(run: &CheckRun) -> Vec<String> {
+        let mut diagnostics = run
+            .report
+            .errors
+            .iter()
+            .chain(run.report.warnings.iter())
+            .filter(|diagnostic| diagnostic.code != "io")
+            .collect::<Vec<_>>();
+        // The order the report prints in (§FS-errors.4), so a case can read as
+        // the lines a user would see.
+        diagnostics.sort_by(|a, b| diagnostic_cmp(a, b));
+        located_diagnostics(&run.config, diagnostics)
+    }
+
+    /// The files the walk handed to the scanner, in report spelling — what a case
+    /// about *where the walk went* asserts on, independent of which of them
+    /// happened to declare anything.
+    /// Unix only: every caller is a symlink case and so `#[cfg(unix)]` too.
+    #[cfg(unix)]
+    pub(crate) fn scanned(config: &Config, findings: &Findings) -> Vec<String> {
+        let mut files: Vec<String> = findings
+            .scanned_files
+            .iter()
+            .map(|file| display_path(config, file))
+            .collect();
+        files.sort();
+        files
+    }
+
+    /// The `error: <path>: <reason>` lines a file the scan could not read earns
+    /// (§FS-check.2, §FS-errors.2.2).
+    /// Unix only: every caller is a symlink case and so `#[cfg(unix)]` too.
+    #[cfg(unix)]
+    pub(crate) fn scan_errors(run: &CheckRun) -> Vec<String> {
+        run.report
+            .errors
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "io")
+            .map(|diagnostic| {
+                format!(
+                    "{}: {}",
+                    diagnostic
+                        .path
+                        .as_ref()
+                        .map(|path| display_path(&run.config, path))
+                        .unwrap_or_default(),
+                    diagnostic.message
+                )
+            })
+            .collect()
     }
 }

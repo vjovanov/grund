@@ -169,6 +169,11 @@ fn show_query_error_code(message: &str) -> &'static str {
         "invalid-id"
     } else if message.starts_with("ambiguous ID:") {
         "ambiguous"
+    // §FS-show.2.2.2: the section-level twin of the ambiguous-ID refusal, under
+    // its own code — the two need different edits, and a JSON consumer should not
+    // have to read the prose to tell them apart (§DF-duplicate-section-path.2.5).
+    } else if message.starts_with("ambiguous section:") {
+        "ambiguous-section"
     } else if message.starts_with("broken stub:") {
         "broken-stub"
     } else {
@@ -279,6 +284,45 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
         line: None,
         column: None,
         message,
+        sites: Vec::new(),
+    }
+}
+
+/// The CLI-level warning `check` reports when the walk read files and recognized
+/// nothing in them — no declaration and no citation (§FS-check.4.5). The empty
+/// scan above says the scope found no files; this says the scope was right and
+/// the grammar matched none of their content, which is what a docs tree written
+/// for a different `[id] format` looks like from the inside. A warning, so the
+/// exit code is untouched — what it takes away is the `success` marker
+/// (§DF-nothing-recognized.2.2).
+///
+/// The shapes come from the configured template (`id_shape`) and the marker, and
+/// the kinds are named in config order; nothing here is derived from the tree, so
+/// two runs over one config print one string (§FS-errors.4).
+///
+/// The closing sentence offers both readings because the run cannot tell them
+/// apart without judging a line, which is §RM-declaration-near-miss's job: a tree
+/// written to another format and a `grund init` scaffold nobody has declared in
+/// yet produce the identical fact, and naming only the first would send a fresh
+/// adopter to look for a bug in a config that is fine.
+fn nothing_recognized_warning(config: &Config, scanned_files: usize) -> Diagnostic {
+    let shape = id_shape(&config.id_format);
+    let files = if scanned_files == 1 { "file" } else { "files" };
+    Diagnostic {
+        code: "nothing-recognized",
+        path: None,
+        line: None,
+        column: None,
+        message: format!(
+            "nothing recognized — grund read {scanned_files} {files} and found no declaration \
+             and no citation in them. A declaration heading reads `# {shape}: <title>` and a \
+             citation `{marker}{shape}`, under [id] format = \"{format}\" with <KIND> one of \
+             {{{kinds}}}. Either nothing is declared yet, or the headings are written to a \
+             different shape than that.",
+            marker = config.marker,
+            format = config.id_format,
+            kinds = kind_prefixes(&config.kinds).join(", "),
+        ),
         sites: Vec::new(),
     }
 }

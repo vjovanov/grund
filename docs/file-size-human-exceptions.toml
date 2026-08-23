@@ -34,10 +34,10 @@ path = "crates/grund-core/src/scanner.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 1394, unit = "lines" }
+max_accepted = { value = 1300, unit = "lines" }
 until = "move the comment-block classifiers out, keeping the single pass intact"
 reason = """
-The `scan_file_text` loop is a genuine single pass: eight pieces of mutable state (fence, Python docstring, current declaration, heading stack, counters) advance together per line, and that loop must not be broken apart. The rest of the file is not that. Most of the named boundary has now been taken. The note-reading helpers — comment-prefix stripping, citation-token removal, and the note-presence verdict — left for inline_note_layout.rs with the layout classifier that shares them (1523 -> 1461), the block's note verdicts then came back in one call rather than two (-> 1456), and the citation tokenizer itself left for comment_line.rs (-> 1383), where it sits beside the line-reduction helpers that are now its only callers; the qualified-citation pass then kept the target it parsed with, to ask the numeric-run question with that grammar (-> 1394). What is still here is the comment-block classifiers — which marker opens a block, where a docstring closes, whether a block declares an ID — pure functions over a line called from the loop and coupled to it only by call. Missing boundary: those in a sibling too, leaving the walker and its state machine whole (§AR-scanner).
+The `scan_file_text` loop is a genuine single pass: eight pieces of mutable state (fence, Python docstring, current declaration, heading stack, counters) advance together per line, and that loop must not be broken apart. The rest of the file is not that. Most of the named boundary has now been taken. The note-reading helpers — comment-prefix stripping, citation-token removal, and the note-presence verdict — left for inline_note_layout.rs with the layout classifier that shares them (1523 -> 1461), the block's note verdicts then came back in one call rather than two (-> 1456), and the citation tokenizer itself left for comment_line.rs (-> 1383), where it sits beside the line-reduction helpers that are now its only callers; the qualified-citation pass then kept the target it parsed with, to ask the numeric-run question with that grammar (-> 1394). The tree walk itself then left for scanner_walk.rs (-> 1237) — §AR-scanner.1 is a directory traversal and §AR-scanner.2 is this line-by-line pass, and they meet only at the file list one hands the other. What is still here is the comment-block classifiers — which marker opens a block, where a docstring closes, whether a block declares an ID — pure functions over a line called from the loop and coupled to it only by call. Missing boundary: those in a sibling too, leaving the walker and its state machine whole (§AR-scanner).
 """
 [[exceptions]]
 path = "crates/grund-lsp/tests/shutdown.rs"
@@ -64,10 +64,10 @@ path = "crates/grund-core/src/checker.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 1013, unit = "lines" }
-until = "the seven rule bodies still inline in check_with_workspace become named functions"
+max_accepted = { value = 1000, unit = "lines" }
+until = "the six rule bodies still inline in check_with_workspace become named functions"
 reason = """
-The reference-resolution family has already left, to checker_references.rs, and the inline citation style rule with it, to inline_note_layout.rs, which is what dropped the ceiling 1083 -> 1013. What remains is blocked for a different reason. Seven rules — duplicate homes, configured kind homes, the escaped-citation suggestion, heading-level strictness, broken stub links, unused declarations, and the grounding floor — are written as inline blocks inside one body of check_with_workspace, sharing a KindHomeIndex, repeated passes over findings.declarations, and one &mut CheckReport. They are statements, not functions, so there is nothing to move yet. Missing boundary: each of them named, after which the declaration-placement rules leave as one family and this file keeps the citation-side rules and the shared diagnostic helpers.
+The reference-resolution family has already left, to checker_references.rs, the inline citation style rule with it, to inline_note_layout.rs, and the section-shape family — heading-level strictness beside the new duplicate-section rule — to checker_sections.rs, which is what dropped the ceiling 1083 -> 1013 -> 1000. What remains is blocked for a different reason. Six rules — duplicate homes, configured kind homes, the escaped-citation suggestion, broken stub links, unused declarations, and the grounding floor — are written as inline blocks inside one body of check_with_workspace, sharing a KindHomeIndex, repeated passes over findings.declarations, and one &mut CheckReport. They are statements, not functions, so there is nothing to move yet. Missing boundary: each of them named, after which the declaration-placement rules leave as one family and this file keeps the citation-side rules and the shared diagnostic helpers.
 """
 [[exceptions]]
 path = "crates/grund-core/src/config.rs"

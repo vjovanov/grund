@@ -831,6 +831,9 @@ fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: 
             check_with_workspace(
                 &project.findings,
                 &config,
+                // §FS-workspace.8.1: paths inside a message are spelled from the
+                // render root, like the anchors beside them.
+                context.render_config(),
                 Some(&project.alias),
                 &workspace,
             )
@@ -842,14 +845,16 @@ fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: 
         report.errors.append(&mut project_report.errors);
         report.warnings.append(&mut project_report.warnings);
         append_lsp_scan_errors(&mut report, project.scan_errors.iter().cloned());
-        if project.findings.scanned_files.is_empty()
-            && project.scan_errors.is_empty()
-            && !project_has_findings
-        {
-            report
-                .warnings
-                .push(empty_scan_warning(&config, &config.root, true));
-        }
+        // §FS-lsp.4: the same decision `grund check` makes, from the same
+        // function — an editor and a terminal over one tree report one set of
+        // diagnostics (§FS-check.2.2, §FS-check.4.5).
+        report.warnings.extend(scan_scope_caution(
+            &config,
+            &project.findings,
+            &config.root,
+            true,
+            project.scan_errors.is_empty() && !project_has_findings,
+        ));
     }
     sort_diagnostics(&mut report.errors);
     sort_diagnostics(&mut report.warnings);
@@ -994,6 +999,11 @@ impl Default for CoverOpts {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CoverCitation {
+    /// The alias of the project whose tree contains this citation site — the
+    /// *citing* project, as in `refs` (§FS-workspace.8.2). `None` outside
+    /// workspace mode, where the JSON field is omitted entirely so a
+    /// single-project repo's bytes are unchanged (§DF-cover-workspace-scope.2.3).
+    pub project: Option<String>,
     pub path: String,
     pub line: usize,
     pub column: usize,
@@ -1005,6 +1015,10 @@ pub struct CoverCitation {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CoverEntry {
+    /// The alias of the project this scanned file belongs to. A file belongs to
+    /// exactly one project by the boundary rule (§FS-workspace.6), so this is
+    /// unambiguous. `None` outside workspace mode (§FS-workspace.8.6).
+    pub project: Option<String>,
     pub path: String,
     pub citations: Vec<CoverCitation>,
 }
@@ -1049,114 +1063,197 @@ pub struct CoverTextOutput {
     pub scan_errors: Vec<ApiScanError>,
 }
 
-fn cover_citations_by_file(findings: &Findings) -> BTreeMap<PathBuf, Vec<&Citation>> {
-    let mut by_file: BTreeMap<PathBuf, Vec<&Citation>> = BTreeMap::new();
-    for file in &findings.scanned_files {
-        by_file.entry(file.clone()).or_default();
-    }
-    for citation in &findings.citations {
-        if citation.namespace.is_some() {
-            continue;
-        }
-        by_file
-            .entry(citation.file.clone())
-            .or_default()
-            .push(citation);
-    }
-    for citations in by_file.values_mut() {
-        citations.sort_by_key(|citation| (citation.line, citation.column));
-    }
-    by_file
+/// One scanned file's row in the cover index, with the project that owns it
+/// (§FS-workspace.8.6). Borrowed from the [`WorkspaceContext`] the caller holds
+/// so both `cover` and `cover_text` build the index once, the same way.
+struct CoverRow<'a> {
+    /// `None` outside workspace mode — see [`CoverEntry::project`].
+    alias: Option<&'a str>,
+    /// Rendered against the workspace root in workspace mode, so a member's
+    /// file is spelled the way `[workspace] members` spells it
+    /// (§FS-workspace.8.6).
+    path: String,
+    citations: Vec<CoverCitationRow<'a>>,
 }
 
-/// Programmatic `cover`: group local citations by scanned file without choosing
-/// a CLI output format or process exit code (§RM-core-cli-split).
-pub fn cover(opts: CoverOpts) -> Result<CoverOutput> {
-    let mut config = resolve_workspace_config(&opts.path)?;
-    // §AR-scanner.2.4: `cover` groups citations by file and never reads
-    // citing-side classification — skip the scan post-pass (§AR-benchmarks).
-    config.classify_citation_sources = false;
-    let (findings, scan_errors) = scan_tree(&config, Some(&opts.path), opts.path_provided)?;
+struct CoverCitationRow<'a> {
+    citation: &'a Citation,
+    /// The config the ID renders under: the **target** project's, matching
+    /// `refs` (§FS-workspace.8.2). Falls back to the citing project's config
+    /// when the alias names no loaded project — `cover` reports the graph and
+    /// leaves the unknown-alias verdict to `check` (§FS-workspace.8.1).
+    target_config: &'a Config,
+}
 
-    let by_file = cover_citations_by_file(&findings);
-    let mut cover_entries = by_file.iter().collect::<Vec<_>>();
-    cover_entries.sort_by_key(|(file, _)| display_path(&config, file));
-    let entries = cover_entries
+impl CoverCitationRow<'_> {
+    /// The canonical spelling of the token the file wrote: alias-qualified only
+    /// when the citation itself was, never qualified on the file's behalf
+    /// (§FS-workspace.8.6).
+    fn rendered_id(&self) -> String {
+        let id = render_id(self.target_config, &self.citation.id);
+        match &self.citation.namespace {
+            Some(alias) => format!("{alias}/{id}"),
+            None => id,
+        }
+    }
+}
+
+/// Group every scanned file in the run — every project the loader returned —
+/// with every citation in it, qualified or not (§FS-workspace.8.6,
+/// §DF-cover-workspace-scope). No consumer-end filter: `cover` is keyed by
+/// file, so a dropped row and a file with nothing to say print the same, which
+/// is the silent skip §REQ-no-missed-citation.1 forbids.
+fn cover_rows(context: &WorkspaceContext) -> Vec<CoverRow<'_>> {
+    // A file lives in exactly one project (§FS-workspace.6), so the index needs
+    // no merge across projects; keying by absolute path is enough to keep the
+    // per-file grouping and the owning alias in step.
+    let mut by_file: BTreeMap<&PathBuf, (usize, Vec<CoverCitationRow>)> = BTreeMap::new();
+    for (index, project) in context.projects.iter().enumerate() {
+        for file in &project.findings.scanned_files {
+            by_file.entry(file).or_insert_with(|| (index, Vec::new()));
+        }
+        for citation in &project.findings.citations {
+            let target_config = citation
+                .namespace
+                .as_deref()
+                .and_then(|alias| context.project_by_alias(alias))
+                .map(|target| &target.config)
+                .unwrap_or(&project.config);
+            by_file
+                .entry(&citation.file)
+                .or_insert_with(|| (index, Vec::new()))
+                .1
+                .push(CoverCitationRow {
+                    citation,
+                    target_config,
+                });
+        }
+    }
+
+    let mut rows = by_file
         .into_iter()
-        .map(|(file, citations)| CoverEntry {
-            path: display_path(&config, file),
-            citations: citations
+        .map(|(file, (index, mut citations))| {
+            citations.sort_by_key(|row| (row.citation.line, row.citation.column));
+            let project = &context.projects[index];
+            let path = if context.workspace_loaded {
+                display_path(context.render_config(), file)
+            } else {
+                display_path(&project.config, file)
+            };
+            CoverRow {
+                alias: context.workspace_loaded.then_some(project.alias.as_str()),
+                path,
+                citations,
+            }
+        })
+        .collect::<Vec<_>>();
+    // §FS-cover.2: sorted by the *rendered* path, so the order a caller reads
+    // is the order it can diff against (§FS-errors.4).
+    rows.sort_by(|left, right| left.path.cmp(&right.path));
+    rows
+}
+
+/// Load the projects `cover` indexes and their scan errors, rendered against
+/// the same base as the rows (§FS-workspace.8.6).
+///
+/// The narrowable loader, not the plain one: `cover`'s `<path>` bounds the walk
+/// (§FS-cover.1), so a scope inside the workspace root stays one narrowed scan
+/// the way `grund check <dir>` does.
+///
+/// §AR-scanner.2.4: `cover` groups citations by file and never reads
+/// citing-side classification — skip the scan post-pass (§AR-benchmarks).
+fn cover_context(opts: &CoverOpts) -> Result<WorkspaceContext> {
+    load_narrowable_workspace_context(&opts.path, opts.path_provided)
+}
+
+/// Every loaded project's scan errors, in project order (§FS-workspace.8.7):
+/// a member's unreadable file fails the run at the workspace root, because the
+/// index the run just printed is incomplete for the tree it claimed.
+fn cover_scan_errors(context: &WorkspaceContext) -> Vec<ApiScanError> {
+    // The same base the rows render against — the workspace root in workspace
+    // mode, the only project otherwise, which is what `render_config` already
+    // holds. A member's path spelled against the member names a file that does
+    // not exist from where the run was launched (§FS-errors.4).
+    let config = context.render_config();
+    let mut errors = context
+        .projects
+        .iter()
+        .flat_map(|project| project.scan_errors.iter())
+        .collect::<Vec<_>>();
+    // §FS-errors.4: by path, not by the order the projects were loaded — the
+    // same order `check` prints the same errors in, so a reader comparing the
+    // two commands on one tree reads one list twice and not two interleavings.
+    // Keyed with `sort_path_key` on the path itself, before rendering, which is
+    // how `check` and every other path ordering in the crate keys one — a second
+    // definition of "path order" here is a thing that drifts.
+    errors.sort_by_key(|(path, message)| (sort_path_key(path), message.clone()));
+    errors
+        .into_iter()
+        .map(|(path, message)| api_scan_error(config, path, message))
+        .collect()
+}
+
+/// Programmatic `cover`: group every citation by scanned file, across every
+/// project the run loaded, without choosing a CLI output format or process exit
+/// code (§RM-core-cli-split, §FS-workspace.8.6).
+pub fn cover(opts: CoverOpts) -> Result<CoverOutput> {
+    let context = cover_context(&opts)?;
+    let entries = cover_rows(&context)
+        .into_iter()
+        .map(|row| CoverEntry {
+            project: row.alias.map(str::to_string),
+            citations: row
+                .citations
                 .iter()
-                .map(|citation| CoverCitation {
-                    path: display_path(&config, &citation.file),
-                    line: citation.line,
-                    column: citation.column,
-                    id: render_id(&config, &citation.id),
-                    section: citation.section.clone(),
-                    marker: citation.has_marker,
-                    text: citation.text.clone(),
+                .map(|citation_row| CoverCitation {
+                    project: row.alias.map(str::to_string),
+                    // The nested object repeats the row's path so `cover` and
+                    // `refs` JSON stay comparable field for field (§FS-cover.3.2).
+                    path: row.path.clone(),
+                    line: citation_row.citation.line,
+                    column: citation_row.citation.column,
+                    id: citation_row.rendered_id(),
+                    section: citation_row.citation.section.clone(),
+                    marker: citation_row.citation.has_marker,
+                    text: citation_row.citation.text.clone(),
                 })
                 .collect(),
+            path: row.path,
         })
         .collect();
-    let scan_errors = scan_errors
-        .iter()
-        .map(|(path, message)| api_scan_error(&config, path, message))
-        .collect();
     Ok(CoverOutput {
-        output_format: config.output_format.clone(),
+        output_format: context.render_config().output_format.clone(),
         entries,
-        scan_errors,
+        scan_errors: cover_scan_errors(&context),
     })
 }
 
 /// Programmatic text-oriented `cover`: return only the citation fields needed
 /// for the default human-readable cover view while still leaving rendering to
-/// frontends (§RM-core-cli-split).
+/// frontends (§RM-core-cli-split). Same index as [`cover`] (§FS-workspace.8.6);
+/// the text view carries no alias because the path already renders from the
+/// workspace root and the token is printed verbatim (§FS-cover.3.1).
 pub fn cover_text(opts: CoverOpts) -> Result<CoverTextOutput> {
-    let mut config = resolve_workspace_config(&opts.path)?;
-    // §AR-scanner.2.4: see `cover` — no classification needed (§AR-benchmarks).
-    config.classify_citation_sources = false;
-    let (findings, scan_errors) = scan_tree(&config, Some(&opts.path), opts.path_provided)?;
-
-    let mut by_file: BTreeMap<PathBuf, Vec<CoverTextCitation>> = BTreeMap::new();
-    for file in findings.scanned_files {
-        by_file.entry(file).or_default();
-    }
-    for citation in findings.citations {
-        if citation.namespace.is_some() {
-            continue;
-        }
-        by_file
-            .entry(citation.file)
-            .or_default()
-            .push(CoverTextCitation {
-                line: citation.line,
-                column: citation.column,
-                text: citation.text,
-            });
-    }
-    for citations in by_file.values_mut() {
-        citations.sort_by_key(|citation| (citation.line, citation.column));
-    }
-
-    let mut cover_entries = by_file
+    let context = cover_context(&opts)?;
+    let entries = cover_rows(&context)
         .into_iter()
-        .map(|(file, citations)| (display_path(&config, &file), citations))
-        .collect::<Vec<_>>();
-    cover_entries.sort_by(|(left, _), (right, _)| left.cmp(right));
-    let entries = cover_entries
-        .into_iter()
-        .map(|(path, citations)| CoverTextEntry { path, citations })
-        .collect();
-    let scan_errors = scan_errors
-        .iter()
-        .map(|(path, message)| api_scan_error(&config, path, message))
+        .map(|row| CoverTextEntry {
+            path: row.path,
+            citations: row
+                .citations
+                .iter()
+                .map(|citation_row| CoverTextCitation {
+                    line: citation_row.citation.line,
+                    column: citation_row.citation.column,
+                    text: citation_row.citation.text.clone(),
+                })
+                .collect(),
+        })
         .collect();
     Ok(CoverTextOutput {
-        output_format: config.output_format.clone(),
+        output_format: context.render_config().output_format.clone(),
         entries,
-        scan_errors,
+        scan_errors: cover_scan_errors(&context),
     })
 }
 
@@ -1194,6 +1291,13 @@ pub struct FmtChange {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct FmtOutput {
     pub changes: Vec<FmtChange>,
+    /// The paths the walk could not read (§FS-fmt.3) — the CLI prints these and
+    /// exits `2`. Non-empty means the rewrite ran over less than the whole tree.
+    pub scan_errors: Vec<ApiScanError>,
+    /// The files read but not rewritten, because a link reaches them from outside
+    /// the config root (§FS-fmt.2.3.2). The CLI names each one on stderr; the
+    /// exit code is untouched, because the refusal is the intended behavior.
+    pub refused_writes: Vec<String>,
 }
 
 /// Programmatic `fmt`: run the normalizer and return the changed locations
@@ -1208,12 +1312,18 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
         None
     };
     let mut changes: Vec<(PathBuf, usize, String)> = Vec::new();
+    let mut scan_errors: Vec<ApiScanError> = Vec::new();
+    let mut refused_writes: Vec<String> = Vec::new();
     let walk_all_projects = context.workspace_loaded
         && (!opts.path_provided
             || fs::canonicalize(&opts.path)
                 .map(|canonical| canonical == config.root)
                 .unwrap_or(false));
     if walk_all_projects {
+        // §FS-fmt.3: reuse a project's already-scanned findings only when that
+        // scan met no error (`usable_findings`) — the same completeness guard
+        // `fmt_findings_or_abort` applies to a fresh scan, so a caller that
+        // reuses one instead of running one inherits it too.
         for project in &context.projects {
             let auto_cross_refs = auto_cross_refs_for_scope(
                 &project.config,
@@ -1225,35 +1335,43 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 add_marker: opts.add_marker,
                 cross_refs: explicit_cross_refs || auto_cross_refs,
                 write: opts.write,
+                render: &config,
                 workspace: workspace_for_wrap,
-                precomputed_findings: Some(&project.findings),
+                precomputed_findings: usable_findings(project),
             };
-            changes.append(&mut fmt_tree(
+            let mut walked = fmt_tree(
                 &project.config,
                 Some(&project.config.root),
                 true,
                 &run_opts,
-            )?);
+            )?;
+            changes.append(&mut walked.changes);
+            scan_errors.append(&mut walked.scan_errors);
+            refused_writes.append(&mut walked.refused_writes);
         }
     } else {
+        // §FS-fmt.3: same guard as above — `--write` with no `<path>` and
+        // `--write .` name the same scope and must refuse alike, not one
+        // silently resolving cross-refs/shorthands against a set the other
+        // just reported incomplete.
         let reusable_findings = (!opts.path_provided)
-            .then(|| context.current_project().map(|project| &project.findings))
-            .flatten();
+            .then(|| context.current_project())
+            .flatten()
+            .and_then(usable_findings);
         let auto_cross_refs =
             auto_cross_refs_for_scope(&config, Some(&opts.path), opts.path_provided, opts.write)?;
         let run_opts = FmtRunOpts {
             add_marker: opts.add_marker,
             cross_refs: explicit_cross_refs || auto_cross_refs,
             write: opts.write,
+            render: &config,
             workspace: workspace_for_wrap,
             precomputed_findings: reusable_findings,
         };
-        changes = fmt_tree(
-            &config,
-            Some(&opts.path),
-            opts.path_provided,
-            &run_opts,
-        )?;
+        let walked = fmt_tree(&config, Some(&opts.path), opts.path_provided, &run_opts)?;
+        changes = walked.changes;
+        scan_errors = walked.scan_errors;
+        refused_writes = walked.refused_writes;
     }
 
     Ok(FmtOutput {
@@ -1265,6 +1383,8 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 label,
             })
             .collect(),
+        scan_errors,
+        refused_writes,
     })
 }
 

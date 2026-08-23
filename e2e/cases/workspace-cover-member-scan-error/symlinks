@@ -1,0 +1,3 @@
+# A path only the member's walk reaches. The run is launched at the workspace
+# root, so the error has to be named from there (§FS-workspace.8.6).
+packages/sub/docs/FS-gone.md -> FS-gone-target.md

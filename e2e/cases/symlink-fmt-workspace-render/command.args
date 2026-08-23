@@ -1,0 +1,1 @@
+fmt --check {repo_copy}/project

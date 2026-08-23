@@ -19,10 +19,13 @@ fn show_declaration(
     )
 }
 
-/// `path_config` renders report paths (§FS-config.3.6) and must be the same
-/// config the caller hands `render_show_output_json`, so the E2E manifest —
-/// whose JSON is baked here rather than rendered there — reports its path
-/// against the same root as every other kind (§FS-workspace.8.1).
+/// `path_config` renders every path this function reports (§FS-config.3.6) — the
+/// sites a refusal names (§FS-errors.3) as well as the E2E manifest's, whose
+/// JSON is baked here rather than in `render_show_output_json`. It must be the
+/// same config the caller hands that renderer, so a member's declaration reports
+/// against the root the rest of the run spells its paths from
+/// (§FS-workspace.8.1). `config` stays the *project's*: it owns the ID grammar
+/// `render_id` reads and the tree the body is read out of.
 fn show_declaration_with_overlays(
     config: &Config,
     path_config: &Config,
@@ -43,9 +46,11 @@ fn show_declaration_with_overlays(
         .filter(|decl| !is_stub_for_inline_decl(root, decl, decls))
         .collect();
     if homes.len() > 1 {
+        // §FS-errors.3: every path this refusal names is spelled from the report
+        // root, like the `path` of any diagnostic printed beside it.
         let mut sites: Vec<String> = homes
             .iter()
-            .map(|d| format!("{}:{}", display_path(config, &d.file), d.line))
+            .map(|d| format!("{}:{}", display_path(path_config, &d.file), d.line))
             .collect();
         sites.sort();
         return Err(anyhow!(
@@ -68,7 +73,7 @@ fn show_declaration_with_overlays(
             return Err(anyhow!(
                 "broken stub: {} (stub at {}:{} points at {}, which does not exist)",
                 render_id(config, id),
-                display_path(config, &decl.file),
+                display_path(path_config, &decl.file),
                 decl.line,
                 format_path(decl.defined_in.as_ref().unwrap())
             ));
@@ -77,14 +82,78 @@ fn show_declaration_with_overlays(
             return Err(anyhow!(
                 "broken stub: {} (stub at {}:{} points at {}, which contains no inline declaration of {})",
                 render_id(config, id),
-                display_path(config, &decl.file),
+                display_path(path_config, &decl.file),
                 decl.line,
                 format_path(decl.defined_in.as_ref().unwrap()),
                 render_id(config, id)
             ));
         }
     }
+    if let Some(section) = section
+        && let Some(refusal) = ambiguous_section_refusal(config, path_config, decls, decl, &file, id, section)
+    {
+        return Err(refusal);
+    }
     extract_declaration_body(&file, id, section, mode, include_heading, config, overlays)
+}
+
+/// §FS-show.2.2.2: refuse a section coordinate two headings claim, before the
+/// body is read.
+///
+/// The claimants are the ones the *scan* recorded (§AR-scanner.2.2) — the same
+/// record §FS-check.3.16 reports from — so `show` refuses exactly the
+/// coordinates `check` names and no others. Re-detecting them while extracting
+/// the body would be a second, weaker reader: it would have to redo the fence
+/// tracking, the heading-level gate, and the body bounds, and any of the three
+/// getting a different answer is a coordinate one command calls clean and the
+/// other will not resolve.
+///
+/// For a stub the sections belong to the **inline home**, which is the file the
+/// body comes out of; a stub's own prose declares none (§FS-check.3.16). Paths
+/// in the message use `path_config`, the report-path config named on
+/// `show_declaration_with_overlays`.
+fn ambiguous_section_refusal(
+    config: &Config,
+    path_config: &Config,
+    decls: &[Declaration],
+    decl: &Declaration,
+    file: &Path,
+    id: &Id,
+    section: &str,
+) -> Option<anyhow::Error> {
+    let body_decl = if decl.is_stub {
+        decls
+            .iter()
+            .find(|other| paths_same_location(&other.file, file))
+            .unwrap_or(decl)
+    } else {
+        decl
+    };
+    let mut lines: Vec<usize> = body_decl
+        .duplicate_sections
+        .iter()
+        .filter(|(path, _)| path == section)
+        .map(|(_, info)| info.line)
+        .collect();
+    if lines.is_empty() {
+        return None;
+    }
+    // The map holds the first claimant (§AR-scanner.2.2); the list holds the
+    // rest. Sorted so the sites read in file order, as §FS-show.2.2.1 requires.
+    lines.extend(body_decl.sections.get(section).map(|first| first.line));
+    lines.sort_unstable();
+    let rendered = display_path(path_config, file);
+    let sites = lines
+        .iter()
+        .map(|line| format!("{rendered}:{line}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(anyhow!(
+        "ambiguous section: {}{}{} (declared at {sites})",
+        render_id(config, id),
+        config.section_separator,
+        section
+    ))
 }
 
 /// Render an e2e case as an ID-query body: the invocation, expected exit, and
@@ -159,221 +228,6 @@ fn show_e2e_case(
     })
 }
 
-/// Pull the body text of a declaration out of its file: the lines under the
-/// `# <ID>: …` heading down to the next same-or-shallower heading (§FS-show.2.1),
-/// optionally just one numbered subsection (§FS-show.2.2) or just the lead
-/// paragraph (§FS-show.2.1.1). For an inline declaration in a code/`"""` doc-comment
-/// this walks the comment block (§FS-show.2.3.1) and strips comment markers
-/// (§FS-show.2.3.2) before returning the text.
-fn extract_declaration_body(
-    path: &Path,
-    id: &Id,
-    section: Option<&str>,
-    mode: ShowRenderMode,
-    include_heading: bool,
-    config: &Config,
-    overlays: &TextOverlays,
-) -> Result<ShowOutput> {
-    // `--toc` = the default lead, then a blank line, then the nested section
-    // headings (§FS-show.2.1.2). Internally: compose the Default body with an
-    // Outline-only scan, sharing the same `(path, id, section)` resolution.
-    if mode == ShowRenderMode::Toc {
-        let mut default_output = extract_declaration_body(
-            path,
-            id,
-            section,
-            ShowRenderMode::Default,
-            include_heading,
-            config,
-            overlays,
-        )?;
-        let outline_output = extract_declaration_body(
-            path,
-            id,
-            section,
-            ShowRenderMode::Outline,
-            false,
-            config,
-            overlays,
-        )?;
-        default_output.body = join_with_blank(&default_output.body, &outline_output.body);
-        default_output.sections = outline_output.sections;
-        return Ok(default_output);
-    }
-
-    // `--brief` = heading + first paragraph (§FS-show.2.1.1). The heading is
-    // always included (H1 for a whole declaration, section heading for a
-    // selected section) so the slice is self-labeled regardless of `text` vs
-    // `md`. When a section is selected we suppress the H1 — only the most
-    // specific heading is kept.
-    if mode == ShowRenderMode::Brief {
-        let want_h1_for_default = section.is_none();
-        let mut output = extract_declaration_body(
-            path,
-            id,
-            section,
-            ShowRenderMode::Default,
-            want_h1_for_default,
-            config,
-            overlays,
-        )?;
-        output.body = truncate_to_first_paragraph(&output.body);
-        return Ok(output);
-    }
-
-    let text = read_text_with_overlays(path, overlays)?;
-    let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
-    let is_py = path.extension().and_then(|e| e.to_str()) == Some("py");
-    let mut in_decl = false;
-    let mut line_style_comment = false;
-    let mut py_docstring = PythonDocstringScanState::default();
-    let mut found_section = section.is_none();
-    let mut target_depth = usize::MAX;
-    let mut lines = Vec::new();
-    let mut sections = Vec::new();
-    let mut output_line = 1;
-
-    for (idx, line) in text.lines().enumerate() {
-        let lineno = idx + 1;
-        let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
-        let scan_line = scan.text;
-        if in_decl && scan.in_py_docstring && scan.closed_py_docstring && scan_line.trim().is_empty() {
-            break;
-        }
-        if let Some(caps) =
-            declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
-        {
-            let found = parse_id(&caps);
-            if in_decl && found.as_ref() != Some(id) {
-                break;
-            }
-            if found.as_ref() == Some(id) {
-                in_decl = true;
-                line_style_comment = is_line_style_comment_line(scan_line);
-                output_line = lineno;
-                // `md` format keeps the heading verbatim — including for `--brief`,
-                // which then prints heading + first paragraph (§FS-show.3.1).
-                if include_heading {
-                    lines.push(clean_body_line(scan_line, is_md || scan.in_py_docstring));
-                }
-                if scan.closed_py_docstring {
-                    break;
-                }
-                continue;
-            }
-        }
-        if !in_decl {
-            continue;
-        }
-        if !is_md {
-            let blank = line.trim().is_empty();
-            if scan.in_py_docstring {
-                // Python docstring content is plain Markdown; delimiter-only
-                // triple-quote lines are skipped by `source_scan_line`
-                // (§AR-scanner.4, §FS-show.2.3.2).
-            } else if blank {
-                // A blank line ends a line-style comment block (`//`, `#`, …);
-                // inside a `/* … */` block or a docstring it is part of the body
-                // (§FS-show.2.3.1).
-                if line_style_comment {
-                    break;
-                }
-            } else if !is_comment_body_line(scan_line) {
-                break;
-            }
-        }
-        if let Some(caps) = config.grammar.section_re.captures(scan_line) {
-            let sec = caps.name("sec").map(|m| m.as_str()).unwrap_or("");
-            let depth = sec.split('.').count();
-            match section {
-                // Whole-declaration lead: stop at the first numbered subsection.
-                None => {
-                    if mode == ShowRenderMode::Default {
-                        break;
-                    }
-                    if mode == ShowRenderMode::Outline {
-                        push_outline_section(
-                            &mut lines,
-                            &mut sections,
-                            scan_line,
-                            sec,
-                            depth,
-                            is_md || scan.in_py_docstring,
-                        );
-                        continue;
-                    }
-                }
-                Some(target) => {
-                    if sec == target {
-                        found_section = true;
-                        target_depth = depth;
-                        output_line = lineno;
-                        if mode != ShowRenderMode::Outline {
-                            lines.push(clean_body_line(scan_line, is_md || scan.in_py_docstring));
-                        }
-                        continue;
-                    }
-                    // Inside the target section: a sibling-or-shallower heading
-                    // ends it (§FS-show.2.2); in default mode any further numbered
-                    // heading — including a child — ends the section's lead prose
-                    // (§FS-show.2.2). Before the target section is found, keep
-                    // scanning past unrelated headings.
-                    if found_section && (mode == ShowRenderMode::Default || depth <= target_depth) {
-                        break;
-                    }
-                    if found_section && mode == ShowRenderMode::Outline {
-                        push_outline_section(
-                            &mut lines,
-                            &mut sections,
-                            scan_line,
-                            sec,
-                            depth - target_depth,
-                            is_md || scan.in_py_docstring,
-                        );
-                        continue;
-                    }
-                }
-            }
-        }
-        if found_section && mode != ShowRenderMode::Outline {
-            lines.push(clean_body_line(scan_line, is_md || scan.in_py_docstring));
-        }
-        if in_decl && scan.closed_py_docstring {
-            break;
-        }
-    }
-
-    if !in_decl {
-        return Err(anyhow!("ID not found: {}", render_id(config, id)));
-    }
-    if !found_section {
-        return Err(anyhow!(
-            "section not found: {}{}{}",
-            render_id(config, id),
-            config.section_separator,
-            section.unwrap_or("")
-        ));
-    }
-    while lines.first().is_some_and(|line| line.trim().is_empty()) {
-        lines.remove(0);
-    }
-    while lines.last().is_some_and(|line| line.trim().is_empty()) {
-        lines.pop();
-    }
-    let body = if lines.is_empty() {
-        String::new()
-    } else {
-        format!("{}\n", lines.join("\n"))
-    };
-    Ok(ShowOutput {
-        body,
-        path: path.to_path_buf(),
-        line: output_line,
-        json: None,
-        sections,
-    })
-}
-
 fn read_text_with_overlays(path: &Path, overlays: &TextOverlays) -> Result<String> {
     if let Some(text) = overlay_text(overlays, path) {
         Ok(text.to_string())
@@ -430,78 +284,4 @@ fn truncate_to_first_paragraph(body: &str) -> String {
     } else {
         format!("{}\n", out.join("\n"))
     }
-}
-
-fn push_outline_section(
-    lines: &mut Vec<String>,
-    sections: &mut Vec<ShowSection>,
-    line: &str,
-    section: &str,
-    depth: usize,
-    markdown_heading: bool,
-) {
-    lines.push(clean_body_line(line, markdown_heading));
-    sections.push(ShowSection {
-        path: section.to_string(),
-        title: section_title(line, section, markdown_heading),
-        depth,
-    });
-}
-
-fn section_title(line: &str, section: &str, markdown_heading: bool) -> String {
-    let clean = clean_body_line(line, markdown_heading);
-    clean
-        .trim_start()
-        .trim_start_matches('#')
-        .trim_start()
-        .trim_start_matches(section)
-        .trim_start_matches('.')
-        .trim_start()
-        .to_string()
-}
-
-/// Strip the comment marker (`///`, `//!`, `//`, `#`, `*`, `/*`, `*/`) off a body
-/// line when the declaration lives in a code/`"""` doc-comment — Markdown bodies
-/// pass through unchanged (§FS-show.2.3.2).
-fn clean_body_line(line: &str, is_md: bool) -> String {
-    if is_md {
-        return line.to_string();
-    }
-
-    let marker_start = line
-        .char_indices()
-        .find_map(|(idx, ch)| (!ch.is_whitespace()).then_some(idx))
-        .unwrap_or(line.len());
-    let (leading, body) = line.split_at(marker_start);
-    for prefix in ["///", "//!", "//", "*/", "#", "*", "/*"] {
-        if let Some(rest) = body.strip_prefix(prefix) {
-            if prefix == "*/" && rest.trim().is_empty() {
-                return String::new();
-            }
-            let rest = rest.strip_prefix(' ').unwrap_or(rest);
-            return format!("{leading}{rest}");
-        }
-    }
-    line.to_string()
-}
-
-/// Whether a line still looks like part of the comment block — used to decide
-/// where an inline declaration's body ends (§FS-show.2.3.1).
-fn is_comment_body_line(line: &str) -> bool {
-    let trimmed = line.trim_start();
-    ["///", "//!", "//", "#", "*", "/*", "*/"]
-        .iter()
-        .any(|prefix| trimmed.starts_with(prefix))
-}
-
-/// Whether a declaration heading line sits inside a *line-style* comment
-/// (`//`-family, `#`, `;`, `--`) as opposed to a `/* … */` block (which opens
-/// `*` continuation lines). Line-style blocks end at a blank line; block-style
-/// ones end at `*/` (§FS-show.2.3.1).
-fn is_line_style_comment_line(line: &str) -> bool {
-    let trimmed = line.trim_start();
-    trimmed.starts_with("//")
-        || trimmed.starts_with('#')
-        || trimmed.starts_with(';')
-        || trimmed.starts_with("--")
 }

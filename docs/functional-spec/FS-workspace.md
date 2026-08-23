@@ -175,6 +175,26 @@ inside a member. The member is scanned separately under its own config and alias
 This prevents a child project declaration from accidentally becoming a duplicate
 or dependency of the root namespace.
 
+**The boundary is mutual, and it belongs to the directory rather than to the path
+that reaches it.** A member's own scan stops at every *other* project in the
+workspace exactly as the root scan stops at the members — at a sibling member's
+files, and at the root project's. Ordinary descent cannot cross the line, since
+no project root contains another except along the workspace tree itself, but a
+symlink can, and a symlink is followed ([§FS-config.3.5.1](FS-config.md#351-a-symlink-in-the-tree-is-followed)).
+So the directory a link resolves to is asked which project owns it — the
+innermost project root that contains it — and a directory owned by another
+project is not descended into, whichever project's walk met it and under
+whatever name. The harm is the same in every direction: `packages/a/docs/b ->
+../../b` files `b`'s declarations under `a`'s namespace and reports them as
+duplicates of themselves, which is what this section forbids of the root scan. A
+directory that belongs to **no** project in the workspace is not a boundary: it
+is outside content the repository deliberately linked into the tree, and it is
+read there like any other ([§FS-config.3.5.1](FS-config.md#351-a-symlink-in-the-tree-is-followed)).
+
+A member checked on its own is an independent project (§5) and does not load the
+workspace, so it cannot know where the other projects are; this boundary is a
+property of a run that loaded them, not of the member's own config.
+
 ### 6.1 Nested workspaces
 
 A member may itself declare `[workspace]`. Its `members` are paths under *that*
@@ -271,7 +291,7 @@ workspace-local.
 
 The workspace surface composes through the same resolver `grund check` uses
 ([AR-workspace.4](../architecture/AR-workspace.md#4-the-resolver-one-function)), so qualified-ID behavior in query commands is a UX layer over
-an already-built engine — not new resolution logic. Three shared rules apply to
+an already-built engine — not new resolution logic. Four shared rules apply to
 every command in this section:
 
 - **Discovery follows the same walk-up rule as `grund check`** ([§FS-config.1](FS-config.md#1-file-location-and-discovery),
@@ -296,8 +316,8 @@ every command in this section:
   (or whatever name `project_name` would have assigned) is treated as any other
   unknown alias by every command in this section — the root alias is not
   silently reserved. Output paths still render from the workspace root, not from
-  the first member. Completions, `show`, `refs`, and `list --project` all agree
-  on this.
+  the first member. Completions, `show`, `refs`, `cover`, and `list --project`
+  all agree on this.
 - **A malformed alias path is rejected before the scan, and the diagnostic names
   the offending segment** — `Sprayer` for `grund hardware/Sprayer/FS-x`, not the
   whole `hardware/Sprayer`. The path is one slug per level (§1), so the mistake
@@ -503,9 +523,67 @@ when wrapping a citation that targets that member — the member's
 render each project's anchors under its own configured profile, consistent
 with the per-member config rule ([AR-workspace.5](../architecture/AR-workspace.md#5-the-config-one-parse-one-validation-pass)).
 
-### 8.6 Output and exit codes
+### 8.6 `grund cover`
 
-All five surfaces above keep the exit codes they had:
+`grund cover` invoked at a workspace root indexes **every project the workspace
+covers** — root plus members, subject to `include_root` per the §8 intro — with
+one entry per scanned file, exactly as §8.3 defines the catalog for `list`. A
+member-local invocation (or a `<path>` that resolves member-local) indexes that
+member alone, unchanged from a standalone run.
+
+`cover` is the one command in this section whose `<path>` bounds a **walk**
+rather than choosing which config answers ([§FS-cover.1](FS-cover.md#1-inputs)), so it draws the
+aggregate/narrow line where `grund check` draws it and not where `list` does: a
+scope narrower than the config root is one narrowed scan of the enclosing
+project, no workspace loaded and no `project` field, the way `grund check <dir>`
+already behaves ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)). Widening `grund cover src/` back to every
+project would answer a question the caller did not ask, and an explicit path
+deliberately bypasses `[scan] include`, so the narrowing is the only thing that
+put those files in scope at all.
+
+`cover`'s question is "which IDs does this file lean on?" ([§FS-cover.5](FS-cover.md#5-why-this-exists)), and the
+answer for a file is the same fact whichever scope the run was launched at. A
+per-project index would make the co-change recipe ([§RM-cochange-gate](../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test)) read a
+changed member file as uncovered, and a coverage index that omits whole
+projects while exiting `0` is the silent skip [§REQ-no-missed-citation.1](../requirements/REQ-no-missed-citation.md#1-no-silent-skips) forbids.
+Rationale and the discarded project-local alternative: [§DF-cover-workspace-scope](../decisions/functional/DF-cover-workspace-scope.md#df-cover-workspace-scope-cover-indexes-the-whole-run-and-counts-cross-project-citations).
+
+- **Qualified citations count toward the citing file.** A `<§><alias>/<ID>`
+  written in `docs/index.md` is one of that file's citations, listed at its
+  `(line, column)` like any other. It is what the file leans on; dropping it
+  reports a fully grounded file as citing nothing. This holds outside a
+  workspace too — a qualified citation in a standalone project is still a
+  citation the file carries, and it is `check`'s job, not `cover`'s, to call
+  the alias unknown (§8.1).
+- **The rendered `id` says what the token says**, canonically: `api/FS-login`
+  for a citation written qualified, the bare ID for a local one, rendered under
+  the **target** project's `[id]` config exactly as `refs` renders it (§8.2).
+  Qualifying a local `<§>FS-login` would report something other than what the
+  file wrote, and reporting what the file wrote is the whole job. The target a
+  row names is therefore `id` when it carries a `/`, and `<project>/<id>`
+  otherwise — one join against the field on the same object. `text` stays the
+  verbatim source token either way.
+- **Paths render from the workspace root** when a workspace is loaded and
+  `[output] relative_paths` is left at its default, so a member's file is
+  spelled the way `[workspace] members` spells it and the recipe can join it
+  against the same base `git diff` reports. Under `relative_paths = false` the
+  base is the command's path argument, as it is for every other command
+  ([§FS-config.3.6](FS-config.md#36-output--report-format)). Scan errors from any project render against
+  whichever base the rows did.
+- **`--format json` adds `"project": "<alias>"`** to the per-file object and to
+  each nested citation object whenever workspace mode is loaded — the alias of
+  the project that *contains* the file, which is also the citing project. The
+  nested objects keep `refs --format json`'s **field** shape — same names, same
+  order, this field included ([§FS-cover.3.2](FS-cover.md#32---format-json)) — not every value: `id` differs by
+  the rule above, because `refs` was handed the alias in its query argument and
+  `cover` was not. Outside workspace mode no field is added.
+- **`include_root = false`** removes the root project's files from the index
+  along with its catalog entry, per the §8 intro. Nothing else scans them
+  (§6), which is the hole that rule already documents.
+
+### 8.7 Output and exit codes
+
+All six surfaces above keep the exit codes they had:
 
 - `show` — `0` body printed, `1` ID/section not found or ambiguous, `2` CLI/
   scan error. An unknown alias is `2` (it is a CLI-shaped error, not a "found
@@ -513,6 +591,9 @@ All five surfaces above keep the exit codes they had:
 - `refs` — `0` always when the scan succeeds; `2` on scan/CLI error.
 - `list` — `0` always when the scan succeeds; `2` on scan/CLI error (now
   including unknown `--project`).
+- `cover` — `0` always when the scan succeeds; `2` on a scan error in **any**
+  loaded project, since the index is then incomplete for the tree the run
+  claimed ([§FS-cover.4](FS-cover.md#4-exit-codes)).
 - Completion helper — quiet failures, exit `0`, unchanged from [§FS-completions.2](FS-completions.md#2-internal-dynamic-helper).
 - `fmt --cross-refs` — unchanged from [§FS-fmt](FS-fmt.md#fs-fmt-grund-normalizes-references-in-bulk).
 

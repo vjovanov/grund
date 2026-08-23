@@ -209,6 +209,41 @@ matches a boundary. Boundary roots are computed once per workspace run, not per
 directory entry, so the per-entry cost is one path comparison and no
 `canonicalize` syscall.
 
+The relative-path compare answers the question only while the tree spells a
+member one way. A **symlink** gives it a second spelling — `docs/link -> ../sub`,
+or `docs/link -> ../packages` with the member one level below it — and a member
+reached under a link name matches no precomputed suffix, so the root scan
+descends into the member namespace this section forbids and reports the member's
+own declarations as duplicates of themselves. The boundary is a property of the
+directory, not of the name it is reached under, so a directory the walk reached
+**through a link** is resolved with `canonicalize` and compared against the
+member roots directly ([§AR-scanner.1](AR-scanner.md#1-tree-walk)). That is the
+one case that pays a syscall, it is paid per link-reached directory rather than
+per entry, and a tree with no directory symlink in it pays nothing.
+
+The member-root list answers the question only in one direction, and the harm
+[§FS-workspace.6](../functional-spec/FS-workspace.md#6-nested-project-boundary)
+names is mutual: a leaf member has no members of its own, so its list is empty
+and a link inside it walks straight into a sibling's tree or back up into the
+root project's. So expansion also stamps every project's config with the
+**canonical root of every project the run loaded**, and the link-reached
+directory is asked which of them owns it — the innermost project root that
+contains it, since a nested member's root sits inside the block that listed it.
+Out of bounds is "owned by a project that is not this one"; owned by no project
+at all is not a boundary, because content outside every project is content the
+repository linked in deliberately
+([§FS-config.3.5](../functional-spec/FS-config.md#35-scan--what-gets-walked)).
+The innermost-owner rule is what keeps a member's own subtree readable while its
+parent project's is not, and it subsumes the member-root list for the root scan
+rather than replacing it: the list still prunes a member of a *nested* workspace
+whose grouping directory is not itself a project.
+
+The list is empty for a run that never loaded a workspace, which is a member
+checked on its own — an independent project by
+[§FS-workspace.5](../functional-spec/FS-workspace.md#5-command-scope), and one
+that cannot be told where the other projects are without loading the workspace
+it deliberately does not load.
+
 Members are scanned recursively as independent projects. A member that declares
 its own `[workspace]` block contributes its whole subtree instead of one
 project (§6.1).
@@ -286,7 +321,7 @@ the checker, not the scanner, not the loader, not the resolver shape.
 
 ## 8. Downstream commands compose, not duplicate
 
-Query commands (`show`, `refs`, `list`, completions) and the formatter
+Query commands (`show`, `refs`, `list`, `cover`, completions) and the formatter
 (`fmt --cross-refs`) consume the qualified-citation shape through a single
 shared loader, `load_workspace_context`
 ([§FS-workspace.8](../functional-spec/FS-workspace.md#8-other-commands)).
@@ -307,10 +342,23 @@ the workspace root scopes to the current (root) project; `grund list
 --project api` narrows the catalog; `grund fmt --cross-refs` from a
 member tree preserves any pre-existing qualified wraps as-is and emits
 no new ones ([§FS-workspace.8.5](../functional-spec/FS-workspace.md#85-grund-fmt---cross-refs)). No command re-implements the resolver,
-the citation regex, or the alias derivation. `grund cover` deliberately
-stays project-local — its answer is "which files in this project carry
-citations?" — and filters at the consumer end on `cite.namespace.is_none()`,
-never by switching the scanner into a different mode.
+the citation regex, or the alias derivation.
+
+`grund cover` applies **no** filter: it is keyed by file, so every project
+the loader returned contributes its scanned files and every citation in
+them, qualified or not ([§FS-workspace.8.6](../functional-spec/FS-workspace.md#86-grund-cover), [§DF-cover-workspace-scope](../decisions/functional/DF-cover-workspace-scope.md#df-cover-workspace-scope-cover-indexes-the-whole-run-and-counts-cross-project-citations)). That
+is the one command where dropping a row is indistinguishable from a file
+having nothing to say, so it is the one command whose consumer-end filter
+was a silent skip rather than a scope choice. A file belongs to exactly one
+project by the boundary rule (§6), so the per-file index needs no merge step
+and the alias attached to each entry is unambiguous.
+
+It reaches the loader through `load_narrowable_workspace_context`, which takes
+the workspace-aggregate arm only when `scope_is_config_root` — the same test
+`run_check` uses — and otherwise returns the one narrowed project
+([§FS-workspace.8.6](../functional-spec/FS-workspace.md#86-grund-cover)). Both
+arms build the single-project context from one helper, so "single project"
+cannot come to mean two things.
 
 ## 9. Test contracts
 
@@ -349,7 +397,15 @@ test that fails if the invariant is broken:
 | Single-project repo flags stray `<§>alias/<ID>`  | `e2e/cases/cross-project-citation-without-workspace` |
 | `config show` round-trips `[workspace]`          | `e2e/cases/config-show-workspace-roundtrip` |
 | `check --format json` shape in a workspace       | `e2e/cases/workspace-check-json` |
-| `cover` / `list` skip qualified citations        | `e2e/cases/cover-ignore-qualified-project-local`; `e2e/cases/list-ignore-qualified-project-local`; `e2e/cases/refs-ignore-qualified-project-local`; `e2e/cases/fmt-cross-refs-ignore-qualified-project-local` |
+| `list` / `refs` / `fmt` skip qualified citations  | `e2e/cases/list-ignore-qualified-project-local`; `e2e/cases/refs-ignore-qualified-project-local`; `e2e/cases/fmt-cross-refs-ignore-qualified-project-local` |
+| `cover` counts a qualified citation, workspace or not | `e2e/cases/cover-counts-qualified-project-local`; `e2e/cases/workspace-cover-text` |
+| `cover` at a workspace root indexes every member, and a member's scan error fails the run | `e2e/cases/workspace-cover-json`; `e2e/cases/workspace-cover-member-scan-error`; `cover_at_a_workspace_root_indexes_every_member` (`crates/grund-core/src/tests_cover_workspace.rs`) |
+| `cover` under a member path stays member-local    | `e2e/cases/workspace-cover-member-local` |
+| `cover` renders a qualified `id` under the target project's grammar | `e2e/cases/workspace-cover-json-target-grammar`; `a_qualified_id_renders_under_the_target_projects_config` (`crates/grund-core/src/tests_cover_workspace.rs`) |
+| `cover` under `include_root = false` drops the root's files with its catalog entry | `e2e/cases/workspace-cover-include-root-false` |
+| The compat `cover` renderer emits the CLI's bytes (no e2e case reaches it) | `the_compat_renderer_emits_the_same_json_the_cli_does`, `the_compat_renderer_adds_no_project_field_outside_a_workspace` (`crates/grund-core/src/tests_cover_workspace.rs`) |
+| `cover` fails a workspace whose members cannot be expanded | `e2e/cases/workspace-cover-broken-members` |
+| `cover <dir>` narrows instead of aggregating, like `check <dir>` | `e2e/cases/workspace-cover-narrowed-path`; `cover_under_a_narrowed_path_loads_no_workspace` (`crates/grund-core/src/tests_cover_workspace.rs`) |
 | `[workspace] members` shape rejected at load     | `e2e/cases/workspace-member-absolute-path`; `e2e/cases/workspace-member-parent-segment`; `e2e/cases/workspace-member-windows-drive`; `e2e/cases/workspace-member-windows-path`; `e2e/cases/workspace-member-multi-glob` |
 | Overlapping workspace member roots rejected      | `e2e/cases/workspace-member-overlap` |
 | `[[workspace]]` array-table form rejected        | `e2e/cases/workspace-section-as-array-table` |

@@ -114,6 +114,103 @@ mod tests_grounding_style {
         );
     }
 
+    /// §FS-inline-citation-style.2.3: a column is one character, so two notes of
+    /// equal length are judged alike whatever their prose costs in UTF-8
+    /// (§DF-note-columns-are-characters).
+    #[test]
+    fn inline_note_column_cap_counts_characters_not_bytes() {
+        let root = test_root("inline_note_column_cap_counts_characters_not_bytes");
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: Login\n",
+        );
+
+        // Identical character counts; only the padding's encoding differs.
+        let ascii = format!("// §FS-001-login {}", "x".repeat(60));
+        let accented = format!("// §FS-001-login {}", "é".repeat(60));
+        assert_eq!(
+            ascii.chars().count(),
+            accented.chars().count(),
+            "the two notes must be the same width in characters"
+        );
+        assert!(
+            accented.len() > ascii.len(),
+            "and a different width in bytes, or the test proves nothing"
+        );
+
+        write(
+            &root.join("src/auth.rs"),
+            &format!("{ascii}\npub fn a() {{}}\n\n{accented}\npub fn b() {{}}\n"),
+        );
+
+        let mut config = Config::default_for(root.clone());
+        // Exactly the width of both notes: at the cap, not over it.
+        config.inline_note_max_columns = ascii.chars().count();
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+        let report = check_findings(&findings, &config);
+
+        let columns = report
+            .errors
+            .iter()
+            .filter(|error| {
+                error.code == "inline-citation-style"
+                    && error.message.ends_with("-column maximum")
+            })
+            .map(|error| (error.line, error.message.as_str()))
+            .collect::<Vec<_>>();
+
+        assert!(
+            columns.is_empty(),
+            "a note at the cap is within it in either alphabet: {columns:?}"
+        );
+    }
+
+    /// §FS-inline-citation-style.2.3: the cap is exact in non-ASCII prose — one
+    /// character over is over, and it is the only line reported.
+    #[test]
+    fn inline_note_column_cap_is_exact_in_non_ascii_prose() {
+        let root = test_root("inline_note_column_cap_is_exact_in_non_ascii_prose");
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: Login\n",
+        );
+
+        let at_cap = format!("// §FS-001-login {}", "é".repeat(60));
+        let over_by_one = format!("// §FS-001-login {}", "é".repeat(61));
+
+        write(
+            &root.join("src/auth.rs"),
+            &format!("{at_cap}\npub fn a() {{}}\n\n{over_by_one}\npub fn b() {{}}\n"),
+        );
+
+        let mut config = Config::default_for(root.clone());
+        config.inline_note_max_columns = at_cap.chars().count();
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+        let report = check_findings(&findings, &config);
+
+        let columns = report
+            .errors
+            .iter()
+            .filter(|error| {
+                error.code == "inline-citation-style"
+                    && error.message.ends_with("-column maximum")
+            })
+            .map(|error| (error.line, error.message.clone()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            columns,
+            vec![(
+                Some(4),
+                format!(
+                    "inline note exceeds {}-column maximum",
+                    at_cap.chars().count()
+                )
+            )],
+            "only the line one character over the cap is reported, anchored at itself"
+        );
+    }
+
     #[test]
     fn inline_note_soft_cap_is_warning_only_when_enabled() {
         let root = test_root("inline_note_soft_cap_is_warning_only_when_enabled");

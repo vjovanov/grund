@@ -42,11 +42,12 @@ Report {
 
 Finding {
   severity: "error" | "warning"
-  code:     // a `check` finding — "dangling" | "missing-section" | "duplicate" | "broken-stub"
-            //                   | "unused" | "ungrounded" | "agents-init" | "empty-scan" | "io"
+  code:     // a `check` finding — "dangling" | "missing-section" | "duplicate" | "duplicate-section"
+            //                   | "broken-stub" | "unused" | "ungrounded" | "agents-init"
+            //                   | "empty-scan" | "nothing-recognized" | "io"
             // — or, on a failed ID query (FS-show.3, rendered with this same shape on stderr,
             //   path/line null) — "not-found" | "missing-section" | "broken-stub" | "ambiguous"
-            //                   | "invalid-id" | "query-failed"
+            //                   | "ambiguous-section" | "invalid-id" | "query-failed"
   path:     string?        // relative to config root (FS-config.3.6); null for a CLI-level error
   line:     u32?           // 1-indexed; null for a file-level finding with no line (e.g. an unreadable file, FS-check.2)
   message:  string         // the human-readable text
