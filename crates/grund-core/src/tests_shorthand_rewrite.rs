@@ -11,14 +11,6 @@ mod tests_shorthand_rewrite {
     use super::tests_support::*;
     use super::*;
 
-    /// The default `grund init` config: `{kind}-{number}-{slug}`, the only shape
-    /// that has a shorthand at all (§FS-check.1.2).
-    fn numbered_config(root: PathBuf) -> Config {
-        let config = legacy_fs_folder_config(root);
-        assert_eq!(config.id_format, "{kind}-{number}-{slug}");
-        config
-    }
-
     // §FS-fmt.2.4: `fmt` expands what resolves and leaves what does not, and the
     // §FS-fmt.2.3 exclusions still hold — an illustration in inline code and an
     // ID inside a runtime string are not citations to normalize.

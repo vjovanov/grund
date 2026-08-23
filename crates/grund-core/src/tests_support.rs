@@ -50,6 +50,17 @@ mod tests_support {
         config
     }
 
+    /// The default `grund init` config: `{kind}-{number}-{slug}`, the only shape
+    /// that has a shorthand at all (§FS-check.1.2). Shared by the four shorthand
+    /// suites, which each had a byte-identical copy — including the assertion,
+    /// which is the point of the helper: a change to the default format must
+    /// fail here rather than quietly leave those suites testing no shorthand.
+    pub(crate) fn numbered_config(root: PathBuf) -> Config {
+        let config = legacy_fs_folder_config(root);
+        assert_eq!(config.id_format, "{kind}-{number}-{slug}");
+        config
+    }
+
     /// A tree with a configured inline note layout, gate still `off`
     /// (§FS-inline-citation-style.3.3). Shared because the classifier suite and
     /// the check suite configure the same two keys from opposite ends.
