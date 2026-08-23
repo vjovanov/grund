@@ -90,11 +90,21 @@ fn render_cover_json(entries: &[grund_core::CoverEntry]) {
             .collect::<Vec<_>>()
             .join(",");
         println!(
-            "{{\"path\":\"{}\",\"citations\":[{}]}}",
+            "{{{}\"path\":\"{}\",\"citations\":[{}]}}",
+            cover_project_field(entry.project.as_deref()),
             json_escape(&entry.path),
             citation_json
         );
     }
+}
+
+/// §FS-cover.3.2: the leading `"project":"<alias>"` a workspace run adds, and
+/// nothing at all outside one — a single-project repo's JSON keeps the bytes it
+/// had (§DF-cover-workspace-scope.2.3).
+fn cover_project_field(alias: Option<&str>) -> String {
+    alias
+        .map(|alias| format!("\"project\":\"{}\",", json_escape(alias)))
+        .unwrap_or_default()
 }
 
 fn render_cover_text(entries: &[CoverTextEntry]) {
@@ -112,7 +122,8 @@ fn render_cover_text(entries: &[CoverTextEntry]) {
 
 fn render_cover_citation_json(citation: &CoverCitation) -> String {
     format!(
-        "{{\"path\":\"{}\",\"line\":{},\"column\":{},\"id\":\"{}\",\"section\":{},\"marker\":{},\"text\":\"{}\"}}",
+        "{{{}\"path\":\"{}\",\"line\":{},\"column\":{},\"id\":\"{}\",\"section\":{},\"marker\":{},\"text\":\"{}\"}}",
+        cover_project_field(citation.project.as_deref()),
         json_escape(&citation.path),
         citation.line,
         citation.column,

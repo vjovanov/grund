@@ -31,88 +31,91 @@ fn command_cover(args: &[String]) -> ExitCode {
         }
         idx += 1;
     }
-    let config = match resolve_workspace_config(&path) {
-        Ok(config) => config,
+    // §RM-core-cli-split: the deprecated compatibility surface renders the
+    // same `cover` the CLI does, so the index — including its workspace scope
+    // (§FS-workspace.8.6) — is built once, in the API.
+    let opts = CoverOpts {
+        path,
+        path_provided,
+    };
+    let output = match cover(opts) {
+        Ok(output) => output,
         Err(err) => {
             eprintln!("error: {err:#}");
             return ExitCode::from(2);
         }
     };
-    let format = format_override.unwrap_or_else(|| config.output_format.clone());
+    let format = format_override.unwrap_or_else(|| output.output_format.clone());
     if !matches!(format.as_str(), "text" | "json") {
         eprintln!("error: unsupported cover format `{format}`");
         return ExitCode::from(2);
     }
-    let (findings, scan_errors) = match scan_tree(&config, Some(&path), path_provided) {
-        Ok(out) => out,
-        Err(err) => {
-            eprintln!("error: {err:#}");
-            return ExitCode::from(2);
-        }
-    };
-
-    let mut by_file: BTreeMap<PathBuf, Vec<&Citation>> = BTreeMap::new();
-    for file in &findings.scanned_files {
-        by_file.entry(file.clone()).or_default();
-    }
-    for citation in &findings.citations {
-        // §FS-workspace.8, §AR-workspace.8: `grund cover` stays
-        // project-local — it answers "which scanned files in this project
-        // carry citations?", and a `§<alias>/<ID>` would distort the
-        // per-file local citation map by attributing a cross-project
-        // reference to the citing file's project. The §FS-workspace.8
-        // surface (show/refs/list/completions/fmt) deliberately leaves
-        // cover out; if cover ever needs workspace aggregation it gets
-        // its own spec section first.
-        if citation.namespace.is_some() {
-            continue;
-        }
-        by_file
-            .entry(citation.file.clone())
-            .or_default()
-            .push(citation);
-    }
-    for citations in by_file.values_mut() {
-        citations.sort_by_key(|c| (c.line, c.column));
-    }
-
-    let mut cover_entries = by_file.iter().collect::<Vec<_>>();
-    cover_entries.sort_by_key(|(file, _)| display_path(&config, file));
 
     if format == "json" {
-        for (file, citations) in &cover_entries {
-            let citation_json = citations
+        for entry in &output.entries {
+            let citation_json = entry
+                .citations
                 .iter()
-                .map(|citation| render_citation_json(&config, citation))
+                .map(compat_cover_citation_json)
                 .collect::<Vec<_>>()
                 .join(",");
             println!(
-                "{{\"path\":\"{}\",\"citations\":[{}]}}",
-                json_escape(&display_path(&config, file)),
+                "{{{}\"path\":\"{}\",\"citations\":[{}]}}",
+                compat_cover_project_field(entry.project.as_deref()),
+                json_escape(&entry.path),
                 citation_json
             );
         }
     } else {
-        for (file, citations) in &cover_entries {
-            println!("{}:", display_path(&config, file));
-            if citations.is_empty() {
+        for entry in &output.entries {
+            println!("{}:", entry.path);
+            if entry.citations.is_empty() {
                 println!("  (no citations)");
             } else {
-                for citation in *citations {
+                for citation in &entry.citations {
                     println!("  {}:{} {}", citation.line, citation.column, citation.text);
                 }
             }
         }
     }
 
-    if scan_errors.is_empty() {
+    if output.scan_errors.is_empty() {
         ExitCode::SUCCESS
     } else {
         // Partial-scan semantics (§FS-cover.4 / §FS-check.2): the emitted records
         // are real but incomplete, so callers must treat the result as untrusted.
-        for (file, message) in scan_errors {
-            eprintln!("error: {}: {}", display_path(&config, &file), message);
+        // In a workspace that includes a member's unreadable file, since the
+        // index the run just printed is incomplete for the tree it claimed
+        // (§FS-workspace.8.7).
+        for error in &output.scan_errors {
+            eprintln!("error: {}: {}", error.path, error.message);
         }
         ExitCode::from(2)
     }
+}
+
+/// §FS-cover.3.2: see `cover_project_field` in the CLI — the two renderers emit
+/// the same bytes and are held to it by `e2e/cases/workspace-cover-json`.
+fn compat_cover_project_field(alias: Option<&str>) -> String {
+    alias
+        .map(|alias| format!("\"project\":\"{}\",", json_escape(alias)))
+        .unwrap_or_default()
+}
+
+fn compat_cover_citation_json(citation: &CoverCitation) -> String {
+    format!(
+        "{{{}\"path\":\"{}\",\"line\":{},\"column\":{},\"id\":\"{}\",\"section\":{},\"marker\":{},\"text\":\"{}\"}}",
+        compat_cover_project_field(citation.project.as_deref()),
+        json_escape(&citation.path),
+        citation.line,
+        citation.column,
+        json_escape(&citation.id),
+        citation
+            .section
+            .as_deref()
+            .map(|section| format!("\"{}\"", json_escape(section)))
+            .unwrap_or_else(|| "null".to_string()),
+        citation.marker,
+        json_escape(&citation.text)
+    )
 }
