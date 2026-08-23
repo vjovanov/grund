@@ -1,0 +1,13 @@
+grund_config_version = 1
+
+[reference]
+marker = "§"
+strict = true
+
+# A shorthand grammar the member-local fallback parser cannot read: no
+# separator between kind and number (FS-workspace.5).
+[id]
+format = "{kind}{number}-{slug}"
+
+[scan]
+include = ["docs"]
