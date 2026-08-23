@@ -267,13 +267,18 @@ mod tests_cover_workspace {
 
     /// The two API surfaces answer with the same index: `cover_text` drops the
     /// fields the human view does not print and nothing else (§FS-cover.3.1).
+    /// The comparison is of `(line, column, text)` per citation, not of counts:
+    /// those three are exactly what the text view prints, and since the CLI
+    /// renders both views from `cover` this test is the only thing holding
+    /// `cover_text` to them at all.
     #[test]
     fn cover_text_indexes_the_same_files_as_cover() {
         let root = workspace(
             "cover_text_indexes_the_same_files_as_cover",
             SLUG_ID,
             "FS-sub-thing.md",
-            "# FS-root-thing: Root\n\nRoot leans on \u{a7}sub/FS-sub-thing.\n",
+            "# FS-root-thing: Root\n\nRoot leans on \u{a7}sub/FS-sub-thing,\n\
+             and on \u{a7}FS-root-thing.1 itself.\n\n## 1. Part\n\nBody.\n",
             "# FS-sub-thing: Sub\n\nSub body.\n",
         );
         let json = cover_at(&root);
@@ -282,16 +287,50 @@ mod tests_cover_workspace {
             path_provided: true,
         })
         .expect("cover_text");
+        let text_rows = text
+            .entries
+            .iter()
+            .map(|entry| {
+                (
+                    entry.path.clone(),
+                    entry
+                        .citations
+                        .iter()
+                        .map(|citation| {
+                            (citation.line, citation.column, citation.text.clone())
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>();
         assert_eq!(
-            text.entries
-                .iter()
-                .map(|entry| (entry.path.clone(), entry.citations.len()))
-                .collect::<Vec<_>>(),
+            text_rows,
             json.entries
                 .iter()
-                .map(|entry| (entry.path.clone(), entry.citations.len()))
+                .map(|entry| {
+                    (
+                        entry.path.clone(),
+                        entry
+                            .citations
+                            .iter()
+                            .map(|citation| {
+                                (citation.line, citation.column, citation.text.clone())
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                })
                 .collect::<Vec<_>>()
         );
+        // Not vacuous: the shared row carries both a qualified and a local
+        // citation, so a view that dropped either would differ here.
+        assert_eq!(
+            text_rows[0].1,
+            vec![
+                (3, 15, "\u{a7}sub/FS-sub-thing".to_string()),
+                (4, 8, "\u{a7}FS-root-thing.1".to_string()),
+            ]
+        );
+        assert_eq!(text.scan_errors, json.scan_errors);
     }
 
     /// §FS-cover.3.2: the deprecated compat surface (`grund_core::main_entry`,
