@@ -48,7 +48,7 @@ NDJSON on stdout — one object per scanned file:
 {"path":"src/untouched.rs","citations":[]}
 ```
 
-The nested citation objects intentionally carry `path` too, matching `refs` JSON byte shape so a caller can compare `cover` and `refs` without a field mapping layer.
+The nested citation objects intentionally carry `path` too, matching `refs` JSON byte shape so a caller can compare `cover` and `refs` without a field mapping layer. The parity is of **fields** — same names, same order, same types — not of every value: `refs` renders `id` for the target its query named, so an `<§>api/FS-login` site reads `"id":"FS-login"` there and `"id":"api/FS-login"` here. `refs` was handed the alias in the argument; `cover` was not, and dropping it would leave the row unable to say what it points at, since `project` names the *citing* project.
 
 In workspace mode both the per-file object and each nested citation object gain a leading `"project":"<alias>"` — the project that contains the file, which is also the citing project — exactly as `refs` does ([§FS-workspace.8.2](FS-workspace.md#82-grund-refs), [§FS-workspace.8.6](FS-workspace.md#86-grund-cover)). Outside workspace mode the field is absent and the bytes above are unchanged:
 
