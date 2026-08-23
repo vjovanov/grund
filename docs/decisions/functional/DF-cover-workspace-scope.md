@@ -54,7 +54,7 @@ Two consequences are load-bearing. A recipe that maps a changed path back to the
 
 ### 2.4 Paths and scan errors render from the workspace root
 
-A member's file is spelled the way `[workspace] members` spells it, and a member's unreadable path is reported against that same base, not against the member ([§FS-workspace.8.6](../../functional-spec/FS-workspace.md#86-grund-cover)). A recipe joins `cover` output against the base `git diff` reports; a path rendered against the member names a file that does not exist from where the run was launched.
+A member's file is spelled the way `[workspace] members` spells it, and a member's unreadable path is reported against that same base, not against the member ([§FS-workspace.8.6](../../functional-spec/FS-workspace.md#86-grund-cover)) — under the default `[output] relative_paths`, which is the base the rest of this decision assumes. A recipe joins `cover` output against the base `git diff` reports; a path rendered against the member names a file that does not exist from where the run was launched.
 
 ## 3. Rejected alternative: keep `cover` project-local and add `--all-projects`
 
