@@ -76,6 +76,7 @@ include!("tests_scanner_walk.rs");
 include!("tests_scanner_walk_errors.rs");
 include!("tests_shorthand.rs");
 include!("tests_shorthand_rewrite.rs");
+include!("tests_shorthand_surfaces.rs");
 include!("tests_shorthand_numeric_run.rs");
 include!("tests_citation_directions.rs");
 include!("tests_managed_block_drift.rs");

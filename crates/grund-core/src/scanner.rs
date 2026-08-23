@@ -293,7 +293,7 @@ fn scan_file_text(
                 findings,
             );
         }
-        scan_shorthand_citations(&citation_line, workspace_mode, &claimed_markers, findings);
+        scan_shorthand_citations(&citation_line, &claimed_markers, findings);
         scan_escaped_citations(&citation_line, findings);
     }
 
