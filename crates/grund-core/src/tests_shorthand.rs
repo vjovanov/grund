@@ -537,4 +537,43 @@ mod tests_shorthand {
             );
         }
     }
+
+    /// §AR-scanner.2.6: the claim record is scoped to **one line**. A marker
+    /// offset means nothing across lines, so a record that outlived its line
+    /// would let a qualified citation on line 1 suppress the shorthand pass at
+    /// the same byte offset on every line below it — deleting citations exactly
+    /// the way an unconditional skip did (§REQ-no-missed-citation.1).
+    ///
+    /// The two tokens are chosen so only the scoping can tell them apart: under
+    /// `{kind}{number}-{slug}` the loose fallback parses the first (it has the
+    /// `-` and the uppercase kind it needs) and declines the second, and both
+    /// sit at the same column.
+    #[test]
+    fn a_claimed_marker_does_not_reach_the_next_line() {
+        let root = test_root("a_claimed_marker_does_not_reach_the_next_line");
+        let mut config = numbered_config(root.clone());
+        config.id_format = "{kind}{number}-{slug}".to_string();
+        config.rebuild_grammar().expect("rebuild grammar");
+        write(
+            &root.join("docs/functional-spec/FS001-local.md"),
+            // Same byte offset on both lines: the fallback claims line 3's
+            // marker, and line 5's must not inherit that claim.
+            "# FS001-local: Local\n\n\u{a7}api/FS042-user-login here\n\n\u{a7}api/FS042 here\n",
+        );
+        let findings = scan_findings(&config, &root);
+        let qualified: Vec<(usize, usize, &str)> = findings
+            .citations
+            .iter()
+            .filter(|cite| cite.namespace.as_deref() == Some("api"))
+            .map(|cite| (cite.line, cite.column, cite.text.as_str()))
+            .collect();
+        assert_eq!(
+            qualified,
+            vec![
+                (3, 1, "\u{a7}api/FS042-user-login"),
+                (5, 1, "\u{a7}api/FS042"),
+            ],
+            "both lines keep their citation, once each"
+        );
+    }
 }
