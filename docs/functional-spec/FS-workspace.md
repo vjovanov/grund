@@ -563,11 +563,13 @@ Rationale and the discarded project-local alternative: [§DF-cover-workspace-sco
   row names is therefore `id` when it carries a `/`, and `<project>/<id>`
   otherwise — one join against the field on the same object. `text` stays the
   verbatim source token either way.
-- **Paths render from the workspace root** when a workspace is loaded, so a
-  member's file is spelled the way `[workspace] members` spells it and the
-  recipe can join it against the same base `git diff` reports
-  ([§FS-config.3.6](FS-config.md#36-output--report-format)). Scan errors from any project render against that same
-  root.
+- **Paths render from the workspace root** when a workspace is loaded and
+  `[output] relative_paths` is left at its default, so a member's file is
+  spelled the way `[workspace] members` spells it and the recipe can join it
+  against the same base `git diff` reports. Under `relative_paths = false` the
+  base is the command's path argument, as it is for every other command
+  ([§FS-config.3.6](FS-config.md#36-output--report-format)). Scan errors from any project render against
+  whichever base the rows did.
 - **`--format json` adds `"project": "<alias>"`** to the per-file object and to
   each nested citation object whenever workspace mode is loaded — the alias of
   the project that *contains* the file, which is also the citing project. The
