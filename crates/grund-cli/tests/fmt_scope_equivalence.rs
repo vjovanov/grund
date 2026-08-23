@@ -8,6 +8,13 @@
 //! declaration that no later `check` run could tell apart from one the
 //! author wrote. `symlink-fmt-write-abort` (`e2e/cases/`) pins the
 //! explicit-path refusal this suite compares the no-path form against.
+//!
+//! Unix only: the fixture needs a real broken symlink, and everything below
+//! exists to serve the two `#[test]`s, so the whole file is gated rather than
+//! leaving helpers unused (and `-D warnings`-fatal) on a platform that never
+//! compiles the tests that call them.
+
+#![cfg(unix)]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -40,7 +47,6 @@ fn build_fixture(name: &str) -> PathBuf {
         "# Notes\n\nSee $$FS-001-alpha for the rest.\n",
     )
     .expect("write notes.md");
-    #[cfg(unix)]
     std::os::unix::fs::symlink("nowhere.md", dir.join("docs/FS-002-gone.md"))
         .expect("create broken symlink");
     dir
@@ -63,10 +69,8 @@ fn stdout(output: &Output) -> String {
 }
 
 const ORIGINAL_NOTES: &str = "# Notes\n\nSee $$FS-001-alpha for the rest.\n";
-const ABORT_MESSAGE: &str =
-    "error: nothing was rewritten: docs/FS-002-gone.md: broken symlink: the target does not exist\n";
+const ABORT_MESSAGE: &str = "error: nothing was rewritten: docs/FS-002-gone.md: broken symlink: the target does not exist\n";
 
-#[cfg(unix)]
 #[test]
 fn fmt_write_refuses_alike_with_and_without_a_path_argument() {
     let omitted = build_fixture("write_path_omitted");
@@ -106,7 +110,6 @@ fn fmt_write_refuses_alike_with_and_without_a_path_argument() {
     );
 }
 
-#[cfg(unix)]
 #[test]
 fn fmt_check_previews_the_same_refusal_with_and_without_a_path_argument() {
     let omitted = build_fixture("check_path_omitted");
