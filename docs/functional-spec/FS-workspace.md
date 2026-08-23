@@ -571,9 +571,10 @@ Rationale and the discarded project-local alternative: [§DF-cover-workspace-sco
 - **`--format json` adds `"project": "<alias>"`** to the per-file object and to
   each nested citation object whenever workspace mode is loaded — the alias of
   the project that *contains* the file, which is also the citing project. The
-  nested objects keep byte parity with `refs --format json` rows
-  ([§FS-cover.3.2](FS-cover.md#32---format-json)), including this field. Outside workspace mode no field is
-  added and the output is byte-identical to what it was.
+  nested objects keep `refs --format json`'s **field** shape — same names, same
+  order, this field included ([§FS-cover.3.2](FS-cover.md#32---format-json)) — not every value: `id` differs by
+  the rule above, because `refs` was handed the alias in its query argument and
+  `cover` was not. Outside workspace mode no field is added.
 - **`include_root = false`** removes the root project's files from the index
   along with its catalog entry, per the §8 intro. Nothing else scans them
   (§6), which is the hole that rule already documents.

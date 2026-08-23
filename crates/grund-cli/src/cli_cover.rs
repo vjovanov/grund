@@ -33,28 +33,25 @@ fn command_cover(args: &[String]) -> ExitCode {
         }
         idx += 1;
     }
+    // §FS-cover.1: a bad `--format` value is a usage error the caller can fix
+    // without touching the repository, so it is answered before the scan — the
+    // scan can now fail first (a workspace whose members will not expand,
+    // §FS-cover.4), and which of two errors a caller sees must not depend on
+    // the tree they happened to point at.
+    if let Some(format) = format_override.as_deref() {
+        if !matches!(format, "text" | "json") {
+            eprintln!("error: unsupported cover format `{format}`");
+            return ExitCode::from(2);
+        }
+    }
     let opts = CoverOpts {
         path,
         path_provided,
     };
-    if format_override.as_deref() == Some("json") {
-        let output = match cover(opts.clone()) {
-            Ok(output) => output,
-            Err(err) => {
-                eprintln!("error: {err:#}");
-                return ExitCode::from(2);
-            }
-        };
-        let format = match command_output_format("cover", &output.output_format, format_override) {
-            Ok(format) => format,
-            Err(code) => return code,
-        };
-        debug_assert_eq!(format, "json");
-        render_cover_json(&output.entries);
-        return exit_after_scan_errors(&output.scan_errors);
-    }
-
-    let output = match cover_text(opts.clone()) {
+    // One load, whichever view is rendered: `cover` and `cover_text` build the
+    // same index (§FS-workspace.8.6), and calling both walked every project in
+    // the workspace twice.
+    let output = match cover(opts) {
         Ok(output) => output,
         Err(err) => {
             eprintln!("error: {err:#}");
@@ -66,18 +63,10 @@ fn command_cover(args: &[String]) -> ExitCode {
         Err(code) => return code,
     };
     if format == "json" {
-        let output = match cover(opts) {
-            Ok(output) => output,
-            Err(err) => {
-                eprintln!("error: {err:#}");
-                return ExitCode::from(2);
-            }
-        };
         render_cover_json(&output.entries);
-        return exit_after_scan_errors(&output.scan_errors);
+    } else {
+        render_cover_text(&output.entries);
     }
-
-    render_cover_text(&output.entries);
     exit_after_scan_errors(&output.scan_errors)
 }
 
@@ -107,7 +96,11 @@ fn cover_project_field(alias: Option<&str>) -> String {
         .unwrap_or_default()
 }
 
-fn render_cover_text(entries: &[CoverTextEntry]) {
+/// §FS-cover.3.1: the human view prints the file, then each citation's
+/// `line:column` and verbatim token — the alias is already in the token and the
+/// path already renders from the workspace root, so no field of the JSON view is
+/// missing here.
+fn render_cover_text(entries: &[grund_core::CoverEntry]) {
     for entry in entries {
         println!("{}:", entry.path);
         if entry.citations.is_empty() {

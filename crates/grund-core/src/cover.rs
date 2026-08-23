@@ -95,7 +95,10 @@ fn command_cover(args: &[String]) -> ExitCode {
 }
 
 /// §FS-cover.3.2: see `cover_project_field` in the CLI — the two renderers emit
-/// the same bytes and are held to it by `e2e/cases/workspace-cover-json`.
+/// the same bytes, and `the_compat_renderer_emits_the_same_json_the_cli_does`
+/// (`tests_cover_workspace.rs`) is what holds them there. Not an e2e case: every
+/// case in the corpus drives the `grund` binary, which is `grund-cli`, so
+/// nothing in it reaches this copy.
 fn compat_cover_project_field(alias: Option<&str>) -> String {
     alias
         .map(|alias| format!("\"project\":\"{}\",", json_escape(alias)))
