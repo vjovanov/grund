@@ -1,0 +1,9 @@
+docs/FS-root-thing.md:
+  3:18 §alpha/FS-alpha-thing
+  3:45 §beta/FS-beta-thing
+docs/notes.md:
+  (no citations)
+packages/alpha/docs/FS-alpha-thing.md:
+  3:18 §beta/FS-beta-thing
+packages/beta/docs/FS-beta-thing.md:
+  3:20 §FS-beta-thing
