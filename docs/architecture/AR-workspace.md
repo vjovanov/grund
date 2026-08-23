@@ -353,6 +353,13 @@ was a silent skip rather than a scope choice. A file belongs to exactly one
 project by the boundary rule (§6), so the per-file index needs no merge step
 and the alias attached to each entry is unambiguous.
 
+It reaches the loader through `load_narrowable_workspace_context`, which takes
+the workspace-aggregate arm only when `scope_is_config_root` — the same test
+`run_check` uses — and otherwise returns the one narrowed project
+([§FS-workspace.8.6](../functional-spec/FS-workspace.md#86-grund-cover)). Both
+arms build the single-project context from one helper, so "single project"
+cannot come to mean two things.
+
 ## 9. Test contracts
 
 The architecture is observable. Each invariant above has a fixture or unit
@@ -394,6 +401,7 @@ test that fails if the invariant is broken:
 | `cover` counts a qualified citation, workspace or not | `e2e/cases/cover-counts-qualified-project-local`; `e2e/cases/workspace-cover-text` |
 | `cover` at a workspace root indexes every member, and a member's scan error fails the run | `e2e/cases/workspace-cover-json`; `e2e/cases/workspace-cover-member-scan-error`; `cover_at_a_workspace_root_indexes_every_member` (`crates/grund-core/src/tests_cover_workspace.rs`) |
 | `cover` under a member path stays member-local    | `e2e/cases/workspace-cover-member-local` |
+| `cover <dir>` narrows instead of aggregating, like `check <dir>` | `e2e/cases/workspace-cover-narrowed-path`; `cover_under_a_narrowed_path_loads_no_workspace` (`crates/grund-core/src/tests_cover_workspace.rs`) |
 | `[workspace] members` shape rejected at load     | `e2e/cases/workspace-member-absolute-path`; `e2e/cases/workspace-member-parent-segment`; `e2e/cases/workspace-member-windows-drive`; `e2e/cases/workspace-member-windows-path`; `e2e/cases/workspace-member-multi-glob` |
 | Overlapping workspace member roots rejected      | `e2e/cases/workspace-member-overlap` |
 | `[[workspace]]` array-table form rejected        | `e2e/cases/workspace-section-as-array-table` |
