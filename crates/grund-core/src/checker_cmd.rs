@@ -84,6 +84,44 @@ fn nothing_recognized(findings: &Findings) -> bool {
         && findings.citations.is_empty()
 }
 
+/// The one caution a walk earns for what it did *not* find: §FS-check.2.2 when it
+/// read no files, §FS-check.4.5 when it read files and matched nothing in them.
+/// At most one — the empty scan is asked first, because a walk that read nothing
+/// had nothing to recognize.
+///
+/// One decision for every surface that runs the engine: `grund check`, the
+/// workspace loop beside it, and the LSP snapshot (§FS-lsp.4, `check_workspace_context`).
+/// Spelled once per surface it was already wrong once — the LSP kept the empty
+/// scan and never grew the second caution, so an editor and a terminal disagreed
+/// about one tree.
+///
+/// `report_is_silent` is the caller's own answer to "did this project report
+/// anything about its configured scope?" — findings and unreadable files both.
+/// The out-of-scope tier (§FS-check.3.14) is deliberately not part of it: those
+/// are findings about the tree *outside* the scope, and a run that finds the
+/// citations out there is exactly the one where saying the configured scope is
+/// empty helps most.
+fn scan_scope_caution(
+    config: &Config,
+    findings: &Findings,
+    path: &Path,
+    path_provided: bool,
+    report_is_silent: bool,
+) -> Option<Diagnostic> {
+    if !report_is_silent {
+        return None;
+    }
+    if findings.scanned_files.is_empty() {
+        return Some(empty_scan_warning(config, path, path_provided));
+    }
+    // §FS-check.4.5: only a run over the whole project makes the claim. A
+    // narrowed `grund check <dir>` is a slice the caller chose, and a slice with
+    // no declarations and no citations in it is an answer, not a
+    // misconfiguration to warn about.
+    (nothing_recognized(findings) && scope_is_config_root(config, path, path_provided))
+        .then(|| nothing_recognized_warning(config, findings.scanned_files.len()))
+}
+
 struct CheckRun {
     config: Config,
     report: CheckReport,
@@ -119,34 +157,21 @@ fn run_check(
     retain_findings_in_scope(&mut findings, scope.as_ref());
     let mut report = check_findings(&findings, &config);
     let had_scan_errors = append_scan_errors(&mut report, scan_errors);
-    // §FS-check.2.2: a walk that read no files and turned up nothing to report is
-    // almost always a misconfigured scope, not a clean repo — say so on stderr
-    // instead of printing nothing and exiting 0. This is a warning: it never
-    // changes the exit code. (The agent-entrypoint check, §FS-check.3.5, runs even
-    // when no source file is scanned, so a missing/stale `AGENTS.md` block still
-    // reports normally and suppresses this notice.)
-    if findings.scanned_files.is_empty() && report.errors.is_empty() && report.warnings.is_empty() {
-        report
-            .warnings
-            .push(empty_scan_warning(&config, path, path_provided));
-    }
-    // §FS-check.4.5: the same test one step in — files were read and the grammar
-    // matched nothing in them, which is a docs tree written for a different
-    // `[id] format`. Asked after the empty-scan test so a walk that read no files
-    // earns the caution that names the scope, not this one.
-    else if nothing_recognized(&findings)
-        // §FS-check.4.5: only a run over the whole project makes the claim. A
-        // narrowed `grund check <dir>` is a slice the caller chose, and a slice
-        // with no declarations and no citations in it is an answer, not a
-        // misconfiguration to warn about.
-        && scope_is_config_root(&config, path, path_provided)
-        && report.errors.is_empty()
-        && report.warnings.is_empty()
-    {
-        report
-            .warnings
-            .push(nothing_recognized_warning(&config, findings.scanned_files.len()));
-    }
+    // §FS-check.2.2 / §FS-check.4.5: a walk that read no files, or read them and
+    // recognized nothing in them, is almost always a misconfigured scope rather
+    // than a clean repo — say so on stderr instead of printing nothing and
+    // exiting 0. A warning either way: it never changes the exit code. (The
+    // agent-entrypoint check, §FS-check.3.5, runs even when no source file is
+    // scanned, so a missing/stale `AGENTS.md` block still reports normally and
+    // suppresses both.)
+    let report_is_silent = report.errors.is_empty() && report.warnings.is_empty();
+    report.warnings.extend(scan_scope_caution(
+        &config,
+        &findings,
+        path,
+        path_provided,
+        report_is_silent,
+    ));
     // §FS-check.4.3, after the empty-scan test above: the two cautions are
     // independent, and a repository mid-migration must not lose the scope
     // diagnostic just because it also has a config pair.
@@ -226,29 +251,17 @@ fn run_workspace_check(
         report.warnings.append(&mut project_report.warnings);
         report.suggestions.append(&mut project_report.suggestions);
         had_scan_errors |= append_scan_errors(&mut report, project.scan_errors.iter().cloned());
-        // §FS-check.2.2: same empty-scan warning as the single-project path —
-        // a member that scanned zero files and reported nothing is almost
-        // always a misconfigured scope, not a clean repo.
-        if project.findings.scanned_files.is_empty()
-            && project.scan_errors.is_empty()
-            && !project_has_findings
-        {
-            report
-                .warnings
-                .push(empty_scan_warning(&project.config, &project.config.root, true));
-        }
-        // §FS-check.4.5: per project, for the reason §FS-check.2.2 is — one
-        // member's grammar mismatch says nothing about another's, and the shapes
-        // the caution names are that member's own (§FS-workspace.5).
-        else if nothing_recognized(&project.findings)
-            && project.scan_errors.is_empty()
-            && !project_has_findings
-        {
-            report.warnings.push(nothing_recognized_warning(
-                &project.config,
-                project.findings.scanned_files.len(),
-            ));
-        }
+        // §FS-check.2.2 / §FS-check.4.5: the same two cautions as the
+        // single-project path, asked per project — one member's empty scope or
+        // grammar mismatch says nothing about another's, and the scope and
+        // shapes a caution names are that member's own (§FS-workspace.5).
+        report.warnings.extend(scan_scope_caution(
+            &project.config,
+            &project.findings,
+            &project.config.root,
+            true,
+            project.scan_errors.is_empty() && !project_has_findings,
+        ));
     }
     // §FS-check.4.3: the root's pair plus every member's, each named at the path
     // that project's config was loaded under. The root project is skipped in the

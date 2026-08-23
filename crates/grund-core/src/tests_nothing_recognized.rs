@@ -181,6 +181,75 @@ mod tests_nothing_recognized {
         );
     }
 
+    /// §FS-check.4.5 / §FS-check.3.14: the out-of-scope tier is a finding about
+    /// the tree *beyond* the configured scope, so it does not stand in for a
+    /// verdict about the scope itself. This is the run the caution is worth most:
+    /// the tier says where the citations really are, the caution says the config
+    /// has not been told. The empty scan next door is pinned the same way, in
+    /// `tests_check_full_scope.rs`.
+    #[test]
+    fn the_out_of_scope_tier_does_not_withhold_the_caution() {
+        let root = test_root("the_out_of_scope_tier_does_not_withhold_the_caution");
+        write(&root.join("grund.toml"), DEFAULT_CONFIG);
+        write(&root.join("docs/notes.md"), "# Notes\n\nProse only.\n");
+        write(&root.join("sim/world.py"), "# Cites \u{a7}FS-999-missing\n");
+
+        let scoped = check_run(&root, false);
+        assert!(
+            caution(&scoped).is_some() && scoped.report.errors.is_empty(),
+            "without the flag the citation is invisible and the run is silent but for the caution"
+        );
+
+        let full = check_run(&root, true);
+        assert_eq!(
+            full.report.errors.len(),
+            1,
+            "the wider walk reports the citation `[scan] include` never covered"
+        );
+        assert!(
+            caution(&full).is_some(),
+            "§FS-check.4.5: a finding about the tree outside the scope is not a finding about the scope"
+        );
+    }
+
+    /// §FS-lsp.4: an editor and a terminal over one tree report one set of
+    /// diagnostics. Both surfaces reach the caution through `scan_scope_caution`;
+    /// this is the case that fails if a fourth surface spells the rule again.
+    #[test]
+    fn the_lsp_snapshot_carries_the_same_caution_as_check() {
+        let root = test_root("the_lsp_snapshot_carries_the_same_caution_as_check");
+        write(&root.join("grund.toml"), DEFAULT_CONFIG);
+        write(&root.join("docs/notes.md"), "# Notes\n\nProse only.\n");
+
+        let checked = check_with_opts(CheckOpts {
+            path: root.clone(),
+            path_provided: true,
+            ..CheckOpts::default()
+        })
+        .expect("check api");
+        let snapshot = lsp_snapshot(LspSnapshotOpts {
+            path: root.clone(),
+            path_provided: true,
+            open_documents: BTreeMap::new(),
+        })
+        .expect("lsp snapshot api");
+
+        let messages = |warnings: &[Finding]| -> Vec<String> {
+            warnings
+                .iter()
+                .filter(|finding| finding.code == "nothing-recognized")
+                .map(|finding| finding.message.clone())
+                .collect()
+        };
+        let from_check = messages(&checked.report.warnings);
+        assert_eq!(from_check.len(), 1, "the caution reaches the check API");
+        assert_eq!(
+            messages(&snapshot.report.warnings),
+            from_check,
+            "the LSP snapshot reports the same warning, byte for byte"
+        );
+    }
+
     /// A workspace root over two members: `specs` declares, `app` only cites it
     /// across the namespace boundary (§FS-workspace.1).
     fn citing_member_workspace(name: &str) -> PathBuf {
