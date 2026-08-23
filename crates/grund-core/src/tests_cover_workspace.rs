@@ -225,6 +225,46 @@ mod tests_cover_workspace {
         );
     }
 
+    /// §FS-errors.4: two projects, two unreadable files, one list in path order
+    /// — not in the order the projects were loaded. The member sits under
+    /// `alpha/` so the two orders disagree: the root is loaded first and its
+    /// `docs/` path sorts second. With one scan error in the tree, reversing the
+    /// comparator changed nothing and the whole suite still passed.
+    #[cfg(unix)]
+    #[test]
+    fn two_projects_scan_errors_are_one_list_in_path_order() {
+        let root = test_root("two_projects_scan_errors_are_one_list_in_path_order");
+        write(
+            &root.join("grund.toml"),
+            &ROOT_CONFIG.replace("packages/sub", "alpha/sub"),
+        );
+        write(&root.join("alpha/sub/grund.toml"), &member_config(SLUG_ID));
+        write(
+            &root.join("docs/FS-root-thing.md"),
+            "# FS-root-thing: Root\n\nRoot body.\n",
+        );
+        write(
+            &root.join("alpha/sub/docs/FS-sub-thing.md"),
+            "# FS-sub-thing: Sub\n\nSub body.\n",
+        );
+        symlink("FS-gone-target.md", &root.join("docs/FS-gone.md"));
+        symlink(
+            "FS-gone-target.md",
+            &root.join("alpha/sub/docs/FS-gone.md"),
+        );
+        assert_eq!(
+            cover_at(&root)
+                .scan_errors
+                .iter()
+                .map(|error| error.path.clone())
+                .collect::<Vec<_>>(),
+            vec![
+                "alpha/sub/docs/FS-gone.md".to_string(),
+                "docs/FS-gone.md".to_string(),
+            ]
+        );
+    }
+
     /// The two API surfaces answer with the same index: `cover_text` drops the
     /// fields the human view does not print and nothing else (§FS-cover.3.1).
     #[test]

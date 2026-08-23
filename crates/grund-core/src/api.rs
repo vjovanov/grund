@@ -1178,20 +1178,19 @@ fn cover_scan_errors(context: &WorkspaceContext) -> Vec<ApiScanError> {
     let mut errors = context
         .projects
         .iter()
-        .flat_map(|project| {
-            project
-                .scan_errors
-                .iter()
-                .map(|(path, message)| api_scan_error(config, path, message))
-        })
+        .flat_map(|project| project.scan_errors.iter())
         .collect::<Vec<_>>();
     // §FS-errors.4: by path, not by the order the projects were loaded — the
     // same order `check` prints the same errors in, so a reader comparing the
     // two commands on one tree reads one list twice and not two interleavings.
-    errors.sort_by(|left, right| {
-        (&left.path, &left.message).cmp(&(&right.path, &right.message))
-    });
+    // Keyed with `sort_path_key` on the path itself, before rendering, which is
+    // how `check` and every other path ordering in the crate keys one — a second
+    // definition of "path order" here is a thing that drifts.
+    errors.sort_by_key(|(path, message)| (sort_path_key(path), message.clone()));
     errors
+        .into_iter()
+        .map(|(path, message)| api_scan_error(config, path, message))
+        .collect()
 }
 
 /// Programmatic `cover`: group every citation by scanned file, across every
