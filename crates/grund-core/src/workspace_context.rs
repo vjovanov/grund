@@ -97,7 +97,27 @@ fn load_workspace_context_with_overlays(
     overlays: &TextOverlays,
     classify_citation_sources: bool,
 ) -> Result<WorkspaceContext> {
-    let mut config = resolve_workspace_config(path)?;
+    let config = resolve_workspace_config(path)?;
+    load_resolved_workspace_context(
+        config,
+        path,
+        path_provided,
+        overlays,
+        classify_citation_sources,
+    )
+}
+
+/// The same load, entered from an already-resolved config. `resolve_workspace_config`
+/// walks the member globs to apply the workspace boundary (§AR-workspace.6), so a
+/// caller that had to resolve the config to make a routing decision must not pay
+/// for it twice (§GOAL-fast-feedback).
+fn load_resolved_workspace_context(
+    mut config: Config,
+    path: &Path,
+    path_provided: bool,
+    overlays: &TextOverlays,
+    classify_citation_sources: bool,
+) -> Result<WorkspaceContext> {
     // §AR-scanner.2.4 / §AR-benchmarks: the read-only commands (`list`, `show`,
     // `refs`, `fmt`) never read citing-side classification, so they pass
     // `classify_citation_sources = false` to skip the scan post-pass. The LSP
@@ -181,7 +201,16 @@ fn single_project_context(
 fn load_narrowable_workspace_context(path: &Path, path_provided: bool) -> Result<WorkspaceContext> {
     let mut config = resolve_workspace_config(path)?;
     if !config.workspace_declared || scope_is_config_root(&config, path, path_provided) {
-        return load_workspace_context(path, path_provided);
+        // The resolved config is handed on rather than re-derived:
+        // `load_workspace_context` would resolve it a second time, glob walk
+        // included, on every aggregate run (§GOAL-fast-feedback).
+        return load_resolved_workspace_context(
+            config,
+            path,
+            path_provided,
+            &TextOverlays::new(),
+            false,
+        );
     }
     // §AR-scanner.2.4: the caller is a read-only query — skip the classification
     // post-pass, exactly as `load_workspace_context` does (§AR-benchmarks).
