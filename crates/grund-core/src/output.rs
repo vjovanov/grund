@@ -288,6 +288,39 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
     }
 }
 
+/// The CLI-level warning `check` reports when the walk read files and recognized
+/// nothing in them — no declaration and no citation (§FS-check.4.5). The empty
+/// scan above says the scope found no files; this says the scope was right and
+/// the grammar matched none of their content, which is what a docs tree written
+/// for a different `[id] format` looks like from the inside. A warning, so the
+/// exit code is untouched — what it takes away is the `success` marker
+/// (§DF-nothing-recognized.2.2).
+///
+/// The shapes come from the configured template (`id_shape`) and the marker, and
+/// the kinds are named in config order; nothing here is derived from the tree, so
+/// two runs over one config print one string (§FS-errors.4).
+fn nothing_recognized_warning(config: &Config, scanned_files: usize) -> Diagnostic {
+    let shape = id_shape(&config.id_format);
+    let files = if scanned_files == 1 { "file" } else { "files" };
+    Diagnostic {
+        code: "nothing-recognized",
+        path: None,
+        line: None,
+        column: None,
+        message: format!(
+            "nothing recognized — grund read {scanned_files} {files} and found no declaration \
+             and no citation in them. A declaration heading reads `# {shape}: <title>` and a \
+             citation `{marker}{shape}`, under [id] format = \"{format}\" with <KIND> one of \
+             {{{kinds}}}. Check [id] format and [[kinds]] in grund.toml against how the \
+             headings are written.",
+            marker = config.marker,
+            format = config.id_format,
+            kinds = kind_prefixes(&config.kinds).join(", "),
+        ),
+        sites: Vec::new(),
+    }
+}
+
 /// §FS-check.1.3: the caution a `--full` run earns when the caller also typed a
 /// path that is not the config root. `--full` cancels `[scan] include`, and an
 /// explicit path already bypasses that key, so the flag has nothing left to

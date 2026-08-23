@@ -56,11 +56,7 @@ fn agents_template_substitutions(
 ) -> Vec<(&'static str, String)> {
     let sep = config.section_separator.as_str();
     let marker = config.marker.as_str();
-    let id_shape = config
-        .id_format
-        .replace("{kind}", "<KIND>")
-        .replace("{number}", "<NNN>")
-        .replace("{slug}", "<slug>");
+    let id_shape = id_shape(&config.id_format);
     let id_example = config
         .id_format
         .replace("{kind}", "FS")

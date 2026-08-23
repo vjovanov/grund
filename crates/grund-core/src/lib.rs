@@ -29,6 +29,7 @@ include!("checker.rs");
 include!("checker_sections.rs");
 include!("checker_references.rs");
 include!("checker_cmd.rs");
+include!("workspace_scope.rs");
 include!("workspace_members.rs");
 include!("workspace_context.rs");
 include!("output.rs");
