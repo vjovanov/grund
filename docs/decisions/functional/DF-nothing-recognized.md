@@ -21,7 +21,7 @@ $ echo $?
 
 Three files read, three headings that look exactly like declarations, and nothing on screen separating that run from a run over a fully grounded tree. The empty-scan caution ([§FS-check.2.2](../../functional-spec/FS-check.md#22-empty-scan)) does not fire — files *were* scanned — and no citation dangles, because a tree that declares nothing usually cites nothing either. `grund list` is empty, which is the honest answer to the question it was asked and no answer at all to the question the user has.
 
-This is the worst first run `grund` can give. Every other way of getting the config wrong is loud: a scope that matches no files is §FS-check.2.2, a config that does not load is [§FS-config.4.3](../../functional-spec/FS-config.md#43-invalid-config-behavior), a citation to a missing ID is [§FS-check.3.1](../../functional-spec/FS-check.md#31-dangling-citation). Only this one is silent, and it is the one a first-time adopter is most likely to hit, because the `[id] format` is the single setting they have to match before anything else in the tool works.
+This is the worst first run `grund` can give. Every other way of getting the config wrong is loud: a scope that matches no files is [§FS-check.2.2](../../functional-spec/FS-check.md#22-empty-scan), a config that does not load is [§FS-config.4.3](../../functional-spec/FS-config.md#43-invalid-config-behavior), a citation to a missing ID is [§FS-check.3.1](../../functional-spec/FS-check.md#31-dangling-citation). Only this one is silent, and it is the one a first-time adopter is most likely to hit, because the `[id] format` is the single setting they have to match before anything else in the tool works.
 
 ## 2. Decision
 
@@ -29,7 +29,7 @@ This is the worst first run `grund` can give. Every other way of getting the con
 
 [§FS-check.4.5](../../functional-spec/FS-check.md#45-nothing-recognized): a walk that read at least one file and found **no declaration and no citation** names that fact on stderr, with the shape a declaration and a citation take under the configured format.
 
-The condition is "recognized nothing", not "declared nothing". A project that only cites — a workspace member whose code points at another member's specs ([§FS-workspace.1](../../functional-spec/FS-workspace.md#1-cross-project-citations)) — declares nothing and is working exactly as intended, so declaration count alone would report a healthy project as broken. A file the grammar matched *somewhere* proves the grammar and the tree agree, which is the whole question this caution asks.
+The condition is "recognized nothing", not "declared nothing". A project that only cites — a workspace member whose code points at another member's specs ([§FS-workspace.1](../../functional-spec/FS-workspace.md#1-citation-syntax)) — declares nothing and is working exactly as intended, so declaration count alone would report a healthy project as broken. A file the grammar matched *somewhere* proves the grammar and the tree agree, which is the whole question this caution asks.
 
 ### 2.2 It is a warning, not an error
 
@@ -43,7 +43,7 @@ What the warning actually buys is the word `success`. A warning stands in place 
 
 ### 2.3 The caution names shapes, never a corrected ID
 
-The message renders `<KIND>-<NNN>-<slug>` from the configured `[id] format` — the substitution [§FS-init.2.3](../../functional-spec/FS-init.md#2-outputs) already makes for the managed entrypoint block — and lists the configured `[[kinds]]` prefixes. It does not build an example ID out of `[id] number_pattern` and `[id] slug_pattern`, and it does not propose what any heading in the tree should have been called.
+The message renders `<KIND>-<NNN>-<slug>` from the configured `[id] format` — the substitution [§FS-init.2.3](../../functional-spec/FS-init.md#23-generated-agent-entrypoints) already makes for the managed entrypoint block — and lists the configured `[[kinds]]` prefixes. It does not build an example ID out of `[id] number_pattern` and `[id] slug_pattern`, and it does not propose what any heading in the tree should have been called.
 
 An ID assembled from those patterns is a guess about what they accept: `number_pattern = "[A-Z]{2}"` makes `FS-001-example` a lie, printed by the tool, in the message whose whole job is to tell the user what the grammar wants. The shape is derived from the format template alone, which is a literal fact about the config, so it is right for every pattern.
 
