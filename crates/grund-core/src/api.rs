@@ -1156,10 +1156,14 @@ fn cover_rows(context: &WorkspaceContext) -> Vec<CoverRow<'_>> {
 /// Load the projects `cover` indexes and their scan errors, rendered against
 /// the same base as the rows (§FS-workspace.8.6).
 ///
+/// The narrowable loader, not the plain one: `cover`'s `<path>` bounds the walk
+/// (§FS-cover.1), so a scope inside the workspace root stays one narrowed scan
+/// the way `grund check <dir>` does.
+///
 /// §AR-scanner.2.4: `cover` groups citations by file and never reads
 /// citing-side classification — skip the scan post-pass (§AR-benchmarks).
 fn cover_context(opts: &CoverOpts) -> Result<WorkspaceContext> {
-    load_workspace_context(&opts.path, opts.path_provided)
+    load_narrowable_workspace_context(&opts.path, opts.path_provided)
 }
 
 /// Every loaded project's scan errors, in project order (§FS-workspace.8.7):

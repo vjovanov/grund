@@ -8,7 +8,10 @@ The `cover` subcommand exposes the citation graph as data: for each scanned file
 grund cover [<path>] [--format text|json]
 ```
 
-- `<path>` — directory or file whose tree is scanned. Defaults to `.`. Discovery is the same as every other subcommand (walk up to a `grund.toml`, else defaults — [§FS-config.1](FS-config.md#1-file-location-and-discovery)), and so is the scope it lands on: at a workspace root the index covers every project the workspace covers, and a `<path>` inside a member indexes that member alone ([§FS-workspace.8.6](FS-workspace.md#86-grund-cover)).
+- `<path>` — directory or file whose tree is scanned. Defaults to `.`. Discovery is the same as every other subcommand (walk up to a `grund.toml`, else defaults — [§FS-config.1](FS-config.md#1-file-location-and-discovery)). It bounds the **walk**, exactly as it does for `grund check`, and that is what decides the scope ([§FS-workspace.8.6](FS-workspace.md#86-grund-cover)):
+  - absent, or the config root, at a workspace root → every project the workspace covers;
+  - inside a member → that member alone;
+  - narrower than the config root → that subtree alone, one project, the way `grund check <dir>` narrows ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)). An explicit path bypasses `[scan] include`, so it is the caller's scope and never widened back.
 - `--format text|json` — output shape (§3). Default `text`.
 
 `cover` is a query, like `list` and `refs` — non-interactive, no prompts ([§FS-non-goals.10](FS-non-goals.md#10-interactive-mode)). It reads no git history ([§FS-non-goals.6](FS-non-goals.md#6-decision-database-audit-log-history-tracking)) and parses no AST ([§FS-non-goals.3](FS-non-goals.md#3-code-ast-parsing)).

@@ -32,6 +32,12 @@ The old reasoning for the second narrowing was that attributing a cross-project 
 
 This is not a new judgement about scope — it is `cover` stopping being the one query command that disagrees with [§FS-workspace.5](../../functional-spec/FS-workspace.md#5-command-scope). A coverage index that omits whole projects while exiting `0` is precisely the silent skip [§REQ-no-missed-citation.1](../../requirements/REQ-no-missed-citation.md#1-no-silent-skips) forbids, and it is the one command where the omission cannot be noticed from the output, because "this file has no citations" and "this file was never read" print as absence either way.
 
+#### 2.1.1 A scope narrower than the config root stays narrow
+
+The aggregate is what a run *at the workspace root* answers. `grund cover src/` is still one narrowed scan of the enclosing project, no workspace loaded — the line [§FS-check.1.3](../../functional-spec/FS-check.md#13-the-full-tree-scope---full) already draws for `grund check <dir>`, reached through the same `scope_is_config_root` test.
+
+`cover` is the only command in [§FS-workspace.8](../../functional-spec/FS-workspace.md#8-other-commands) whose `<path>` bounds a walk instead of choosing a config, so it is the only one where the two readings differ. `list apps/api/docs` aggregates because its path merely says which project to ask; `cover src/` cannot, because an explicit path bypasses `[scan] include` ([§AR-scanner.1](../../architecture/AR-scanner.md#1-tree-walk)) — the narrowing is the *only* reason those files are in scope, and widening it would both discard them and answer a question the caller did not ask. It would also make the plumbing surface for [§RM-cochange-gate](../../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test) return the whole repository for every narrowed query.
+
 ### 2.2 A qualified citation counts toward the citing file
 
 `<§><alias>/<ID>` is listed at its `(line, column)` like any local citation, and the rendered `id` keeps the alias so a caller can hand it back to `grund <ID>` unchanged ([§FS-workspace.8.6](../../functional-spec/FS-workspace.md#86-grund-cover)).

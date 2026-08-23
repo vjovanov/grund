@@ -180,6 +180,25 @@ mod tests_cover_workspace {
         );
     }
 
+    /// §FS-workspace.8.6: a scope narrower than the config root is one narrowed
+    /// scan, not the aggregate — the line `grund check <dir>` already draws
+    /// (§FS-check.1.3). Widening it would discard the narrowing an explicit path
+    /// exists for, since such a path bypasses `[scan] include` (§AR-scanner.1).
+    #[test]
+    fn cover_under_a_narrowed_path_loads_no_workspace() {
+        let root = workspace(
+            "cover_under_a_narrowed_path_loads_no_workspace",
+            SLUG_ID,
+            "FS-sub-thing.md",
+            "# FS-root-thing: Root\n\nRoot leans on \u{a7}sub/FS-sub-thing.\n",
+            "# FS-sub-thing: Sub\n\nSub body.\n",
+        );
+        assert_eq!(
+            rows(&cover_at(&root.join("docs"))),
+            vec!["-|docs/FS-root-thing.md|sub/FS-sub-thing@3:15".to_string()]
+        );
+    }
+
     /// §FS-workspace.8.7: a member's unreadable file fails the run launched at
     /// the workspace root, named from that root. Rendered against the member it
     /// would name a file that does not exist from where the run started

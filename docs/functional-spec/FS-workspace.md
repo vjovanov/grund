@@ -531,6 +531,16 @@ one entry per scanned file, exactly as §8.3 defines the catalog for `list`. A
 member-local invocation (or a `<path>` that resolves member-local) indexes that
 member alone, unchanged from a standalone run.
 
+`cover` is the one command in this section whose `<path>` bounds a **walk**
+rather than choosing which config answers ([§FS-cover.1](FS-cover.md#1-inputs)), so it draws the
+aggregate/narrow line where `grund check` draws it and not where `list` does: a
+scope narrower than the config root is one narrowed scan of the enclosing
+project, no workspace loaded and no `project` field, the way `grund check <dir>`
+already behaves ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)). Widening `grund cover src/` back to every
+project would answer a question the caller did not ask, and an explicit path
+deliberately bypasses `[scan] include`, so the narrowing is the only thing that
+put those files in scope at all.
+
 `cover`'s question is "which IDs does this file lean on?" ([§FS-cover.5](FS-cover.md#5-why-this-exists)), and the
 answer for a file is the same fact whichever scope the run was launched at. A
 per-project index would make the co-change recipe ([§RM-cochange-gate](../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test)) read a
