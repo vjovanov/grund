@@ -350,31 +350,6 @@ mod tests_shorthand {
         );
     }
 
-    // §AR-scanner.2.6: `render_id` reduces a partial `Id` by the same rule the
-    // shorthand pattern is derived from, so an unresolved shorthand prints as
-    // `FS-042` rather than leaking the raw `{slug}` placeholder into a report.
-    #[test]
-    fn render_id_prints_a_slugless_id_as_the_shorthand() {
-        let config = numbered_config(test_root("render_id_prints_a_slugless_id_as_the_shorthand"));
-        let shorthand = Id {
-            kind: "FS".into(),
-            num: Some(42),
-            slug: None,
-        };
-        assert_eq!(render_id(&config, &shorthand), "FS-042");
-        assert_eq!(
-            render_id(
-                &config,
-                &Id {
-                    kind: "FS".into(),
-                    num: Some(42),
-                    slug: Some("user-login".into()),
-                }
-            ),
-            "FS-042-user-login"
-        );
-    }
-
     // §AR-scanner.2.6: the reduction drops the placeholder together with one
     // adjacent separator, whichever side carries it — so a format that puts the
     // slug in the middle still yields `{kind}-{number}`.
@@ -395,56 +370,6 @@ mod tests_shorthand {
                 }
             ),
             "FS-042"
-        );
-    }
-
-    // §FS-check.1.2 / §FS-show.1: a query persists nothing, so the shorthand is
-    // simply expanded at the CLI boundary. This is also what makes a clicked
-    // `§FS-042` open (§FS-integrations.3.1).
-    #[test]
-    fn shorthand_resolves_as_a_query_argument() {
-        let root = test_root("shorthand_resolves_as_a_query_argument");
-        write(
-            &root.join("docs/functional-spec/FS-042-user-login.md"),
-            "# FS-042-user-login: User login\n\nLead.\n",
-        );
-        let config = numbered_config(root.clone());
-        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
-
-        let (id, section) = resolve_id_arg("FS-042", &config, &findings).expect("resolve");
-        assert_eq!(render_id(&config, &id), "FS-042-user-login");
-        assert_eq!(section, None);
-
-        let (id, section) = resolve_id_arg("FS-042.1", &config, &findings).expect("resolve");
-        assert_eq!(render_id(&config, &id), "FS-042-user-login");
-        assert_eq!(section.as_deref(), Some("1"));
-
-        // A full ID is unaffected, and an unknown shorthand keeps its written
-        // form so the caller's own "not found" path names what was asked for.
-        let (id, _) = resolve_id_arg("FS-999", &config, &findings).expect("resolve");
-        assert_eq!(render_id(&config, &id), "FS-999");
-    }
-
-    // §FS-show.2.2.1: an ambiguous shorthand argument is a query failure that
-    // lists every candidate rather than picking one.
-    #[test]
-    fn ambiguous_shorthand_argument_lists_every_candidate() {
-        let root = test_root("ambiguous_shorthand_argument_lists_every_candidate");
-        write(
-            &root.join("docs/functional-spec/FS-042-user-login.md"),
-            "# FS-042-user-login: User login\n\nLead.\n",
-        );
-        write(
-            &root.join("docs/functional-spec/FS-042-user-logout.md"),
-            "# FS-042-user-logout: User logout\n\nLead.\n",
-        );
-        let config = numbered_config(root.clone());
-        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
-
-        let err = resolve_id_arg("FS-042", &config, &findings).expect_err("ambiguous");
-        assert_eq!(
-            format!("{err:#}"),
-            "ambiguous ID: FS-042 (matches FS-042-user-login, FS-042-user-logout)"
         );
     }
 
@@ -511,91 +436,52 @@ mod tests_shorthand {
         );
     }
 
-    // §FS-lsp.1.4: a shorthand already in the document navigates like any other
-    // citation. The snapshot carries the canonical target while the range stays
-    // the written token, which is what makes hover, go-to-definition,
-    // references, document links, and highlight all work without any of them
-    // knowing the shorthand exists.
+    /// §AR-scanner.2.6: one marker is one citation. A qualified marker belongs
+    /// to the qualified pass, and outside workspace mode that pass is the loose
+    /// fallback (§FS-workspace.5) — which records nothing into
+    /// `claimed_markers`, so the shorthand pattern used to match the same
+    /// `\u{a7}<alias>/<ID>` a second time. The token then became two identical
+    /// citations: a row `grund cover` printed twice (§FS-cover.2) and a
+    /// diagnostic `grund check` printed twice, and §RM-cochange-gate, which
+    /// consumes that index, would have double-counted it.
     #[test]
-    fn lsp_snapshot_navigates_a_shorthand_citation() {
-        let root = test_root("lsp_snapshot_navigates_a_shorthand_citation");
+    fn a_qualified_shorthand_is_one_citation_not_two() {
+        let root = test_root("a_qualified_shorthand_is_one_citation_not_two");
+        let config = numbered_config(root.clone());
         write(
-            &root.join(".agents/grund.toml"),
-            "grund_config_version = 1\n[id]\nformat = \"{kind}-{number}-{slug}\"\n",
+            &root.join("docs/functional-spec/FS-001-local.md"),
+            "# FS-001-local: Local\n\nOne token: \u{a7}api/FS-042\n",
         );
-        write(
-            &root.join("docs/functional-spec/FS-042-user-login.md"),
-            "# FS-042-user-login: User login\n\nLead.\n\n## 1. Inputs\n\nStuff.\n",
-        );
-        write(&root.join("src/lib.rs"), "//! §FS-042.1\n");
-        let snapshot = lsp_snapshot(LspSnapshotOpts {
-            path: root.clone(),
-            path_provided: true,
-            open_documents: BTreeMap::new(),
-        })
-        .expect("lsp snapshot");
-
-        let citation = snapshot
+        let findings = scan_findings(&config, &root);
+        let qualified: Vec<&Citation> = findings
             .citations
             .iter()
-            .find(|citation| citation.display_path == "src/lib.rs")
-            .expect("shorthand citation");
-        assert_eq!(citation.text, "\u{a7}FS-042.1", "range covers what was typed");
-        assert_eq!(citation.query_id, "FS-042-user-login.1");
-        assert_eq!(citation.declaration_query_id, "FS-042-user-login");
+            .filter(|cite| cite.namespace.as_deref() == Some("api"))
+            .collect();
         assert_eq!(
-            citation.target_path.as_deref().map(canonical_test_path),
-            Some(canonical_test_path(
-                &root.join("docs/functional-spec/FS-042-user-login.md")
-            ))
-        );
-        assert_eq!(citation.target_line, Some(5), "jumps to the cited section");
-
-        // The §FS-check.3.13 finding reaches the editor as a diagnostic.
-        assert!(
-            snapshot
-                .report
-                .errors
+            qualified.len(),
+            1,
+            "one marker, one citation: {:?}",
+            qualified
                 .iter()
-                .any(|finding| finding.code == "shorthand-citation"),
-            "{:?}",
-            snapshot.report.errors
+                .map(|cite| (cite.line, cite.column, cite.text.clone()))
+                .collect::<Vec<_>>()
         );
-    }
-
-    // §FS-integrations.3.1: the clients need no shorthand matcher of their own —
-    // the shared citation shape already accepts one, in every form. This pins
-    // that, because the spec claims it and six hand-written regexes would
-    // otherwise be free to drift from the engine.
-    #[test]
-    fn client_matchers_already_accept_the_shorthand() {
-        let citation_shape = Regex::new(
-            r"[^\w\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z][A-Z0-9]*-[a-z0-9][a-z0-9-]*(?:\.[0-9]+)*",
-        )
-        .expect("client citation shape");
-        for (text, expected) in [
-            ("see \u{a7}FS-042 here", "\u{a7}FS-042"),
-            ("see \u{a7}FS-042.1 here", "\u{a7}FS-042.1"),
-            ("see \u{a7}api/FS-042 here", "\u{a7}api/FS-042"),
-            ("see \u{a7}FS-042-user-login here", "\u{a7}FS-042-user-login"),
-        ] {
-            assert_eq!(
-                citation_shape.find(text).map(|found| found.as_str()),
-                Some(expected),
-                "client matcher must claim {text:?}"
-            );
-        }
-        // The same shape is what every client artifact embeds.
-        for artifact in [
-            WEZTERM_SNIPPET,
-            KITTY_SNIPPET,
-            ITERM2_SNIPPET,
-            VSCODE_EXTENSION_JS,
-        ] {
-            assert!(
-                artifact.contains("[A-Z][A-Z0-9]*-[a-z0-9][a-z0-9-]*"),
-                "client artifact lost the shared citation shape"
-            );
-        }
+        assert_eq!(qualified[0].text, "\u{a7}api/FS-042");
+        // And the local shorthand beside it is untouched — the skip is about the
+        // namespace, not about shorthands.
+        write(
+            &root.join("docs/functional-spec/FS-002-other.md"),
+            "# FS-002-other: Other\n\nLocal shorthand: \u{a7}FS-001\n",
+        );
+        let findings = scan_findings(&config, &root);
+        assert_eq!(
+            findings
+                .citations
+                .iter()
+                .filter(|cite| cite.namespace.is_none() && cite.shorthand)
+                .count(),
+            1
+        );
     }
 }

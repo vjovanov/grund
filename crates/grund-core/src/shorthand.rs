@@ -266,7 +266,6 @@ impl<'a> ShorthandTargets<'a> {
 /// shape would be the wrong one to apply across a namespace boundary.
 fn scan_shorthand_citations(
     line: &CitationLine<'_>,
-    workspace_mode: bool,
     claimed_markers: &[usize],
     findings: &mut Findings,
 ) {
@@ -306,19 +305,23 @@ fn scan_shorthand_citations(
             rest,
             match_end,
         );
-        let namespace = caps.name("namespace").map(|m| m.as_str().to_string());
-        if workspace_mode && namespace.is_some() {
+        // §AR-scanner.2.6: a qualified marker belongs to the qualified pass —
+        // the workspace one in workspace mode, the loose fallback outside it
+        // (§FS-workspace.5) — and to that pass alone. Neither records into
+        // `claimed_markers`, so without this the shorthand pattern matched the
+        // same `§<alias>/<ID>` a second time and the token became two identical
+        // citations: a duplicated row in `cover` and a diagnostic `check`
+        // printed twice.
+        if caps.name("namespace").is_some() {
             continue;
         }
         let Some(id) = parse_id(&caps) else { continue };
-        if namespace.is_some()
-            && qualified_suppressed_in_source(line.scan_line, line.is_md, marker_start)
-        {
-            continue;
-        }
         let token_end = token_start + match_end;
         findings.citations.push(Citation {
-            namespace,
+            // Always local: a qualified marker returned above, so the
+            // inline-code / string-literal carve-out that guards the qualified
+            // form (§AR-scanner.2.3) has nothing left to guard here.
+            namespace: None,
             id,
             section: caps.name("sec").map(|m| m.as_str().to_string()),
             file: line.path.to_path_buf(),
