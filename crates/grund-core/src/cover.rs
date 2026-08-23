@@ -1,4 +1,15 @@
-fn command_cover(args: &[String]) -> ExitCode {
+/// §FS-cover.1: everything `cover` can answer from its argv alone, answered
+/// there — including a bad `--format` value, which is a usage error the caller
+/// can fix without touching the repository. The scan can fail first (a
+/// workspace whose members will not expand, §FS-cover.4), and which of two
+/// errors a caller sees must not depend on the tree they happened to point at.
+///
+/// Split from `command_cover` because that ordering is otherwise unobservable:
+/// both answers exit 2, so only the message distinguishes them, and nothing in
+/// the e2e corpus reaches this copy (§FS-cover.3.2). A function that holds no
+/// path to a loader proves the order to a test —
+/// `the_compat_surface_answers_a_bad_format_before_it_loads_anything`.
+fn parse_compat_cover_args(args: &[String]) -> Result<(CoverOpts, Option<String>), String> {
     let mut path = PathBuf::from(".");
     let mut path_provided = false;
     let mut format_override: Option<String> = None;
@@ -11,19 +22,16 @@ fn command_cover(args: &[String]) -> ExitCode {
             "--format" => {
                 idx += 1;
                 if idx >= args.len() {
-                    eprintln!("error: --format requires a value");
-                    return ExitCode::from(2);
+                    return Err("--format requires a value".to_string());
                 }
                 format_override = Some(args[idx].clone());
             }
             other if other.starts_with('-') => {
-                eprintln!("error: unknown flag `{other}`");
-                return ExitCode::from(2);
+                return Err(format!("unknown flag `{other}`"));
             }
             other => {
                 if path_provided {
-                    eprintln!("error: cover takes at most one path argument");
-                    return ExitCode::from(2);
+                    return Err("cover takes at most one path argument".to_string());
                 }
                 path = PathBuf::from(other);
                 path_provided = true;
@@ -31,13 +39,31 @@ fn command_cover(args: &[String]) -> ExitCode {
         }
         idx += 1;
     }
+    if let Some(format) = format_override.as_deref()
+        && !matches!(format, "text" | "json")
+    {
+        return Err(format!("unsupported cover format `{format}`"));
+    }
+    Ok((
+        CoverOpts {
+            path,
+            path_provided,
+        },
+        format_override,
+    ))
+}
+
+fn command_cover(args: &[String]) -> ExitCode {
+    let (opts, format_override) = match parse_compat_cover_args(args) {
+        Ok(parsed) => parsed,
+        Err(message) => {
+            eprintln!("error: {message}");
+            return ExitCode::from(2);
+        }
+    };
     // §RM-core-cli-split: the deprecated compatibility surface renders the
     // same `cover` the CLI does, so the index — including its workspace scope
     // (§FS-workspace.8.6) — is built once, in the API.
-    let opts = CoverOpts {
-        path,
-        path_provided,
-    };
     let output = match cover(opts) {
         Ok(output) => output,
         Err(err) => {
@@ -45,6 +71,8 @@ fn command_cover(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // The override was validated in the parse; only the configured fallback is
+    // left to check, and that one is a property of the tree just loaded.
     let format = format_override.unwrap_or_else(|| output.output_format.clone());
     if !matches!(format.as_str(), "text" | "json") {
         eprintln!("error: unsupported cover format `{format}`");
