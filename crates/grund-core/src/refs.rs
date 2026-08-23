@@ -358,7 +358,3 @@ fn citation_json_body(config: &Config, citation: &Citation, rendered_path: &str)
         json_escape(&citation.text)
     )
 }
-
-fn render_citation_json(config: &Config, citation: &Citation) -> String {
-    format!("{{{}}}", citation_json_body(config, citation, &display_path(config, &citation.file)))
-}
