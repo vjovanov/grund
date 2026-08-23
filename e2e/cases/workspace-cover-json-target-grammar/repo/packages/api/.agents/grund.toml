@@ -1,0 +1,12 @@
+grund_config_version = 1
+project_name = "api"
+
+[reference]
+marker = "§"
+strict = true
+
+[id]
+format = "{kind}-{number}-{slug}"
+
+[scan]
+include = ["docs"]

@@ -1175,7 +1175,7 @@ fn cover_scan_errors(context: &WorkspaceContext) -> Vec<ApiScanError> {
     // holds. A member's path spelled against the member names a file that does
     // not exist from where the run was launched (§FS-errors.4).
     let config = context.render_config();
-    context
+    let mut errors = context
         .projects
         .iter()
         .flat_map(|project| {
@@ -1184,7 +1184,14 @@ fn cover_scan_errors(context: &WorkspaceContext) -> Vec<ApiScanError> {
                 .iter()
                 .map(|(path, message)| api_scan_error(config, path, message))
         })
-        .collect()
+        .collect::<Vec<_>>();
+    // §FS-errors.4: by path, not by the order the projects were loaded — the
+    // same order `check` prints the same errors in, so a reader comparing the
+    // two commands on one tree reads one list twice and not two interleavings.
+    errors.sort_by(|left, right| {
+        (&left.path, &left.message).cmp(&(&right.path, &right.message))
+    });
+    errors
 }
 
 /// Programmatic `cover`: group every citation by scanned file, across every
