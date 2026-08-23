@@ -147,6 +147,13 @@ pub struct Citation {
 pub struct InlineCitationSite {
     pub first_line: usize,
     pub last_line: usize,
+    /// Width of the site's longest line in **characters** — Unicode scalar
+    /// values, one column each (§FS-inline-citation-style.2.3). Not the byte
+    /// length, and not the display width: `é`, `—`, and the `§` marker itself
+    /// cost one column apiece, and so does a tab
+    /// (§DF-note-columns-are-characters). This is a different measure from the
+    /// byte-addressed start column a `Citation` records (§AR-scanner.3); the
+    /// two agree only on a line of pure ASCII.
     pub max_columns: usize,
     pub has_note: bool,
     /// The site's judged lines that deviate from

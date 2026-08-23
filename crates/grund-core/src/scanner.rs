@@ -615,7 +615,9 @@ fn inline_citation_sites(
             let site = InlineCitationSite {
                 first_line: start + 1,
                 last_line: end + 1,
-                max_columns: block.iter().map(|line| line.len()).max().unwrap_or(0),
+                // §FS-inline-citation-style.2.3: a column is one character, not one
+                // byte — `é` and `§` cost one each (§DF-note-columns-are-characters).
+                max_columns: block.iter().map(|line| line.chars().count()).max().unwrap_or(0),
                 has_note,
                 layout_violations,
             };
