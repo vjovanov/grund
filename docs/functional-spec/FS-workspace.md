@@ -291,7 +291,7 @@ workspace-local.
 
 The workspace surface composes through the same resolver `grund check` uses
 ([AR-workspace.4](../architecture/AR-workspace.md#4-the-resolver-one-function)), so qualified-ID behavior in query commands is a UX layer over
-an already-built engine — not new resolution logic. Three shared rules apply to
+an already-built engine — not new resolution logic. Four shared rules apply to
 every command in this section:
 
 - **Discovery follows the same walk-up rule as `grund check`** ([§FS-config.1](FS-config.md#1-file-location-and-discovery),
@@ -316,8 +316,8 @@ every command in this section:
   (or whatever name `project_name` would have assigned) is treated as any other
   unknown alias by every command in this section — the root alias is not
   silently reserved. Output paths still render from the workspace root, not from
-  the first member. Completions, `show`, `refs`, and `list --project` all agree
-  on this.
+  the first member. Completions, `show`, `refs`, `cover`, and `list --project`
+  all agree on this.
 - **A malformed alias path is rejected before the scan, and the diagnostic names
   the offending segment** — `Sprayer` for `grund hardware/Sprayer/FS-x`, not the
   whole `hardware/Sprayer`. The path is one slug per level (§1), so the mistake
@@ -523,9 +523,51 @@ when wrapping a citation that targets that member — the member's
 render each project's anchors under its own configured profile, consistent
 with the per-member config rule ([AR-workspace.5](../architecture/AR-workspace.md#5-the-config-one-parse-one-validation-pass)).
 
-### 8.6 Output and exit codes
+### 8.6 `grund cover`
 
-All five surfaces above keep the exit codes they had:
+`grund cover` invoked at a workspace root indexes **every project the workspace
+covers** — root plus members, subject to `include_root` per the §8 intro — with
+one entry per scanned file, exactly as §8.3 defines the catalog for `list`. A
+member-local invocation (or a `<path>` that resolves member-local) indexes that
+member alone, unchanged from a standalone run.
+
+`cover`'s question is "which IDs does this file lean on?" ([§FS-cover.5](FS-cover.md#5-why-this-exists)), and the
+answer for a file is the same fact whichever scope the run was launched at. A
+per-project index would make the co-change recipe ([§RM-cochange-gate](../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test)) read a
+changed member file as uncovered, and a coverage index that omits whole
+projects while exiting `0` is the silent skip [§REQ-no-missed-citation.1](../requirements/REQ-no-missed-citation.md#1-no-silent-skips) forbids.
+Rationale and the discarded project-local alternative: [§DF-cover-workspace-scope](../decisions/functional/DF-cover-workspace-scope.md#df-cover-workspace-scope-cover-indexes-the-whole-run-and-counts-cross-project-citations).
+
+- **Qualified citations count toward the citing file.** A `<§><alias>/<ID>`
+  written in `docs/index.md` is one of that file's citations, listed at its
+  `(line, column)` like any other. It is what the file leans on; dropping it
+  reports a fully grounded file as citing nothing. This holds outside a
+  workspace too — a qualified citation in a standalone project is still a
+  citation the file carries, and it is `check`'s job, not `cover`'s, to call
+  the alias unknown (§8.1).
+- **The rendered `id` carries the alias it was written with.** `api/FS-login`
+  for a qualified citation, the bare ID for a local one, so a recipe can feed
+  the field straight back to `grund <ID>`. The ID is rendered under the
+  **target** project's `[id]` config, matching `refs` (§8.2); `text` stays the
+  verbatim source token either way.
+- **Paths render from the workspace root** when a workspace is loaded, so a
+  member's file is spelled the way `[workspace] members` spells it and the
+  recipe can join it against the same base `git diff` reports
+  ([§FS-config.3.6](FS-config.md#36-output--report-format)). Scan errors from any project render against that same
+  root.
+- **`--format json` adds `"project": "<alias>"`** to the per-file object and to
+  each nested citation object whenever workspace mode is loaded — the alias of
+  the project that *contains* the file, which is also the citing project. The
+  nested objects keep byte parity with `refs --format json` rows
+  ([§FS-cover.3.2](FS-cover.md#32---format-json)), including this field. Outside workspace mode no field is
+  added and the output is byte-identical to what it was.
+- **`include_root = false`** removes the root project's files from the index
+  along with its catalog entry, per the §8 intro. Nothing else scans them
+  (§6), which is the hole that rule already documents.
+
+### 8.7 Output and exit codes
+
+All six surfaces above keep the exit codes they had:
 
 - `show` — `0` body printed, `1` ID/section not found or ambiguous, `2` CLI/
   scan error. An unknown alias is `2` (it is a CLI-shaped error, not a "found
@@ -533,6 +575,9 @@ All five surfaces above keep the exit codes they had:
 - `refs` — `0` always when the scan succeeds; `2` on scan/CLI error.
 - `list` — `0` always when the scan succeeds; `2` on scan/CLI error (now
   including unknown `--project`).
+- `cover` — `0` always when the scan succeeds; `2` on a scan error in **any**
+  loaded project, since the index is then incomplete for the tree the run
+  claimed ([§FS-cover.4](FS-cover.md#4-exit-codes)).
 - Completion helper — quiet failures, exit `0`, unchanged from [§FS-completions.2](FS-completions.md#2-internal-dynamic-helper).
 - `fmt --cross-refs` — unchanged from [§FS-fmt](FS-fmt.md#fs-fmt-grund-normalizes-references-in-bulk).
 
