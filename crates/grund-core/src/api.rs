@@ -845,14 +845,16 @@ fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: 
         report.errors.append(&mut project_report.errors);
         report.warnings.append(&mut project_report.warnings);
         append_lsp_scan_errors(&mut report, project.scan_errors.iter().cloned());
-        if project.findings.scanned_files.is_empty()
-            && project.scan_errors.is_empty()
-            && !project_has_findings
-        {
-            report
-                .warnings
-                .push(empty_scan_warning(&config, &config.root, true));
-        }
+        // §FS-lsp.4: the same decision `grund check` makes, from the same
+        // function — an editor and a terminal over one tree report one set of
+        // diagnostics (§FS-check.2.2, §FS-check.4.5).
+        report.warnings.extend(scan_scope_caution(
+            &config,
+            &project.findings,
+            &config.root,
+            true,
+            project.scan_errors.is_empty() && !project_has_findings,
+        ));
     }
     sort_diagnostics(&mut report.errors);
     sort_diagnostics(&mut report.warnings);
