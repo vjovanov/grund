@@ -172,20 +172,21 @@ fn run_check(
         path_provided,
         report_is_silent,
     ));
-    // §FS-check.4.3, after the empty-scan test above: the two cautions are
-    // independent, and a repository mid-migration must not lose the scope
-    // diagnostic just because it also has a config pair.
+    // §FS-check.4.3, after the scope caution above and deliberately outside
+    // `report_is_silent`: the two are independent, and a repository mid-migration
+    // must not lose the scope diagnostic just because it also has a config pair.
     report.warnings.extend(redundant_config_warning(&config));
-    // §FS-check.1.3, also after the empty-scan test: `--full` cancels
+    // §FS-check.1.3, also after the scope caution: `--full` cancels
     // `[scan] include`, and an explicit path other than the config root already
     // bypasses that key — so the flag changed nothing and the caller who typed it
     // wanted a wider search. Say so instead of accepting it silently.
     report
         .warnings
         .extend(full_scope_ignored_warning(&config, path, path_provided, full));
-    // §FS-check.3.14, after the empty-scan test above: a `--full` run whose
-    // *configured* scope read nothing still earns that caution — the tier says
-    // where the citations are, the caution says the config has not been told.
+    // §FS-check.3.14, after the scope caution above: a `--full` run whose
+    // *configured* scope read nothing, or recognized nothing in what it read,
+    // still earns that caution — the tier says where the citations are, the
+    // caution says the config has not been told (§FS-check.2.2, §FS-check.4.5).
     report.errors.extend(out_of_scope);
     sort_diagnostics(&mut report.errors);
 
