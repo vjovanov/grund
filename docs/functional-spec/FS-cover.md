@@ -12,7 +12,7 @@ grund cover [<path>] [--format text|json]
   - absent, or the config root, at a workspace root → every project the workspace covers;
   - inside a member → that member alone;
   - narrower than the config root → that subtree alone, one project, the way `grund check <dir>` narrows ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)). An explicit path bypasses `[scan] include`, so it is the caller's scope and never widened back.
-- `--format text|json` — output shape (§3). Default `text`.
+- `--format text|json` — output shape (§3). Default `text`. A value outside that set is a usage error the caller can fix without touching the repository, so it is answered **before anything is loaded**: the scan can fail first (§4), and which of two errors a caller sees must not depend on the tree they happened to point at. A `[output] format` key carrying an unsupported value is a property of the tree, so it is reported after the load, like any other config fault.
 
 `cover` is a query, like `list` and `refs` — non-interactive, no prompts ([§FS-non-goals.10](FS-non-goals.md#10-interactive-mode)). It reads no git history ([§FS-non-goals.6](FS-non-goals.md#6-decision-database-audit-log-history-tracking)) and parses no AST ([§FS-non-goals.3](FS-non-goals.md#3-code-ast-parsing)).
 

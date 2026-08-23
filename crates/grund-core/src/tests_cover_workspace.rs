@@ -302,6 +302,30 @@ mod tests_cover_workspace {
         );
     }
 
+    /// §FS-cover.1: the compat surface answers a bad `--format` from the argv,
+    /// before anything is loaded — the CLI already did, and the two disagreed:
+    /// `cover --format=bogus /nope` reported the missing path on one and the
+    /// bad format on the other. Both answers exit 2, so only the message
+    /// separates them and no exit-code assertion can; `parse_compat_cover_args`
+    /// holds no path to a loader, which is what makes the order provable here.
+    #[test]
+    fn the_compat_surface_answers_a_bad_format_before_it_loads_anything() {
+        let args = ["--format=bogus".to_string(), "/nope".to_string()];
+        assert_eq!(
+            parse_compat_cover_args(&args).err(),
+            Some("unsupported cover format `bogus`".to_string())
+        );
+        let args = [
+            "--format".to_string(),
+            "json".to_string(),
+            "/nope".to_string(),
+        ];
+        let (opts, format) = parse_compat_cover_args(&args).expect("parse");
+        assert_eq!(format.as_deref(), Some("json"));
+        assert_eq!(opts.path, PathBuf::from("/nope"));
+        assert!(opts.path_provided);
+    }
+
     /// The other half of the same contract: outside workspace mode the compat
     /// renderer adds no field, so a single-project repository's bytes are the
     /// ones it always had (§DF-cover-workspace-scope.2.3).
