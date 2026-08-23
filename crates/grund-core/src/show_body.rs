@@ -81,7 +81,7 @@ fn extract_declaration_body(
     let mut lines = Vec::new();
     let mut sections = Vec::new();
     let mut output_line = 1;
-    let mut in_fence = false;
+    let mut markdown_fence = None;
 
     for (idx, line) in text.lines().enumerate() {
         let lineno = idx + 1;
@@ -95,14 +95,9 @@ fn extract_declaration_body(
         // contents are body text and still reach `lines` below. Tracked exactly
         // as §AR-scanner.2.2's scan tracks it, Markdown only, so the section map
         // `check` reads and the body this returns are bounded by the same lines.
-        let fence_delimiter = is_md && {
-            let trimmed = line.trim_start();
-            trimmed.starts_with("```") || trimmed.starts_with("~~~")
-        };
-        let fenced = in_fence || fence_delimiter;
-        if fence_delimiter {
-            in_fence = !in_fence;
-        }
+        let was_fenced = markdown_fence.is_some();
+        let fence_delimiter = is_md && markdown_fence_delimiter(&mut markdown_fence, line);
+        let fenced = was_fenced || fence_delimiter;
         if !fenced
             && let Some(caps) =
                 declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)

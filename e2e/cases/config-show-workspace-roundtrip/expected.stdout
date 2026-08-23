@@ -64,7 +64,7 @@ title = "Planned milestones and sequencing"
 [scan]
 include = ["docs"]
 exclude = ["target", "node_modules", ".git", "dist", "build", ".venv"]
-extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs"]
+extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs", "lisp", "scm", "clj", "sql", "hs", "lhs", "lua", "ada", "adb", "ads"]
 comment_prefixes = ["//", "#", ";", "--", "*", "/*"]
 docstring_python = true
 respect_gitignore = true

@@ -226,18 +226,18 @@ fn rewrite_file(
     opts: &FmtLineOpts<'_>,
     changes: &mut Vec<(PathBuf, usize, String)>,
 ) -> RewrittenFile {
-    let mut in_fence = false;
+    let mut markdown_fence = None;
     let mut lines = Vec::new();
     let mut changed = false;
     let mut saw_shorthand_candidate = false;
     for (idx, line) in original.lines().enumerate() {
-        let trimmed = line.trim_start();
-        if is_md && (trimmed.starts_with("```") || trimmed.starts_with("~~~")) {
-            in_fence = !in_fence;
+        if is_md && markdown_fence_delimiter(&mut markdown_fence, line) {
             lines.push(line.to_string());
             continue;
         }
-        if in_fence || declaration_captures(&config.grammar, line, false, is_md).is_some() {
+        if markdown_fence.is_some()
+            || declaration_captures(&config.grammar, line, false, is_md).is_some()
+        {
             lines.push(line.to_string());
             continue;
         }

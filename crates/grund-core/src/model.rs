@@ -497,24 +497,10 @@ impl Config {
                 "build".into(),
                 ".venv".into(),
             ],
-            extensions: vec![
-                "md".into(),
-                "rs".into(),
-                "go".into(),
-                "java".into(),
-                "kt".into(),
-                "ts".into(),
-                "tsx".into(),
-                "js".into(),
-                "py".into(),
-                "c".into(),
-                "cpp".into(),
-                "swift".into(),
-                "scala".into(),
-                "rb".into(),
-                "php".into(),
-                "cs".into(),
-            ],
+            extensions: DEFAULT_SCAN_EXTENSIONS
+                .iter()
+                .map(|extension| extension.to_string())
+                .collect(),
             comment_prefixes: DEFAULT_COMMENT_PREFIXES
                 .iter()
                 .map(|prefix| prefix.to_string())

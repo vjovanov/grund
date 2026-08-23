@@ -44,7 +44,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - the same two headings written inside a fenced Markdown example: `check` silent and `show` returning the section whole, fence included — the shape every document in this repository is made of
 - the ambiguous-section refusal in JSON, under its own `ambiguous-section` code rather than the ambiguous-ID `ambiguous`
 - two headings claiming one path inside one Rust doc-comment, beside a heading in the *next* item's doc-comment and a stub whose prose repeats one: only the collision inside the declaration's own body is reported
-- fenced Markdown examples ignored
+- fenced Markdown examples ignored under strict mode, for matched backtick and tilde fences
 - marker-prefixed citations
 - optional-mode bare citations
 - strict-mode bare tokens ignored
@@ -97,10 +97,11 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - Markdown stub to Rust inline declaration
 - broken Markdown-to-Rust inline stub
 - Rust source comment to Markdown citation
-- Rust `///` doc-comment declaration
-- Rust block doc-comment declaration
-- Go line doc-comment declaration
-- Python docstring declaration
+- Rust `///` doc-comment declaration and marked citation under strict mode
+- Rust block doc-comment declaration and marked citation under strict mode
+- Go line doc-comment declaration and marked citation under strict mode
+- Python `"""` / `'''` docstring declarations and marked citations under strict mode
+- Clojure `;` and SQL `--` declarations and marked citations under strict mode
 - missing stub-link target
 - stub-link target is a directory
 - stub-link target has an unsupported extension
@@ -121,6 +122,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - unsupported extension ignored
 - deterministic multiple-error output
 - `check --full` reporting a dangling citation outside `[scan] include`, the same tree staying silent without the flag, and style / grounding findings withheld out there
+- an explicitly included `.github/workflows` YAML root staying scanned despite its hidden parent, both ordinarily and under `check --full`
 - `check --full` keeping an `[scan] include` root that `[scan] exclude` names, and one whose name is hidden, inside the ordinary scope
 - `check --full` resolving an out-of-scope citation against an out-of-scope declaration
 - `check --full` compound out-of-scope diagnostic codes in `--format json`

@@ -1,3 +1,4 @@
+# Automated patch releases implement §FS-distribution.4.
 name: Auto bump
 
 # Mondays at 09:00 UTC: if main has shipped non-doc changes since the last

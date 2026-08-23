@@ -86,7 +86,7 @@ fn scan_file_text(
     let is_py = path.extension().and_then(|e| e.to_str()) == Some("py");
     let inline_sites = inline_citation_sites(&text, is_md, is_py, config, workspace_targets);
     let in_docs = path.components().any(|c| c.as_os_str() == "docs");
-    let mut in_fence = false;
+    let mut markdown_fence = None;
     let mut py_docstring = PythonDocstringScanState::default();
     let mut current: Option<Declaration> = None;
     // §AR-scanner.2.4: citing-side classification (declaration body ranges and
@@ -103,19 +103,16 @@ fn scan_file_text(
     for (idx, line) in text.lines().enumerate() {
         let lineno = idx + 1;
         total_lines = lineno;
+        if is_md && markdown_fence_delimiter(&mut markdown_fence, line) {
+            continue;
+        }
+        if markdown_fence.is_some() {
+            continue;
+        }
         let trimmed = line.trim_start();
-        if is_md && (trimmed.starts_with("```") || trimmed.starts_with("~~~")) {
-            in_fence = !in_fence;
-            continue;
-        }
-        if in_fence {
-            continue;
-        }
         // Collected for every Markdown file, not just a classifying run: the
         // duplicate-section prune below needs the same body spans (§AR-scanner.2.2)
-        // and cannot ask for them after the single pass is over. `trimmed` is
-        // already computed for the fence test, so a non-heading line costs one
-        // character comparison.
+        // and cannot ask for them after the single pass is over.
         if is_md && let Some(level) = markdown_heading_level(trimmed) {
             md_headings.push((lineno, level));
         }

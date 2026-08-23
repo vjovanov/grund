@@ -4,7 +4,7 @@
 # enforces the grounding floor (§FS-check.3.6): every source file under
 # `[scan] include` must cite a declared ID. It runs with `--full`
 # (§FS-check.1.3), so a citation in a file *outside* `[scan] include` — this
-# repository's `README.md` and `examples/` are both outside it — is reported
+# repository's `examples/` tree is deliberately outside it — is reported
 # rather than invisible; only reference resolution is judged out there. `[fmt.cross_refs] enabled = true`
 # makes `grund fmt --write` keep every `§…` citation in the `.md` tree wrapped in a
 # clickable link to its declaration (§FS-fmt.6) — idempotent, so it is a no-op
@@ -80,7 +80,7 @@ repos:
         always_run: true
         stages: [pre-commit]
       # `--full` mirrors the CI self-check step (§AR-ci.1): it adds the citations
-      # that live outside `[scan] include` — README.md, examples/ — which are
+      # that live outside `[scan] include` — notably examples/ — which are
       # invisible to the plain run rather than merely unchecked (§FS-check.1.3).
       - id: grund-check
         name: grund check

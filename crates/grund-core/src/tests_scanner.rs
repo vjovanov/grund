@@ -5,6 +5,50 @@ mod tests_scanner {
     use super::tests_support::*;
 
     #[test]
+    fn markdown_fences_match_the_opening_delimiter() {
+        let root = test_root("markdown_fences_match_the_opening_delimiter");
+        let path = root.join("docs/functional-spec/FS-001-live.md");
+        write(
+            &path,
+            concat!(
+                "# FS-001-live: Live\n",
+                "\n",
+                "§FS-001-live\n",
+                "````markdown\n",
+                "§FS-900-inside\n",
+                "~~~~\n",
+                "§FS-901-still-inside\n",
+                "```\n",
+                "§FS-902-also-inside\n",
+                "````\n",
+                "§FS-001-live\n",
+                "    ```\n",
+                "§FS-001-live\n",
+                "~~~\n",
+                "§FS-903-tilde-inside\n",
+                "~~~~\n",
+                "§FS-001-live\n",
+                "```bad`info\n",
+                "§FS-001-live\n",
+            ),
+        );
+
+        let config = Config::default_for(root);
+        let (findings, _) = scan_tree(&config, Some(&path), true).expect("scan Markdown file");
+        let lines = findings
+            .citations
+            .iter()
+            .map(|citation| citation.line)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            lines,
+            vec![3, 11, 13, 17, 19],
+            "only citations outside matched CommonMark fences should be live"
+        );
+    }
+
+    #[test]
     fn scanner_uses_configured_comment_prefixes() {
         let root = test_root("scanner_uses_configured_comment_prefixes");
         let mut config = Config::default_for(root.clone());
