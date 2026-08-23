@@ -1320,6 +1320,10 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 .map(|canonical| canonical == config.root)
                 .unwrap_or(false));
     if walk_all_projects {
+        // §FS-fmt.3: reuse a project's already-scanned findings only when that
+        // scan met no error (`usable_findings`) — the same completeness guard
+        // `fmt_findings_or_abort` applies to a fresh scan, so a caller that
+        // reuses one instead of running one inherits it too.
         for project in &context.projects {
             let auto_cross_refs = auto_cross_refs_for_scope(
                 &project.config,
@@ -1333,7 +1337,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 write: opts.write,
                 render: &config,
                 workspace: workspace_for_wrap,
-                precomputed_findings: Some(&project.findings),
+                precomputed_findings: usable_findings(project),
             };
             let mut walked = fmt_tree(
                 &project.config,
@@ -1346,9 +1350,14 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             refused_writes.append(&mut walked.refused_writes);
         }
     } else {
+        // §FS-fmt.3: same guard as above — `--write` with no `<path>` and
+        // `--write .` name the same scope and must refuse alike, not one
+        // silently resolving cross-refs/shorthands against a set the other
+        // just reported incomplete.
         let reusable_findings = (!opts.path_provided)
-            .then(|| context.current_project().map(|project| &project.findings))
-            .flatten();
+            .then(|| context.current_project())
+            .flatten()
+            .and_then(usable_findings);
         let auto_cross_refs =
             auto_cross_refs_for_scope(&config, Some(&opts.path), opts.path_provided, opts.write)?;
         let run_opts = FmtRunOpts {

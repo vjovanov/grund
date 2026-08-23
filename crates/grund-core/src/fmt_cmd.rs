@@ -4,6 +4,18 @@
 // normalizer, this one is the command surface wrapped around it, and only this
 // one knows about argv, stdout, and `ExitCode`.
 
+/// A project's already-computed findings from `load_workspace_context`,
+/// reusable as `fmt_tree`'s `precomputed_findings` only when the scan that
+/// produced them met no error (§FS-fmt.3). Resolving a cross-reference or a
+/// shorthand against a partial declaration set can name the wrong
+/// declaration — the hazard `fmt_findings_or_abort` already guards a fresh
+/// scan against — so a caller that reuses a scan instead of running one must
+/// check the same field a fresh scan would have failed on, not just borrow
+/// the `Findings` beside it.
+fn usable_findings(project: &WorkspaceProject) -> Option<&Findings> {
+    project.scan_errors.is_empty().then_some(&project.findings)
+}
+
 fn command_fmt(args: &[String]) -> ExitCode {
     let mut path = PathBuf::from(".");
     let mut path_provided = false;
@@ -82,6 +94,10 @@ fn command_fmt(args: &[String]) -> ExitCode {
         // Each project's findings were already produced by
         // `load_workspace_context` at project.root (§AR-workspace.8) — pass
         // them through so `fmt --cross-refs` does not re-scan every project.
+        // Only when that scan met no error (§FS-fmt.3): `usable_findings`
+        // withholds a project's set otherwise, so `fmt_tree` falls back to a
+        // fresh scan and hits the same `fmt_findings_or_abort` refusal an
+        // explicit path already gets on this tree.
         for project in &context.projects {
             let auto_cross_refs =
                 match auto_cross_refs_for_scope(&project.config, Some(&project.config.root), true, write) {
@@ -98,7 +114,7 @@ fn command_fmt(args: &[String]) -> ExitCode {
                 write,
                 render: &config,
                 workspace: workspace_for_wrap,
-                precomputed_findings: Some(&project.findings),
+                precomputed_findings: usable_findings(project),
             };
             match fmt_tree(
                 &project.config,
@@ -122,10 +138,14 @@ fn command_fmt(args: &[String]) -> ExitCode {
         // context's findings when they cover the whole project (the
         // implicit "." scope). A scope-narrow context scan is too thin for
         // cross-file wrap targets, so let `fmt_tree` scan the project
-        // itself in that case.
+        // itself in that case — and, per `usable_findings` (§FS-fmt.3), only
+        // when that whole-project scan met no error, so `--write` and
+        // `--write .` refuse alike on the same tree instead of one silently
+        // resolving against a set the other just reported as incomplete.
         let reusable_findings = (!path_provided)
-            .then(|| context.current_project().map(|project| &project.findings))
-            .flatten();
+            .then(|| context.current_project())
+            .flatten()
+            .and_then(usable_findings);
         let auto_cross_refs =
             match auto_cross_refs_for_scope(&config, Some(&path), path_provided, write) {
                 Ok(enabled) => enabled,
