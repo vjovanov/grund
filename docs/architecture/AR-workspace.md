@@ -321,7 +321,7 @@ the checker, not the scanner, not the loader, not the resolver shape.
 
 ## 8. Downstream commands compose, not duplicate
 
-Query commands (`show`, `refs`, `list`, completions) and the formatter
+Query commands (`show`, `refs`, `list`, `cover`, completions) and the formatter
 (`fmt --cross-refs`) consume the qualified-citation shape through a single
 shared loader, `load_workspace_context`
 ([§FS-workspace.8](../functional-spec/FS-workspace.md#8-other-commands)).
@@ -342,10 +342,16 @@ the workspace root scopes to the current (root) project; `grund list
 --project api` narrows the catalog; `grund fmt --cross-refs` from a
 member tree preserves any pre-existing qualified wraps as-is and emits
 no new ones ([§FS-workspace.8.5](../functional-spec/FS-workspace.md#85-grund-fmt---cross-refs)). No command re-implements the resolver,
-the citation regex, or the alias derivation. `grund cover` deliberately
-stays project-local — its answer is "which files in this project carry
-citations?" — and filters at the consumer end on `cite.namespace.is_none()`,
-never by switching the scanner into a different mode.
+the citation regex, or the alias derivation.
+
+`grund cover` applies **no** filter: it is keyed by file, so every project
+the loader returned contributes its scanned files and every citation in
+them, qualified or not ([§FS-workspace.8.6](../functional-spec/FS-workspace.md#86-grund-cover), [§DF-cover-workspace-scope](../decisions/functional/DF-cover-workspace-scope.md#df-cover-workspace-scope-cover-indexes-the-whole-run-and-counts-cross-project-citations)). That
+is the one command where dropping a row is indistinguishable from a file
+having nothing to say, so it is the one command whose consumer-end filter
+was a silent skip rather than a scope choice. A file belongs to exactly one
+project by the boundary rule (§6), so the per-file index needs no merge step
+and the alias attached to each entry is unambiguous.
 
 ## 9. Test contracts
 
@@ -384,7 +390,10 @@ test that fails if the invariant is broken:
 | Single-project repo flags stray `<§>alias/<ID>`  | `e2e/cases/cross-project-citation-without-workspace` |
 | `config show` round-trips `[workspace]`          | `e2e/cases/config-show-workspace-roundtrip` |
 | `check --format json` shape in a workspace       | `e2e/cases/workspace-check-json` |
-| `cover` / `list` skip qualified citations        | `e2e/cases/cover-ignore-qualified-project-local`; `e2e/cases/list-ignore-qualified-project-local`; `e2e/cases/refs-ignore-qualified-project-local`; `e2e/cases/fmt-cross-refs-ignore-qualified-project-local` |
+| `list` / `refs` / `fmt` skip qualified citations  | `e2e/cases/list-ignore-qualified-project-local`; `e2e/cases/refs-ignore-qualified-project-local`; `e2e/cases/fmt-cross-refs-ignore-qualified-project-local` |
+| `cover` counts a qualified citation, workspace or not | `e2e/cases/cover-counts-qualified-project-local`; `e2e/cases/workspace-cover-text` |
+| `cover` at a workspace root indexes every member, and a member's scan error fails the run | `e2e/cases/workspace-cover-json`; `e2e/cases/workspace-cover-member-scan-error`; `cover_at_a_workspace_root_indexes_every_member` (`crates/grund-core/src/tests_cover_workspace.rs`) |
+| `cover` under a member path stays member-local    | `e2e/cases/workspace-cover-member-local` |
 | `[workspace] members` shape rejected at load     | `e2e/cases/workspace-member-absolute-path`; `e2e/cases/workspace-member-parent-segment`; `e2e/cases/workspace-member-windows-drive`; `e2e/cases/workspace-member-windows-path`; `e2e/cases/workspace-member-multi-glob` |
 | Overlapping workspace member roots rejected      | `e2e/cases/workspace-member-overlap` |
 | `[[workspace]]` array-table form rejected        | `e2e/cases/workspace-section-as-array-table` |
