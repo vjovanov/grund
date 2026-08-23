@@ -52,8 +52,9 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - config unknown-key failure
 - config unsupported-version failure (newer `grund_config_version` refused, with upgrade hint)
 - config custom marker in strict mode
-- config discovered as a bare root `grund.toml` from a subdirectory
-- config redundant pair (the bare `grund.toml` wins, the `.agents/` file is warned about)
+- config discovered as a bare root `grund.toml` from a subdirectory — which is also the case that pins the nothing-recognized caution to whole-project runs, since its one file holds neither a declaration nor a citation and its narrowed run must stay silent about that
+- config redundant pair (the bare `grund.toml` wins, the `.agents/` file is warned about) — and, beside it, the nothing-recognized caution the same run earns, the two cautions being independent facts about it
+- a docs tree written for a different `[id] format` than the one configured: every heading heading-shaped, nothing declared, nothing cited, and the run naming the shapes the grammar wanted instead of printing `success`
 - workspace mixing both config discovery forms across its members
 - a `[workspace]` member that escapes the block listing it, both ways a symlink can do it: pointing back at the block's own root (`self -> .`) and out of its tree (`link -> ..`)
 - nested workspaces: whole-alias-path naming, per-level alias uniqueness, the grouping node as a project, subtree scope, the short-leaf-name hint, an enclosing workspace whose own member list fails to expand, one whose config does not load at all and still owes the subtree its own error, one cross-branch citation checked at both scopes, and an empty nested block with no `members` key at all
