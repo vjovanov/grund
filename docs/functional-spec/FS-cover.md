@@ -59,8 +59,9 @@ In workspace mode both the per-file object and each nested citation object gain 
 ## 4. Exit codes
 
 - `0` — scan succeeded; the emitted file records are the result.
-- `2` — a config the run needs does not load, **including a `[workspace]` block whose members cannot be expanded** (a duplicate or invalid alias, a missing member, a block with nothing in scope). Before the index existed at workspace scope, `cover` never read those keys and answered `0` over the root project alone while `grund list` on the same tree failed; the two now agree ([§FS-workspace.8.6](FS-workspace.md#86-grund-cover)).
-- `2` — scan / I/O error in any project the run loaded ([§FS-check.2](FS-check.md#2-outputs) partial-scan semantics apply: records found before or after the unreadable file may print, but the result is not trustworthy as complete). A member's unreadable file fails the run at the workspace root, because the index the run just printed is incomplete for the tree it claimed ([§FS-workspace.8.7](FS-workspace.md#87-output-and-exit-codes)).
+- `2` — the run could not read the tree it was asked about, in either of two ways:
+  - **A config the run needs does not load** — including a `[workspace]` block whose members cannot be expanded (a duplicate or invalid alias, a missing member, a block with nothing in scope). Before the index existed at workspace scope, `cover` never read those keys and answered `0` over the root project alone while `grund list` on the same tree failed; the two now agree ([§FS-workspace.8.6](FS-workspace.md#86-grund-cover)).
+  - **A scan / I/O error in any project the run loaded** ([§FS-check.2](FS-check.md#2-outputs) partial-scan semantics apply: records found before or after the unreadable file may print, but the result is not trustworthy as complete). A member's unreadable file fails the run at the workspace root, because the index the run just printed is incomplete for the tree it claimed ([§FS-workspace.8.7](FS-workspace.md#87-output-and-exit-codes)).
 
 There is no `1`: `cover` is a query over the current tree and has no finding class of its own.
 
