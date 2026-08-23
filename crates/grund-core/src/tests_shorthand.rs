@@ -484,4 +484,65 @@ mod tests_shorthand {
             1
         );
     }
+
+    /// §REQ-no-missed-citation.1: the shorthand pass defers a qualified marker to
+    /// the qualified pass only where that pass actually claimed it. Outside
+    /// workspace mode the claimant is the loose fallback (§FS-workspace.5), which
+    /// parses the tail as `KIND[-NUM]-SLUG` with an uppercase kind — so under an
+    /// `[id] format` it cannot read, the shorthand pass is the only producer and
+    /// a blanket skip would delete the citation and turn a red tree green.
+    #[test]
+    fn a_qualified_shorthand_the_loose_parser_cannot_read_is_still_a_citation() {
+        // Two shapes the loose parser rejects: a kind not separated from its
+        // number, and a kind that is not uppercase.
+        for (name, id_format, kind_prefix, token) in [
+            (
+                "unseparated",
+                "{kind}{number}-{slug}",
+                "FS",
+                "\u{a7}api/FS042",
+            ),
+            (
+                "lowercase-kind",
+                "{kind}-{number}-{slug}",
+                "fs",
+                "\u{a7}api/fs-042",
+            ),
+        ] {
+            let root = test_root(&format!(
+                "a_qualified_shorthand_the_loose_parser_cannot_read_{name}"
+            ));
+            let mut config = legacy_fs_folder_config(root.clone());
+            config.id_format = id_format.into();
+            for kind in &mut config.kinds {
+                if kind.prefix == "FS" {
+                    kind.prefix = kind_prefix.into();
+                }
+            }
+            config.rebuild_grammar().expect("rebuild grammar");
+            assert!(config.grammar.has_shorthand(), "{name}");
+            write(&root.join("docs/notes.md"), &format!("Cited: {token}\n"));
+
+            let findings = scan_findings(&config, &root);
+            let qualified: Vec<&Citation> = findings
+                .citations
+                .iter()
+                .filter(|cite| cite.namespace.as_deref() == Some("api"))
+                .collect();
+            assert_eq!(qualified.len(), 1, "{name}: exactly one citation");
+            assert_eq!(qualified[0].text, token, "{name}");
+
+            // And `check` still reports it: this is the verdict the blanket skip
+            // silently flipped to success (§REQ-backwards-compatibility.1).
+            let report = check_findings(&findings, &config);
+            assert!(
+                report
+                    .errors
+                    .iter()
+                    .any(|error| error.message.contains("unknown project alias")),
+                "{name}: {:?}",
+                messages(&report)
+            );
+        }
+    }
 }

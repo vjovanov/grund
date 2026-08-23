@@ -287,13 +287,22 @@ fn scan_file_text(
                 findings,
             );
         } else {
+            // §AR-scanner.2.6: the fallback records what it claimed into the same
+            // set, so the shorthand pass below can tell a qualified marker that
+            // already became a citation from one no qualified pass could parse.
             scan_fallback_qualified_citations(
                 &citation_line,
-                &qualified_marker_starts,
+                &mut qualified_marker_starts,
                 findings,
             );
         }
-        scan_shorthand_citations(&citation_line, &claimed_markers, findings);
+        scan_shorthand_citations(
+            &citation_line,
+            workspace_mode,
+            &claimed_markers,
+            &qualified_marker_starts,
+            findings,
+        );
         scan_escaped_citations(&citation_line, findings);
     }
 
@@ -708,16 +717,21 @@ fn block_declares_id(lines: &[&str], in_py_docstring: bool, config: &Config) -> 
 /// to be diagnosed at the workspace-root run instead. Workspace-root and
 /// workspace-aware paths use the target's actual grammar via
 /// `scan_workspace_qualified_pass`.
+///
+/// `qualified_claimed` carries the marker offsets a qualified citation already
+/// exists at — the full-ID pass's on entry, this pass's own on return. The
+/// shorthand pass reads the union to decide whether a qualified marker is
+/// already spoken for (§AR-scanner.2.6).
 fn scan_fallback_qualified_citations(
     line: &CitationLine<'_>,
-    already_seen: &BTreeSet<usize>,
+    qualified_claimed: &mut BTreeSet<usize>,
     findings: &mut Findings,
 ) {
     if line.config.marker.is_empty() {
         return;
     }
     for (marker_start, _) in line.scan_line.match_indices(&line.config.marker) {
-        if already_seen.contains(&marker_start) {
+        if qualified_claimed.contains(&marker_start) {
             continue;
         }
         if qualified_suppressed_in_source(line.scan_line, line.is_md, marker_start) {
@@ -741,6 +755,7 @@ fn scan_fallback_qualified_citations(
             continue;
         };
         let token_end = id_start + id_len;
+        qualified_claimed.insert(marker_start);
         findings.citations.push(Citation {
             namespace: Some(alias.to_string()),
             id,
