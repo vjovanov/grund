@@ -259,7 +259,10 @@ fn check_with_workspace(
             let primary = sites[0].clone();
             let others = sites[1..]
                 .iter()
-                .map(|site| format!("{}:{}", display_path(config, &site.path), site.line))
+                // §FS-errors.3 / §FS-workspace.8.1: `path_config`, not `config`
+                // — the printer anchors this finding from the report root, so
+                // the sites named inside its message come from there too.
+                .map(|site| format!("{}:{}", display_path(path_config, &site.path), site.line))
                 .collect::<Vec<_>>();
             let suffix = if others.is_empty() {
                 String::new()

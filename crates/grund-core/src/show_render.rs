@@ -19,10 +19,13 @@ fn show_declaration(
     )
 }
 
-/// `path_config` renders report paths (§FS-config.3.6) and must be the same
-/// config the caller hands `render_show_output_json`, so the E2E manifest —
-/// whose JSON is baked here rather than rendered there — reports its path
-/// against the same root as every other kind (§FS-workspace.8.1).
+/// `path_config` renders every path this function reports (§FS-config.3.6) — the
+/// sites a refusal names (§FS-errors.3) as well as the E2E manifest's, whose
+/// JSON is baked here rather than in `render_show_output_json`. It must be the
+/// same config the caller hands that renderer, so a member's declaration reports
+/// against the root the rest of the run spells its paths from
+/// (§FS-workspace.8.1). `config` stays the *project's*: it owns the ID grammar
+/// `render_id` reads and the tree the body is read out of.
 fn show_declaration_with_overlays(
     config: &Config,
     path_config: &Config,
@@ -43,9 +46,11 @@ fn show_declaration_with_overlays(
         .filter(|decl| !is_stub_for_inline_decl(root, decl, decls))
         .collect();
     if homes.len() > 1 {
+        // §FS-errors.3: every path this refusal names is spelled from the report
+        // root, like the `path` of any diagnostic printed beside it.
         let mut sites: Vec<String> = homes
             .iter()
-            .map(|d| format!("{}:{}", display_path(config, &d.file), d.line))
+            .map(|d| format!("{}:{}", display_path(path_config, &d.file), d.line))
             .collect();
         sites.sort();
         return Err(anyhow!(
@@ -68,7 +73,7 @@ fn show_declaration_with_overlays(
             return Err(anyhow!(
                 "broken stub: {} (stub at {}:{} points at {}, which does not exist)",
                 render_id(config, id),
-                display_path(config, &decl.file),
+                display_path(path_config, &decl.file),
                 decl.line,
                 format_path(decl.defined_in.as_ref().unwrap())
             ));
@@ -77,7 +82,7 @@ fn show_declaration_with_overlays(
             return Err(anyhow!(
                 "broken stub: {} (stub at {}:{} points at {}, which contains no inline declaration of {})",
                 render_id(config, id),
-                display_path(config, &decl.file),
+                display_path(path_config, &decl.file),
                 decl.line,
                 format_path(decl.defined_in.as_ref().unwrap()),
                 render_id(config, id)
