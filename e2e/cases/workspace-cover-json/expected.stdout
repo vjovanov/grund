@@ -1,0 +1,4 @@
+{"project":"root","path":"docs/FS-root-thing.md","citations":[{"project":"root","path":"docs/FS-root-thing.md","line":3,"column":18,"id":"alpha/FS-alpha-thing","section":null,"marker":true,"text":"§alpha/FS-alpha-thing"},{"project":"root","path":"docs/FS-root-thing.md","line":3,"column":45,"id":"beta/FS-beta-thing","section":null,"marker":true,"text":"§beta/FS-beta-thing"}]}
+{"project":"root","path":"docs/notes.md","citations":[]}
+{"project":"alpha","path":"packages/alpha/docs/FS-alpha-thing.md","citations":[{"project":"alpha","path":"packages/alpha/docs/FS-alpha-thing.md","line":3,"column":18,"id":"beta/FS-beta-thing","section":null,"marker":true,"text":"§beta/FS-beta-thing"}]}
+{"project":"beta","path":"packages/beta/docs/FS-beta-thing.md","citations":[{"project":"beta","path":"packages/beta/docs/FS-beta-thing.md","line":3,"column":20,"id":"FS-beta-thing","section":null,"marker":true,"text":"§FS-beta-thing"}]}

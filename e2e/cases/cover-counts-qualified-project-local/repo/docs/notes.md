@@ -1,3 +1,3 @@
 # Notes
 
-Qualified illustrative reference: §api/FS-login.
+Cross-project citation, unresolvable here: §api/FS-login.
