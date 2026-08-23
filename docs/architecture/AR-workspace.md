@@ -401,6 +401,7 @@ test that fails if the invariant is broken:
 | `cover` counts a qualified citation, workspace or not | `e2e/cases/cover-counts-qualified-project-local`; `e2e/cases/workspace-cover-text` |
 | `cover` at a workspace root indexes every member, and a member's scan error fails the run | `e2e/cases/workspace-cover-json`; `e2e/cases/workspace-cover-member-scan-error`; `cover_at_a_workspace_root_indexes_every_member` (`crates/grund-core/src/tests_cover_workspace.rs`) |
 | `cover` under a member path stays member-local    | `e2e/cases/workspace-cover-member-local` |
+| `cover` fails a workspace whose members cannot be expanded | `e2e/cases/workspace-cover-broken-members` |
 | `cover <dir>` narrows instead of aggregating, like `check <dir>` | `e2e/cases/workspace-cover-narrowed-path`; `cover_under_a_narrowed_path_loads_no_workspace` (`crates/grund-core/src/tests_cover_workspace.rs`) |
 | `[workspace] members` shape rejected at load     | `e2e/cases/workspace-member-absolute-path`; `e2e/cases/workspace-member-parent-segment`; `e2e/cases/workspace-member-windows-drive`; `e2e/cases/workspace-member-windows-path`; `e2e/cases/workspace-member-multi-glob` |
 | Overlapping workspace member roots rejected      | `e2e/cases/workspace-member-overlap` |
