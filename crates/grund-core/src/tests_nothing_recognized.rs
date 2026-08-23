@@ -53,6 +53,26 @@ mod tests_nothing_recognized {
         );
     }
 
+    /// §FS-check.4.5: the two trees that produce this report — one written to
+    /// another format, one nobody has declared in yet — are indistinguishable
+    /// without judging a line, so the caution names both rather than sending a
+    /// fresh adopter to look for a bug in a config that is fine.
+    #[test]
+    fn the_caution_offers_both_readings_of_the_fact() {
+        let root = test_root("the_caution_offers_both_readings_of_the_fact");
+        write(&root.join("grund.toml"), DEFAULT_CONFIG);
+        write(&root.join("docs/README.md"), "# Specs\n\nNothing declared here yet.\n");
+
+        let message = caution(&check_run(&root, false))
+            .expect("caution")
+            .message
+            .clone();
+        assert!(
+            message.contains("Either nothing is declared yet, or the headings are written to a different shape than that."),
+            "the run cannot tell the two apart, so it claims neither: {message}"
+        );
+    }
+
     /// §DF-nothing-recognized.2.3: never an example ID assembled from
     /// `[id] number_pattern` / `[id] slug_pattern`, and never a corrected
     /// spelling for a heading the tree actually holds.
