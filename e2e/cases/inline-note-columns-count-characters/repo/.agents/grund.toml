@@ -1,0 +1,4 @@
+grund_config_version = 1
+
+[reference]
+inline_note_max_columns = 40
