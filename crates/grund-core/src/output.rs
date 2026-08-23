@@ -299,6 +299,12 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
 /// The shapes come from the configured template (`id_shape`) and the marker, and
 /// the kinds are named in config order; nothing here is derived from the tree, so
 /// two runs over one config print one string (§FS-errors.4).
+///
+/// The closing sentence offers both readings because the run cannot tell them
+/// apart without judging a line, which is §RM-declaration-near-miss's job: a tree
+/// written to another format and a `grund init` scaffold nobody has declared in
+/// yet produce the identical fact, and naming only the first would send a fresh
+/// adopter to look for a bug in a config that is fine.
 fn nothing_recognized_warning(config: &Config, scanned_files: usize) -> Diagnostic {
     let shape = id_shape(&config.id_format);
     let files = if scanned_files == 1 { "file" } else { "files" };
@@ -311,8 +317,8 @@ fn nothing_recognized_warning(config: &Config, scanned_files: usize) -> Diagnost
             "nothing recognized — grund read {scanned_files} {files} and found no declaration \
              and no citation in them. A declaration heading reads `# {shape}: <title>` and a \
              citation `{marker}{shape}`, under [id] format = \"{format}\" with <KIND> one of \
-             {{{kinds}}}. Check [id] format and [[kinds]] in grund.toml against how the \
-             headings are written.",
+             {{{kinds}}}. Either nothing is declared yet, or the headings are written to a \
+             different shape than that.",
             marker = config.marker,
             format = config.id_format,
             kinds = kind_prefixes(&config.kinds).join(", "),
