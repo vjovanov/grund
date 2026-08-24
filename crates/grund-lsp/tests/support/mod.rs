@@ -198,8 +198,48 @@ pub fn start_server_with_capabilities(
     root: &Path,
     capabilities: Value,
 ) -> (Child, ChildStdin, mpsc::Receiver<Value>) {
+    start_server_with_initialize(
+        root,
+        json!({
+            "processId": std::process::id(),
+            "rootUri": file_uri(root),
+            "capabilities": capabilities
+        }),
+    )
+}
+
+/// Start a server whose client supplies the given LSP workspace folders. The
+/// process cwd is independent so cases can prove the initialize payload, not
+/// an ambient directory, determines project discovery (§FS-lsp.2.2).
+pub fn start_server_with_workspace_folders(
+    current_dir: &Path,
+    folders: &[&Path],
+) -> (Child, ChildStdin, mpsc::Receiver<Value>) {
+    let workspace_folders = folders
+        .iter()
+        .map(|folder| {
+            json!({
+                "uri": file_uri(folder),
+                "name": folder.file_name().and_then(|name| name.to_str()).unwrap_or("root")
+            })
+        })
+        .collect::<Vec<_>>();
+    start_server_with_initialize(
+        current_dir,
+        json!({
+            "processId": std::process::id(),
+            "workspaceFolders": workspace_folders,
+            "capabilities": { "workspace": { "workspaceFolders": true } }
+        }),
+    )
+}
+
+fn start_server_with_initialize(
+    current_dir: &Path,
+    initialize_params: Value,
+) -> (Child, ChildStdin, mpsc::Receiver<Value>) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
-        .current_dir(root)
+        .current_dir(current_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -213,11 +253,7 @@ pub fn start_server_with_capabilities(
             "jsonrpc": "2.0",
             "id": 1,
             "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": file_uri(root),
-                "capabilities": capabilities
-            }
+            "params": initialize_params
         }),
     );
     recv_response_or_panic(&receiver, &mut child, 1);
