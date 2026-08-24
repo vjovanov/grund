@@ -1,6 +1,6 @@
 //! LSP transport over stdio. §AR-lsp.4
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use grund_core::{
     DeclaredId, Finding, LspCitation, LspDeclaration, LspSnapshot, LspSnapshotOpts, LspStub,
     LspUsage, ShowFormat, ShowMode, ShowOpts, canonical_snapshot_path, citation_under_title,
@@ -121,48 +121,56 @@ fn initialize_folders(params: &InitializeParams) -> Result<BTreeSet<PathBuf>> {
         .as_ref()
         .filter(|folders| !folders.is_empty())
     {
-        return folders.iter().map(workspace_folder_path).collect();
+        // A present, non-empty workspace-folder list is authoritative even
+        // when every entry is virtual. Falling back to `rootUri` or cwd in that
+        // case would attach an unrelated local project to a virtual-only
+        // window (§FS-lsp.2.2).
+        return Ok(workspace_folder_paths(folders));
     }
     #[allow(deprecated)]
     if let Some(uri) = &params.root_uri {
-        let root = uri
-            .to_file_path()
-            .map_err(|_| anyhow!("initialize rootUri is not a file URI: {uri}"))?;
-        return Ok(BTreeSet::from([canonical_snapshot_path(&root)]));
+        return match uri.to_file_path() {
+            Ok(root) => Ok(BTreeSet::from([canonical_snapshot_path(&root)])),
+            Err(()) => {
+                eprintln!("grund-lsp: skipping non-file initialize rootUri: {uri}");
+                Ok(BTreeSet::new())
+            }
+        };
     }
     Ok(BTreeSet::from([canonical_snapshot_path(
         &std::env::current_dir().context("resolve current directory")?,
     )]))
 }
 
-fn workspace_folder_path(folder: &WorkspaceFolder) -> Result<PathBuf> {
-    folder
-        .uri
-        .to_file_path()
-        .map(|path| canonical_snapshot_path(&path))
-        .map_err(|_| anyhow!("workspace folder URI is not a file URI: {}", folder.uri))
+/// The local directories a client's workspace folders name. A folder whose URI
+/// is not a `file:` one is skipped with a note on stderr, never fatal: an
+/// editor may legitimately mix local folders with virtual ones in a single
+/// window, and one of those must not take the whole session — including the
+/// local folders beside it — down with it (§FS-lsp.2.2, §REQ-never-crashes).
+fn workspace_folder_paths(folders: &[WorkspaceFolder]) -> BTreeSet<PathBuf> {
+    folders
+        .iter()
+        .filter_map(|folder| match folder.uri.to_file_path() {
+            Ok(path) => Some(canonical_snapshot_path(&path)),
+            Err(()) => {
+                eprintln!(
+                    "grund-lsp: skipping workspace folder with a non-file URI: {}",
+                    folder.uri
+                );
+                None
+            }
+        })
+        .collect()
 }
 
-/// Resolve an editor folder to the scan root it names. A discovered config owns
-/// the scan, including sibling `[scan] include` roots; only a zero-config folder
-/// remains its own boundary (§FS-lsp.2.2).
-fn project_root(folder: &Path) -> Result<PathBuf> {
-    let config = effective_config(folder)?;
-    if config.config_file.is_some() {
-        Ok(canonical_snapshot_path(&config.root))
-    } else {
-        Ok(canonical_snapshot_path(folder))
-    }
-}
-
-struct ProjectSnapshot {
-    root: PathBuf,
-    snapshot: LspSnapshot,
-}
+include!("workspace.rs");
 
 struct Server {
     connection: Connection,
     workspace_folders: BTreeSet<PathBuf>,
+    /// Last successful project-root discovery for each folder anchor. This is
+    /// what lets a temporarily invalid config keep serving its last snapshot.
+    folder_roots: BTreeMap<PathBuf, PathBuf>,
     projects: Vec<ProjectSnapshot>,
     open_docs: BTreeMap<Url, String>,
     diagnostic_uris: BTreeSet<Url>,
@@ -183,13 +191,14 @@ impl Server {
         let mut server = Self {
             connection,
             workspace_folders,
+            folder_roots: BTreeMap::new(),
             projects: Vec::new(),
             open_docs: BTreeMap::new(),
             diagnostic_uris: BTreeSet::new(),
             definition_link_support,
             line_cache: RefCell::new(BTreeMap::new()),
         };
-        server.refresh()?;
+        server.refresh();
         Ok(server)
     }
 
@@ -228,35 +237,109 @@ impl Server {
         Ok(())
     }
 
-    fn refresh(&mut self) -> Result<()> {
-        // Each edit rebuilds the whole snapshot — a full workspace scan (and,
-        // for projects with `[citations]`, the direction classification pass).
-        // That is acceptable at the current scale; an incremental rescan keyed
-        // off the changed document is the natural optimization for large repos,
-        // left as future work.
-        let roots = self
-            .workspace_folders
-            .iter()
-            .map(|folder| project_root(folder))
-            .collect::<Result<BTreeSet<_>>>()?;
+    /// Rebuild every project's snapshot. The whole-workspace answer, for the
+    /// events that can change anything anywhere: startup, `initialized`, a
+    /// watched-file create or delete, a workspace-folder change.
+    fn refresh(&mut self) {
+        self.rebuild(None);
+    }
+
+    /// Rebuild only the projects whose scan can see `path`. Each edit still
+    /// rebuilds a whole project snapshot — a full scan, plus the direction
+    /// classification pass for projects with `[citations]` — which is
+    /// acceptable at the current scale; an incremental rescan keyed off the
+    /// changed document is the natural optimization for large repos, left as
+    /// future work. What multi-root discovery adds is *other* projects, and a
+    /// keystroke in one editor folder cannot change the verdicts of a project
+    /// that never reads that file, so those are left standing (§AR-lsp.2).
+    ///
+    /// A path *no* project claims falls back to rebuilding everything. It is
+    /// the shape a newly created file takes under a symlinked or
+    /// parent-relative include root — outside every project root, and in no
+    /// scan yet — and guessing "nobody's" there would leave the editor silent
+    /// on a file the CLI checks. Answering it costs a full refresh, which is
+    /// what every edit cost before this scoping existed.
+    fn refresh_document(&mut self, uri: &Url) {
+        let scope = uri.to_file_path().ok().map(normalize_path).filter(|path| {
+            self.projects
+                .iter()
+                .any(|project| project.might_cover(path))
+        });
+        self.rebuild(scope);
+    }
+
+    /// `changed` scopes the rebuild: `None` rebuilds every project, `Some(path)`
+    /// rebuilds only the projects that cover `path` and carries the rest over
+    /// untouched.
+    ///
+    /// One failing project never takes the others with it. A folder whose
+    /// config will not load, or whose scan errors out, is reported on stderr
+    /// and keeps whatever snapshot it last had — so a half-typed `grund.toml`
+    /// in one editor folder cannot silently freeze diagnostics across the whole
+    /// session, which is what collecting the batch into one `Result` did
+    /// (§FS-lsp.2.2, §REQ-never-crashes).
+    fn rebuild(&mut self, changed: Option<PathBuf>) {
+        let mut roots = BTreeSet::new();
+        let mut discoverable_roots = BTreeSet::new();
+        for folder in &self.workspace_folders {
+            match project_root(folder) {
+                Ok(root) => {
+                    self.folder_roots.insert(folder.clone(), root.clone());
+                    discoverable_roots.insert(root.clone());
+                    roots.insert(root);
+                }
+                Err(err) => {
+                    eprintln!(
+                        "grund-lsp: workspace folder `{}` has no usable config: {err:#}",
+                        folder.display()
+                    );
+                    if let Some(previous_root) = self.folder_roots.get(folder) {
+                        roots.insert(previous_root.clone());
+                    }
+                }
+            }
+        }
         let overlays = self.open_document_overlays();
-        self.projects = roots
+        let mut previous: BTreeMap<PathBuf, ProjectSnapshot> = std::mem::take(&mut self.projects)
             .into_iter()
-            .map(|root| {
-                let snapshot = lsp_snapshot(LspSnapshotOpts {
-                    path: root.clone(),
-                    // A discovered project root is the whole project, so its
-                    // configured include paths govern just as for a root CLI run.
-                    path_provided: true,
-                    open_documents: overlays.clone(),
-                })?;
-                Ok(ProjectSnapshot { root, snapshot })
-            })
-            .collect::<Result<Vec<_>>>()?;
+            .map(|project| (project.root.clone(), project))
+            .collect();
+        let mut projects = Vec::new();
+        for root in roots {
+            let existing = previous.remove(&root);
+            // Discovery itself failed for every anchor that last named this
+            // root. Calling `lsp_snapshot` would rediscover the same broken
+            // config, so retain the existing snapshot directly (§FS-lsp.2.2).
+            if !discoverable_roots.contains(&root) {
+                projects.extend(existing);
+                continue;
+            }
+            let unaffected = match (&changed, &existing) {
+                (Some(path), Some(project)) => !project.might_cover(path),
+                _ => false,
+            };
+            if unaffected {
+                projects.extend(existing);
+                continue;
+            }
+            match lsp_snapshot(LspSnapshotOpts {
+                path: root.clone(),
+                // A discovered project root is the whole project, so its
+                // configured include paths govern just as for a root CLI run.
+                path_provided: true,
+                open_documents: overlays.clone(),
+            }) {
+                Ok(snapshot) => projects.push(ProjectSnapshot::new(root, snapshot)),
+                Err(err) => {
+                    eprintln!("grund-lsp: scan of `{}` failed: {err:#}", root.display());
+                    projects.extend(existing);
+                }
+            }
+        }
+        self.projects = projects;
         // The rebuilt snapshot reflects the new document contents, so any cached
         // lines from before the edit are stale.
         self.line_cache.borrow_mut().clear();
-        Ok(())
     }
 
     fn handle_request(&mut self, request: Request) -> Result<()> {
@@ -304,68 +387,66 @@ impl Server {
     fn handle_notification(&mut self, notification: Notification) -> Result<()> {
         match notification.method.as_str() {
             "initialized" => {
-                self.refresh()?;
+                self.refresh();
                 self.publish_diagnostics()?;
             }
             "textDocument/didOpen" => {
                 let params: lsp_types::DidOpenTextDocumentParams =
                     serde_json::from_value(notification.params)?;
+                let uri = params.text_document.uri;
                 self.open_docs
-                    .insert(params.text_document.uri, params.text_document.text);
-                self.refresh()?;
+                    .insert(uri.clone(), params.text_document.text);
+                self.refresh_document(&uri);
                 self.publish_diagnostics()?;
             }
             "textDocument/didChange" => {
                 let params: lsp_types::DidChangeTextDocumentParams =
                     serde_json::from_value(notification.params)?;
+                let uri = params.text_document.uri;
                 if let Some(text) = full_change_text(params.content_changes) {
-                    self.open_docs.insert(params.text_document.uri, text);
+                    self.open_docs.insert(uri.clone(), text);
                 }
-                self.refresh()?;
+                self.refresh_document(&uri);
                 self.publish_diagnostics()?;
             }
             "textDocument/didSave" => {
                 let params: lsp_types::DidSaveTextDocumentParams =
                     serde_json::from_value(notification.params)?;
+                let uri = params.text_document.uri;
                 if let Some(text) = params.text {
-                    self.open_docs.insert(params.text_document.uri, text);
+                    self.open_docs.insert(uri.clone(), text);
                 } else {
-                    self.open_docs.remove(&params.text_document.uri);
+                    self.open_docs.remove(&uri);
                 }
-                self.refresh()?;
+                self.refresh_document(&uri);
                 self.publish_diagnostics()?;
             }
             "textDocument/didClose" => {
                 let params: lsp_types::DidCloseTextDocumentParams =
                     serde_json::from_value(notification.params)?;
-                self.open_docs.remove(&params.text_document.uri);
-                self.refresh()?;
+                let uri = params.text_document.uri;
+                self.open_docs.remove(&uri);
+                self.refresh_document(&uri);
                 self.publish_diagnostics()?;
             }
             "workspace/didChangeWatchedFiles" => {
-                self.refresh()?;
+                // Creates and deletes, so a project that has never read the
+                // path yet may still gain or lose a file: rebuild everything.
+                self.refresh();
                 self.publish_diagnostics()?;
             }
             "workspace/didChangeWorkspaceFolders" => {
                 let params: lsp_types::DidChangeWorkspaceFoldersParams =
                     serde_json::from_value(notification.params)?;
-                let removed = params
-                    .event
-                    .removed
-                    .iter()
-                    .map(workspace_folder_path)
-                    .collect::<Result<Vec<_>>>()?;
-                let added = params
-                    .event
-                    .added
-                    .iter()
-                    .map(workspace_folder_path)
-                    .collect::<Result<Vec<_>>>()?;
-                for folder in removed {
+                // Unusable folder URIs are skipped, not fatal, so the rest of
+                // one mixed event still applies (§FS-lsp.2.2).
+                for folder in workspace_folder_paths(&params.event.removed) {
                     self.workspace_folders.remove(&folder);
+                    self.folder_roots.remove(&folder);
                 }
-                self.workspace_folders.extend(added);
-                self.refresh()?;
+                self.workspace_folders
+                    .extend(workspace_folder_paths(&params.event.added));
+                self.refresh();
                 self.publish_diagnostics()?;
             }
             _ => {}
@@ -746,20 +827,16 @@ impl Server {
         let mut by_uri: BTreeMap<Url, Vec<Diagnostic>> = BTreeMap::new();
         for project in &self.projects {
             for finding in project.snapshot.report.errors.clone() {
-                if let Some((uri, diagnostic)) = self.diagnostic_for_finding(
-                    &project.snapshot,
-                    finding,
-                    DiagnosticSeverity::ERROR,
-                ) {
+                if let Some((uri, diagnostic)) =
+                    self.diagnostic_for_finding(project, finding, DiagnosticSeverity::ERROR)
+                {
                     by_uri.entry(uri).or_default().push(diagnostic);
                 }
             }
             for finding in project.snapshot.report.warnings.clone() {
-                if let Some((uri, diagnostic)) = self.diagnostic_for_finding(
-                    &project.snapshot,
-                    finding,
-                    DiagnosticSeverity::WARNING,
-                ) {
+                if let Some((uri, diagnostic)) =
+                    self.diagnostic_for_finding(project, finding, DiagnosticSeverity::WARNING)
+                {
                     by_uri.entry(uri).or_default().push(diagnostic);
                 }
             }
@@ -795,16 +872,24 @@ impl Server {
 
     fn diagnostic_for_finding(
         &self,
-        snapshot: &LspSnapshot,
+        project: &ProjectSnapshot,
         finding: Finding,
         severity: DiagnosticSeverity,
     ) -> Option<(Url, Diagnostic)> {
-        let path = finding.path.as_deref()?;
-        let path = if Path::new(path).is_absolute() {
-            PathBuf::from(path)
-        } else {
-            snapshot.root.join(path)
-        };
+        let snapshot = &project.snapshot;
+        let path = absolute_finding_path(snapshot, &finding)?;
+        // Overlapping editor folders mean two projects can scan one file — an
+        // enclosing workspace and a member opened as its own folder, say. Only
+        // the project that answers requests for the file states its verdict, so
+        // the editor shows one diagnostic set rather than two merged ones, and
+        // the two projects' differing views of the same citation cannot appear
+        // side by side (§FS-lsp.2.2).
+        if self
+            .project_for_diagnostic_path(&path)
+            .is_some_and(|owner| owner.root != project.root)
+        {
+            return None;
+        }
         let uri = path_uri(&path)?;
         let line = finding.line.unwrap_or(1).saturating_sub(1) as u32;
         let range = self
@@ -976,13 +1061,47 @@ impl Server {
             .unwrap_or_else(|| single_line_range(path, line, 1, fallback_width))
     }
 
-    fn snapshot_for_path(&self, path: &Path) -> Option<&LspSnapshot> {
+    /// The one project that answers for `path`. A containing root claims the
+    /// document, the deepest one when project trees nest; a project that merely
+    /// scans the path — through a symlinked or parent-relative `[scan] include`
+    /// — claims it only when no root contains it (§FS-lsp.2.2).
+    ///
+    /// Exactly one owner, so a file two snapshots both read gets one verdict
+    /// rather than two merged ones.
+    fn project_for_path(&self, path: &Path) -> Option<&ProjectSnapshot> {
         let path = canonical_snapshot_path(path);
         self.projects
             .iter()
-            .filter(|project| path.starts_with(&project.root))
-            .max_by_key(|project| project.root.components().count())
-            .map(|project| &project.snapshot)
+            .filter_map(|project| Some((project.ownership_rank(&path)?, project)))
+            .max_by_key(|(rank, _)| *rank)
+            .map(|(_, project)| project)
+    }
+
+    /// Diagnostics normally follow the same exact owner as requests. A scan
+    /// error is the exception: an unreadable external file is necessarily not
+    /// in `scanned_files`, so choose one of the snapshots that reported that
+    /// path rather than dropping the error or publishing it from all of them.
+    fn project_for_diagnostic_path(&self, path: &Path) -> Option<&ProjectSnapshot> {
+        self.project_for_path(path).or_else(|| {
+            let path = canonical_snapshot_path(path);
+            self.projects
+                .iter()
+                .filter(|project| {
+                    project
+                        .snapshot
+                        .report
+                        .errors
+                        .iter()
+                        .chain(&project.snapshot.report.warnings)
+                        .filter_map(|finding| absolute_finding_path(&project.snapshot, finding))
+                        .any(|finding_path| canonical_snapshot_path(&finding_path) == path)
+                })
+                .max_by_key(|project| project.root.components().count())
+        })
+    }
+
+    fn snapshot_for_path(&self, path: &Path) -> Option<&LspSnapshot> {
+        self.project_for_path(path).map(|project| &project.snapshot)
     }
 
     fn open_document_overlays(&self) -> BTreeMap<PathBuf, String> {
@@ -1021,6 +1140,15 @@ impl Server {
             .get(&key)
             .and_then(|lines| lines.get(line.saturating_sub(1)).cloned())
     }
+}
+
+fn absolute_finding_path(snapshot: &LspSnapshot, finding: &Finding) -> Option<PathBuf> {
+    let path = Path::new(finding.path.as_deref()?);
+    Some(if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        snapshot.root.join(path)
+    })
 }
 
 enum Token<'a> {

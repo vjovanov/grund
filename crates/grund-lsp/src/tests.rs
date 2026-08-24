@@ -119,6 +119,26 @@ fn omitted_definition_link_support_still_uses_location_links() {
 }
 
 #[test]
+fn nonempty_virtual_workspace_folders_do_not_fall_back_to_root_uri() {
+    let params: InitializeParams = serde_json::from_value(json!({
+        "processId": std::process::id(),
+        "rootUri": "file:///tmp/unrelated-local-root",
+        "workspaceFolders": [
+            { "uri": "vscode-vfs://github/acme/repo", "name": "virtual" }
+        ],
+        "capabilities": { "workspace": { "workspaceFolders": true } }
+    }))
+    .expect("initialize params");
+
+    assert!(
+        initialize_folders(&params)
+            .expect("initialize folders")
+            .is_empty(),
+        "a present workspaceFolders list is authoritative even when every URI is virtual"
+    );
+}
+
+#[test]
 fn on_type_formatting_accepts_configured_id_punctuation() {
     let root = test_root("on_type_formatting_accepts_configured_id_punctuation");
     write(

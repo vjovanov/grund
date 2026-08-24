@@ -234,7 +234,10 @@ pub fn start_server_with_workspace_folders(
     )
 }
 
-fn start_server_with_initialize(
+/// The handshake with the `initialize` params written out in full, for a case
+/// whose subject is the payload itself — a folder list mixing local and virtual
+/// URIs, say (§FS-lsp.2.2).
+pub fn start_server_with_initialize(
     current_dir: &Path,
     initialize_params: Value,
 ) -> (Child, ChildStdin, mpsc::Receiver<Value>) {
