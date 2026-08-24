@@ -4,7 +4,7 @@ use anyhow::{Context, Result, anyhow};
 use grund_core::{
     DeclaredId, Finding, LspCitation, LspDeclaration, LspSnapshot, LspSnapshotOpts, LspStub,
     LspUsage, ShowFormat, ShowMode, ShowOpts, canonical_snapshot_path, citation_under_title,
-    lsp_snapshot, lsp_title_hover_body, on_type_line_edits, show_with_overlays,
+    effective_config, lsp_snapshot, lsp_title_hover_body, on_type_line_edits, show_with_overlays,
 };
 use lsp_server::{Connection, Message, Notification, Request, Response};
 use lsp_types::{
@@ -14,6 +14,7 @@ use lsp_types::{
     MarkupContent, MarkupKind, OneOf, Position, PublishDiagnosticsParams, Range, ReferenceParams,
     ServerCapabilities, TextDocumentContentChangeEvent, TextDocumentPositionParams,
     TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions, TextEdit, Url,
+    WorkspaceFolder, WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
 };
 use serde_json::Value;
 use serde_json::json;
@@ -26,11 +27,11 @@ pub fn run() -> Result<()> {
     let (connection, io_threads) = Connection::stdio();
     let (initialize_id, initialize_value) = connection.initialize_start()?;
     let initialize_params: InitializeParams = serde_json::from_value(initialize_value)?;
-    let root = initialize_root(&initialize_params)?;
+    let folders = initialize_folders(&initialize_params)?;
     let definition_link_support = client_supports_definition_links(&initialize_params);
-    let mut server = Server::new(connection, root, definition_link_support)?;
+    let mut server = Server::new(connection, folders, definition_link_support)?;
     let initialize_result = json!({
-        "capabilities": server_capabilities(&server.snapshot.trigger),
+        "capabilities": server_capabilities(server.trigger()),
         "serverInfo": {
             "name": "grund-lsp",
             "version": env!("CARGO_PKG_VERSION"),
@@ -72,6 +73,13 @@ fn server_capabilities(trigger: &str) -> ServerCapabilities {
                 .unwrap_or_else(|| "$".to_string()),
             more_trigger_character: Some(on_type_trigger_characters(trigger)),
         }),
+        workspace: Some(WorkspaceServerCapabilities {
+            workspace_folders: Some(WorkspaceFoldersServerCapabilities {
+                supported: Some(true),
+                change_notifications: Some(OneOf::Left(true)),
+            }),
+            file_operations: None,
+        }),
         ..ServerCapabilities::default()
     }
 }
@@ -107,30 +115,55 @@ fn client_supports_definition_links(params: &InitializeParams) -> bool {
         .unwrap_or(true)
 }
 
-fn initialize_root(params: &InitializeParams) -> Result<PathBuf> {
-    if let Some(folder) = params
+fn initialize_folders(params: &InitializeParams) -> Result<BTreeSet<PathBuf>> {
+    if let Some(folders) = params
         .workspace_folders
         .as_ref()
-        .and_then(|folders| folders.first())
+        .filter(|folders| !folders.is_empty())
     {
-        return folder
-            .uri
-            .to_file_path()
-            .map_err(|_| anyhow!("workspace folder URI is not a file URI: {}", folder.uri));
+        return folders.iter().map(workspace_folder_path).collect();
     }
     #[allow(deprecated)]
     if let Some(uri) = &params.root_uri {
-        return uri
+        let root = uri
             .to_file_path()
-            .map_err(|_| anyhow!("initialize rootUri is not a file URI: {uri}"));
+            .map_err(|_| anyhow!("initialize rootUri is not a file URI: {uri}"))?;
+        return Ok(BTreeSet::from([canonical_snapshot_path(&root)]));
     }
-    std::env::current_dir().context("resolve current directory")
+    Ok(BTreeSet::from([canonical_snapshot_path(
+        &std::env::current_dir().context("resolve current directory")?,
+    )]))
+}
+
+fn workspace_folder_path(folder: &WorkspaceFolder) -> Result<PathBuf> {
+    folder
+        .uri
+        .to_file_path()
+        .map(|path| canonical_snapshot_path(&path))
+        .map_err(|_| anyhow!("workspace folder URI is not a file URI: {}", folder.uri))
+}
+
+/// Resolve an editor folder to the scan root it names. A discovered config owns
+/// the scan, including sibling `[scan] include` roots; only a zero-config folder
+/// remains its own boundary (§FS-lsp.2.2).
+fn project_root(folder: &Path) -> Result<PathBuf> {
+    let config = effective_config(folder)?;
+    if config.config_file.is_some() {
+        Ok(canonical_snapshot_path(&config.root))
+    } else {
+        Ok(canonical_snapshot_path(folder))
+    }
+}
+
+struct ProjectSnapshot {
+    root: PathBuf,
+    snapshot: LspSnapshot,
 }
 
 struct Server {
     connection: Connection,
-    root: PathBuf,
-    snapshot: LspSnapshot,
+    workspace_folders: BTreeSet<PathBuf>,
+    projects: Vec<ProjectSnapshot>,
     open_docs: BTreeMap<Url, String>,
     diagnostic_uris: BTreeSet<Url>,
     definition_link_support: bool,
@@ -142,21 +175,29 @@ struct Server {
 }
 
 impl Server {
-    fn new(connection: Connection, root: PathBuf, definition_link_support: bool) -> Result<Self> {
-        let snapshot = lsp_snapshot(LspSnapshotOpts {
-            path: root.clone(),
-            path_provided: true,
-            open_documents: BTreeMap::new(),
-        })?;
-        Ok(Self {
+    fn new(
+        connection: Connection,
+        workspace_folders: BTreeSet<PathBuf>,
+        definition_link_support: bool,
+    ) -> Result<Self> {
+        let mut server = Self {
             connection,
-            root,
-            snapshot,
+            workspace_folders,
+            projects: Vec::new(),
             open_docs: BTreeMap::new(),
             diagnostic_uris: BTreeSet::new(),
             definition_link_support,
             line_cache: RefCell::new(BTreeMap::new()),
-        })
+        };
+        server.refresh()?;
+        Ok(server)
+    }
+
+    fn trigger(&self) -> &str {
+        self.projects
+            .first()
+            .map(|project| project.snapshot.trigger.as_str())
+            .unwrap_or("$$")
     }
 
     fn event_loop(&mut self) -> Result<()> {
@@ -193,11 +234,25 @@ impl Server {
         // That is acceptable at the current scale; an incremental rescan keyed
         // off the changed document is the natural optimization for large repos,
         // left as future work.
-        self.snapshot = lsp_snapshot(LspSnapshotOpts {
-            path: self.root.clone(),
-            path_provided: true,
-            open_documents: self.open_document_overlays(),
-        })?;
+        let roots = self
+            .workspace_folders
+            .iter()
+            .map(|folder| project_root(folder))
+            .collect::<Result<BTreeSet<_>>>()?;
+        let overlays = self.open_document_overlays();
+        self.projects = roots
+            .into_iter()
+            .map(|root| {
+                let snapshot = lsp_snapshot(LspSnapshotOpts {
+                    path: root.clone(),
+                    // A discovered project root is the whole project, so its
+                    // configured include paths govern just as for a root CLI run.
+                    path_provided: true,
+                    open_documents: overlays.clone(),
+                })?;
+                Ok(ProjectSnapshot { root, snapshot })
+            })
+            .collect::<Result<Vec<_>>>()?;
         // The rebuilt snapshot reflects the new document contents, so any cached
         // lines from before the edit are stale.
         self.line_cache.borrow_mut().clear();
@@ -291,6 +346,28 @@ impl Server {
                 self.refresh()?;
                 self.publish_diagnostics()?;
             }
+            "workspace/didChangeWorkspaceFolders" => {
+                let params: lsp_types::DidChangeWorkspaceFoldersParams =
+                    serde_json::from_value(notification.params)?;
+                let removed = params
+                    .event
+                    .removed
+                    .iter()
+                    .map(workspace_folder_path)
+                    .collect::<Result<Vec<_>>>()?;
+                let added = params
+                    .event
+                    .added
+                    .iter()
+                    .map(workspace_folder_path)
+                    .collect::<Result<Vec<_>>>()?;
+                for folder in removed {
+                    self.workspace_folders.remove(&folder);
+                }
+                self.workspace_folders.extend(added);
+                self.refresh()?;
+                self.publish_diagnostics()?;
+            }
             _ => {}
         }
         Ok(())
@@ -298,7 +375,8 @@ impl Server {
 
     fn hover(&self, params: Value) -> Result<Option<Hover>> {
         let params: TextDocumentPositionParams = serde_json::from_value(params)?;
-        let Some(token) = self.token_at(&params.text_document.uri, params.position) else {
+        let Some((snapshot, token)) = self.token_at(&params.text_document.uri, params.position)
+        else {
             return Ok(None);
         };
         let citation = match token {
@@ -307,9 +385,7 @@ impl Server {
             // already in it — so the hover carries what is not on screen: how
             // many sites cite this title, across how many files (§FS-lsp.1.2).
             Token::Declaration(decl) => {
-                let usage = self
-                    .snapshot
-                    .title_usage(&decl.query_id, &decl.section_separator);
+                let usage = snapshot.title_usage(&decl.query_id, &decl.section_separator);
                 return Ok(Some(title_hover(
                     declaration_range(decl, self),
                     &decl.text,
@@ -317,9 +393,7 @@ impl Server {
                 )));
             }
             Token::Stub(stub) => {
-                let usage = self
-                    .snapshot
-                    .title_usage(&stub.query_id, &stub.section_separator);
+                let usage = snapshot.title_usage(&stub.query_id, &stub.section_separator);
                 return Ok(Some(title_hover(stub_range(stub, self), &stub.text, usage)));
             }
         };
@@ -330,14 +404,14 @@ impl Server {
         let body = match show_with_overlays(
             &citation.query_id,
             ShowOpts {
-                path: self.root.clone(),
+                path: snapshot.root.clone(),
                 section: None,
                 mode: ShowMode::Toc,
                 format: ShowFormat::Markdown,
             },
             self.open_document_overlays(),
         ) {
-            Ok(output) => self.linkify_hover_body(&output.body),
+            Ok(output) => linkify_hover_body(&output.body, &snapshot.citations),
             Err(_) => return Ok(None),
         };
         Ok(Some(Hover {
@@ -351,7 +425,8 @@ impl Server {
 
     fn definition(&self, params: Value) -> Result<Option<GotoDefinitionResponse>> {
         let params: TextDocumentPositionParams = serde_json::from_value(params)?;
-        let Some(token) = self.token_at(&params.text_document.uri, params.position) else {
+        let Some((snapshot, token)) = self.token_at(&params.text_document.uri, params.position)
+        else {
             return Ok(None);
         };
         // The origin span is the whole token (citation, declaration title, or
@@ -360,10 +435,10 @@ impl Server {
         let origin = token.range(self);
         match token {
             Token::Citation(citation) => Ok(self
-                .citation_location(citation)
+                .citation_location(snapshot, citation)
                 .map(|location| self.scalar_definition(origin, location))),
             Token::Declaration(decl) => {
-                let locations = self.citation_locations_for_declaration(decl);
+                let locations = self.citation_locations_for_declaration(snapshot, decl);
                 if locations.is_empty() {
                     Ok(None)
                 } else {
@@ -371,7 +446,7 @@ impl Server {
                 }
             }
             Token::Stub(stub) => Ok(self
-                .stub_target_location(stub)
+                .stub_target_location(snapshot, stub)
                 .map(|location| self.scalar_definition(origin, location))),
         }
     }
@@ -405,7 +480,7 @@ impl Server {
 
     fn references(&self, params: Value) -> Result<Option<Vec<Location>>> {
         let params: ReferenceParams = serde_json::from_value(params)?;
-        let Some(token) = self.token_at(
+        let Some((snapshot, token)) = self.token_at(
             &params.text_document_position.text_document.uri,
             params.text_document_position.position,
         ) else {
@@ -418,11 +493,11 @@ impl Server {
                 if include_decl && let Some(location) = self.declaration_location(decl) {
                     locations.push(location);
                 }
-                locations.extend(self.citation_locations_for_declaration(decl));
+                locations.extend(self.citation_locations_for_declaration(snapshot, decl));
             }
             Token::Citation(source) => {
                 if include_decl {
-                    for decl in &self.snapshot.declarations {
+                    for decl in &snapshot.declarations {
                         if decl.query_id == source.declaration_query_id
                             && let Some(location) = self.declaration_location(decl)
                         {
@@ -430,7 +505,7 @@ impl Server {
                         }
                     }
                 }
-                for citation in &self.snapshot.citations {
+                for citation in &snapshot.citations {
                     if citation_under_title(
                         &source.declaration_query_id,
                         &citation.query_id,
@@ -445,10 +520,10 @@ impl Server {
                 }
             }
             Token::Stub(stub) => {
-                if include_decl && let Some(location) = self.stub_target_location(stub) {
+                if include_decl && let Some(location) = self.stub_target_location(snapshot, stub) {
                     locations.push(location);
                 }
-                for citation in &self.snapshot.citations {
+                for citation in &snapshot.citations {
                     if citation_under_title(
                         &stub.query_id,
                         &citation.query_id,
@@ -466,8 +541,12 @@ impl Server {
         Ok(Some(locations))
     }
 
-    fn citation_locations_for_declaration(&self, decl: &LspDeclaration) -> Vec<Location> {
-        self.snapshot
+    fn citation_locations_for_declaration(
+        &self,
+        snapshot: &LspSnapshot,
+        decl: &LspDeclaration,
+    ) -> Vec<Location> {
+        snapshot
             .title_citations(&decl.query_id, &decl.section_separator)
             .into_iter()
             .filter_map(|citation| {
@@ -489,7 +568,7 @@ impl Server {
         let Some(path) = uri.to_file_path().ok().map(normalize_path) else {
             return Ok(None);
         };
-        let Some(token) = self.token_at(uri, params.position) else {
+        let Some((snapshot, token)) = self.token_at(uri, params.position) else {
             return Ok(None);
         };
         // The token under the cursor is always highlighted; the sibling pass
@@ -497,7 +576,7 @@ impl Server {
         let mut ranges = vec![token.range(self)];
         match token {
             Token::Citation(source) => {
-                for citation in &self.snapshot.citations {
+                for citation in &snapshot.citations {
                     if same_path(&citation.path, &path)
                         && citation_under_title(
                             &source.declaration_query_id,
@@ -508,7 +587,7 @@ impl Server {
                         ranges.push(citation_range(citation, self));
                     }
                 }
-                for decl in &self.snapshot.declarations {
+                for decl in &snapshot.declarations {
                     if same_path(&decl.path, &path) && decl.query_id == source.declaration_query_id
                     {
                         ranges.push(declaration_range(decl, self));
@@ -516,7 +595,7 @@ impl Server {
                 }
             }
             Token::Declaration(decl) => {
-                for citation in &self.snapshot.citations {
+                for citation in &snapshot.citations {
                     if same_path(&citation.path, &path)
                         && citation_under_title(
                             &decl.query_id,
@@ -529,7 +608,7 @@ impl Server {
                 }
             }
             Token::Stub(stub) => {
-                for citation in &self.snapshot.citations {
+                for citation in &snapshot.citations {
                     if same_path(&citation.path, &path)
                         && citation_under_title(
                             &stub.query_id,
@@ -573,13 +652,15 @@ impl Server {
         else {
             return Ok(Some(Vec::new()));
         };
-        let mut links = self
-            .snapshot
+        let Some(snapshot) = self.snapshot_for_path(&path) else {
+            return Ok(Some(Vec::new()));
+        };
+        let mut links = snapshot
             .citations
             .iter()
             .filter(|citation| normalize_path(&citation.path) == path)
             .filter_map(|citation| {
-                let location = self.citation_location(citation)?;
+                let location = self.citation_location(snapshot, citation)?;
                 Some(DocumentLink {
                     range: citation_range(citation, self),
                     target: document_link_target(citation).or(Some(location.uri)),
@@ -595,7 +676,7 @@ impl Server {
         // citation sites (§FS-lsp.1.3.2). Stub titles below still link, because
         // they point at the source declaration, not at themselves.
         links.extend(
-            self.snapshot
+            snapshot
                 .stubs
                 .iter()
                 .filter(|stub| normalize_path(&stub.path) == path)
@@ -622,7 +703,11 @@ impl Server {
         let Some(path) = uri.to_file_path().ok() else {
             return Ok(Some(Vec::new()));
         };
-        on_type_replacement_for_line(&path, &text, position, &self.declared_ids())
+        let declared_ids = self
+            .snapshot_for_path(&path)
+            .map(Self::declared_ids)
+            .unwrap_or_default();
+        on_type_replacement_for_line(&path, &text, position, &declared_ids)
     }
 
     /// The edited document's full text — the open-buffer copy when the client has
@@ -642,8 +727,8 @@ impl Server {
     /// format` can parse; the bare ID is what a shorthand is matched against, and
     /// the declaration's path is what scopes it to the edited file's own member.
     /// Borrowed, not cloned: this runs on every keystroke.
-    fn declared_ids(&self) -> Vec<DeclaredId<'_>> {
-        self.snapshot
+    fn declared_ids(snapshot: &LspSnapshot) -> Vec<DeclaredId<'_>> {
+        snapshot
             .declarations
             .iter()
             .map(|decl| DeclaredId {
@@ -659,18 +744,24 @@ impl Server {
 
     fn publish_diagnostics(&mut self) -> Result<()> {
         let mut by_uri: BTreeMap<Url, Vec<Diagnostic>> = BTreeMap::new();
-        for finding in self.snapshot.report.errors.clone() {
-            if let Some((uri, diagnostic)) =
-                self.diagnostic_for_finding(finding, DiagnosticSeverity::ERROR)
-            {
-                by_uri.entry(uri).or_default().push(diagnostic);
+        for project in &self.projects {
+            for finding in project.snapshot.report.errors.clone() {
+                if let Some((uri, diagnostic)) = self.diagnostic_for_finding(
+                    &project.snapshot,
+                    finding,
+                    DiagnosticSeverity::ERROR,
+                ) {
+                    by_uri.entry(uri).or_default().push(diagnostic);
+                }
             }
-        }
-        for finding in self.snapshot.report.warnings.clone() {
-            if let Some((uri, diagnostic)) =
-                self.diagnostic_for_finding(finding, DiagnosticSeverity::WARNING)
-            {
-                by_uri.entry(uri).or_default().push(diagnostic);
+            for finding in project.snapshot.report.warnings.clone() {
+                if let Some((uri, diagnostic)) = self.diagnostic_for_finding(
+                    &project.snapshot,
+                    finding,
+                    DiagnosticSeverity::WARNING,
+                ) {
+                    by_uri.entry(uri).or_default().push(diagnostic);
+                }
             }
         }
         let next_diagnostic_uris: BTreeSet<Url> = by_uri.keys().cloned().collect();
@@ -704,6 +795,7 @@ impl Server {
 
     fn diagnostic_for_finding(
         &self,
+        snapshot: &LspSnapshot,
         finding: Finding,
         severity: DiagnosticSeverity,
     ) -> Option<(Url, Diagnostic)> {
@@ -711,14 +803,16 @@ impl Server {
         let path = if Path::new(path).is_absolute() {
             PathBuf::from(path)
         } else {
-            self.snapshot.root.join(path)
+            snapshot.root.join(path)
         };
         let uri = path_uri(&path)?;
         let line = finding.line.unwrap_or(1).saturating_sub(1) as u32;
-        let range = self.range_for_finding(&path, &finding).unwrap_or(Range {
-            start: Position { line, character: 0 },
-            end: Position { line, character: 1 },
-        });
+        let range = self
+            .range_for_finding(snapshot, &path, &finding)
+            .unwrap_or(Range {
+                start: Position { line, character: 0 },
+                end: Position { line, character: 1 },
+            });
         Some((
             uri,
             Diagnostic {
@@ -732,13 +826,18 @@ impl Server {
         ))
     }
 
-    fn range_for_finding(&self, path: &Path, finding: &Finding) -> Option<Range> {
+    fn range_for_finding(
+        &self,
+        snapshot: &LspSnapshot,
+        path: &Path,
+        finding: &Finding,
+    ) -> Option<Range> {
         let line = finding.line?;
         // When the finding carries the offending citation's column, anchor on
         // that exact token rather than the first citation on the line — a single
         // comment can carry several citations (§FS-lsp.1.1).
         if let Some(column) = finding.column
-            && let Some(citation) = self.snapshot.citations.iter().find(|citation| {
+            && let Some(citation) = snapshot.citations.iter().find(|citation| {
                 same_path(&citation.path, path)
                     && citation.line == line
                     && citation.column == column
@@ -751,20 +850,20 @@ impl Server {
         // range overlaps the cursor; mapping an ungrounded-file error to a
         // dangling citation would make the citation hover show two messages
         // even though only one diagnostic belongs to that token (§FS-lsp.1.1).
-        self.snapshot
+        snapshot
             .declarations
             .iter()
             .find(|decl| same_path(&decl.path, path) && decl.line == line)
             .map(|decl| declaration_range(decl, self))
             .or_else(|| {
-                self.snapshot
+                snapshot
                     .sections
                     .iter()
                     .find(|section| same_path(&section.path, path) && section.line == line)
                     .map(|section| declaration_range(section, self))
             })
             .or_else(|| {
-                self.snapshot
+                snapshot
                     .stubs
                     .iter()
                     .find(|stub| same_path(&stub.path, path) && stub.line == line)
@@ -772,9 +871,10 @@ impl Server {
             })
     }
 
-    fn token_at(&self, uri: &Url, position: Position) -> Option<Token<'_>> {
+    fn token_at(&self, uri: &Url, position: Position) -> Option<(&LspSnapshot, Token<'_>)> {
         let path = uri.to_file_path().ok().map(normalize_path)?;
-        self.snapshot
+        let snapshot = self.snapshot_for_path(&path)?;
+        let token = snapshot
             .citations
             .iter()
             .find(|citation| {
@@ -783,7 +883,7 @@ impl Server {
             })
             .map(Token::Citation)
             .or_else(|| {
-                self.snapshot
+                snapshot
                     .declarations
                     .iter()
                     .find(|decl| {
@@ -796,7 +896,7 @@ impl Server {
                 // A numbered section heading is a declaration-side title too, so
                 // definition and references resolve to its section citations
                 // (§FS-lsp.1.3.1).
-                self.snapshot
+                snapshot
                     .sections
                     .iter()
                     .find(|decl| {
@@ -806,22 +906,28 @@ impl Server {
                     .map(Token::Declaration)
             })
             .or_else(|| {
-                self.snapshot
+                snapshot
                     .stubs
                     .iter()
                     .find(|stub| {
                         same_path(&stub.path, &path) && contains(stub_range(stub, self), position)
                     })
                     .map(Token::Stub)
-            })
+            })?;
+        Some((snapshot, token))
     }
 
-    fn citation_location(&self, citation: &LspCitation) -> Option<Location> {
+    fn citation_location(
+        &self,
+        snapshot: &LspSnapshot,
+        citation: &LspCitation,
+    ) -> Option<Location> {
         let target_path = citation.target_path.as_ref()?;
         let target_line = citation.target_line?;
         Some(Location {
             uri: path_uri(target_path)?,
             range: self.definition_target_range(
+                snapshot,
                 target_path,
                 target_line,
                 citation.query_id.len().max(1),
@@ -836,10 +942,11 @@ impl Server {
         })
     }
 
-    fn stub_target_location(&self, stub: &LspStub) -> Option<Location> {
+    fn stub_target_location(&self, snapshot: &LspSnapshot, stub: &LspStub) -> Option<Location> {
         Some(Location {
             uri: path_uri(&stub.target_path)?,
             range: self.definition_target_range(
+                snapshot,
                 &stub.target_path,
                 stub.target_line,
                 stub.query_id.len().max(1),
@@ -847,14 +954,20 @@ impl Server {
         })
     }
 
-    fn definition_target_range(&self, path: &Path, line: usize, fallback_width: usize) -> Range {
-        self.snapshot
+    fn definition_target_range(
+        &self,
+        snapshot: &LspSnapshot,
+        path: &Path,
+        line: usize,
+        fallback_width: usize,
+    ) -> Range {
+        snapshot
             .declarations
             .iter()
             .find(|decl| same_path(&decl.path, path) && decl.line == line)
             .map(|decl| declaration_range(decl, self))
             .or_else(|| {
-                self.snapshot
+                snapshot
                     .sections
                     .iter()
                     .find(|section| same_path(&section.path, path) && section.line == line)
@@ -863,8 +976,13 @@ impl Server {
             .unwrap_or_else(|| single_line_range(path, line, 1, fallback_width))
     }
 
-    fn linkify_hover_body(&self, body: &str) -> String {
-        linkify_hover_body(body, &self.snapshot.citations)
+    fn snapshot_for_path(&self, path: &Path) -> Option<&LspSnapshot> {
+        let path = canonical_snapshot_path(path);
+        self.projects
+            .iter()
+            .filter(|project| path.starts_with(&project.root))
+            .max_by_key(|project| project.root.components().count())
+            .map(|project| &project.snapshot)
     }
 
     fn open_document_overlays(&self) -> BTreeMap<PathBuf, String> {
@@ -1158,218 +1276,4 @@ fn on_type_replacement_for_line(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-
-    fn test_root(name: &str) -> PathBuf {
-        let unique = format!(
-            "{}-{}-{:?}",
-            name,
-            std::process::id(),
-            std::thread::current().id()
-        );
-        let dir = std::env::temp_dir().join("grund-lsp-tests").join(unique);
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).expect("create test root");
-        dir
-    }
-
-    fn write(path: &Path, text: &str) {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).expect("create parent");
-        }
-        fs::write(path, text).expect("write fixture");
-    }
-
-    #[test]
-    fn hover_linkifier_preserves_existing_markdown_links() {
-        let linked = replace_unlinked_token(
-            "See §FS-lsp and [§FS-lsp](already).",
-            "§FS-lsp",
-            "file:///tmp/FS-lsp.md#L1",
-        );
-        assert_eq!(
-            linked,
-            "See [§FS-lsp](file:///tmp/FS-lsp.md#L1) and [§FS-lsp](already)."
-        );
-    }
-
-    #[test]
-    fn hover_linkifier_uses_displayed_citation_text_for_workspace_links() {
-        let root = test_root("hover_linkifier_uses_displayed_citation_text_for_workspace_links");
-        let target = root.join("docs/functional-spec/FS-002-b.md");
-        let citation = LspCitation {
-            project: Some("root".to_string()),
-            path: root.join("docs/functional-spec/FS-001-a.md"),
-            display_path: "docs/functional-spec/FS-001-a.md".to_string(),
-            line: 3,
-            column: 6,
-            text: "§FS-002-b".to_string(),
-            query_id: "root/FS-002-b".to_string(),
-            declaration_query_id: "root/FS-002-b".to_string(),
-            section_separator: ".".to_string(),
-            target_path: Some(target),
-            target_line: Some(1),
-        };
-
-        let linked = linkify_hover_body("See §FS-002-b.", &[citation]);
-
-        assert!(
-            linked.contains("[§FS-002-b]("),
-            "hover linkification must use the displayed citation text, not the workspace-qualified query ID (§FS-lsp.1.2): {linked}"
-        );
-        assert!(
-            !linked.contains("§root/FS-002-b"),
-            "workspace query IDs are not present in local hover prose: {linked}"
-        );
-    }
-
-    #[test]
-    fn utf16_position_conversion_handles_non_ascii() {
-        let line = "a§𐐀b";
-        let byte = utf16_to_byte(line, 2);
-        assert_eq!(&line[..byte], "a§");
-        assert_eq!(byte_to_utf16(line, byte), 2);
-    }
-
-    #[test]
-    fn on_type_capabilities_cover_configured_trigger_punctuation() {
-        let capabilities = server_capabilities("%%");
-        let Some(DocumentOnTypeFormattingOptions {
-            first_trigger_character,
-            more_trigger_character,
-        }) = capabilities.document_on_type_formatting_provider
-        else {
-            panic!("on-type formatting capability");
-        };
-        assert_eq!(first_trigger_character, "%");
-        let more = more_trigger_character.expect("more trigger characters");
-        assert!(more.iter().any(|ch| ch == "%"));
-        assert!(more.iter().any(|ch| ch == ":"));
-    }
-
-    #[test]
-    fn omitted_definition_link_support_still_uses_location_links() {
-        let omitted: InitializeParams = serde_json::from_value(json!({
-            "processId": std::process::id(),
-            "rootUri": "file:///tmp",
-            "capabilities": {}
-        }))
-        .expect("initialize params");
-        assert!(client_supports_definition_links(&omitted));
-
-        let explicit_false: InitializeParams = serde_json::from_value(json!({
-            "processId": std::process::id(),
-            "rootUri": "file:///tmp",
-            "capabilities": {
-                "textDocument": { "definition": { "linkSupport": false } }
-            }
-        }))
-        .expect("initialize params");
-        assert!(!client_supports_definition_links(&explicit_false));
-    }
-
-    #[test]
-    fn on_type_formatting_accepts_configured_id_punctuation() {
-        let root = test_root("on_type_formatting_accepts_configured_id_punctuation");
-        write(
-            &root.join(".agents/grund.toml"),
-            "grund_config_version = 1\n[id]\nformat = \"{kind}:{slug}\"\n",
-        );
-        let path = root.join("src/lib.rs");
-        write(&path, "//! $$FS:login\n");
-        let edits = on_type_replacement_for_line(
-            &path,
-            "//! $$FS:login",
-            Position {
-                line: 0,
-                character: "//! $$FS:login".len() as u32,
-            },
-            &[],
-        )
-        .expect("formatting check");
-        assert_eq!(
-            edits
-                .expect("formatting response")
-                .first()
-                .map(|edit| edit.new_text.as_str()),
-            Some("§")
-        );
-    }
-
-    #[test]
-    fn on_type_formatting_uses_member_trigger_and_marker() {
-        let root = test_root("on_type_formatting_uses_member_trigger_and_marker");
-        write(
-            &root.join(".agents/grund.toml"),
-            "grund_config_version = 1\n[reference]\ntrigger = \"$$\"\nmarker = \"§\"\n\
-             [workspace]\nmembers = [\"packages/app\"]\n",
-        );
-        write(
-            &root.join("packages/app/.agents/grund.toml"),
-            "grund_config_version = 1\n[reference]\ntrigger = \"%%\"\nmarker = \"@\"\n",
-        );
-        let path = root.join("packages/app/src/lib.rs");
-        write(&path, "//! %%FS-001-login\n");
-        let edits = on_type_replacement_for_line(
-            &path,
-            "//! %%FS-001-login",
-            Position {
-                line: 0,
-                character: "//! %%FS-001-login".len() as u32,
-            },
-            &[],
-        )
-        .expect("formatting check");
-        assert_eq!(
-            edits
-                .expect("formatting response")
-                .first()
-                .map(|edit| edit.new_text.as_str()),
-            Some("@")
-        );
-
-        let root_trigger_edits = on_type_replacement_for_line(
-            &path,
-            "//! $$FS-001-login",
-            Position {
-                line: 0,
-                character: "//! $$FS-001-login".len() as u32,
-            },
-            &[],
-        )
-        .expect("formatting check");
-        assert!(
-            root_trigger_edits.expect("formatting response").is_empty(),
-            "member file should not use the root trigger"
-        );
-    }
-
-    #[test]
-    fn document_link_targets_include_line_fragment() {
-        let root = test_root("document_link_targets_include_line_fragment");
-        let path = root.join("docs/functional-spec/FS-login.md");
-        write(&path, "# FS-login: Login\n");
-        let marker = "\u{00a7}";
-        let citation = LspCitation {
-            project: None,
-            path: root.join("src/lib.rs"),
-            display_path: "src/lib.rs".to_string(),
-            line: 1,
-            column: 5,
-            text: format!("{marker}FS-login"),
-            query_id: "FS-login".to_string(),
-            declaration_query_id: "FS-login".to_string(),
-            section_separator: ".".to_string(),
-            target_path: Some(path),
-            target_line: Some(7),
-        };
-        assert_eq!(
-            document_link_target(&citation)
-                .expect("document link target")
-                .fragment(),
-            Some("L7")
-        );
-    }
-}
+mod tests;

@@ -102,6 +102,10 @@ Each addition is a separate roadmap item if and when it is taken on.
 
 Users do not run `grund-lsp` directly. The editor's LSP client spawns it as a child process when a relevant file (markdown or any extension in the configured `[scan] extensions`) is opened in a workspace containing a `grund.toml` (in either discovery location) or `AGENTS.md`, and kills it when the workspace closes. The server speaks LSP over stdio; there is no daemon, no socket, no background service. CI pipelines that happen to have `grund-lsp` installed never invoke it — the only entry point in batch contexts is the CLI.
 
+The folders in an LSP `initialize` request are config-discovery anchors, not scan boundaries. For every `workspaceFolders` entry, the server walks upward with the same discovery rules as the CLI (§3); when it finds a Grund config, it snapshots that config's project root so configured `[scan] include` paths and sibling source trees remain visible even when the editor opened only a nested directory. Entries that discover the same project root share one snapshot. Entries that discover different roots each get a snapshot, and a document request uses the snapshot whose root contains that document. If `workspaceFolders` is absent or empty, the deprecated `rootUri` is the anchor, then the server process's current directory as the final fallback. With no discovered config, the anchor itself remains the zero-config scan root.
+
+The server advertises workspace-folder support with change notifications. On `workspace/didChangeWorkspaceFolders`, added folders are discovered and included by the same rules, removed folders stop contributing, and diagnostics are republished from the resulting snapshot set. Keeping a nested folder that still resolves to a project keeps that project active even when another folder for the same project is removed. Thus the initial folder order and later add/remove order cannot silently narrow references or diagnostics.
+
 ### 2.3 Editor configuration (one-time, per editor)
 
 The user-facing LSP setup guide ships example LSP-client snippets for the editors most contributors use:
@@ -118,7 +122,7 @@ Adding a new editor's snippet to the user-facing guide is a small contribution; 
 
 ## 3. Configuration
 
-The server reads the `grund.toml` via the same discovery logic as `grund check` ([§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)), walking up from the workspace root supplied by the editor's LSP `initialize` request. There is no separate LSP config; one source of truth drives both the CLI and the LSP. A workspace with no config under either name falls back to the canonical defaults ([§GOAL-zero-config](../goals.md#goal-zero-config-works-on-any-conformant-tree)).
+The server reads the `grund.toml` via the same discovery logic as `grund check` ([§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)), walking up from every workspace-folder anchor supplied by the editor's LSP `initialize` request (§2.2). There is no separate LSP config; one source of truth drives both the CLI and the LSP. A workspace folder with no config under either name falls back to the canonical defaults rooted at that folder ([§GOAL-zero-config](../goals.md#goal-zero-config-works-on-any-conformant-tree)).
 
 Editor-side LSP configuration (server arguments, workspace folders) is the user's responsibility per §2.3 and is not part of `grund.toml`.
 

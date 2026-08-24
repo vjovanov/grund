@@ -14,16 +14,17 @@ This is the architectural shape that lets the LSP be optional ([§DA-lsp-optiona
 
 ## 2. State
 
-The server holds an in-memory `LspSnapshot` per workspace. The snapshot is built by `grund-core` from the same scan/check data [§AR-scanner.3](AR-scanner.md#3-output) produces, and adds resolved declaration, section-heading, stub, citation, and link ranges for editor requests:
+The server holds one in-memory `LspSnapshot` per discovered Grund project. The snapshot is built by `grund-core` from the same scan/check data [§AR-scanner.3](AR-scanner.md#3-output) produces, and adds resolved declaration, section-heading, stub, citation, and link ranges for editor requests:
 
-- On `initialize`, the server records the workspace root from the client's `rootUri`.
-- During startup and again on `initialized`, the server runs a full scan and stores the resulting snapshot.
+- On `initialize`, the server records every `workspaceFolders` URI (falling back to `rootUri`, then the process current directory), discovers each folder's enclosing config, and deduplicates folders that resolve to the same project root ([§FS-lsp.2.2](../functional-spec/FS-lsp.md#22-lifecycle)). A folder with no config keeps itself as its project root rather than inheriting the server process's current directory.
+- During startup and again on `initialized`, the server runs a full scan for every distinct project root and stores the resulting snapshots. Requests select the snapshot containing the request document, preferring the deepest root if project trees are nested.
 - On `textDocument/didChange`, the server updates the in-memory copy of the changed file (LSP delivers the new text), then re-runs the scan over the workspace.
 - On `textDocument/didSave`, the server reconciles the in-memory copy against disk (handles cases where another tool wrote the file).
 - On `textDocument/didClose`, the server drops the in-memory overlay and re-runs the scan against disk.
 - On `workspace/didChangeWatchedFiles`, the server re-runs the scan to pick up creates and deletes the editor reported.
+- On `workspace/didChangeWorkspaceFolders`, the server updates the recorded folder set, rediscovers and deduplicates project roots, rebuilds their snapshots, and republishes diagnostics. Discovery is recomputed from the remaining folder anchors so removing one of two folders for the same project does not remove the project.
 
-The snapshot is the cache for everything else: hover, definition, references, document links, and diagnostics all answer from it.
+The snapshots are the cache for everything else: hover, definition, references, document links, and diagnostics all answer from the request document's project snapshot. Independent projects are not merged, because identical local IDs in two editor folders are unrelated namespaces.
 
 ## 3. Scan strategy
 
