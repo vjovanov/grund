@@ -15,7 +15,7 @@ exclude = [
 ]
 
 [dependencies]
-grund-core = { path = "../grund-core", version = "0.10.1" }
+grund-core = { path = "../grund-core", version = "0.11.0" }
 
 # Bench-only — pulled in solely by the `bench` feature (see `[features]` below),
 # so a plain `cargo build` / `cargo install grund` and the `cargo test` matrix
