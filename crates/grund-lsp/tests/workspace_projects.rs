@@ -11,6 +11,7 @@ mod support;
 use serde_json::{Value, json};
 use std::fs;
 use std::io::Read;
+#[cfg(unix)]
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin};
@@ -140,6 +141,7 @@ fn folder_list(folders: &[(&Path, &str)]) -> Value {
 }
 
 #[test]
+#[cfg(unix)]
 fn a_symlinked_include_root_outside_the_project_still_answers() {
     // `[scan] include` is a scan scope, not a fence: a symlinked include
     // resolves outside the project root, so a root prefix alone cannot decide

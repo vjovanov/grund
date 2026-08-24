@@ -5,6 +5,7 @@ mod support;
 
 use serde_json::{Value, json};
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin};
@@ -169,6 +170,50 @@ fn a_scanned_sibling_does_not_give_another_project_ownership() {
 }
 
 #[test]
+fn two_external_scan_claims_are_rejected_as_ambiguous() {
+    let base =
+        std::env::temp_dir().join(format!("grund-lsp-ambiguous-owner-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&base);
+    let first = base.join("first");
+    let second = base.join("nested/second");
+    let shared = base.join("shared");
+    write(
+        &first.join(".agents/grund.toml"),
+        "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"../shared\"]\n\
+         extensions = [\"md\"]\n",
+    );
+    write(
+        &first.join("docs/FS-001-example.md"),
+        "# FS-001-example: First\n\nFirst project body.\n",
+    );
+    write(
+        &second.join(".agents/grund.toml"),
+        "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"../../shared\"]\n\
+         extensions = [\"md\"]\n",
+    );
+    write(
+        &second.join("docs/FS-001-example.md"),
+        "# FS-001-example: Second\n\nSecond project body.\n",
+    );
+    let user = shared.join("FS-002-user.md");
+    write(&user, "# FS-002-user: User\n\nSee §FS-001-example.\n");
+
+    let (mut child, mut stdin, receiver) =
+        start_server_with_workspace_folders(&base, &[&first, &second]);
+    let hover = hover_result(&mut stdin, &receiver, &mut child, 2, &file_uri(&user), 2, 6);
+    assert!(
+        hover.is_null(),
+        "an external file scanned by two independent namespaces has no arbitrary owner: {hover}"
+    );
+
+    stop_server(&mut child, &mut stdin, &receiver, 3);
+    drop(stdin);
+    wait_for_exit(&mut child);
+    let _ = fs::remove_dir_all(&base);
+}
+
+#[test]
+#[cfg(unix)]
 fn an_external_unreadable_file_still_publishes_its_scan_error() {
     let base = std::env::temp_dir().join(format!("grund-lsp-external-io-{}", std::process::id()));
     let _ = fs::remove_dir_all(&base);

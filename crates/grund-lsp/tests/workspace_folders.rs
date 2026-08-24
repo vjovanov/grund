@@ -5,6 +5,8 @@ mod support;
 
 use serde_json::{Value, json};
 use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin};
 use std::sync::mpsc;
@@ -219,6 +221,105 @@ fn removing_one_of_two_folders_keeps_the_shared_project_snapshot() {
             .iter()
             .any(|location| location["uri"].as_str() == Some(file_uri(&source).as_str())),
         "the remaining folder anchor should keep its enclosing project active"
+    );
+
+    stop_server(&mut child, &mut stdin, &receiver, 3);
+    drop(stdin);
+    wait_for_exit(&mut child);
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_zero_config_folder_uses_its_anchor_for_hover_reads() {
+    let root = std::env::temp_dir().join(format!(
+        "grund-lsp-zero-config-anchor-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    let server_cwd = root.join("server-cwd");
+    let first = root.join("first");
+    let second = root.join("second");
+    fs::create_dir_all(server_cwd.join("docs")).expect("create server cwd");
+    fs::create_dir_all(first.join("docs")).expect("create first folder");
+    fs::create_dir_all(second.join("docs")).expect("create second folder");
+    fs::write(
+        server_cwd.join("docs/FS-001-example.md"),
+        "# FS-001-example: Wrong cwd declaration\n\nWrong body.\n",
+    )
+    .expect("write cwd declaration");
+    fs::write(
+        second.join("docs/FS-001-example.md"),
+        "# FS-001-example: Second folder declaration\n\nRight body.\n",
+    )
+    .expect("write folder declaration");
+    let user = second.join("docs/FS-002-user.md");
+    fs::write(&user, "# FS-002-user: User\n\nSee §FS-001-example.\n").expect("write citation");
+
+    let (mut child, mut stdin, receiver) =
+        start_server_with_workspace_folders(&server_cwd, &[&first, &second]);
+    let hover = hover_result(&mut stdin, &receiver, &mut child, 2, &file_uri(&user), 2, 6);
+    assert!(
+        hover["contents"]["value"]
+            .as_str()
+            .is_some_and(|body| body.contains("Right body") && !body.contains("Wrong body")),
+        "hover must rescan the second zero-config anchor, not the server cwd: {hover}"
+    );
+
+    stop_server(&mut child, &mut stdin, &receiver, 3);
+    drop(stdin);
+    wait_for_exit(&mut child);
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+#[cfg(unix)]
+fn removing_one_symlink_alias_keeps_the_other_anchor_active() {
+    let root = test_root("symlink-alias-workspace-folders");
+    let project = root.join("project");
+    let (spec, source) = write_project(&project, "AliasUse");
+    let first_alias = root.join("first-alias");
+    let second_alias = root.join("second-alias");
+    symlink(&project, &first_alias).expect("create first folder alias");
+    symlink(&project, &second_alias).expect("create second folder alias");
+    let first_uri = url::Url::from_file_path(&first_alias)
+        .expect("first alias URI")
+        .to_string();
+    let second_uri = url::Url::from_file_path(&second_alias)
+        .expect("second alias URI")
+        .to_string();
+
+    let (mut child, mut stdin, receiver) = start_server_with_initialize(
+        &root,
+        json!({
+            "processId": std::process::id(),
+            "workspaceFolders": [
+                { "uri": first_uri.clone(), "name": "first" },
+                { "uri": second_uri, "name": "second" }
+            ],
+            "capabilities": { "workspace": { "workspaceFolders": true } }
+        }),
+    );
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeWorkspaceFolders",
+            "params": {
+                "event": {
+                    "added": [],
+                    "removed": [{ "uri": first_uri, "name": "first" }]
+                }
+            }
+        }),
+    );
+    let remaining = references(&mut child, &mut stdin, &receiver, 2, &spec);
+    assert!(
+        remaining
+            .as_array()
+            .expect("remaining references")
+            .iter()
+            .any(|location| location["uri"].as_str() == Some(file_uri(&source).as_str())),
+        "the second URI alias must keep the shared project active: {remaining}"
     );
 
     stop_server(&mut child, &mut stdin, &receiver, 3);

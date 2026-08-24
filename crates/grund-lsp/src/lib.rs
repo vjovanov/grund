@@ -115,7 +115,7 @@ fn client_supports_definition_links(params: &InitializeParams) -> bool {
         .unwrap_or(true)
 }
 
-fn initialize_folders(params: &InitializeParams) -> Result<BTreeSet<PathBuf>> {
+fn initialize_folders(params: &InitializeParams) -> Result<BTreeMap<Url, PathBuf>> {
     if let Some(folders) = params
         .workspace_folders
         .as_ref()
@@ -130,16 +130,21 @@ fn initialize_folders(params: &InitializeParams) -> Result<BTreeSet<PathBuf>> {
     #[allow(deprecated)]
     if let Some(uri) = &params.root_uri {
         return match uri.to_file_path() {
-            Ok(root) => Ok(BTreeSet::from([canonical_snapshot_path(&root)])),
+            Ok(root) => Ok(BTreeMap::from([(
+                uri.clone(),
+                canonical_snapshot_path(&root),
+            )])),
             Err(()) => {
                 eprintln!("grund-lsp: skipping non-file initialize rootUri: {uri}");
-                Ok(BTreeSet::new())
+                Ok(BTreeMap::new())
             }
         };
     }
-    Ok(BTreeSet::from([canonical_snapshot_path(
-        &std::env::current_dir().context("resolve current directory")?,
-    )]))
+    let root =
+        canonical_snapshot_path(&std::env::current_dir().context("resolve current directory")?);
+    let uri = Url::from_directory_path(&root)
+        .map_err(|()| anyhow::anyhow!("turn current directory into a file URI"))?;
+    Ok(BTreeMap::from([(uri, root)]))
 }
 
 /// The local directories a client's workspace folders name. A folder whose URI
@@ -147,11 +152,11 @@ fn initialize_folders(params: &InitializeParams) -> Result<BTreeSet<PathBuf>> {
 /// editor may legitimately mix local folders with virtual ones in a single
 /// window, and one of those must not take the whole session — including the
 /// local folders beside it — down with it (§FS-lsp.2.2, §REQ-never-crashes).
-fn workspace_folder_paths(folders: &[WorkspaceFolder]) -> BTreeSet<PathBuf> {
+fn workspace_folder_paths(folders: &[WorkspaceFolder]) -> BTreeMap<Url, PathBuf> {
     folders
         .iter()
         .filter_map(|folder| match folder.uri.to_file_path() {
-            Ok(path) => Some(canonical_snapshot_path(&path)),
+            Ok(path) => Some((folder.uri.clone(), canonical_snapshot_path(&path))),
             Err(()) => {
                 eprintln!(
                     "grund-lsp: skipping workspace folder with a non-file URI: {}",
@@ -167,10 +172,13 @@ include!("workspace.rs");
 
 struct Server {
     connection: Connection,
-    workspace_folders: BTreeSet<PathBuf>,
+    /// Folder identity stays keyed by the URI the client supplied. Distinct
+    /// symlink aliases may canonicalize to one path, but removing either URI
+    /// must leave the other anchor active (§FS-lsp.2.2).
+    workspace_folders: BTreeMap<Url, PathBuf>,
     /// Last successful project-root discovery for each folder anchor. This is
     /// what lets a temporarily invalid config keep serving its last snapshot.
-    folder_roots: BTreeMap<PathBuf, PathBuf>,
+    folder_roots: BTreeMap<Url, PathBuf>,
     projects: Vec<ProjectSnapshot>,
     open_docs: BTreeMap<Url, String>,
     diagnostic_uris: BTreeSet<Url>,
@@ -185,7 +193,7 @@ struct Server {
 impl Server {
     fn new(
         connection: Connection,
-        workspace_folders: BTreeSet<PathBuf>,
+        workspace_folders: BTreeMap<Url, PathBuf>,
         definition_link_support: bool,
     ) -> Result<Self> {
         let mut server = Self {
@@ -281,10 +289,10 @@ impl Server {
     fn rebuild(&mut self, changed: Option<PathBuf>) {
         let mut roots = BTreeSet::new();
         let mut discoverable_roots = BTreeSet::new();
-        for folder in &self.workspace_folders {
+        for (folder_uri, folder) in &self.workspace_folders {
             match project_root(folder) {
                 Ok(root) => {
-                    self.folder_roots.insert(folder.clone(), root.clone());
+                    self.folder_roots.insert(folder_uri.clone(), root.clone());
                     discoverable_roots.insert(root.clone());
                     roots.insert(root);
                 }
@@ -293,7 +301,7 @@ impl Server {
                         "grund-lsp: workspace folder `{}` has no usable config: {err:#}",
                         folder.display()
                     );
-                    if let Some(previous_root) = self.folder_roots.get(folder) {
+                    if let Some(previous_root) = self.folder_roots.get(folder_uri) {
                         roots.insert(previous_root.clone());
                     }
                 }
@@ -440,9 +448,9 @@ impl Server {
                     serde_json::from_value(notification.params)?;
                 // Unusable folder URIs are skipped, not fatal, so the rest of
                 // one mixed event still applies (§FS-lsp.2.2).
-                for folder in workspace_folder_paths(&params.event.removed) {
-                    self.workspace_folders.remove(&folder);
-                    self.folder_roots.remove(&folder);
+                for (folder_uri, _) in workspace_folder_paths(&params.event.removed) {
+                    self.workspace_folders.remove(&folder_uri);
+                    self.folder_roots.remove(&folder_uri);
                 }
                 self.workspace_folders
                     .extend(workspace_folder_paths(&params.event.added));
@@ -884,10 +892,8 @@ impl Server {
         // the editor shows one diagnostic set rather than two merged ones, and
         // the two projects' differing views of the same citation cannot appear
         // side by side (§FS-lsp.2.2).
-        if self
-            .project_for_diagnostic_path(&path)
-            .is_some_and(|owner| owner.root != project.root)
-        {
+        let owner = self.project_for_diagnostic_path(&path)?;
+        if owner.root != project.root {
             return None;
         }
         let uri = path_uri(&path)?;
@@ -1066,15 +1072,27 @@ impl Server {
     /// scans the path — through a symlinked or parent-relative `[scan] include`
     /// — claims it only when no root contains it (§FS-lsp.2.2).
     ///
-    /// Exactly one owner, so a file two snapshots both read gets one verdict
-    /// rather than two merged ones.
+    /// Multiple projects that only scan the same external path are ambiguous:
+    /// neither folder order nor root depth establishes namespace ownership, so
+    /// return no project rather than resolve a citation as a guess
+    /// (§FS-lsp.2.2, §REQ-no-wrong-citation.1).
     fn project_for_path(&self, path: &Path) -> Option<&ProjectSnapshot> {
         let path = canonical_snapshot_path(path);
-        self.projects
+        if let Some(project) = self
+            .projects
             .iter()
-            .filter_map(|project| Some((project.ownership_rank(&path)?, project)))
-            .max_by_key(|(rank, _)| *rank)
+            .filter_map(|project| Some((project.containing_root_depth(&path)?, project)))
+            .max_by_key(|(depth, _)| *depth)
             .map(|(_, project)| project)
+        {
+            return Some(project);
+        }
+        let mut scanned = self
+            .projects
+            .iter()
+            .filter(|project| project.snapshot.scanned_files.contains(&path));
+        let owner = scanned.next()?;
+        scanned.next().is_none().then_some(owner)
     }
 
     /// Diagnostics normally follow the same exact owner as requests. A scan
@@ -1084,19 +1102,28 @@ impl Server {
     fn project_for_diagnostic_path(&self, path: &Path) -> Option<&ProjectSnapshot> {
         self.project_for_path(path).or_else(|| {
             let path = canonical_snapshot_path(path);
-            self.projects
+            // `project_for_path` also returns `None` for an ambiguous external
+            // scanned file. Do not let the unreadable-file fallback pick one of
+            // those projects by root shape (§REQ-no-wrong-citation.1).
+            if self
+                .projects
                 .iter()
-                .filter(|project| {
-                    project
-                        .snapshot
-                        .report
-                        .errors
-                        .iter()
-                        .chain(&project.snapshot.report.warnings)
-                        .filter_map(|finding| absolute_finding_path(&project.snapshot, finding))
-                        .any(|finding_path| canonical_snapshot_path(&finding_path) == path)
-                })
-                .max_by_key(|project| project.root.components().count())
+                .any(|project| project.snapshot.scanned_files.contains(&path))
+            {
+                return None;
+            }
+            let mut candidates = self.projects.iter().filter(|project| {
+                project
+                    .snapshot
+                    .report
+                    .errors
+                    .iter()
+                    .chain(&project.snapshot.report.warnings)
+                    .filter_map(|finding| absolute_finding_path(&project.snapshot, finding))
+                    .any(|finding_path| canonical_snapshot_path(&finding_path) == path)
+            });
+            let owner = candidates.next()?;
+            candidates.next().is_none().then_some(owner)
         })
     }
 
