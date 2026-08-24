@@ -173,14 +173,19 @@ mod tests_api {
             open_documents,
         })
         .expect("lsp snapshot uses open buffer overlay");
-        assert!(
-            snapshot
-                .report
-                .errors
-                .iter()
-                .any(|error| error.code == "dangling"
-                    && error.message == "unknown reference FS-999-missing"),
-            "unsaved overlay citation should drive diagnostics"
+        let dangling = snapshot
+            .report
+            .errors
+            .iter()
+            .find(|error| {
+                error.code == "dangling" && error.message == "unknown reference FS-999-missing"
+            })
+            .expect("unsaved overlay citation should drive diagnostics");
+        let diagnostic_path = Path::new(dangling.path.as_deref().expect("diagnostic path"));
+        assert!(diagnostic_path.is_absolute(), "LSP path must be absolute");
+        assert_eq!(
+            canonical_test_path(diagnostic_path),
+            canonical_test_path(&lsp_root.join("src/lib.rs"))
         );
 
         let mut open_documents = BTreeMap::new();
