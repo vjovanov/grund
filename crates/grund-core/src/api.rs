@@ -141,55 +141,6 @@ pub fn check_with_opts(opts: CheckOpts) -> Result<CheckOutput> {
     })
 }
 
-fn public_report(config: &Config, report: CheckReport, include_suggestions: bool) -> Report {
-    Report {
-        errors: report
-            .errors
-            .into_iter()
-            .map(|diagnostic| public_finding(config, "error", diagnostic))
-            .collect(),
-        warnings: report
-            .warnings
-            .into_iter()
-            .map(|diagnostic| public_finding(config, "warning", diagnostic))
-            .collect(),
-        // §FS-check.2.3: suggestions are surfaced only on demand. The public
-        // severity tag stays `"suggestion"` so a consumer can tell them apart.
-        suggestions: if include_suggestions {
-            report
-                .suggestions
-                .into_iter()
-                .map(|diagnostic| public_finding(config, "suggestion", diagnostic))
-                .collect()
-        } else {
-            Vec::new()
-        },
-    }
-}
-
-fn public_finding(config: &Config, severity: &'static str, diagnostic: Diagnostic) -> Finding {
-    Finding {
-        severity,
-        code: diagnostic.code,
-        path: diagnostic.path.map(|path| public_path(config, &path)),
-        line: diagnostic.line,
-        column: diagnostic.column,
-        message: diagnostic.message,
-        sites: diagnostic
-            .sites
-            .into_iter()
-            .map(|site| FindingSite {
-                path: public_path(config, &site.path),
-                line: site.line,
-            })
-            .collect(),
-    }
-}
-
-fn public_path(config: &Config, path: &Path) -> String {
-    display_path(config, path)
-}
-
 /// Programmatic declaration read. This mirrors `grund show` resolution but
 /// returns the structured body instead of printing it.
 pub fn show(id_arg: &str, opts: ShowOpts) -> Result<ShowOutput> {
@@ -639,7 +590,10 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
     let context =
         load_resolved_workspace_context(config, &opts.path, opts.path_provided, &overlays, true)?;
     let render_config = context.render_config().clone();
-    let report = public_report(&render_config, check_workspace_context(&context, false), false);
+    // LSP routes findings back to project snapshots by filesystem identity.
+    // Preserve absolute paths here instead of reconstructing them from rendered
+    // `../` paths under Windows verbatim roots (§FS-lsp.1.1, §FS-lsp.2.2).
+    let report = public_lsp_report(&render_config, check_workspace_context(&context, false));
     let mut declarations = Vec::new();
     let mut sections = Vec::new();
     let mut stubs = Vec::new();
