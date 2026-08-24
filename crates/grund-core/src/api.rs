@@ -628,8 +628,16 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
     // §FS-lsp.1.1: classify citing sides so the citation-direction checks
     // (`missing-citation` / `forbidden-citation`) run and surface as editor
     // diagnostics, the same errors `grund check` reports.
+    let mut config = resolve_workspace_config(&opts.path)?;
+    // An editor's explicit zero-config folder is the project anchor, even when
+    // the server process was started from another directory. CLI zero-config
+    // discovery intentionally roots defaults at cwd, so the LSP-specific API
+    // corrects that root before building its context (§FS-lsp.2.2).
+    if opts.path_provided && opts.path.is_dir() && config.config_file.is_none() {
+        config.root = canonical_snapshot_path(&opts.path);
+    }
     let context =
-        load_workspace_context_with_overlays(&opts.path, opts.path_provided, &overlays, true)?;
+        load_resolved_workspace_context(config, &opts.path, opts.path_provided, &overlays, true)?;
     let render_config = context.render_config().clone();
     let report = public_report(&render_config, check_workspace_context(&context, false), false);
     let mut declarations = Vec::new();

@@ -46,17 +46,8 @@ impl ProjectSnapshot {
                 .is_some_and(|parent| self.scanned_dirs.contains(parent))
     }
 
-    /// How specific this project's claim on `path` is, for picking one owner
-    /// among the projects that cover it (§FS-lsp.2.2). A containing root beats
-    /// a bare `[scan] include` reach, and the deepest root wins among nested
-    /// project trees.
-    fn ownership_rank(&self, path: &Path) -> Option<(u8, usize)> {
-        if path.starts_with(&self.root) {
-            Some((2, self.root.components().count()))
-        } else if self.snapshot.scanned_files.contains(path) {
-            Some((1, self.root.components().count()))
-        } else {
-            None
-        }
+    fn containing_root_depth(&self, path: &Path) -> Option<usize> {
+        path.starts_with(&self.root)
+            .then(|| self.root.components().count())
     }
 }
