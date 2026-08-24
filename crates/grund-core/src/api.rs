@@ -567,6 +567,13 @@ pub struct LspSnapshot {
     pub sections: Vec<LspDeclaration>,
     pub stubs: Vec<LspStub>,
     pub citations: Vec<LspCitation>,
+    /// Every file this snapshot's scan read, absolutized the same way token
+    /// paths are. A project's scan is not bounded by its root — a symlinked
+    /// `[scan] include` resolves outside it, and an include path may be
+    /// parent-relative — so a root prefix cannot answer "does this project
+    /// cover this document?" on its own, and an LSP that asked only that would
+    /// go silent on files the CLI checks (§FS-lsp.2.2, §AR-lsp.2).
+    pub scanned_files: BTreeSet<PathBuf>,
     pub scan_errors: Vec<ApiScanError>,
 }
 
@@ -629,9 +636,17 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
     let mut sections = Vec::new();
     let mut stubs = Vec::new();
     let mut citations = Vec::new();
+    let mut scanned_files = BTreeSet::new();
     let mut scan_errors = Vec::new();
 
     for project in &context.projects {
+        scanned_files.extend(
+            project
+                .findings
+                .scanned_files
+                .iter()
+                .map(|file| absolutize_path(file)),
+        );
         scan_errors.extend(
             project
                 .scan_errors
@@ -796,6 +811,7 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
         sections,
         stubs,
         citations,
+        scanned_files,
         scan_errors,
     })
 }
