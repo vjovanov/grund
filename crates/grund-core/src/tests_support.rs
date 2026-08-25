@@ -373,10 +373,6 @@ mod tests_support {
         root
     }
 
-    /// The graph findings — everything the report prints on stdout as
-    /// `path:line: message` (§FS-check.2.1).
-    /// Unix only: every caller is a symlink case and so `#[cfg(unix)]` too.
-    #[cfg(unix)]
     /// A repo whose `FS` kind is a folder with the default `README.md` index
     /// (§FS-config.3.4), holding one declaration — the fixture the kind-index
     /// cases share across their three modules.
@@ -431,6 +427,8 @@ mod tests_support {
             .unwrap_or_else(|| panic!("expected a {code} finding, got {:?}", codes(run)))
     }
 
+    /// The graph findings — everything the report prints on stdout as
+    /// `path:line: message` (§FS-check.2.1).
     pub(crate) fn findings(run: &CheckRun) -> Vec<String> {
         let mut diagnostics = run
             .report
