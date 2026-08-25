@@ -1,0 +1,6 @@
+grund_config_version = 1
+
+[[kinds]]
+kind = "FS"
+prefix = "FS"
+folder = "docs/functional-spec"

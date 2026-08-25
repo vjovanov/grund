@@ -371,8 +371,17 @@ pub struct IdProposal {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IdProposalOutcome {
     Proposed(IdProposal),
-    UnknownKind { kind: String, known: Vec<String> },
-    Rejected { message: String },
+    /// The kind is not one `id` can mint from (§FS-id.1): a name the config does
+    /// not hold, or one it holds with `citable = false` (§FS-config.3.4.1).
+    /// `headline` says which — the two are different mistakes, and the caller
+    /// prints the same shape for both, with `known` listing the citable kinds.
+    UnknownKind {
+        headline: String,
+        known: Vec<String>,
+    },
+    Rejected {
+        message: String,
+    },
 }
 
 /// Programmatic `id`: compute the next conflict-free declaration ID without
@@ -385,14 +394,13 @@ pub fn propose_id(kind: &str, title: &str, opts: IdOpts) -> Result<IdProposalOut
         .find(|candidate| candidate.kind == kind);
     let Some(kind_config) = configured.filter(|candidate| candidate.citable) else {
         // §FS-id.1: a non-citable kind is configured and still has nothing to
-        // mint, so it is rejected with its reason rather than as a typo.
-        if let Some(candidate) = configured {
-            return Ok(IdProposalOutcome::Rejected {
-                message: non_citable_kind_error(candidate),
-            });
-        }
+        // mint, so it is refused in the same shape with its reason in place of
+        // "unknown" — a real row in the table is not a typo.
         return Ok(IdProposalOutcome::UnknownKind {
-            kind: kind.to_string(),
+            headline: match configured {
+                Some(candidate) => non_citable_kind_error(candidate),
+                None => format!("unknown kind `{kind}`"),
+            },
             known: kind_prefixes(&config.kinds),
         });
     };

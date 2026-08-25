@@ -70,6 +70,10 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - `fmt --check` naming the text each shorthand expansion will write, including two on one line and a typed trigger marked and expanded in one pass
 - the unknown-alias hint at the workspace root (the two `FS-check.3.8` worked examples, byte-exactly): a dropped prefix naming one project, and a leaf name two projects share naming both, joined as `a or b`
 - a narrowed run offering no candidate where the workspace root would have offered one: a citation naming the top-level `api` is green at the root and, from inside `left` (which holds its own `api`), reports the scope it covers rather than pointing at `left/api`
+- a non-citable kind (`citable = false`): a declaration inside its home reported by place, a `must` obligation firing per Markdown file in it, `require_grounding` reaching that Markdown, and `grund init` naming the kind by its place in both the Project map and the citation directions
+- a configured kind home outside `[scan] include`, walked because it is a home: its dangling citation is reported rather than invisible
+- the deprecated `[[kinds]] prefix` key: it still loads and earns one warning naming the release it stops in, while spelling both `kind` and `prefix` on one entry is refused
+- `index` set on a non-citable kind, and `--kind` / `grund id` handed one: refused with the reason rather than as an unknown kind
 - config include/exclude/extensions
 - explicit `check` subcommand
 - default `show` shorthand and mistyped-path failure with explicit-check hint

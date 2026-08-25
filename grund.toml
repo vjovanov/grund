@@ -58,7 +58,7 @@ kind = "DA"
 folder = "docs/decisions/architectural"
 title = "Architecture decisions and tradeoffs"
 
-# `index = false` (FS-config.3.4): e2e/cases holds 380 case directories and no
+# `index = false` (FS-config.3.4): e2e/cases holds 406 case directories and no
 # README — a case is exercised by being run, not navigated to, and e2e/README.md
 # one level up documents the case layout in English rather than naming E2E- IDs.
 [[kinds]]

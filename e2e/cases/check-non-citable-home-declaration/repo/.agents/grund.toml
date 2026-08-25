@@ -1,0 +1,12 @@
+grund_config_version = 1
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+
+[[kinds]]
+kind = "skill"
+folder = "skills"
+citable = false
+title = "Agent skills"
