@@ -12,7 +12,7 @@ mod tests_kind_index_enrollment {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\n\n\
+             [[kinds]]\nkind = \"AR\"\nfolder = \"docs/architecture\"\n\n\
              [scan]\ninclude = [\"docs\", \"src\"]\n",
         );
         write(
@@ -156,7 +156,7 @@ mod tests_kind_index_enrollment {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\n\n\
+             [[kinds]]\nkind = \"AR\"\nfolder = \"docs/architecture\"\n\n\
              [scan]\ninclude = [\"docs\", \"notes\"]\n",
         );
         write(
@@ -219,7 +219,7 @@ mod tests_kind_index_enrollment {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\n\n\
+             [[kinds]]\nkind = \"AR\"\nfolder = \"docs/architecture\"\n\n\
              [scan]\ninclude = [\"docs\", \"src\"]\n\n\
              [fmt.cross_refs]\nenabled = false\n",
         );
@@ -250,8 +250,8 @@ mod tests_kind_index_enrollment {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/design\"\n\n\
-             [[kinds]]\nprefix = \"DF\"\nfolder = \"docs/design\"\n\n\
+             [[kinds]]\nkind = \"AR\"\nfolder = \"docs/design\"\n\n\
+             [[kinds]]\nkind = \"DF\"\nfolder = \"docs/design\"\n\n\
              [scan]\ninclude = [\"docs\", \"src\"]\n",
         );
         write(
