@@ -77,6 +77,16 @@ kind = "DISC"
 folder = "docs/discussions"
 title = "Design discussions and proposals"
 
+# A place, not an ID namespace (FS-config.3.4.1): `skills/` holds agent-facing
+# instructions, not specification, so its files declare nothing and its home is
+# named by its path everywhere it is shown. Being a home is also what puts it in
+# the scan scope — `[scan] include` below does not name it (FS-config.3.5).
+[[kinds]]
+kind = "skill"
+folder = "skills"
+citable = false
+title = "Agent review and automation skills"
+
 [scan]
 # README.md, AGENTS.md, and the workflow YAML are cited surfaces too — scanned
 # so their citations are checked, not decorative (REQ-readme.3, REQ-agents-md.4).
@@ -129,6 +139,13 @@ should = ["AR|FS"]
 
 [citations.E2E]
 must = ["FS"]
+
+# A skill tells an agent what to do; the spec is what makes that checkable, so a
+# skill file names the behaviour it drives. Never AR: a skill is a user-facing
+# procedure, and one written against the implementation rots with it.
+[citations.skill]
+must = ["FS"]
+must-not = ["AR"]
 
 [citations.code]
 should = ["FS|AR"]

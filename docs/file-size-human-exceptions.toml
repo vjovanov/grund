@@ -64,10 +64,10 @@ path = "crates/grund-core/src/checker.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 1000, unit = "lines" }
+max_accepted = { value = 758, unit = "lines" }
 until = "the six rule bodies still inline in check_with_workspace become named functions"
 reason = """
-The reference-resolution family has already left, to checker_references.rs, the inline citation style rule with it, to inline_note_layout.rs, and the section-shape family — heading-level strictness beside the new duplicate-section rule — to checker_sections.rs, which is what dropped the ceiling 1083 -> 1013 -> 1000. What remains is blocked for a different reason. Six rules — duplicate homes, configured kind homes, the escaped-citation suggestion, broken stub links, unused declarations, and the grounding floor — are written as inline blocks inside one body of check_with_workspace, sharing a KindHomeIndex, repeated passes over findings.declarations, and one &mut CheckReport. They are statements, not functions, so there is nothing to move yet. Missing boundary: each of them named, after which the declaration-placement rules leave as one family and this file keeps the citation-side rules and the shared diagnostic helpers.
+The reference-resolution family has already left, to checker_references.rs, the inline citation style rule with it, to inline_note_layout.rs, and the section-shape family — heading-level strictness beside the new duplicate-section rule — to checker_sections.rs, which is what dropped the ceiling 1083 -> 1013 -> 1000, and the citation-direction family — the obligation and prohibition passes — to checker_citations.rs, taking it to 758. What remains is blocked for a different reason. Six rules — duplicate homes, configured kind homes, the escaped-citation suggestion, broken stub links, unused declarations, and the grounding floor — are written as inline blocks inside one body of check_with_workspace, sharing a KindHomeIndex, repeated passes over findings.declarations, and one &mut CheckReport. They are statements, not functions, so there is nothing to move yet. Missing boundary: each of them named, after which the declaration-placement rules leave as one family and this file keeps the citation-side rules and the shared diagnostic helpers.
 """
 [[exceptions]]
 path = "crates/grund-core/src/config.rs"
@@ -78,16 +78,6 @@ max_accepted = { value = 732, unit = "lines" }
 until = "extract the parser with its state made explicit, leaving discovery and defaults here"
 reason = """
 `parse_config_file` is a 409-line hand-written TOML reader: one line-oriented state machine over section and key context, correct only because every branch observes the same state. Splitting it by key group would thread that state through a wider interface, trading a long function for a worse one. Missing boundary: the parser as its own module with its state made explicit, leaving discovery, defaults, and validation here. The ceiling dropped from 936 after the deprecated config command adapter moved to config_cmd.rs.
-"""
-[[exceptions]]
-path = "crates/grund-core/src/init_templates.rs"
-match = "exact"
-rules = ["core-source"]
-kind = "deferred"
-max_accepted = { value = 509, unit = "lines" }
-until = "separate the managed-block renderer from the template payload constants"
-reason = """
-Corrects an earlier reason that described this file as mostly template payload. It is not: 641 of its lines are function bodies and only 10 constants are include_str!. The bulk is rendering logic that composes the AGENTS.md managed block from config — citation directions, inline-style sentences, link construction — sitting among the constants because both are reached from init. Missing boundary: payload and renderer are two jobs, and the renderer belongs beside init.rs. The ceiling dropped from 796 after the entrypoint table and the selection rules that read it moved to init_entrypoints.rs — which is not that boundary: it is the one §FS-init.2.1.1 introduced, between which files a run touches and what bytes go in them.
 """
 [[exceptions]]
 path = "crates/grund-core/src/init.rs"

@@ -5,7 +5,7 @@
 
 ## 1. Context
 
-A multi-file kind (`folder = "…"`, [§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-prefixes)) conventionally keeps an index README in its home, and `grund init --docs` writes the convention into the one it scaffolds ([§FS-init.2.1](../../functional-spec/FS-init.md#21-files-written-updated-or-left-in-place)). Nothing verified it. Measured on this repository at v0.11.0: `docs/discussions/README.md` announced "Current proposals:" and listed 9 of the 11 that existed, `grund check` was green over it, and the two largest folder kinds — `DF` with 34 declarations and `DA` with 7 — had no index at all.
+A multi-file kind (`folder = "…"`, [§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-kinds)) conventionally keeps an index README in its home, and `grund init --docs` writes the convention into the one it scaffolds ([§FS-init.2.1](../../functional-spec/FS-init.md#21-files-written-updated-or-left-in-place)). Nothing verified it. Measured on this repository at v0.11.0: `docs/discussions/README.md` announced "Current proposals:" and listed 9 of the 11 that existed, `grund check` was green over it, and the two largest folder kinds — `DF` with 34 declarations and `DA` with 7 — had no index at all.
 
 One direction was already checked: an index row is an ordinary citation, so an index naming a deleted ID dangles ([§FS-check.3.1](../../functional-spec/FS-check.md#31-dangling-citation)). Only the other direction had no rule.
 
@@ -33,7 +33,7 @@ And inline code is not the only such place, which is why the rule is stated as t
 
 - a repository on `[reference] strict = false`, whose index lists IDs as bare tokens with no marker — `fmt --write` writes nothing there, because without `--marker` a bare token stays bare;
 - an index whose ordinary Markdown link happens to have an ID-shaped file name, `See the [login spec](FS-login.md)` — the token in the *destination* is a recognized citation in non-strict mode, and a link destination is a zone `fmt` never writes in. That the scanner sees a citation there at all is a separate, older defect ([grund#131](https://github.com/vjovanov/grund/issues/131)); this rule has to be correct while it stands, and is;
-- an `index` naming a file the cross-reference pass does not run on at all — closed a second way, by [§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-prefixes) requiring `index` to name a `.md` file, since an error class whose licence is that `fmt` fixes it cannot apply where `fmt` never runs.
+- an `index` naming a file the cross-reference pass does not run on at all — closed a second way, by [§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-kinds) requiring `index` to name a `.md` file, since an error class whose licence is that `fmt` fixes it cannot apply where `fmt` never runs.
 
 `Citation::shorthand_rewritable` is the same predicate, written for the same reason one rule earlier; the index rules reuse the machinery under it rather than growing a second copy that could drift.
 
@@ -65,7 +65,7 @@ No table row, list item, heading, or managed region is required. That preserves 
 
 **A rendered index** — a `fmt`-written managed block below the curated prose, with `fmt --check` reporting drift. It is the obvious follow-on and is deliberately not this decision: the check is worth having on its own, it does not presume the generator's design, and the hand-curated indexes here want the verification without the writer. The one thing the renderer would buy is a same-release verdict flip for the missing-entry half ([§DF-index-compatibility-ramp](DF-index-compatibility-ramp.md#df-index-compatibility-ramp-a-findings-ramp-follows-its-fix-command-not-the-size-of-the-offence)), which is a reason to build it later, not a dependency to take on now.
 
-**`indexed = false`, or simply "a folder README is the index".** The last one collapses into a claim that is not true of this tree: `e2e/README.md` documents the case layout and names behaviours in English, never `§E2E-` IDs. Naming the file — with `false` as the opt-out — keeps "which file is the index" a fact the config states rather than one the checker guesses ([§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-prefixes)).
+**`indexed = false`, or simply "a folder README is the index".** The last one collapses into a claim that is not true of this tree: `e2e/README.md` documents the case layout and names behaviours in English, never `§E2E-` IDs. Naming the file — with `false` as the opt-out — keeps "which file is the index" a fact the config states rather than one the checker guesses ([§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-kinds)).
 
 **Checking the link target as well as its shape.** Rejected in §2.2: it duplicates the anchor algorithm for no new coverage, and [§AR-ci](../../architecture/AR-ci.md#ar-ci-ci-mirrors-the-local-pre-commit-gate) already runs `grund fmt --write` and `lychee` in the same gate as `grund check --full`.
 

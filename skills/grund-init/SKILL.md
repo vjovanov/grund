@@ -194,16 +194,24 @@ Cons: some repos may not need all categories.
 Pros of custom kinds: adapts to existing taxonomy.
 Cons: replacing defaults means the full list must be copied; no merge.
 
-For each kind ask: `prefix`, `folder`, `title`.
+For each kind ask: `kind`, `folder`, `title`.
+
+A directory that holds agent-facing content rather than declarations — skills,
+runbooks, a prompt library, a test suite — is a kind with `citable = false`: it
+gets a home, a title and citation rules, and declares no IDs. Ask for one
+wherever the repo has such a directory and the answer to "should an agent be
+told this exists?" is yes.
 
 ### `[scan]`
 
 `include`
 
-Default: `["docs", "e2e", "src"]`.
+Default: `["requirements.md", "docs", "e2e", "src"]`.
 Pros: focused, avoids scanning root clutter.
 Cons: misses specs/citations outside these dirs.
-Base the recommendation on actual directories. Do not include paths that do not exist unless `--docs` will create them.
+Every configured `[[kinds]]` home is walked whether or not it is listed here, so
+this key names the *extra* roots. Base the recommendation on actual directories.
+Do not include paths that do not exist unless `--docs` will create them.
 
 `exclude`
 
@@ -524,7 +532,7 @@ docstring_python = true
 Pros: broad coverage for adoption across teams.
 Cons: can be noisy; recommend narrowing after the first `grund check`, then `grund check --full .` to see what the narrowing left out.
 
-When multiple language examples apply, merge them conservatively: union the real include dirs, union the extensions actually present, and union generated/cache excludes. Prefer a narrower first config that passes cleanly over an over-broad config that floods the user with findings — and then run `grund check --full .`, which reports the citations that resolve to nothing in the directories `include` left out. A narrow `include` is a good starting point precisely because that check exists; without it, the citations the first config forgot are invisible rather than merely unchecked (§FS-check.1.3).
+When multiple language examples apply, merge them conservatively: union the real include dirs, union the extensions actually present, and union generated/cache excludes. Prefer a narrower first config that passes cleanly over an over-broad config that floods the user with findings — and then run `grund check --full .`, which reports the citations that resolve to nothing in the directories `include` left out. A narrow `include` is a good starting point precisely because that check exists; without it, the citations the first config forgot are invisible rather than merely unchecked ([§FS-check.1.3](../../docs/functional-spec/FS-check.md#13-the-full-tree-scope---full)).
 
 ## Validation
 
@@ -537,7 +545,7 @@ grund check .
 grund check --full .
 ```
 
-The last line checks the config itself: `grund check .` reads only what `[scan] include` names, so `grund check --full .` walks the whole root past that key and reports the references resolving to nothing out there (§FS-check.1.3) — each one names a directory that belongs in `include`. The wider walk stops only at *declared* workspace members, not at any nested `grund.toml`, so a vendored or example project inside the tree is read under this project's grammar; list it in `[scan] exclude`, or in `[workspace] members` if it is one of ours.
+The last line checks the config itself: `grund check .` reads only what `[scan] include` names, so `grund check --full .` walks the whole root past that key and reports the references resolving to nothing out there ([§FS-check.1.3](../../docs/functional-spec/FS-check.md#13-the-full-tree-scope---full)) — each one names a directory that belongs in `include`. The wider walk stops only at *declared* workspace members, not at any nested `grund.toml`, so a vendored or example project inside the tree is read under this project's grammar; list it in `[scan] exclude`, or in `[workspace] members` if it is one of ours.
 
 If custom config affects `AGENTS.md`, ensure `grund.toml` exists before `grund init` so the generated managed block reflects the selected ID grammar, marker, strict mode, kinds, and existing artifact layout.
 
@@ -551,10 +559,10 @@ Optional, and only if the user wants editor integration (diagnostics, hover prev
 
 ## Clickable Citation Integrations
 
-Optional, and only if the user wants a plain `§<ID>` citation to be clickable in their terminal or editor (`grund integrations`, §FS-integrations). These are one-time, user-side, and env-specific, so propose rather than apply silently:
+Optional, and only if the user wants a plain `§<ID>` citation to be clickable in their terminal or editor (`grund integrations`, [§FS-integrations](../../docs/functional-spec/FS-integrations.md#fs-integrations-grund-prints-and-installs-its-rendering-layer-integrations)). These are one-time, user-side, and env-specific, so propose rather than apply silently:
 
 - Detect what applies: `grund integrations --format json` names the terminal/editor found in the environment and, for each, the exact `--write` command.
 - Show the user the change before touching disk: `grund integrations <client>` prints the config snippet and the `grund-open` resolver (or, for `vscode`, the unpacked extension) so they can read it first.
-- Install only on confirmation: `grund integrations <client> --write` installs the client integration, records the user-local conversation preference, and synchronizes managed blocks into the global instruction files of the six file-backed agents (Codex, Claude, Gemini, GitHub Copilot, Zed, Pi — §FS-integrations.4.3). It is idempotent; never write without the user's go-ahead.
+- Install only on confirmation: `grund integrations <client> --write` installs the client integration, records the user-local conversation preference, and synchronizes managed blocks into the global instruction files of the six file-backed agents (Codex, Claude, Gemini, GitHub Copilot, Zed, Pi — [§FS-integrations.4.3](../../docs/functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)). It is idempotent; never write without the user's go-ahead.
 - The installed default asks agents for plain local citations. Use `grund integrations --write --conversation link` as a preference-only user override when the TUI has no rendering support; no arbitrary client is installed. The editor choice (`GRUND_OPEN_CMD` or `EDITOR`) never belongs in shared repository text.
-- One opinion *is* committable: a repository may set `[reference] conversation = "link"` in `grund.toml` (§DF-repo-conversation-opinion), and the generated entrypoint then teaches linked local citations to every cloner with zero per-user setup. The form follows the per-agent gate (§DF-conversation-link-target.2.4): `CLAUDE.md` teaches a Markdown link whose visible text is the citation and whose target is `file://<absolute path>#L<line>`, while `AGENTS.md` — the file Codex reads, where that form erases the citation — keeps the location as plain `path:line` text. A `CLAUDE.md` symlinked to `AGENTS.md` is one file and keeps the plain form; `grund init --claude` writes a real Claude entrypoint (`.claude/CLAUDE.md`, the path the symlink has not taken) instead. It is the fallback for machines that never stated a preference (fresh clones, cloud sessions, Cursor and Windsurf, whose only grund channel is the committed entrypoint); a machine whose recorded preference is `plain` keeps bare citations there, because its rendering layer already resolves them. Without the key, repository instructions carry only the fixed repository-web rule. Offer it when a team wants clickable conversation citations without asking each member to run `grund integrations`.
+- One opinion *is* committable: a repository may set `[reference] conversation = "link"` in `grund.toml` ([§DF-repo-conversation-opinion](../../docs/decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion)), and the generated entrypoint then teaches linked local citations to every cloner with zero per-user setup. The form follows the per-agent gate ([§DF-conversation-link-target.2.4](../../docs/decisions/functional/DF-conversation-link-target.md#24-the-form-is-gated-per-agent-and-the-fallback-is-path)): `CLAUDE.md` teaches a Markdown link whose visible text is the citation and whose target is `file://<absolute path>#L<line>`, while `AGENTS.md` — the file Codex reads, where that form erases the citation — keeps the location as plain `path:line` text. A `CLAUDE.md` symlinked to `AGENTS.md` is one file and keeps the plain form; `grund init --claude` writes a real Claude entrypoint (`.claude/CLAUDE.md`, the path the symlink has not taken) instead. It is the fallback for machines that never stated a preference (fresh clones, cloud sessions, Cursor and Windsurf, whose only grund channel is the committed entrypoint); a machine whose recorded preference is `plain` keeps bare citations there, because its rendering layer already resolves them. Without the key, repository instructions carry only the fixed repository-web rule. Offer it when a team wants clickable conversation citations without asking each member to run `grund integrations`.

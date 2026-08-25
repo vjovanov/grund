@@ -147,83 +147,151 @@ The default `section_separator` is `.`. Projects that prefer `:` (`§FS-check:3.
 
 This split keeps the section grammar regular at any depth.
 
-### 3.4 `[[kinds]]` — recognized prefixes
+### 3.4 `[[kinds]]` — recognized kinds
 
-One `[[kinds]]` table per allowed prefix. A kind is either *multi-file* (`folder = "<dir>"`) — each declaration is the H1 of its own file under `<dir>` — or *single-file* (`file = "<path>"`) — every declaration of the kind is an H2 inside that one document. Setting both `folder` and `file` on the same kind is invalid; setting neither leaves the kind with no configured home (`grund id` will print no folder, and the misplaced-declaration check in [§FS-check.3.7](FS-check.md#37-misplaced-declaration-configured-kind-home) only applies when a declaration sits inside some other kind's unique configured home).
+One `[[kinds]]` table per kind. `kind` is its name — mandatory, and the handle everything else keys on: `[citations.<kind>]` (§3.9), `grund list --kind`, and, for a kind that declares IDs, the literal prefix of every ID in it.
+
+A kind is either *multi-file* (`folder = "<dir>"`) — each declaration is the H1 of its own file under `<dir>` — or *single-file* (`file = "<path>"`) — every declaration of the kind is an H2 inside that one document. Setting both `folder` and `file` on the same kind is invalid; setting neither leaves the kind with no configured home (`grund id` will print no folder, and the misplaced-declaration check in [§FS-check.3.7](FS-check.md#37-misplaced-declaration-configured-kind-home) only applies when a declaration sits inside some other kind's unique configured home).
 
 `folder` is used by `grund id` ([§FS-id.2.2](FS-id.md#22---format-json) emits it as the `folder` field) and by editor "create new declaration" / "go to home folder" actions; it is also a checker boundary: a declaration inside exactly one configured `folder` home must declare that folder's kind ([§FS-check.3.7](FS-check.md#37-misplaced-declaration-configured-kind-home)). `file` is stricter: declarations of a single-file kind found outside the configured path are reported under [§FS-check.3.7](FS-check.md#37-misplaced-declaration-configured-kind-home), and a different-kind declaration inside that exact file is likewise a unique-home conflict. Declarations are still recognized outside configured homes — including inline source declarations — and declarations in files covered by zero or multiple configured homes are not rejected by the home-kind rule because there is no single expected kind.
+
+Every configured home is also **in the scan scope by construction**, whether or not `[scan] include` names it (§3.5).
+
+#### 3.4.1 `citable` — kinds that declare no IDs
+
+A kind has two independent properties: it *has a home*, and it *declares IDs*. `citable = false` (default `true`) is the second one turned off — a kind that is a **place** and nothing more.
+
+```toml
+[[kinds]]
+kind = "skill"
+folder = "skills"
+title = "Agent review and automation skills"
+citable = false
+
+[citations.skill]
+must = ["FS"]
+must-not = ["AR"]
+```
+
+Some directories hold agent-facing content rather than specification — skills, prompt libraries, runbooks, test suites. An agent has to be told they exist and what they are for, and the citations inside them should be checked and directed like citations anywhere else; but their files are not declarations and carry no IDs. *Citable* is already this spec's word for "can be the target of a `§` citation" — citable sections, citable IDs — so a citable kind is one whose IDs you can cite, and this key is the one that says so about a whole kind.
+
+What a non-citable kind **keeps**:
+
+- **A home**, which is what it is for, so `folder` or `file` is required. The homeless non-citable kind is `code` (§3.9.2), and it already has a name.
+- **A row in the generated Project map and in the generated citation directions** ([§FS-init.2.3.4.4](FS-init.md#2344-project-map), [§FS-init.2.3.5](FS-init.md#235-citation-directions)) — rendered by **place**, never by name, because the name is a config handle and the place is the thing a reader can open.
+- **Citation-direction rules.** The citing-side classification already reaches it: a citation inside a kind's home is classified as that kind whether or not a declaration encloses it ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)). Obligations attach per file rather than per declaration ([§FS-check.3.11](FS-check.md#311-missing-required-citation)), since there is no declaration to attach them to.
+- **`[reference] require_grounding`**, over every scanned file in its home, `.md` included ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)).
+
+What it **loses**:
+
+- **The ID grammar.** Its name is not a recognized prefix, so `<name>-<slug>` is not an ID and never tokenizes as a citation. It is left out of the `KIND ∈ {…}` vocabulary line, out of `grund list --kind`, and out of `grund id` — both selectors refuse it by name, saying that it declares no IDs rather than that it is unknown ([§FS-list.1](FS-list.md#1-inputs), [§FS-id.1](FS-id.md#1-inputs)).
+- **Declarations.** Its home admits none: any declaration inside it is a misplaced declaration ([§FS-check.3.7](FS-check.md#37-misplaced-declaration-configured-kind-home)).
+- **An index.** `index` lists a folder's declarations ([§FS-check.4.6](FS-check.md#46-declaration-missing-from-its-kinds-index)) and this kind has none, so setting both keys is a config error rather than a no-op — a statement about a set that can never be non-empty.
+- **Being cited.** A `[citations.<kind>]` rule may not *name it as a target*; there is no ID to point at (§3.9.5).
+
+`citable` is an additive optional key and does not move `grund_config_version` (§5): a config that sets it is only ever written for a binary that understands it, and an older binary meets it through the unknown-key rejection in §4.3.
+
+#### 3.4.2 `index` — the kind's index file
 
 `index` names the kind's **index file** — the document under `folder` that must list every declaration in it ([§FS-check.4.6](FS-check.md#46-declaration-missing-from-its-kinds-index)). It is resolved relative to `folder`, defaults to `README.md`, and takes either a file name or `false`:
 
 ```toml
 [[kinds]]
-prefix = "DF"
+kind = "DF"
 folder = "docs/decisions/functional"
 # index = "README.md"   # the default, relative to `folder`
 # index = false         # opt out — the folder is not navigated
 # index = "INDEX.md"    # or name a different file
 ```
 
-The default follows from `folder` rather than from a second key restating it: a kind whose declarations live in a directory has a directory a reader arrives at, and `grund init --docs` already scaffolds that README and writes the convention into it ([§FS-init.2.1](FS-init.md#21-files-written-updated-or-left-in-place)). `index = false` is for a kind whose declarations are *exercised* rather than navigated — the canonical case is `E2E`, whose home holds case directories and no README, and whose `e2e/README.md` one level up documents the case layout in English instead of naming `E2E-` IDs. That is why the opt-out spells a file name or `false` rather than being inferred from a README's absence: "any folder README is an index" is not true of every tree.
+The default follows from `folder` rather than from a second key restating it: a kind whose declarations live in a directory has a directory a reader arrives at, and `grund init --docs` already scaffolds that README and writes the convention into it ([§FS-init.2.1](FS-init.md#21-files-written-updated-or-left-in-place)). `index = false` is for a kind whose declarations are *exercised* rather than navigated — the canonical case is a repository's own `E2E` kind, whose home holds case directories and no README, and whose `e2e/README.md` one level up documents the case layout in English instead of naming `E2E-` IDs. That is why the opt-out spells a file name or `false` rather than being inferred from a README's absence: "any folder README is an index" is not true of every tree.
 
-`index` requires `folder`. On a single-file kind (`file = "<path>"`) or a kind with no configured home there is nothing to index, and the key is a config error reported per §4.3. `index = true` is an error for the same reason a bare `true` names no file — write the name, or leave the key out for the default.
+`index` requires `folder`, and requires a citable kind. On a single-file kind (`file = "<path>"`), on a kind with no configured home, or on a `citable = false` kind (§3.4.1) there is nothing to index, and the key is a config error reported per §4.3. `index = true` is an error for the same reason a bare `true` names no file — write the name, or leave the key out for the default.
 
 A named `index` must be **a relative path inside `folder`, naming a Markdown file**; anything else is a config error per §4.3. Both halves close a state the rules built on the key cannot describe. The value is joined onto `folder`, so an absolute path or one that climbs out with `..` does not name a file *in* the folder — it silently replaces the folder, and `grund check` would read a file outside the tree the config describes — the same boundary [§FS-fmt.2.3.2](FS-fmt.md#232-a-link-that-leaves-the-config-root-is-not-written-through) holds a rewrite to, for the reason [§REQ-no-data-loss.2](../requirements/REQ-no-data-loss.md#2-writers-touch-only-what-they-own) gives; `.` is refused with them, because it names the same file by a path no message should have to print. And an entry has to be a Markdown link that `grund fmt --write` can write ([§FS-check.3.17](FS-check.md#317-index-entry-is-not-a-link)), while the cross-reference pass runs on `.md` files only ([§FS-fmt.6.1](FS-fmt.md#61-scope)) — so an index named `INDEX.rst` would carry an error class whose one documented fix declines to act on it.
 
-**The default is per prefix, and it is the same default for a declared kind and a built-in one.** `E2E` defaults to `index = false` and every other folder kind to `README.md`, whether the prefix comes from the built-in list or from a `[[kinds]]` block that omits the key. A `[[kinds]]` block replaces the built-in list rather than merging into it (below), so without this the generated config would mean one thing when it spells `index = false` out and another when it does not — and every config written before this key existed, which is every config on disk, would inherit an obligation the built-in default deliberately declines. A project that names its cases folder `E2E` *and* wants an index writes `index = "README.md"`, which is the ordinary way to override a default.
+**The default is per kind name, and it is the same default for a declared kind and a built-in one.** `E2E` defaults to `index = false` and every other citable folder kind to `README.md`, whether the name comes from the built-in list or from a `[[kinds]]` block that omits the key. A `[[kinds]]` block replaces the built-in list rather than merging into it (§3.4.4), so without this the generated config would mean one thing when it spells `index = false` out and another when it does not — and every config written before this key existed, which is every config on disk, would inherit an obligation the built-in default deliberately declines. `E2E` keeps its entry in that table after leaving the default kind set (§3.4.4) for exactly the same reason: the configs that name it are the ones written before it left. A project that names its cases folder `E2E` *and* wants an index writes `index = "README.md"`, which is the ordinary way to override a default.
 
-The key is purely additive and does not move `grund_config_version` (§5): a config that sets it is only ever written for a binary that understands it, and an older binary meets it through the unknown-key rejection in §4.3. The prefix-keyed default is additive in the same sense — it can only *remove* an obligation that no released `grund` has ever imposed.
+The key is purely additive and does not move `grund_config_version` (§5): a config that sets it is only ever written for a binary that understands it, and an older binary meets it through the unknown-key rejection in §4.3. The name-keyed default is additive in the same sense — it can only *remove* an obligation that no released `grund` has ever imposed.
 
-`title` is human-readable metadata: it surfaces in `grund <ID> --format=json`, `grund refs --format=json`, and IDE hover previews, and is **not** injected into `grund <ID> --format=md` text (which is the declaration verbatim — [§FS-show.3](FS-show.md#3-outputs)).
+#### 3.4.3 `title`
 
-The defaults declare the canonical eight, in this order:
+`title` is human-readable metadata: it surfaces in `grund <ID> --format=json`, `grund refs --format=json`, and IDE hover previews, and is **not** injected into `grund <ID> --format=md` text (which is the declaration verbatim — [§FS-show.3](FS-show.md#3-outputs)). It is also the text of the kind's Project map row ([§FS-init.2.3.4.4](FS-init.md#2344-project-map)), which for a non-citable kind is the only thing that says what the place is for.
+
+#### 3.4.4 The default kinds
+
+The defaults declare these nine, in this order:
 
 ```toml
 [[kinds]]
-prefix = "GRUND"
+kind   = "GRUND"
 file   = "docs/grund.md"
 title  = "Why: project motivation"
 
 [[kinds]]
-prefix = "GOAL"
+kind   = "GOAL"
 file   = "docs/goals.md"
 title  = "Where: project direction and outcomes"
 
 [[kinds]]
-prefix = "FS"
+kind   = "FS"
 file   = "requirements.md"
 title  = "What: behavior, requirements, and constraints"
 
 [[kinds]]
-prefix = "AR"
+kind   = "AR"
 folder = "docs/architecture"
 title  = "How: high-level implementation, structure, and design"
 
 [[kinds]]
-prefix = "DF"
+kind   = "DF"
 folder = "docs/decisions/functional"
 title  = "Product behavior decisions and tradeoffs"
 
 [[kinds]]
-prefix = "DA"
+kind   = "DA"
 folder = "docs/decisions/architectural"
 title  = "Architecture decisions and tradeoffs"
 
 [[kinds]]
-prefix = "E2E"
-folder = "e2e/cases"
-index  = false
-title  = "Executable user scenarios"
+kind    = "e2e"
+folder  = "tests/e2e"
+citable = false
+title   = "User scenarios: black-box proof of the spec"
 
 [[kinds]]
-prefix = "RM"
+kind    = "integration"
+folder  = "tests/integration"
+citable = false
+title   = "Integration tests: proof that the parts fit as designed"
+
+[[kinds]]
+kind   = "RM"
 file   = "docs/roadmap.md"
 title  = "Planned milestones and sequencing"
 ```
 
-`GRUND` is the H1 of the single file `docs/grund.md` (the project's reason for being — one declaration, all of it inline); `GOAL` declarations are H2 headings inside the single file `docs/goals.md` (one file, all goals inline); `FS` declarations are H2 headings inside the single file `requirements.md` (one obvious requirements entry for new projects); `RM` declarations are likewise H2 headings inside the single file `docs/roadmap.md` (one file, all milestones inline) — those four are single-file kinds (`file = "<path>"`); `AR`, `DF`, and `DA` declarations are the H1 of a file in their `folder` (an `AR` declaration may instead live inline in a source doc-comment with an optional stub in `folder` — [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)); `E2E` declarations are case directories under `folder` rather than heading lines — [AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations). A single-file kind can always be broken up later by swapping `file = "<path>"` for `folder = "<dir>"` and moving the document into that folder — the schema models the transition as exchanging one key for the other, not setting both. A project that overrides this list replaces the defaults entirely — there is no merge. To extend rather than replace, copy the defaults and add to them.
+`GRUND` is the H1 of the single file `docs/grund.md` (the project's reason for being — one declaration, all of it inline); `GOAL` declarations are H2 headings inside the single file `docs/goals.md` (one file, all goals inline); `FS` declarations are H2 headings inside the single file `requirements.md` (one obvious requirements entry for new projects); `RM` declarations are likewise H2 headings inside the single file `docs/roadmap.md` (one file, all milestones inline) — those four are single-file kinds (`file = "<path>"`); `AR`, `DF`, and `DA` declarations are the H1 of a file in their `folder` (an `AR` declaration may instead live inline in a source doc-comment with an optional stub in `folder` — [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)). A single-file kind can always be broken up later by swapping `file = "<path>"` for `folder = "<dir>"` and moving the document into that folder — the schema models the transition as exchanging one key for the other, not setting both.
 
-Prefix sets must be unambiguous: no kind's `prefix` may itself be a prefix of another kind's `prefix`. For example, `prefix = "DA"` and `prefix = "DAT"` together are invalid because a token starting with `DAT-` would parse as either kind. grund validates this on load and refuses ambiguous configs with a single error pointing at the offending pair (per §4.3).
+**The two test kinds are non-citable, and lowercase.** A test cites the document whose claim it proves, and is never cited back: an `e2e` scenario proves the What as a user sees it (`must` cite `FS`, and `should-not` cite `AR` — a black-box scenario that reads the design is not black-box), an `integration` test proves the How — that the parts fit as designed (`should` cite `AR`). Unit tests live with the code and follow `code`'s rule, so there is no third kind for them. Lowercase because these names never appear in an ID, so a reader should not mistake one for a prefix; the `KIND ∈ {…}` vocabulary line lists the citable seven.
+
+`E2E` is **not** in this list, and is still a fully supported kind: a repository whose e2e suite is a corpus of case directories declares it (`kind = "E2E"`, `folder = "e2e/cases"`, `index = false`) and gets the case-declaration machinery of [AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations) — `E2E-<case>` IDs, `grund <ID>` over the case manifest, per-case obligations, and the fixture-tree pruning that keeps a nested case repo out of the host scan. That machinery follows the configured `E2E` home, so a config that wants it names it. Decided in [§DF-non-citable-kinds.3](../decisions/functional/DF-non-citable-kinds.md#3-consequences), which also records what a default-config repository with an `e2e/cases` tree sees on upgrade.
+
+A project that overrides this list replaces the defaults entirely — there is no merge. To extend rather than replace, copy the defaults and add to them.
+
+#### 3.4.5 Name rules
+
+**Names are unique across the whole table.** `[citations.<kind>]` and `grund list --kind` key on a name, so two rows wearing one name is a config with no answer to "which".
+
+**Citable names must also be prefix-free**: no citable kind's name may be a prefix of another citable kind's name. `kind = "DA"` and `kind = "DAT"` together are invalid because a token starting with `DAT-` would parse as either kind. The rule is about *tokenization*, so it stops where tokenization does: a non-citable kind's name never appears in an ID, so `skill` beside a citable `SKI` is fine and a config that spells it loads. grund validates this on load and refuses ambiguous configs with a single error pointing at the offending pair (per §4.3).
+
+**`code` is reserved** and may not be a `[[kinds]]` name (§3.9.2). It is the non-citable, *homeless* kind — the complement of every configured home — which is why it cannot be a row in the table that defines those homes, and why it is the one name a project cannot take.
+
+#### 3.4.6 `prefix`, the former spelling of `kind` *(deprecated)*
+
+`prefix` was this key's name while every kind declared IDs and its name really was one. It still loads, and a config that uses it earns one warning naming the release it stops loading in ([§FS-config.4.1](FS-config.md#41-grund-config-validate-path), [§REQ-backwards-compatibility.2](../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path)). Setting both `kind` and `prefix` on one entry is a config error: they name the same thing, and a config that spells it twice has no single answer if the two disagree.
+
+The rename is what `citable = false` forces. `prefix` was accurate for every row of the table and stopped being accurate for half of it; *kind* is what the rest of grund already calls this value — the `{kind}` placeholder of `[id] format` (§3.2), the `--kind <KIND>` selector of [§FS-list.1](FS-list.md#1-inputs), and the `[citations.<kind>]` table key (§3.9). Under the new name, prefix-ness is a *derived* property of citable kinds (§3.4.5) rather than the schema's word for the whole concept. Decided in [§DF-non-citable-kinds.2.4](../decisions/functional/DF-non-citable-kinds.md#24-the-field-is-a-kind-not-a-prefix).
 
 ### 3.5 `[scan]` — what gets walked
 
@@ -242,6 +310,10 @@ respect_gitignore  = true
 Listing an extension makes a file *readable*, not declarable. A prose markup format other than Markdown — AsciiDoc, reStructuredText, LaTeX — has its citations checked as soon as its extension appears here, because the citation grammar is format-agnostic; its native heading syntax still declares nothing, since a declaration is a `#`-prefixed heading or a comment-prefixed line. Whether those formats should be declaration homes of their own is an open discussion ([§DISC-markup-format-declarations](../discussions/proposals/2026-05-25-markup-format-declarations.md#disc-markup-format-declarations-declarations-in-asciidoc-restructuredtext-latex-and-similar-markup-document-formats)), not a configured behavior.
 
 Every default comment prefix has a path through the default extension list: `;` pairs with Lisp, Scheme, and Clojure extensions; `--` pairs with SQL, Haskell, Lua, and Ada extensions; and `*` / `/*` are block-comment continuation and opener forms in the C-family extensions. Any line whose first non-whitespace run is a configured prefix is eligible to host a declaration heading or a citation. Each claimed form has a strict-mode executable case that plants a marked dangling citation in that form ([§REQ-no-missed-citation.3](../requirements/REQ-no-missed-citation.md#3-proven-per-host-language)).
+
+**Every configured kind home is walked, whether or not `include` names it** (§3.4). A home is the repository saying "declarations and citations live here", so `include` names the *extra* roots — `src`, `crates`, a `README.md` — rather than having to repeat the homes the `[[kinds]]` table already spelled. A home that does not exist walks as nothing and earns no finding, so a fresh repository whose default homes are not scaffolded yet stays silent.
+
+This closes a trap that had nothing to do with non-citable kinds and everything to do with why one would be configured: a `folder` or `file` outside `include` was never walked, so its declarations did not exist and its citations were **invisible rather than dangling** — no resolution, no finding, nothing to notice. A kind whose entire content is "this directory matters" would have fallen into it on its first line of config. **Upgrade note:** a repository that had a home outside `include` starts seeing that home's findings; they were always true of the tree, and the run was simply not reading it.
 
 `include` is a **scan scope, not a fence**. A citation in a file outside it is invisible rather than merely unchecked — it does not resolve and it does not dangle — so `grund check --full` ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)) walks the whole config root past this key and reports the references that resolve to nothing out there ([§FS-check.3.14](FS-check.md#314-out-of-scope-unresolvable-citation---full-only)), which is how a forgotten directory is found without first guessing which one to add here. The flag cancels `include` alone: `exclude`, the ignore files, and `extensions` below apply to that walk unchanged.
 
@@ -325,7 +397,7 @@ must = ["FS"]             # every E2E case must cite the FS it tests
 should = ["FS|AR"]
 ```
 
-Each `[citations.<KIND>]` subsection names the **citing** kind; its arrays name the **cited** kinds. The section is decided in [§DF-citation-directions](../decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels) and proposed in [§DISC-citation-directions](../discussions/proposals/2026-06-13-citation-directions.md#disc-citation-directions-encode-citation-directions-as-checked-config). It is optional; without it no direction check runs and `grund check` behaves exactly as before.
+Each `[citations.<kind>]` subsection names the **citing** kind, by the `kind` name of §3.4; its arrays name the **cited** kinds. The citing side may be any configured kind — citable or not (§3.4.1) — or `code` (§3.9.2); the cited side must be a **citable** kind, because a kind with no IDs has nothing a citation could point at. The section is decided in [§DF-citation-directions](../decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels) and proposed in [§DISC-citation-directions](../discussions/proposals/2026-06-13-citation-directions.md#disc-citation-directions-encode-citation-directions-as-checked-config). It is optional; without it no direction check runs and `grund check` behaves exactly as before.
 
 #### 3.9.1 Levels
 
@@ -345,7 +417,9 @@ An **obligation** asks: does each top-level declaration of the citing kind conta
 
 #### 3.9.2 The `code` pseudo-kind
 
-`code` is a reserved lowercase citing kind: a citation site that falls outside every configured kind home ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)). `[citations.code]` obligations apply per file, only to files that contain at least one citation, and only to **source files** under the exact predicate `require_grounding` uses — a scanned file whose extension is not `.md` ([§DF-require-grounding.2.2](../decisions/functional/DF-require-grounding.md#22-grounded-is-defined-syntactically)). Markdown outside a kind home (a README, the changelog) is therefore prohibition-checked but obligation-exempt. `code` may not be used as a `[[kinds]]` prefix — it is the one reserved name, which keeps its non-collision with a real kind an invariant rather than an assumption.
+`code` is a reserved citing kind: a citation site that falls outside every configured kind home ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)). It is the non-citable, **homeless** kind — the complement of every home there is — which is why it is reserved rather than writable: giving it a `folder` would make that complement nameless again. `[citations.code]` obligations apply per file, only to files that contain at least one citation, and only to **source files** under the exact predicate `require_grounding` uses — a scanned file whose extension is not `.md` ([§DF-require-grounding.2.2](../decisions/functional/DF-require-grounding.md#22-grounded-is-defined-syntactically)). Markdown outside a kind home (a README, the changelog) is therefore prohibition-checked but obligation-exempt. A configured non-citable kind (§3.4.1) is the same species with a place, and differs on exactly that point: its unit is *every* scanned file in its home, `.md` included ([§FS-check.3.11](FS-check.md#311-missing-required-citation)).
+
+`code` may not be used as a `[[kinds]]` name — it is the one reserved name, which keeps its non-collision with a configured kind an invariant rather than an assumption. It has no place, so it gets no Project map row; its citation-directions row renders last, as it always has ([§FS-init.2.3.5](FS-init.md#235-citation-directions)).
 
 #### 3.9.3 Namespace matching
 
@@ -357,7 +431,7 @@ Rule entries reuse the citation grammar of [§FS-workspace.1](FS-workspace.md#1-
 
 #### 3.9.5 Validation
 
-Config validation rejects: a `[citations.<KIND>]` table whose kind is neither a configured `[[kinds]]` prefix nor `code`; a target naming a kind that is not a configured prefix; `code` used as a `[[kinds]]` prefix (§3.4); an unknown level key; and two targets of the same cited kind at different levels whose namespace matchers can match the same citation. The last rule is on namespace **overlap**, not textual equality — `*/AR` (any namespace) overlaps a bare `AR` (local), so listing one at `should` and the other at `must-not` is rejected, while a local `AR` permitted alongside a pinned `alias/AR` forbidden is allowed because those matchers are disjoint (§3.9.3). The section composes unchanged with project-defined `[[kinds]]` — a new kind is one more `[citations.<KIND>]` table.
+Config validation rejects: a `[citations.<kind>]` table whose kind is neither a configured `[[kinds]]` name nor `code`; a target naming a kind that is not a configured *citable* kind — reported as *an unknown target kind* for a name the table does not hold and *a non-citable target kind* for one it does, since those are different mistakes; `code` used as a `[[kinds]]` name (§3.4.5); an unknown level key; and two targets of the same cited kind at different levels whose namespace matchers can match the same citation. The last rule is on namespace **overlap**, not textual equality — `*/AR` (any namespace) overlaps a bare `AR` (local), so listing one at `should` and the other at `must-not` is rejected, while a local `AR` permitted alongside a pinned `alias/AR` forbidden is allowed because those matchers are disjoint (§3.9.3). The section composes unchanged with project-defined `[[kinds]]` — a new kind is one more `[citations.<KIND>]` table.
 
 Adding `[citations]` does **not** bump `grund_config_version` (§5): it is additive surface, like `[workspace]` and `require_grounding`. An older binary meeting it fails loudly with `unknown config section`.
 
@@ -367,9 +441,17 @@ Adding `[citations]` does **not** bump `grund_config_version` (§5): it is addit
 
 Loads the config discovered by walking up from `path` (or `.` when omitted), checks the schema, and reports problems. Exits 0 on success, 1 on validation errors — the error in the same `error: <path>:<line>: <message>` shape §4.3 defines. No tree scan is performed. A redundant config pair at the config root is reported as a `warning:` here too (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)); it is a warning, so it does not change the exit code.
 
+A `[[kinds]]` entry spelled with the deprecated `prefix` key (§3.4.6) is warned about on the same channel, once per config file, anchored at the first entry that uses it and naming the release the spelling stops loading in:
+
+```text
+warning: grund.toml:26: [[kinds]] `prefix` is deprecated — rename it to `kind`; `prefix` stops loading in grund 0.13.0
+```
+
+Like the redundant-pair warning it is a fact about the file the run read rather than about a site in the tree, so it carries its `path:line` inside the message and reaches `grund check` as well ([§FS-check.4.3](FS-check.md#43-redundant-config-pair) is the sibling case). One warning per config, not one per row: the fix is a whole-file rename.
+
 ### 4.2 `grund config show [path]`
 
-Prints the **effective** configuration — defaults merged with the config discovered by walking up from `path` (or `.` when omitted), plus CLI flags — as TOML. Useful for debugging "why did grund recognize this citation" or "what does my config actually evaluate to." A redundant config pair at the config root is reported as a `warning:` on stderr before the TOML (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)), so the answer to "why is this key not taking effect" is on screen next to the effective value.
+Prints the **effective** configuration — defaults merged with the config discovered by walking up from `path` (or `.` when omitted), plus CLI flags — as TOML. Every `[[kinds]]` entry is printed under the canonical `kind` key whichever spelling the file used (§3.4.6), and `citable` is printed **only where it is `false`**: absence *is* `citable = true`, and the printed config has to load back as itself. Useful for debugging "why did grund recognize this citation" or "what does my config actually evaluate to." A redundant config pair at the config root is reported as a `warning:` on stderr before the TOML (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)), so the answer to "why is this key not taking effect" is on screen next to the effective value.
 
 ### 4.3 Invalid config behavior
 

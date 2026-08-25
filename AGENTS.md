@@ -28,6 +28,7 @@ A `§<ID>` is a pointer to a fact, not a file path. Resolve it with `grund` and 
 - [E2E](e2e/cases): Executable user scenarios
 - [RM](docs/roadmap.md): Planned milestones and sequencing
 - [DISC](docs/discussions): Design discussions and proposals
+- [skills/](skills): Agent review and automation skills
 
 ### Project namespaces
 
@@ -58,6 +59,7 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 - **DF** should cite FS or GOAL.
 - **DA** should cite AR or FS.
 - **E2E** must cite FS.
+- **skills/** must cite FS; never cite AR.
 - **code** (any file outside a kind home) should cite FS or AR.
 Unlisted kinds and pairs are fine.
 
