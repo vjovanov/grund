@@ -106,10 +106,13 @@ fn enroll_external_inline_declarations(
     physical_root: &Path,
     owed: &mut BTreeMap<PathBuf, BTreeSet<Id>>,
 ) -> BTreeMap<PathBuf, BTreeSet<(usize, usize)>> {
-    let targets_by_index: BTreeMap<&Path, &KindIndexTarget<'_>> = targets
-        .iter()
-        .map(|target| (target.index_key.as_path(), target))
-        .collect();
+    let mut targets_by_index: BTreeMap<&Path, Vec<&KindIndexTarget<'_>>> = BTreeMap::new();
+    for target in targets {
+        targets_by_index
+            .entry(target.index_key.as_path())
+            .or_default()
+            .push(target);
+    }
     let lines_by_index: BTreeMap<&Path, Vec<String>> = targets
         .iter()
         .filter_map(|target| {
@@ -126,6 +129,7 @@ fn enroll_external_inline_declarations(
         if citation.namespace.is_some()
             || citation.section.is_some()
             || !citation.has_marker
+            || citation.shorthand
         {
             continue;
         }
@@ -136,12 +140,12 @@ fn enroll_external_inline_declarations(
         ) else {
             continue;
         };
-        let Some(target) = targets_by_index.get(relative.as_ref()).copied() else {
+        let Some(target) = targets_by_index
+            .get(relative.as_ref())
+            .and_then(|targets| targets.iter().copied().find(|target| target.kind == citation.id.kind))
+        else {
             continue;
         };
-        if citation.id.kind != target.kind {
-            continue;
-        }
         let Some(decls) = findings.declarations.get(&citation.id) else {
             continue;
         };
@@ -224,7 +228,7 @@ fn external_inline_home<'a>(
 fn link_target_at_citation<'a>(line: &'a str, citation: &Citation) -> Option<&'a str> {
     let start = citation.column.checked_sub(1)?;
     let open = start.checked_sub(1)?;
-    if line.as_bytes().get(open) != Some(&b'[') || is_inside_inline_code(line, open) {
+    if line.as_bytes().get(open) != Some(&b'[') || never_rewrite_context(line, true, open) {
         return None;
     }
     let end = start.checked_add(citation.text.len())?;
