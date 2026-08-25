@@ -3,7 +3,7 @@
 <!-- BEGIN GRUND MANAGED BLOCK -->
 ## Grounding with grund (v7)
 
-This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, REQ, AR, DF, DA, E2E, RM, DISC}`), cited with the marker `§` — e.g. `<§>FS-user-login.3.1` (the `FS-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `grund.toml`, so only `§`-prefixed citations are checked.
+This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, REQ, AR, DF, DA, RM, DISC}`), cited with the marker `§` — e.g. `<§>FS-user-login.3.1` (the `FS-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `grund.toml`, so only `§`-prefixed citations are checked.
 
 ### Grounding from a citation
 
@@ -25,7 +25,8 @@ A `§<ID>` is a pointer to a fact, not a file path. Resolve it with `grund` and 
 - [AR](docs/architecture): How: high-level implementation, structure, and design
 - [DF](docs/decisions/functional): Product behavior decisions and tradeoffs
 - [DA](docs/decisions/architectural): Architecture decisions and tradeoffs
-- [E2E](e2e/cases): Executable user scenarios
+- [tests/e2e/](tests/e2e): User scenarios: black-box proof of the spec
+- [tests/integration/](tests/integration): Integration tests: proof that the parts fit as designed
 - [RM](docs/roadmap.md): Planned milestones and sequencing
 - [DISC](docs/discussions): Design discussions and proposals
 - [skills/](skills): Agent review and automation skills
@@ -58,7 +59,8 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 - **AR** should cite FS or GOAL.
 - **DF** should cite FS or GOAL.
 - **DA** should cite AR or FS.
-- **E2E** must cite FS.
+- **tests/e2e/** must cite FS; avoid citing AR.
+- **tests/integration/** should cite AR.
 - **skills/** must cite FS; never cite AR.
 - **code** (any file outside a kind home) should cite FS or AR.
 Unlisted kinds and pairs are fine.

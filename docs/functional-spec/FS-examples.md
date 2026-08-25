@@ -27,7 +27,7 @@ An example may cover multiple use-cases, but it must stay small enough that a ne
 
 Each maintained example must include a detailed explanation for users. At minimum it names the scenario, the intended audience, the files worth opening first, the commands to run from the repository root, the expected exit code and stream behavior, and the lesson the user should take from the output. If the example demonstrates a tradeoff, such as an ID scheme choice, the README must describe both the benefit and the cost in practical terms.
 
-The explanation must be self-contained: a user should not need to inspect `tests/`, `e2e/`, or implementation code to understand why the example exists or how to run it. Links back to the relevant spec are allowed, but they supplement the explanation rather than replacing it.
+The explanation must be self-contained: a user should not need to inspect `tests/` or implementation code to understand why the example exists or how to run it. Links back to the relevant spec are allowed, but they supplement the explanation rather than replacing it.
 
 ## 4. Maintenance contract
 
@@ -39,6 +39,6 @@ When a new canonical workflow becomes part of the README or functional spec, the
 
 ## 5. E2E reuse without duplication
 
-Runnable examples must also be executable end-to-end tests. They may have a lighter manifest than `e2e/cases/` when that keeps the user-facing directory readable, but their command invocation, expected exit code, stdout/stderr comparison, mutable-repo handling, and final-repo snapshot comparison must be run by the same test runner logic used for ordinary e2e cases.
+Runnable examples must also be executable end-to-end tests. They may have a lighter manifest than `tests/e2e/cases/` when that keeps the user-facing directory readable, but their command invocation, expected exit code, stdout/stderr comparison, mutable-repo handling, and final-repo snapshot comparison must be run by the same test runner logic used for ordinary e2e cases.
 
 The repo must not maintain a second, example-only implementation of the e2e contract. Adding a new e2e capability such as `command.args`, `{repo_copy}`, `expected.repo`, deterministic-output checks, or golden-output refresh must make that capability available to examples through shared code, not through a copied harness.

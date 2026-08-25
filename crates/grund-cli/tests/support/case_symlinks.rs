@@ -156,7 +156,7 @@ fn create_symlink(target: &Path, link: &Path, target_is_dir: bool) -> std::io::R
     }
     #[cfg(windows)]
     {
-        // A manifest target is `/`-separated (`e2e/README.md`), and Windows stores
+        // A manifest target is `/`-separated (`tests/e2e/README.md`), and Windows stores
         // the target *string* in the reparse point rather than resolving it at
         // creation: `symlink_dir` accepts `../shared-docs` and produces a link that
         // resolves to nothing. The separator is the whole of the difference, which

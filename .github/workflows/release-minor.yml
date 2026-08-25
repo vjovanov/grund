@@ -97,7 +97,7 @@ jobs:
           set -euo pipefail
           cargo set-version --workspace "${{ steps.versions.outputs.next }}"
           cargo update --workspace
-          printf 'grund %s\n' "${{ steps.versions.outputs.next }}" > e2e/cases/cli-version/expected.stdout
+          printf 'grund %s\n' "${{ steps.versions.outputs.next }}" > tests/e2e/cases/cli-version/expected.stdout
           python3 scripts/prepare_changelog_release.py prepare "${{ steps.versions.outputs.next }}"
 
       - name: Commit and push release candidate
@@ -113,7 +113,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          git add Cargo.toml crates/grund-core/Cargo.toml crates/grund-cli/Cargo.toml crates/grund-lsp/Cargo.toml Cargo.lock e2e/cases/cli-version/expected.stdout docs/changelog.md docs/changelog
+          git add Cargo.toml crates/grund-core/Cargo.toml crates/grund-cli/Cargo.toml crates/grund-lsp/Cargo.toml Cargo.lock tests/e2e/cases/cli-version/expected.stdout docs/changelog.md docs/changelog
           git commit -m "Release v${next}"
           git push -u origin "$branch"
 

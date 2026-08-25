@@ -367,50 +367,50 @@ test that fails if the invariant is broken:
 
 | Invariant                                        | Test or fixture |
 |--------------------------------------------------|---|
-| Single regex, marker-anchored                    | `marked_qualified_citation_is_recognised_unmarked_one_is_text` (`crates/grund-core/src/tests_grounding_style.rs`); `e2e/cases/non-strict-bare-slash-not-citation` |
-| Resolver returns `None` ⇒ diagnostic, never skip | `e2e/cases/workspace-unknown-alias`; `e2e/cases/workspace-standalone-cross-project` |
-| Alias check fires at use, both for `project_name` and the basename fallback | `e2e/cases/workspace-invalid-auto-alias`; `e2e/cases/workspace-duplicate-auto-alias` |
-| Missing section on a qualified citation reports at the citation site | `e2e/cases/workspace-cross-project-missing-section` |
-| Nested projects are named by their whole alias path | `e2e/cases/workspace-nested-members` |
-| The intermediate node is a project, scanned under its own config | `e2e/cases/workspace-nested-group-is-scanned` |
-| `include_root = false` drops the node but keeps its segment | `e2e/cases/workspace-nested-group-include-root-false` |
-| Same alias under two parents is not a duplicate  | `e2e/cases/workspace-nested-same-alias-different-parents` |
-| Duplicate alias within one sibling set rejected  | `e2e/cases/workspace-nested-duplicate-alias` |
-| Nested block with nothing in scope rejected, located either way | `e2e/cases/workspace-nested-empty-scope`; `e2e/cases/workspace-nested-empty-scope-no-members` |
-| A short leaf name names the project it could have meant | `e2e/cases/workspace-nested-short-alias-hint` |
-| A narrowed run resolves a subset, not a re-spelling | `e2e/cases/workspace-nested-subtree-scope` |
-| A member root escaping its own block rejected, expansion terminates | `nested_workspace_member_pointing_at_an_ancestor_is_rejected`, `workspace_member_resolving_out_of_the_tree_is_rejected`, `workspace_member_resolving_to_its_own_block_is_rejected`, `a_member_reached_through_a_symlinked_parent_is_rejected`, `nested_member_inside_the_block_that_lists_it_loads` (`crates/grund-core/src/tests_workspace_nested.rs`); `e2e/cases/workspace-member-self-symlink`; `e2e/cases/workspace-member-symlink-out-of-tree` |
-| An alias path is read from the outermost claiming block, and a claiming block that cannot answer fails the run | `alias_paths_follow_the_outermost_claim_of_a_member` (`crates/grund-core/src/tests_workspace_claims.rs`); `enclosing_workspace_that_cannot_expand_fails_the_narrowed_run`, `enclosing_workspace_with_an_invalid_alias_fails_the_narrowed_run`, `an_enclosing_workspace_whose_config_does_not_load_fails_the_narrowed_run` (`crates/grund-core/src/tests_workspace_claim_answers.rs`); `e2e/cases/workspace-nested-enclosing-member-missing`; `e2e/cases/workspace-nested-enclosing-config-invalid` |
+| Single regex, marker-anchored                    | `marked_qualified_citation_is_recognised_unmarked_one_is_text` (`crates/grund-core/src/tests_grounding_style.rs`); `tests/e2e/cases/non-strict-bare-slash-not-citation` |
+| Resolver returns `None` ⇒ diagnostic, never skip | `tests/e2e/cases/workspace-unknown-alias`; `tests/e2e/cases/workspace-standalone-cross-project` |
+| Alias check fires at use, both for `project_name` and the basename fallback | `tests/e2e/cases/workspace-invalid-auto-alias`; `tests/e2e/cases/workspace-duplicate-auto-alias` |
+| Missing section on a qualified citation reports at the citation site | `tests/e2e/cases/workspace-cross-project-missing-section` |
+| Nested projects are named by their whole alias path | `tests/e2e/cases/workspace-nested-members` |
+| The intermediate node is a project, scanned under its own config | `tests/e2e/cases/workspace-nested-group-is-scanned` |
+| `include_root = false` drops the node but keeps its segment | `tests/e2e/cases/workspace-nested-group-include-root-false` |
+| Same alias under two parents is not a duplicate  | `tests/e2e/cases/workspace-nested-same-alias-different-parents` |
+| Duplicate alias within one sibling set rejected  | `tests/e2e/cases/workspace-nested-duplicate-alias` |
+| Nested block with nothing in scope rejected, located either way | `tests/e2e/cases/workspace-nested-empty-scope`; `tests/e2e/cases/workspace-nested-empty-scope-no-members` |
+| A short leaf name names the project it could have meant | `tests/e2e/cases/workspace-nested-short-alias-hint` |
+| A narrowed run resolves a subset, not a re-spelling | `tests/e2e/cases/workspace-nested-subtree-scope` |
+| A member root escaping its own block rejected, expansion terminates | `nested_workspace_member_pointing_at_an_ancestor_is_rejected`, `workspace_member_resolving_out_of_the_tree_is_rejected`, `workspace_member_resolving_to_its_own_block_is_rejected`, `a_member_reached_through_a_symlinked_parent_is_rejected`, `nested_member_inside_the_block_that_lists_it_loads` (`crates/grund-core/src/tests_workspace_nested.rs`); `tests/e2e/cases/workspace-member-self-symlink`; `tests/e2e/cases/workspace-member-symlink-out-of-tree` |
+| An alias path is read from the outermost claiming block, and a claiming block that cannot answer fails the run | `alias_paths_follow_the_outermost_claim_of_a_member` (`crates/grund-core/src/tests_workspace_claims.rs`); `enclosing_workspace_that_cannot_expand_fails_the_narrowed_run`, `enclosing_workspace_with_an_invalid_alias_fails_the_narrowed_run`, `an_enclosing_workspace_whose_config_does_not_load_fails_the_narrowed_run` (`crates/grund-core/src/tests_workspace_claim_answers.rs`); `tests/e2e/cases/workspace-nested-enclosing-member-missing`; `tests/e2e/cases/workspace-nested-enclosing-config-invalid` |
 | A block the claimed chain never lists re-spells its own subtree (recorded limitation) | `a_block_the_chain_never_lists_respells_its_own_subtree` (`crates/grund-core/src/tests_workspace_claims.rs`) |
 | Only a run that reads an alias path climbs: a project with no `[workspace]` block of its own is never failed by a claim above it | `a_run_at_a_project_with_no_workspace_block_never_climbs` (`crates/grund-core/src/tests_workspace_claim_answers.rs`) |
 | A block that claims nothing here is never expanded | `an_ancestor_claim_through_a_symlinked_entry_keeps_the_prefix` (`crates/grund-core/src/tests_workspace_claims.rs`); `an_ancestor_that_claims_nothing_here_cannot_break_the_run`, `an_ancestor_with_overlapping_members_that_claims_nothing_is_climbed_past`, `an_ancestor_glob_claims_the_child_and_still_owes_it_an_answer`, `an_ancestor_that_does_not_load_and_claims_nothing_here_is_climbed_past` (`crates/grund-core/src/tests_workspace_claim_answers.rs`) |
 | An undecidable claim warns and lets the run through | `an_ancestor_whose_members_text_cannot_be_read_warns_and_lets_the_run_through`, `an_ancestor_config_that_is_not_text_is_reported_and_climbed_past` (`crates/grund-core/src/tests_workspace_claim_answers.rs`) |
-| A narrowed run offers no rewrite candidate, and the citation it cannot resolve still passes at the root | `e2e/cases/workspace-nested-cross-branch-citation-at-root`; `e2e/cases/workspace-nested-cross-branch-citation-narrowed`; `e2e/cases/workspace-nested-shorter-alias-path-at-root`; `e2e/cases/workspace-nested-shorter-alias-path-narrowed`; `a_narrowed_run_offers_no_candidate_even_for_a_dropped_prefix` (`crates/grund-core/src/tests_alias_hints.rs`) |
+| A narrowed run offers no rewrite candidate, and the citation it cannot resolve still passes at the root | `tests/e2e/cases/workspace-nested-cross-branch-citation-at-root`; `tests/e2e/cases/workspace-nested-cross-branch-citation-narrowed`; `tests/e2e/cases/workspace-nested-shorter-alias-path-at-root`; `tests/e2e/cases/workspace-nested-shorter-alias-path-narrowed`; `a_narrowed_run_offers_no_candidate_even_for_a_dropped_prefix` (`crates/grund-core/src/tests_alias_hints.rs`) |
 | Member errors name the entry as the config wrote it | `nested_workspace_member_overlap_names_both_entries_as_written` (`crates/grund-core/src/tests_workspace_nested.rs`) |
 | `init` describes the workspace that claims the target | `workspace_members_ignores_an_ancestor_workspace_that_does_not_claim_the_target`, `workspace_members_at_a_group_its_parent_does_not_list_names_its_own_tree` (`crates/grund-core/src/tests_workspace_members.rs`) |
-| Boundary skips member from root scan in `check`  | `workspace_boundary_root_is_not_scanned_as_parent_content` / `workspace_boundary_nested_scan_root_is_not_scanned_as_parent_content` (`crates/grund-core/src/tests_workspace.rs`); `e2e/cases/workspace-cross-project-valid` |
-| Boundary skips member from root scan in non-`check` commands | `e2e/cases/workspace-list-respects-boundary` |
-| Member without its own config falls back to canonical defaults | `e2e/cases/workspace-member-without-config` |
-| Glob expansion                                   | `e2e/cases/workspace-glob-members` |
-| Cross-member citations resolve in both directions | `e2e/cases/workspace-cross-member-citations` |
-| Same local ID in two members is not a duplicate  | `e2e/cases/workspace-same-id-different-projects` |
-| Single-project repo flags stray `<§>alias/<ID>`  | `e2e/cases/cross-project-citation-without-workspace` |
-| `config show` round-trips `[workspace]`          | `e2e/cases/config-show-workspace-roundtrip` |
-| `check --format json` shape in a workspace       | `e2e/cases/workspace-check-json` |
-| `list` / `refs` / `fmt` skip qualified citations  | `e2e/cases/list-ignore-qualified-project-local`; `e2e/cases/refs-ignore-qualified-project-local`; `e2e/cases/fmt-cross-refs-ignore-qualified-project-local` |
-| `cover` counts a qualified citation, workspace or not | `e2e/cases/cover-counts-qualified-project-local`; `e2e/cases/workspace-cover-text` |
-| `cover` at a workspace root indexes every member, and a member's scan error fails the run | `e2e/cases/workspace-cover-json`; `e2e/cases/workspace-cover-member-scan-error`; `cover_at_a_workspace_root_indexes_every_member` (`crates/grund-core/src/tests_cover_workspace.rs`) |
-| `cover` under a member path stays member-local    | `e2e/cases/workspace-cover-member-local` |
-| `cover` renders a qualified `id` under the target project's grammar | `e2e/cases/workspace-cover-json-target-grammar`; `a_qualified_id_renders_under_the_target_projects_config` (`crates/grund-core/src/tests_cover_workspace.rs`) |
-| `cover` under `include_root = false` drops the root's files with its catalog entry | `e2e/cases/workspace-cover-include-root-false` |
+| Boundary skips member from root scan in `check`  | `workspace_boundary_root_is_not_scanned_as_parent_content` / `workspace_boundary_nested_scan_root_is_not_scanned_as_parent_content` (`crates/grund-core/src/tests_workspace.rs`); `tests/e2e/cases/workspace-cross-project-valid` |
+| Boundary skips member from root scan in non-`check` commands | `tests/e2e/cases/workspace-list-respects-boundary` |
+| Member without its own config falls back to canonical defaults | `tests/e2e/cases/workspace-member-without-config` |
+| Glob expansion                                   | `tests/e2e/cases/workspace-glob-members` |
+| Cross-member citations resolve in both directions | `tests/e2e/cases/workspace-cross-member-citations` |
+| Same local ID in two members is not a duplicate  | `tests/e2e/cases/workspace-same-id-different-projects` |
+| Single-project repo flags stray `<§>alias/<ID>`  | `tests/e2e/cases/cross-project-citation-without-workspace` |
+| `config show` round-trips `[workspace]`          | `tests/e2e/cases/config-show-workspace-roundtrip` |
+| `check --format json` shape in a workspace       | `tests/e2e/cases/workspace-check-json` |
+| `list` / `refs` / `fmt` skip qualified citations  | `tests/e2e/cases/list-ignore-qualified-project-local`; `tests/e2e/cases/refs-ignore-qualified-project-local`; `tests/e2e/cases/fmt-cross-refs-ignore-qualified-project-local` |
+| `cover` counts a qualified citation, workspace or not | `tests/e2e/cases/cover-counts-qualified-project-local`; `tests/e2e/cases/workspace-cover-text` |
+| `cover` at a workspace root indexes every member, and a member's scan error fails the run | `tests/e2e/cases/workspace-cover-json`; `tests/e2e/cases/workspace-cover-member-scan-error`; `cover_at_a_workspace_root_indexes_every_member` (`crates/grund-core/src/tests_cover_workspace.rs`) |
+| `cover` under a member path stays member-local    | `tests/e2e/cases/workspace-cover-member-local` |
+| `cover` renders a qualified `id` under the target project's grammar | `tests/e2e/cases/workspace-cover-json-target-grammar`; `a_qualified_id_renders_under_the_target_projects_config` (`crates/grund-core/src/tests_cover_workspace.rs`) |
+| `cover` under `include_root = false` drops the root's files with its catalog entry | `tests/e2e/cases/workspace-cover-include-root-false` |
 | The compat `cover` renderer emits the CLI's bytes (no e2e case reaches it) | `the_compat_renderer_emits_the_same_json_the_cli_does`, `the_compat_renderer_adds_no_project_field_outside_a_workspace` (`crates/grund-core/src/tests_cover_workspace.rs`) |
-| `cover` fails a workspace whose members cannot be expanded | `e2e/cases/workspace-cover-broken-members` |
-| `cover <dir>` narrows instead of aggregating, like `check <dir>` | `e2e/cases/workspace-cover-narrowed-path`; `cover_under_a_narrowed_path_loads_no_workspace` (`crates/grund-core/src/tests_cover_workspace.rs`) |
-| `[workspace] members` shape rejected at load     | `e2e/cases/workspace-member-absolute-path`; `e2e/cases/workspace-member-parent-segment`; `e2e/cases/workspace-member-windows-drive`; `e2e/cases/workspace-member-windows-path`; `e2e/cases/workspace-member-multi-glob` |
-| Overlapping workspace member roots rejected      | `e2e/cases/workspace-member-overlap` |
-| `[[workspace]]` array-table form rejected        | `e2e/cases/workspace-section-as-array-table` |
-| Unknown key under `[workspace]` rejected         | `e2e/cases/workspace-unknown-key` |
-| Member missing on disk fails workspace expansion | `e2e/cases/workspace-member-missing-on-disk` |
+| `cover` fails a workspace whose members cannot be expanded | `tests/e2e/cases/workspace-cover-broken-members` |
+| `cover <dir>` narrows instead of aggregating, like `check <dir>` | `tests/e2e/cases/workspace-cover-narrowed-path`; `cover_under_a_narrowed_path_loads_no_workspace` (`crates/grund-core/src/tests_cover_workspace.rs`) |
+| `[workspace] members` shape rejected at load     | `tests/e2e/cases/workspace-member-absolute-path`; `tests/e2e/cases/workspace-member-parent-segment`; `tests/e2e/cases/workspace-member-windows-drive`; `tests/e2e/cases/workspace-member-windows-path`; `tests/e2e/cases/workspace-member-multi-glob` |
+| Overlapping workspace member roots rejected      | `tests/e2e/cases/workspace-member-overlap` |
+| `[[workspace]]` array-table form rejected        | `tests/e2e/cases/workspace-section-as-array-table` |
+| Unknown key under `[workspace]` rejected         | `tests/e2e/cases/workspace-unknown-key` |
+| Member missing on disk fails workspace expansion | `tests/e2e/cases/workspace-member-missing-on-disk` |
 
 These are the contracts a future change must keep green; if a change cannot
 keep one of them green, the change is breaking the layering — not the test.

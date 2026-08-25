@@ -1,11 +1,13 @@
 # e2e
 
-End-to-end tests for `grund`. Each case is a tiny repository plus golden command results. The Rust integration test in `tests/e2e.rs` discovers every directory under `e2e/cases/` and runs the built `grund` binary.
+End-to-end tests for `grund`. Each case is a tiny repository plus golden command results. The Rust integration test in `crates/grund-cli/tests/e2e.rs` discovers every directory under `tests/e2e/cases/` and runs the built `grund` binary.
+
+This directory is the home of the non-citable `e2e` kind ([§FS-config.3.4.1](../../docs/functional-spec/FS-config.md#341-citable--kinds-that-declare-no-ids), [§FS-config.3.4.4](../../docs/functional-spec/FS-config.md#344-the-default-kinds)): a case is exercised by being run, never cited, so no case carries an ID and nothing under here declares one. `[citations.e2e]` says the home must cite `FS` and should not cite `AR`; grund checks that on this README, the one scanned file here, and the harness checks the same rule per case over `spec.refs`. The fixture repositories under `cases/*/repo/` and `cases/*/expected.repo/` are test inputs, kept out of the host scan by `[scan] exclude`.
 
 ## Case layout
 
 ```
-e2e/cases/<case-name>/
+tests/e2e/cases/<case-name>/
 ├── repo/
 │   └── ... files scanned by grund ...
 ├── spec.refs
@@ -14,7 +16,7 @@ e2e/cases/<case-name>/
 └── expected.stderr
 ```
 
-`spec.refs` is required. Every non-empty line must cite a functional spec ID such as `FS-001-check.3.1`; the harness rejects cases that do not cite the behavior they exercise.
+`spec.refs` is required. Every non-empty line names a declaration by its bare ID, such as `FS-001-check.3.1`, and at least one line must name an `FS` point: the harness rejects a case that does not cite the behavior it exercises. The file is a manifest, not a scanned source — the scanner never reads it, which is why the `must cite FS` rule of `[citations.e2e]` is enforced here by the harness rather than by `grund check`.
 
 ### The `symlinks` manifest
 
@@ -138,10 +140,10 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - config invalid-value failures for `inline_note_layout` and `inline_note_layout_check`, and for a soft cap above the hard cap
 - `inline_note_max_columns` counted in characters, not bytes: at a cap of 40, a 40-character ASCII note and a 40-character accented one both pass though each is over 40 bytes — the `§` marker alone puts the ASCII line there — while a 47-character note is the only one reported
 - config ID-grammar failure for a `slug_pattern` that admits the alias separator `/`
-- the index a folder kind keeps ([§FS-check.4.6](../docs/functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index), [§FS-check.3.17](../docs/functional-spec/FS-check.md#317-index-entry-is-not-a-link)): a declaration the index does not name, a folder with no index file at all, an entry present but bare, `index = false` opting a kind out, `index = "<name>"` selecting another file, the recursive subtree, a stub-and-inline pair collapsing to one entry — which is also the anchorless link to a source home, accepted because "full link" means the link `fmt` writes here — a canonical source link enrolling the inline declaration directly with no stub, and an inline-code mention counting as neither an entry nor a finding
-- the three states in which `check` must **not** demand a link, because `grund fmt --write` would not write one: an unmarked token off strict mode ([§FS-fmt.6.5](../docs/functional-spec/FS-fmt.md#65-interaction-with---marker)), an ID-shaped file name inside a Markdown link destination ([§FS-fmt.2.3](../docs/functional-spec/FS-fmt.md#23-what-is-never-rewritten)), and — closed at config time instead — an `index` naming a file the cross-reference pass never runs on. The link-destination fixture is also why `basic-markdown-duplicate` spells its two homes `login-a.md` / `login-b.md`: an ID-shaped file name in a destination is scanned as a citation off strict mode, which is [grund#131](https://github.com/vjovanov/grund/issues/131) and not this rule's to fix
-- `[[kinds]] index` rejected when it is not a relative path inside `folder`, and the per-prefix default applying to a *declared* `[[kinds]]` block exactly as to the built-in list, so a config written before the key existed does not acquire an obligation on upgrade ([§FS-config.3.4](../docs/functional-spec/FS-config.md#34-kinds--recognized-kinds))
-- `fmt --write` linkifying an index under `[fmt.cross_refs] enabled = false`, and doing it to the index's own entries only — a citation of a foreign ID in the prose beside them stays bare ([§FS-fmt.6.1](../docs/functional-spec/FS-fmt.md#61-scope))
-- an index entry not suppressing the unused-declaration warning: a declaration whose only inbound citation is its own index entry is still reported uncited ([§DF-index-not-an-inbound-citation](../docs/decisions/functional/DF-index-not-an-inbound-citation.md#df-index-not-an-inbound-citation-an-index-entry-is-navigation-not-use))
+- the index a folder kind keeps ([§FS-check.4.6](../../docs/functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index), [§FS-check.3.17](../../docs/functional-spec/FS-check.md#317-index-entry-is-not-a-link)): a declaration the index does not name, a folder with no index file at all, an entry present but bare, `index = false` opting a kind out, `index = "<name>"` selecting another file, the recursive subtree, a stub-and-inline pair collapsing to one entry — which is also the anchorless link to a source home, accepted because "full link" means the link `fmt` writes here — a canonical source link enrolling the inline declaration directly with no stub, and an inline-code mention counting as neither an entry nor a finding
+- the three states in which `check` must **not** demand a link, because `grund fmt --write` would not write one: an unmarked token off strict mode ([§FS-fmt.6.5](../../docs/functional-spec/FS-fmt.md#65-interaction-with---marker)), an ID-shaped file name inside a Markdown link destination ([§FS-fmt.2.3](../../docs/functional-spec/FS-fmt.md#23-what-is-never-rewritten)), and — closed at config time instead — an `index` naming a file the cross-reference pass never runs on. The link-destination fixture is also why `basic-markdown-duplicate` spells its two homes `login-a.md` / `login-b.md`: an ID-shaped file name in a destination is scanned as a citation off strict mode, which is [grund#131](https://github.com/vjovanov/grund/issues/131) and not this rule's to fix
+- `[[kinds]] index` rejected when it is not a relative path inside `folder`, and the per-prefix default applying to a *declared* `[[kinds]]` block exactly as to the built-in list, so a config written before the key existed does not acquire an obligation on upgrade ([§FS-config.3.4](../../docs/functional-spec/FS-config.md#34-kinds--recognized-kinds))
+- `fmt --write` linkifying an index under `[fmt.cross_refs] enabled = false`, and doing it to the index's own entries only — a citation of a foreign ID in the prose beside them stays bare ([§FS-fmt.6.1](../../docs/functional-spec/FS-fmt.md#61-scope))
+- an index entry not suppressing the unused-declaration warning: a declaration whose only inbound citation is its own index entry is still reported uncited ([§DF-index-not-an-inbound-citation](../../docs/decisions/functional/DF-index-not-an-inbound-citation.md#df-index-not-an-inbound-citation-an-index-entry-is-navigation-not-use))
 
 Warning coverage is partial. The inline-citation-style family pins its warning channel here — the soft-cap overrun and the `inline_note_layout_check = "warn"` case both assert the warning text and the exit code it must not move. Other warning tiers are not covered yet; they are lower priority than the error, retrieval, formatting, and configuration contracts.

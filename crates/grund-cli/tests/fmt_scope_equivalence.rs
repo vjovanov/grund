@@ -6,7 +6,7 @@
 //! that produced them met an error, so it silently rewrote a tree the
 //! explicit-path form correctly refused — a well-formed citation of a real
 //! declaration that no later `check` run could tell apart from one the
-//! author wrote. `symlink-fmt-write-abort` (`e2e/cases/`) pins the
+//! author wrote. `symlink-fmt-write-abort` (`tests/e2e/cases/`) pins the
 //! explicit-path refusal this suite compares the no-path form against.
 //!
 //! Unix only: the fixture needs a real broken symlink, and everything below
