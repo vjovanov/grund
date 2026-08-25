@@ -240,4 +240,94 @@ mod tests_kind_index_enrollment {
             "the ordinary citation still counts as use"
         );
     }
+
+    /// §FS-config.3.4: several kinds may deliberately share one folder and
+    /// index. Enrollment is selected by both index path and citation kind, so a
+    /// later configured kind cannot hide an earlier one's external entry.
+    #[test]
+    fn every_kind_sharing_an_index_can_enroll() {
+        let root = test_root("every_kind_sharing_an_index_can_enroll");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n\
+             [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/design\"\n\n\
+             [[kinds]]\nprefix = \"DF\"\nfolder = \"docs/design\"\n\n\
+             [scan]\ninclude = [\"docs\", \"src\"]\n",
+        );
+        write(
+            &root.join("src/bus.rs"),
+            "/// AR-001-bus: The in-process event bus\nfn bus() {}\n",
+        );
+        write(
+            &root.join("docs/design/README.md"),
+            "# Design\n\n- [§AR-001-bus](../../src/bus.rs)\n",
+        );
+
+        let run = check_run(&root, false);
+        assert!(
+            codes(&run).contains(&"unused".to_string()),
+            "the earlier kind's enrollment is navigation: {:?}",
+            findings(&run)
+        );
+        let (_, _, entries) = scanned_index(&root);
+        assert!(
+            entries
+                .entries_in(&root.join("docs/design/README.md"))
+                .is_some_and(|owed| owed.contains(&bus_id())),
+            "the shared index owns the earlier kind's external ID"
+        );
+    }
+
+    /// §DF-index-entry-form.2.7: enrollment requires the persisted whole ID.
+    /// A uniquely resolved shorthand still remains authoring sugar and its link
+    /// is an ordinary inbound reference until `fmt` expands the label.
+    #[test]
+    fn a_shorthand_link_does_not_enroll() {
+        let root = external_index_repo(
+            "a_shorthand_link_does_not_enroll",
+            "# Architecture\n\n- [§AR-001](../../src/bus.rs)\n",
+        );
+
+        let run = check_run(&root, false);
+        assert!(
+            !codes(&run).contains(&"unused".to_string()),
+            "the shorthand remains ordinary use: {:?}",
+            findings(&run)
+        );
+        let (_, findings, entries) = scanned_index(&root);
+        assert!(findings.citations[0].shorthand);
+        assert!(
+            entries
+                .entries_in(&root.join("docs/architecture/README.md"))
+                .is_none(),
+            "shorthand cannot create external membership"
+        );
+        assert!(!entries.is_index_entry(&findings.citations[0]));
+    }
+
+    /// §FS-check.4.6: a citation nested in another Markdown link's destination
+    /// is in a never-rewrite zone, not an entry, even when its inner wrapper and
+    /// destination otherwise spell the canonical enrollment form.
+    #[test]
+    fn a_link_nested_in_a_markdown_destination_does_not_enroll() {
+        let root = external_index_repo(
+            "a_link_nested_in_a_markdown_destination_does_not_enroll",
+            "# Architecture\n\n[docs]([§AR-001-bus](../../src/bus.rs))\n",
+        );
+
+        let run = check_run(&root, false);
+        assert!(
+            !codes(&run).contains(&"unused".to_string()),
+            "the nested citation remains ordinary use: {:?}",
+            findings(&run)
+        );
+        let (_, findings, entries) = scanned_index(&root);
+        assert!(
+            entries
+                .entries_in(&root.join("docs/architecture/README.md"))
+                .is_none(),
+            "a Markdown destination cannot create external membership"
+        );
+        assert!(!entries.is_index_entry(&findings.citations[0]));
+    }
 }
