@@ -4,5 +4,5 @@ grund_config_version = 1
 strict = false
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "docs/functional-spec"

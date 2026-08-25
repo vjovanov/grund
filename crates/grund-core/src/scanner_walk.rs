@@ -127,7 +127,7 @@ fn walk_scannable_files_reporting(
             e2e_cases_root: config
                 .kinds
                 .iter()
-                .find(|kind| kind.prefix == "E2E")
+                .find(|kind| kind.kind == "E2E" && kind.citable)
                 .and_then(|kind| kind.folder.as_deref())
                 .map(|folder| config.root.join(folder)),
             physical_root: physical_root.clone(),
@@ -548,9 +548,36 @@ fn root_scope_roots(config: &Config, full: bool) -> Vec<PathBuf> {
         .iter()
         .flatten()
         .map(|entry| config.root.join(entry).components().collect::<PathBuf>());
+    // §FS-config.3.5: every configured kind home is walked whether or not
+    // `include` names it. A home is the repository saying "declarations and
+    // citations live here"; leaving it out of the scan made its citations
+    // *invisible* rather than dangling — the trap a non-citable kind, whose
+    // whole content is "this directory matters", would otherwise fall into on
+    // its first line of config. `include` keeps its job: the extra roots.
+    //
+    // Ordered after `include` so the first-seen spelling of a file reached two
+    // ways is still the one `include` gives it, which is what keeps the dedup
+    // and `--full`'s additivity unchanged.
+    let homes = kind_home_roots(config);
     match (full, config.include.is_some()) {
-        (true, _) => include.chain(std::iter::once(config.root.clone())).collect(),
-        (false, true) => include.collect(),
+        (true, _) => include
+            .chain(homes)
+            .chain(std::iter::once(config.root.clone()))
+            .collect(),
+        (false, true) => include.chain(homes).collect(),
+        // No `include` key: the whole root is walked, and every home is under
+        // it, so there is nothing left for the homes to add.
         (false, false) => vec![config.root.clone()],
     }
+}
+
+/// Every configured `[[kinds]]` home as a walk root (§FS-config.3.5) — `file`
+/// homes included, since a single-file kind's document is as much a home as a
+/// folder is. A home that does not exist walks as nothing, so a fresh repository
+/// whose default homes are not scaffolded yet stays silent.
+fn kind_home_roots(config: &Config) -> impl Iterator<Item = PathBuf> + '_ {
+    config.kinds.iter().filter_map(|kind| {
+        let home = kind.file.as_deref().or(kind.folder.as_deref())?;
+        Some(config.root.join(home).components().collect::<PathBuf>())
+    })
 }

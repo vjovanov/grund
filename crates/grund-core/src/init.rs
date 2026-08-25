@@ -526,7 +526,7 @@ fn render_next_block_for_home(
             InitFsHome::File { path, .. } | InitFsHome::Folder { path } => path,
         };
         output.push_str(&format!(
-            "  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan\n"
+            "  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and tests/ (or create them yourself) — until then `grund check` has nothing to scan\n"
         ));
         output.push_str("  2. run `grund check` — a scaffolded tree is clean\n");
         match fs_home {
@@ -566,10 +566,10 @@ fn verb_updated(dry_run: bool) -> &'static str {
 /// The `--docs` scaffold: the default requirements/spec home, canonical `docs/`
 /// files (`grund.md`, `goals.md`, `roadmap.md`, `changelog.md`, and an index
 /// README for each folder kind that has one — architecture and the two decision
-/// folders), plus an empty `e2e/` with a README — the file list of §FS-init.2.1,
-/// each a minimal starter that leaves `grund check` clean.
+/// folders), plus the two test homes — the file list of §FS-init.2.1, each a
+/// minimal starter that leaves `grund check` clean.
 fn init_fs_home(config: &Config) -> InitFsHome {
-    if let Some(kind) = config.kinds.iter().find(|kind| kind.prefix == "FS") {
+    if let Some(kind) = config.kinds.iter().find(|kind| kind.kind == "FS") {
         if let Some(file) = &kind.file {
             let (heading_name, heading_marker) = if file == "docs/grund.md" {
                 ("H1", "#")
@@ -635,12 +635,17 @@ fn docs_scaffold(fs_home: &InitFsHome) -> Vec<(String, String)> {
             "docs/decisions/functional/README.md",
             canonical_template_text(DF_README_TEMPLATE),
         ),
+        // §FS-init.2.1: the two test homes the generated config names
+        // (§FS-config.3.4). Both are non-citable kinds, so neither gets an index
+        // README — `tests/e2e/README.md` is the layout note, and
+        // `tests/integration` gets the placeholder that makes an empty directory
+        // survive `git add`.
         (
-            "e2e/README.md",
+            "tests/e2e/README.md",
             render_e2e_readme(fs_home),
         ),
         (
-            "e2e/cases/.gitkeep",
+            "tests/integration/.gitkeep",
             canonical_template_text(GITKEEP_TEMPLATE),
         ),
     ]

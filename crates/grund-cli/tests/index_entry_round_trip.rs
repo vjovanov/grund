@@ -53,7 +53,7 @@ fn build_fixture(name: &str, strict: bool, index_body: &str) -> PathBuf {
         format!(
             "grund_config_version = 1\nproject_name = \"round-trip\"\n\n\
              [reference]\nmarker = \"§\"\nstrict = {strict}\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\n\n\
              [scan]\ninclude = [\"docs\"]\n\n\
              [fmt.cross_refs]\nenabled = true\nanchor_format = \"github\"\n"
         ),

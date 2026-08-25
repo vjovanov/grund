@@ -13,7 +13,7 @@ mod tests_managed_block_drift {
         let root = test_root("citation_directions_drift_is_reported");
         write(
             &root.join(".agents/grund.toml"),
-            "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
+            "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
 
@@ -29,7 +29,7 @@ mod tests_managed_block_drift {
         );
 
         // Tamper the rendered directions → drift finding.
-        let stale = fresh.replace("**E2E** must cite FS", "**E2E** should cite GOAL");
+        let stale = fresh.replace("**tests/e2e/** must cite FS", "**tests/e2e/** should cite GOAL");
         write(&root.join("AGENTS.md"), &format!("# demo\n\n{stale}"));
         let report = check_findings(&findings, &config);
         assert!(
@@ -116,11 +116,11 @@ mod tests_managed_block_drift {
         let root = test_root("citation_directions_drift_compares_managed_block_only");
         write(
             &root.join(".agents/grund.toml"),
-            "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
+            "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
         let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
-        let stale = fresh.replace("**E2E** must cite FS", "**E2E** should cite GOAL");
+        let stale = fresh.replace("**tests/e2e/** must cite FS", "**tests/e2e/** should cite GOAL");
         let expected = citation_directions_section(&config);
         write(
             &root.join("AGENTS.md"),
@@ -145,7 +145,7 @@ mod tests_managed_block_drift {
         let root = test_root("citation_directions_drift_rejects_extra_managed_section_bytes");
         write(
             &root.join(".agents/grund.toml"),
-            "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
+            "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
         let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
@@ -175,7 +175,7 @@ mod tests_managed_block_drift {
         let root = test_root("citation_directions_drift_tolerates_crlf_line_endings");
         write(
             &root.join(".agents/grund.toml"),
-            "[citations]\n[citations.E2E]\nmust = [\"FS\"]\n",
+            "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
         let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);

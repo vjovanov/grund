@@ -130,7 +130,7 @@ pub struct Citation {
     pub inline_site: Option<InlineCitationSite>,
     /// The resolved *citing* kind for this site (§AR-scanner.2.4): the kind of
     /// the enclosing declaration, else the file's unique kind home, else the
-    /// reserved lowercase `code` pseudo-kind. Drives the citation-direction
+    /// reserved `code` pseudo-kind. Drives the citation-direction
     /// checks (§FS-config.3.9, §AR-checker.2.9, §AR-checker.2.10).
     pub source_kind: String,
     /// The nearest preceding declaration whose body range contains this site
@@ -226,14 +226,17 @@ pub struct ShowSection {
     pub depth: usize,
 }
 
-/// One `[[kinds]]` entry: prefix plus the folder its declarations live in and the
-/// human title `grund id` prints (§FS-config.3.4). When `file` is set, every
-/// declaration of this kind must live in that exact file — a *single-file kind*,
-/// used by `GRUND`/`GOAL`/`RM` whose IDs all live in one document
+/// One `[[kinds]]` entry: the kind name plus the folder its declarations live in
+/// and the human title `grund id` prints (§FS-config.3.4). When `file` is set,
+/// every declaration of this kind must live in that exact file — a *single-file
+/// kind*, used by `GRUND`/`GOAL`/`RM` whose IDs all live in one document
 /// (`docs/grund.md`, `docs/goals.md`, `docs/roadmap.md`).
 #[derive(Clone)]
 pub struct KindConfig {
-    pub prefix: String,
+    /// The `kind` key (§FS-config.3.4) — the name `[citations.<kind>]` keys on,
+    /// and, for a citable kind, the literal prefix of every ID in it. Spelled
+    /// `prefix` in configs written before that key was renamed.
+    pub kind: String,
     pub folder: Option<String>,
     pub file: Option<String>,
     pub title: Option<String>,
@@ -241,6 +244,11 @@ pub struct KindConfig {
     /// every declaration in it (§FS-check.4.6). Absent means the `README.md`
     /// default; `false` opts the kind out.
     pub index: KindIndex,
+    /// The `citable` key (§FS-config.3.4): whether this kind declares IDs that
+    /// can be cited. `false` is a kind that is a *place* and nothing more —
+    /// its home is scanned and its citations are directed, but it admits no
+    /// declaration and contributes no prefix to the ID grammar.
+    pub citable: bool,
 }
 
 /// The three states of `[[kinds]] index` (§FS-config.3.4): unset (the
@@ -258,9 +266,13 @@ const DEFAULT_KIND_INDEX: &str = "README.md";
 impl KindConfig {
     /// The `index` value `grund config show` prints for this kind
     /// (§FS-config.4.2): the TOML literal — `false`, or a quoted file name — and
-    /// `None` for a kind with no folder, which has no index to speak of.
+    /// `None` for a kind with no folder or no IDs, neither of which has an index
+    /// to speak of.
     pub fn index_toml_value(&self) -> Option<String> {
         self.folder.as_ref()?;
+        if !self.citable {
+            return None;
+        }
         Some(match &self.index {
             KindIndex::Disabled => "false".to_string(),
             KindIndex::Default => format!("\"{DEFAULT_KIND_INDEX}\""),
@@ -268,11 +280,26 @@ impl KindConfig {
         })
     }
 
+    /// How this kind is named where a name would be useless (§FS-init.2.3.4.4,
+    /// §FS-check.3.11): by its place, with a trailing `/` on a folder so it
+    /// reads as the directory it is. `None` for a kind with no home. Used for
+    /// non-citable kinds, whose name exists only to key `[citations.*]` on and
+    /// is nothing a reader can go and look at.
+    pub fn place_label(&self) -> Option<String> {
+        if let Some(folder) = &self.folder {
+            return Some(format!("{folder}/"));
+        }
+        self.file.clone()
+    }
+
     /// This kind's index file, relative to the config root — `None` for a kind
     /// with no `folder` or with `index = false` (§FS-config.3.4). Joined onto
     /// `folder`, because the key names a file *in* the folder it indexes, which
     /// is what `kind_index_name_error` holds the value to.
     fn index_path(&self) -> Option<PathBuf> {
+        if !self.citable {
+            return None;
+        }
         let folder = self.folder.as_deref()?;
         let name = match &self.index {
             KindIndex::Disabled => return None,
@@ -374,6 +401,10 @@ pub struct Config {
     /// (§FS-check.4.3); read by nothing else. Same report-path base as
     /// [`Config::config_file`].
     pub redundant_config_file: Option<PathBuf>,
+    /// Where the deprecated `[[kinds]] prefix` spelling was read, if it was
+    /// (§FS-config.3.4, §FS-config.4.1). The first entry that uses it, so the
+    /// run carries one deprecation warning per config rather than one per row.
+    pub deprecated_kind_prefix: Option<ConfigLocation>,
     pub project_name: Option<String>,
     pub project_name_source: Option<ConfigLocation>,
     /// Optional one-line description rendered beside the project's alias in
@@ -469,10 +500,25 @@ pub struct Config {
     pub grammar: Grammar,
 }
 
-const DEFAULT_KINDS: &[&str] = &["GRUND", "GOAL", "FS", "AR", "DF", "DA", "E2E", "RM"];
-/// The reserved lowercase citing kind for a citation site outside every
-/// configured kind home (§AR-scanner.2.4, §FS-config.3.9.2). Lowercase so it can
-/// never collide with a real `[[kinds]]` prefix, which must be uppercase-shaped.
+/// The canonical kind set (§FS-config.3.4). `e2e` and `integration` are
+/// *non-citable*: a test proves a claim someone else wrote, so it cites and is
+/// never cited, and lowercase names them as places rather than ID prefixes.
+const DEFAULT_KINDS: &[&str] = &[
+    "GRUND",
+    "GOAL",
+    "FS",
+    "AR",
+    "DF",
+    "DA",
+    "e2e",
+    "integration",
+    "RM",
+];
+/// The reserved citing kind for a citation site outside every configured kind
+/// home (§AR-scanner.2.4, §FS-config.3.9.2). It is the non-citable, homeless
+/// kind — the complement of every configured home — and the one name a
+/// `[[kinds]]` entry may not take, which keeps its non-collision with a
+/// configured kind an invariant rather than an assumption.
 const CODE_SOURCE_KIND: &str = "code";
 const DEFAULT_ID_FORMAT: &str = "{kind}-{number}-{slug}";
 const DEFAULT_SECTION_SEPARATOR: &str = ".";
@@ -486,12 +532,13 @@ impl Config {
     fn default_for(root: PathBuf) -> Self {
         let kinds: Vec<KindConfig> = DEFAULT_KINDS
             .iter()
-            .map(|prefix| KindConfig {
-                prefix: prefix.to_string(),
-                folder: default_kind_folder(prefix).map(str::to_string),
-                file: default_kind_file(prefix).map(str::to_string),
-                title: default_kind_title(prefix).map(str::to_string),
-                index: default_kind_index(prefix),
+            .map(|kind| KindConfig {
+                kind: kind.to_string(),
+                folder: default_kind_folder(kind).map(str::to_string),
+                file: default_kind_file(kind).map(str::to_string),
+                title: default_kind_title(kind).map(str::to_string),
+                index: default_kind_index(kind),
+                citable: default_kind_citable(kind),
             })
             .collect();
         let kind_prefixes = kind_prefixes(&kinds);
@@ -512,6 +559,7 @@ impl Config {
             root,
             config_file: None,
             redundant_config_file: None,
+            deprecated_kind_prefix: None,
             project_name: None,
             project_name_source: None,
             project_description: None,
@@ -585,7 +633,7 @@ impl Config {
     /// the old implicit FS folder until they opt into `file = "requirements.md"`.
     fn default_for_existing_config(root: PathBuf) -> Self {
         let mut config = Self::default_for(root);
-        if let Some(fs_kind) = config.kinds.iter_mut().find(|kind| kind.prefix == "FS") {
+        if let Some(fs_kind) = config.kinds.iter_mut().find(|kind| kind.kind == "FS") {
             fs_kind.folder = Some("docs/functional-spec".to_string());
             fs_kind.file = None;
         }
@@ -609,29 +657,78 @@ impl Config {
     }
 }
 
+/// The ID prefixes a config recognizes (§FS-config.3.4): the name of every
+/// *citable* kind, in `[[kinds]]` order. A non-citable kind declares no IDs, so
+/// its name never tokenizes and never enters the grammar, the `KIND ∈ {…}`
+/// vocabulary, or the kind lists `grund id` and `grund list --kind` accept.
 fn kind_prefixes(kinds: &[KindConfig]) -> Vec<String> {
-    kinds.iter().map(|kind| kind.prefix.clone()).collect()
+    kinds
+        .iter()
+        .filter(|kind| kind.citable)
+        .map(|kind| kind.kind.clone())
+        .collect()
+}
+
+/// Why a configured kind cannot be selected with `--kind` or minted from
+/// (§FS-list.1, §FS-id.1). A non-citable kind is not a typo — it is a real row
+/// in `[[kinds]]` that will never have a declaration — so the message says that
+/// rather than calling it unknown, and names the home, which is the thing the
+/// caller can actually go and open.
+fn non_citable_kind_error(kind: &KindConfig) -> String {
+    match kind.place_label() {
+        Some(place) => format!(
+            "kind `{}` declares no IDs — {place} is not a citable home",
+            kind.kind
+        ),
+        None => format!("kind `{}` declares no IDs", kind.kind),
+    }
+}
+
+/// Every citing kind `[citations.<kind>]` may name (§FS-config.3.9): each
+/// configured kind, citable or not, plus the reserved `code` pseudo-kind. `code`
+/// is the non-citable, homeless kind — reserved rather than user-writable,
+/// because it is the *complement* of every configured home and naming a home for
+/// it would leave that complement nameless again (§FS-config.3.9.2).
+fn citing_kind_names(kinds: &[KindConfig]) -> Vec<&str> {
+    kinds
+        .iter()
+        .map(|kind| kind.kind.as_str())
+        .chain(std::iter::once(CODE_SOURCE_KIND))
+        .collect()
 }
 
 /// §FS-config.3.4: `E2E` is the canonical `index = false` kind — its home holds
 /// case directories rather than a navigable document set, and the `e2e/README.md`
 /// one level up describes the case layout in English instead of naming `E2E-` IDs.
 /// Every other default folder kind takes the `README.md` default.
-fn default_kind_index(prefix: &str) -> KindIndex {
-    match prefix {
+///
+/// `E2E` is no longer one of the [`DEFAULT_KINDS`], but the default stays keyed
+/// on the name: it exists for the configs that declare `E2E` themselves, which
+/// is every config `grund init` wrote before the kind left the default set.
+fn default_kind_index(kind: &str) -> KindIndex {
+    match kind {
         "E2E" => KindIndex::Disabled,
         _ => KindIndex::Default,
     }
 }
 
+/// Whether a built-in kind declares IDs (§FS-config.3.4). The two test kinds do
+/// not: a test is evidence for a claim declared elsewhere, so it has a home and
+/// citation directions but no ID namespace.
+fn default_kind_citable(kind: &str) -> bool {
+    !matches!(kind, "e2e" | "integration")
+}
+
 /// Default home folder for each built-in kind — the directory `grund id` proposes
 /// a path under and `grund check` expects the declaration to live in (§FS-config.3.4).
-fn default_kind_folder(prefix: &str) -> Option<&'static str> {
-    match prefix {
+fn default_kind_folder(kind: &str) -> Option<&'static str> {
+    match kind {
         "AR" => Some("docs/architecture"),
         "DA" => Some("docs/decisions/architectural"),
         "DF" => Some("docs/decisions/functional"),
         "E2E" => Some("e2e/cases"),
+        "e2e" => Some("tests/e2e"),
+        "integration" => Some("tests/integration"),
         // GRUND, GOAL, RM are single-file kinds — see `default_kind_file`. A
         // kind can always be broken up later by swapping `file = "…"` for
         // `folder = "…"` and moving the document into the folder.
@@ -643,8 +740,8 @@ fn default_kind_folder(prefix: &str) -> Option<&'static str> {
 /// document — `GRUND` in `docs/grund.md`, `GOAL` in `docs/goals.md`, `FS` in
 /// `requirements.md`, and `RM` in `docs/roadmap.md` (§FS-config.3.4). Other
 /// built-in kinds have no `file` (each declaration is its own file).
-fn default_kind_file(prefix: &str) -> Option<&'static str> {
-    match prefix {
+fn default_kind_file(kind: &str) -> Option<&'static str> {
+    match kind {
         "GRUND" => Some("docs/grund.md"),
         "GOAL" => Some("docs/goals.md"),
         "FS" => Some("requirements.md"),
@@ -655,8 +752,8 @@ fn default_kind_file(prefix: &str) -> Option<&'static str> {
 
 /// Default human title for each built-in kind, printed by `grund id` (§FS-config.3.4,
 /// §FS-id.2).
-fn default_kind_title(prefix: &str) -> Option<&'static str> {
-    match prefix {
+fn default_kind_title(kind: &str) -> Option<&'static str> {
+    match kind {
         "GRUND" => Some("Why: project motivation"),
         "GOAL" => Some("Where: project direction and outcomes"),
         "FS" => Some("What: behavior, requirements, and constraints"),
@@ -664,6 +761,8 @@ fn default_kind_title(prefix: &str) -> Option<&'static str> {
         "DA" => Some("Architecture decisions and tradeoffs"),
         "DF" => Some("Product behavior decisions and tradeoffs"),
         "E2E" => Some("Executable user scenarios"),
+        "e2e" => Some("User scenarios: black-box proof of the spec"),
+        "integration" => Some("Integration tests: proof that the parts fit as designed"),
         "RM" => Some("Planned milestones and sequencing"),
         _ => None,
     }

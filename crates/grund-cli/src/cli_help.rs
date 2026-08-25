@@ -312,7 +312,7 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!();
             println!(
-                "KIND is one of the configured `[[kinds]]` prefixes — defaults G, FS, AR, DF, DA, E2E, RM;"
+                "KIND is one of the configured citable `[[kinds]]` — defaults GRUND, GOAL, FS, AR, DF, DA, RM;"
             );
             println!(
                 "`grund config show` lists this repo's. The title is slugified deterministically; the number"

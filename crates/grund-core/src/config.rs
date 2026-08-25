@@ -9,8 +9,8 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
     let path = report_path;
     let mut section = String::new();
     let mut grammar_dirty = false;
-    let mut parsed_kinds: Vec<KindConfig> = Vec::new();
-    let mut current_kind: Option<KindConfig> = None;
+    let mut parsed_kinds: Vec<ParsedKind> = Vec::new();
+    let mut current_kind: Option<ParsedKind> = None;
     let mut kinds_block_seen = false;
     let mut inline_note_suggested_lines_source = None;
     let mut inline_note_max_lines_source = None;
@@ -51,16 +51,10 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                         )?;
                     }
                     // Flush any open kind entry, then start a new one.
-                    if let Some(prefix) = current_kind.take() {
-                        parsed_kinds.push(prefix);
+                    if let Some(kind) = current_kind.take() {
+                        parsed_kinds.push(kind);
                     }
-                    current_kind = Some(KindConfig {
-                        prefix: String::new(),
-                        folder: None,
-                        file: None,
-                        title: None,
-                        index: KindIndex::Default,
-                    });
+                    current_kind = Some(ParsedKind::new(line_no));
                     kinds_block_seen = true;
                 }
                 // §FS-config.3.9: `[citations]` and per-kind `[citations.<KIND>]`
@@ -309,8 +303,8 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             _ => bail_config(path, line_no, format!("unknown config key `{key}`"))?,
         }
     }
-    if let Some(prefix) = current_kind.take() {
-        parsed_kinds.push(prefix);
+    if let Some(kind) = current_kind.take() {
+        parsed_kinds.push(kind);
     }
     if config.strict && config.marker.is_empty() {
         return Err(anyhow!(
@@ -626,13 +620,22 @@ fn parse_citation_target(path: &Path, line_no: usize, token: &str) -> Result<Cit
 }
 
 /// Validate the parsed `[citations]` rules against the finalized kind set
-/// (§FS-config.3.9.5): every citing kind is a configured prefix or `code`, every
-/// target names a configured prefix, and no two targets of the same cited kind
-/// whose namespace matchers overlap sit at different levels.
+/// (§FS-config.3.9.5): every citing kind is a configured kind or `code`, every
+/// target names a *citable* configured kind, and no two targets of the same
+/// cited kind whose namespace matchers overlap sit at different levels.
 fn validate_citation_rules(path: &Path, config: &Config) -> Result<()> {
-    let known: BTreeSet<&str> = config.kinds.iter().map(|k| k.prefix.as_str()).collect();
+    // The citing side is any name in the table plus `code` — a non-citable kind
+    // cites like any other place (§FS-config.3.9). The cited side is narrower:
+    // only a citable kind has IDs to be the target of a citation.
+    let citing_known: BTreeSet<&str> = citing_kind_names(&config.kinds).into_iter().collect();
+    let known: BTreeSet<&str> = config
+        .kinds
+        .iter()
+        .filter(|k| k.citable)
+        .map(|k| k.kind.as_str())
+        .collect();
     for (citing, rules) in &config.citations.per_kind {
-        if citing != CODE_SOURCE_KIND && !known.contains(citing.as_str()) {
+        if !citing_known.contains(citing.as_str()) {
             return Err(anyhow!(
                 "{}: [citations.{citing}] names an unknown kind `{citing}`",
                 format_path(path)
@@ -652,8 +655,16 @@ fn validate_citation_rules(path: &Path, config: &Config) -> Result<()> {
             for disjunction in disjunctions {
                 for target in &disjunction.targets {
                     if !known.contains(target.kind.as_str()) {
+                        // A non-citable kind is a name the table knows and a
+                        // citation can never carry, so say which of the two it
+                        // is rather than calling a configured kind unknown.
+                        let why = if citing_known.contains(target.kind.as_str()) {
+                            "a non-citable target kind"
+                        } else {
+                            "an unknown target kind"
+                        };
                         return Err(anyhow!(
-                            "{}: [citations.{citing}] {level_name} names an unknown target kind `{}`",
+                            "{}: [citations.{citing}] {level_name} names {why} `{}`",
                             format_path(path),
                             target.kind
                         ));

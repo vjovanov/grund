@@ -1,6 +1,6 @@
 grund_config_version = 1
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 file = "requirements.md"
 index = "README.md"

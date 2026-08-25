@@ -379,11 +379,18 @@ pub enum IdProposalOutcome {
 /// parsing CLI flags or printing the text/JSON report (§RM-core-cli-split).
 pub fn propose_id(kind: &str, title: &str, opts: IdOpts) -> Result<IdProposalOutcome> {
     let config = resolve_workspace_config(&opts.path)?;
-    let Some(kind_config) = config
+    let configured = config
         .kinds
         .iter()
-        .find(|candidate| candidate.prefix == kind)
-    else {
+        .find(|candidate| candidate.kind == kind);
+    let Some(kind_config) = configured.filter(|candidate| candidate.citable) else {
+        // §FS-id.1: a non-citable kind is configured and still has nothing to
+        // mint, so it is rejected with its reason rather than as a typo.
+        if let Some(candidate) = configured {
+            return Ok(IdProposalOutcome::Rejected {
+                message: non_citable_kind_error(candidate),
+            });
+        }
         return Ok(IdProposalOutcome::UnknownKind {
             kind: kind.to_string(),
             known: kind_prefixes(&config.kinds),
@@ -463,8 +470,9 @@ pub fn validate_config(path: &Path) -> Result<Config> {
 /// `grund check` does without depending on the checker's report type.
 pub fn config_warnings(config: &Config) -> Vec<String> {
     redundant_config_warning(config)
-        .map(|diagnostic| diagnostic.message)
         .into_iter()
+        .chain(deprecated_kind_prefix_warning(config))
+        .map(|diagnostic| diagnostic.message)
         .collect()
 }
 
@@ -1450,33 +1458,36 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
         }
     }
     for kind in &opts.kind_filter {
-        let exists = context
+        // §FS-list.1, as in the CLI frontend: a configured but non-citable kind
+        // is refused with its reason rather than selected into an empty list.
+        let matched = context
             .projects
             .iter()
             .filter(|project| {
                 opts.project_filter.is_empty() || opts.project_filter.contains(&project.alias)
             })
-            .any(|project| {
+            .find_map(|project| {
                 project
                     .config
                     .kinds
                     .iter()
-                    .any(|candidate| &candidate.prefix == kind)
+                    .find(|candidate| &candidate.kind == kind)
             });
-        if !exists {
+        if !matches!(matched, Some(candidate) if candidate.citable) {
+            let headline = match matched {
+                Some(candidate) => non_citable_kind_error(candidate),
+                None => format!("unknown kind `{kind}`"),
+            };
             let mut known: Vec<String> = Vec::new();
             let mut seen: BTreeSet<String> = BTreeSet::new();
             for project in &context.projects {
                 for k in &project.config.kinds {
-                    if seen.insert(k.prefix.clone()) {
-                        known.push(k.prefix.clone());
+                    if k.citable && seen.insert(k.kind.clone()) {
+                        known.push(k.kind.clone());
                     }
                 }
             }
-            return Err(anyhow!(
-                "unknown kind `{kind}`\nknown kinds: {}",
-                known.join(", ")
-            ));
+            return Err(anyhow!("{headline}\nknown kinds: {}", known.join(", ")));
         }
     }
 
@@ -1590,7 +1601,7 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
             }
             for kind in &project.config.kinds {
                 let count = counts
-                    .get(&(project.alias.clone(), kind.prefix.clone()))
+                    .get(&(project.alias.clone(), kind.kind.clone()))
                     .copied()
                     .unwrap_or(0);
                 if count == 0 {
@@ -1598,7 +1609,7 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
                 }
                 summaries.push(ListSummary {
                     project: Some(project.alias.clone()),
-                    kind: kind.prefix.clone(),
+                    kind: kind.kind.clone(),
                     title: kind.title.clone().unwrap_or_else(|| "Declaration".to_string()),
                     home: list_summary_home(kind),
                     count,
@@ -1611,13 +1622,13 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
             *counts.entry(&entry.id.kind).or_insert(0) += 1;
         }
         for kind in &render_config.kinds {
-            let count = counts.get(kind.prefix.as_str()).copied().unwrap_or(0);
+            let count = counts.get(kind.kind.as_str()).copied().unwrap_or(0);
             if count == 0 {
                 continue;
             }
             summaries.push(ListSummary {
                 project: None,
-                kind: kind.prefix.clone(),
+                kind: kind.kind.clone(),
                 title: kind.title.clone().unwrap_or_else(|| "Declaration".to_string()),
                 home: list_summary_home(kind),
                 count,

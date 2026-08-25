@@ -206,7 +206,7 @@ fn citation_directions_section(config: &Config) -> String {
         lines.push(default);
     }
     // `[[kinds]]` order, then the `code` pseudo-kind last (§FS-init.2.3.5).
-    let mut kinds: Vec<String> = config.kinds.iter().map(|k| k.prefix.clone()).collect();
+    let mut kinds: Vec<String> = config.kinds.iter().map(|k| k.kind.clone()).collect();
     if config.citations.per_kind.contains_key(CODE_SOURCE_KIND) {
         kinds.push(CODE_SOURCE_KIND.to_string());
     }
@@ -217,10 +217,13 @@ fn citation_directions_section(config: &Config) -> String {
         let Some(clauses) = citation_direction_clauses(rules) else {
             continue;
         };
+        // §FS-init.2.3.5: a non-citable kind is named by its place here too, so
+        // the row reads as the instruction it is — "files in this directory
+        // cite X" — rather than naming a kind an agent can never write.
         let label = if kind == CODE_SOURCE_KIND {
             "**code** (any file outside a kind home)".to_string()
         } else {
-            format!("**{kind}**")
+            format!("**{}**", citing_side_label(config, kind))
         };
         lines.push(format!("- {label} {clauses}."));
     }
@@ -387,22 +390,32 @@ fn citation_rule_targets(disjunctions: &[CitationDisjunction]) -> String {
         .join(" and ")
 }
 
+/// The Project map rows (§FS-init.2.3.4.4): one per configured kind, linking
+/// its home. A **citable** kind is named by its kind name — the prefix an agent
+/// will type in a citation. A **non-citable** kind is named by its *place*: it
+/// has no ID namespace, so its name is a config handle and the only useful thing
+/// to show an agent is the directory to go and read.
 fn declaration_map(config: &Config) -> String {
     let mut lines = Vec::new();
     for kind in &config.kinds {
-        let prefix = markdown_link_label(&kind.prefix);
         let title = kind.title.as_deref().unwrap_or("Declaration");
-        if let Some(home) = kind.file.as_deref().or(kind.folder.as_deref()) {
-            lines.push(format!(
-                "- [{prefix}]({}): {title}",
-                markdown_link_destination(home)
-            ));
-        } else {
+        let Some(home) = kind.file.as_deref().or(kind.folder.as_deref()) else {
             lines.push(format!(
                 "- `{}`: {title} (inline / configured by convention)",
-                kind.prefix.replace('`', "\\`")
+                kind.kind.replace('`', "\\`")
             ));
-        }
+            continue;
+        };
+        let label = if kind.citable {
+            kind.kind.clone()
+        } else {
+            kind.place_label().unwrap_or_else(|| home.to_string())
+        };
+        lines.push(format!(
+            "- [{}]({}): {title}",
+            markdown_link_label(&label),
+            markdown_link_destination(home)
+        ));
     }
     lines.join("\n")
 }

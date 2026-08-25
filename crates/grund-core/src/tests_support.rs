@@ -42,7 +42,7 @@ mod tests_support {
     pub(crate) fn legacy_fs_folder_config(root: PathBuf) -> Config {
         let mut config = Config::default_for(root);
         for kind in &mut config.kinds {
-            if kind.prefix == "FS" {
+            if kind.kind == "FS" {
                 kind.folder = Some("docs/functional-spec".to_string());
                 kind.file = None;
             }
@@ -362,8 +362,8 @@ mod tests_support {
             // The `E2E` kind is restated because `[[kinds]]` replaces the defaults
             // entirely, and one case here is about an e2e case directory.
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/functional-spec\"\nindex = false\n\n\
-             [[kinds]]\nprefix = \"E2E\"\nfolder = \"e2e/cases\"\nindex = false\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/functional-spec\"\nindex = false\n\n\
+             [[kinds]]\nkind = \"E2E\"\nfolder = \"e2e/cases\"\nindex = false\n\n\
              [scan]\ninclude = [\"docs\"]\n",
         );
         write(
@@ -393,7 +393,7 @@ mod tests_support {
             &root.join("grund.toml"),
             &format!(
                 "grund_config_version = 1\n\n{reference}\
-                 [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\n\n\
+                 [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\n\n\
                  [scan]\ninclude = [\"docs\"]\n"
             ),
         );

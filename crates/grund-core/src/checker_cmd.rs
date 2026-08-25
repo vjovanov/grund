@@ -176,6 +176,12 @@ fn run_check(
     // `report_is_silent`: the two are independent, and a repository mid-migration
     // must not lose the scope diagnostic just because it also has a config pair.
     report.warnings.extend(redundant_config_warning(&config));
+    // §FS-config.4.1: the deprecated `[[kinds]] prefix` spelling, named once per
+    // config and on the same channel — it is a fact about the file this run
+    // read, and the run is where a repository notices it.
+    report
+        .warnings
+        .extend(deprecated_kind_prefix_warning(&config));
     // §FS-check.1.3, also after the scope caution: `--full` cancels
     // `[scan] include`, and an explicit path other than the config root already
     // bypasses that key — so the flag changed nothing and the caller who typed it
@@ -269,9 +275,15 @@ fn run_workspace_check(
     // loop — with `include_root = true` it is also a `projects` entry, and the
     // warning is about one directory, not one scope.
     report.warnings.extend(redundant_config_warning(&root_config));
+    report
+        .warnings
+        .extend(deprecated_kind_prefix_warning(&root_config));
     for project in &projects {
         if project.config.root != root_config.root {
             report.warnings.extend(redundant_config_warning(&project.config));
+            report
+                .warnings
+                .extend(deprecated_kind_prefix_warning(&project.config));
         }
     }
     report.errors.extend(out_of_scope);

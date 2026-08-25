@@ -15,37 +15,37 @@ number_pattern = "\\d+"
 slug_pattern = "[a-z0-9][a-z0-9-]*"
 
 [[kinds]]
-prefix = "G"
+kind = "G"
 folder = "docs/goals"
 title = "Where: project direction and outcomes"
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "docs/functional-spec"
 title = "What: behavior, requirements, and constraints"
 
 [[kinds]]
-prefix = "AR"
+kind = "AR"
 folder = "docs/architecture"
 title = "How: high-level implementation, structure, and design"
 
 [[kinds]]
-prefix = "DF"
+kind = "DF"
 folder = "docs/decisions/functional"
 title = "Product behavior decisions and tradeoffs"
 
 [[kinds]]
-prefix = "DA"
+kind = "DA"
 folder = "docs/decisions/architectural"
 title = "Architecture decisions and tradeoffs"
 
 [[kinds]]
-prefix = "E2E"
+kind = "E2E"
 folder = "e2e/cases"
 title = "Executable user scenarios"
 
 [[kinds]]
-prefix = "RM"
+kind = "RM"
 folder = "docs"
 title = "Planned milestones and sequencing"
 

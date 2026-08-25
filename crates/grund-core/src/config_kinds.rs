@@ -5,6 +5,39 @@
 // parsed entries — the discovery, the section walk, and every other section's
 // keys stay in `config.rs`.
 
+/// The release the deprecated `[[kinds]] prefix` spelling stops loading in
+/// (§FS-config.3.4, §REQ-backwards-compatibility.2). Named in the warning, and
+/// held ahead of the running version by a unit test, so the window cannot expire
+/// unnoticed the way an undated deprecation does.
+const KIND_PREFIX_KEY_REMOVAL_RELEASE: &str = "0.13.0";
+
+/// One `[[kinds]]` entry as the parser has it so far: the entry itself, the line
+/// its `[[kinds]]` header sat on (what an entry-level error anchors at), and
+/// which key spelled its name — `kind`, or the deprecated `prefix`
+/// (§FS-config.3.4), which the warning in §FS-config.4.1 names.
+struct ParsedKind {
+    config: KindConfig,
+    header_line: usize,
+    name_key: Option<(&'static str, usize)>,
+}
+
+impl ParsedKind {
+    fn new(header_line: usize) -> Self {
+        Self {
+            config: KindConfig {
+                kind: String::new(),
+                folder: None,
+                file: None,
+                title: None,
+                index: KindIndex::Default,
+                citable: true,
+            },
+            header_line,
+            name_key: None,
+        }
+    }
+}
+
 /// Read one `key = value` line inside a `[[kinds]]` block into `slot`
 /// (§FS-config.3.4). Returns `false` for a key this section does not define, so
 /// the caller reports it as an unknown config key (§FS-config.4.3).
@@ -13,33 +46,57 @@ fn parse_kinds_key(
     line_no: usize,
     key: &str,
     value: &str,
-    current_kind: &mut Option<KindConfig>,
+    current_kind: &mut Option<ParsedKind>,
 ) -> Result<bool> {
     match key {
-        "prefix" => {
-            let prefix = parse_string(path, line_no, value)?;
-            // §FS-config.3.2: a kind prefix is the leading component of every ID
-            // in its kind, so a `/` here lands in the ID as surely as one in
+        // §FS-config.3.4: `kind` is the name. `prefix` is the same key under the
+        // name it carried before non-citable kinds made "prefix" wrong for half
+        // the table, accepted through the deprecation window of
+        // §REQ-backwards-compatibility.2.
+        "kind" | "prefix" => {
+            let name = parse_string(path, line_no, value)?;
+            // §FS-config.3.2: a citable kind's name is the leading component of
+            // every ID in it, so a `/` here lands in the ID as surely as one in
             // `slug_pattern` does.
             if let Some(message) =
-                id_grammar_literal_slash_error(&format!("[[kinds]] prefix `{prefix}`"), &prefix)
+                id_grammar_literal_slash_error(&format!("[[kinds]] {key} `{name}`"), &name)
             {
                 bail_config(path, line_no, message)?;
             }
+            let Some(slot) = current_kind.as_mut() else {
+                bail_config(path, line_no, format!("`{key}` outside of [[kinds]] block"))?;
+                unreachable!();
+            };
+            if let Some((seen, _)) = slot.name_key {
+                let message = if seen == key {
+                    format!("[[kinds]] sets `{key}` twice")
+                } else {
+                    "[[kinds]] sets both `kind` and `prefix`, which name the same thing (keep `kind`)"
+                        .to_string()
+                };
+                bail_config(path, line_no, message)?;
+            }
+            slot.name_key = Some((if key == "kind" { "kind" } else { "prefix" }, line_no));
+            slot.config.kind = name;
+        }
+        // §FS-config.3.4: `citable = false` makes the entry a place rather than
+        // an ID namespace — scanned and directed, never declared in.
+        "citable" => {
+            let citable = parse_bool(path, line_no, value)?;
             if let Some(slot) = current_kind.as_mut() {
-                slot.prefix = prefix;
+                slot.config.citable = citable;
             } else {
                 bail_config(
                     path,
                     line_no,
-                    "`prefix` outside of [[kinds]] block".to_string(),
+                    "`citable` outside of [[kinds]] block".to_string(),
                 )?;
             }
         }
         "folder" => {
             let folder = parse_string(path, line_no, value)?;
             if let Some(slot) = current_kind.as_mut() {
-                slot.folder = Some(folder);
+                slot.config.folder = Some(folder);
             } else {
                 bail_config(
                     path,
@@ -51,7 +108,7 @@ fn parse_kinds_key(
         "file" => {
             let file = parse_string(path, line_no, value)?;
             if let Some(slot) = current_kind.as_mut() {
-                slot.file = Some(file);
+                slot.config.file = Some(file);
             } else {
                 bail_config(
                     path,
@@ -83,7 +140,7 @@ fn parse_kinds_key(
                 KindIndex::Named(name)
             };
             if let Some(slot) = current_kind.as_mut() {
-                slot.index = index;
+                slot.config.index = index;
             } else {
                 bail_config(
                     path,
@@ -95,7 +152,7 @@ fn parse_kinds_key(
         "title" => {
             let title = parse_string(path, line_no, value)?;
             if let Some(slot) = current_kind.as_mut() {
-                slot.title = Some(title);
+                slot.config.title = Some(title);
             } else {
                 bail_config(
                     path,
@@ -146,38 +203,42 @@ fn kind_index_name_error(name: &str) -> Option<String> {
 }
 
 /// Every whole-list rule a `[[kinds]]` block has to satisfy (§FS-config.3.4):
-/// each entry declares a prefix, `folder` and `file` are exclusive, `index`
-/// needs a folder, `code` is reserved, and no prefix is a prefix of another.
-/// Applied only when the file declared the block at all — `[[kinds]]` replaces
-/// the defaults entirely rather than merging into them.
+/// each entry names a kind, `folder` and `file` are exclusive, `index` needs a
+/// folder and a citable kind, a non-citable kind needs a home, `code` is
+/// reserved, names are unique, and no *citable* kind's name is a prefix of
+/// another's. Applied only when the file declared the block at all — `[[kinds]]`
+/// replaces the defaults entirely rather than merging into them.
 ///
-/// It also resolves the per-prefix `index` defaults, so a declared kind and a
+/// It also resolves the per-name `index` defaults, so a declared kind and a
 /// built-in one of the same name agree about what `index` is when the key is
-/// absent (§FS-config.3.4).
-fn apply_parsed_kinds(path: &Path, mut parsed_kinds: Vec<KindConfig>, config: &mut Config) -> Result<()> {
+/// absent (§FS-config.3.4), and records where the deprecated `prefix` spelling
+/// was used, so the run can say so (§FS-config.4.1).
+fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config) -> Result<()> {
     // [[kinds]] replaces defaults entirely, per §FS-config.3.4.
-    if parsed_kinds.iter().any(|p| p.prefix.is_empty()) {
+    if let Some(nameless) = parsed.iter().find(|entry| entry.config.kind.is_empty()) {
         return Err(anyhow!(
-            "{}: every [[kinds]] entry must declare a `prefix`",
+            "{}:{}: every [[kinds]] entry must declare a `kind`",
+            format_path(path),
+            nameless.header_line
+        ));
+    }
+    if parsed.is_empty() {
+        return Err(anyhow!(
+            "{}: at least one [[kinds]] entry must declare a `kind`",
             format_path(path)
         ));
     }
-    if parsed_kinds.is_empty() {
-        return Err(anyhow!(
-            "{}: at least one [[kinds]] entry must declare a `prefix`",
-            format_path(path)
-        ));
-    }
-    // Reject kinds that set both `folder` and `file` — they're mutually
-    // exclusive (§FS-config.3.4). A kind is either multi-file (folder) or
-    // single-file (file); the schema models the "can always be broken up"
-    // transition as swapping one key for the other, not setting both.
-    for k in &parsed_kinds {
+    for entry in &parsed {
+        let k = &entry.config;
+        // Reject kinds that set both `folder` and `file` — they're mutually
+        // exclusive (§FS-config.3.4). A kind is either multi-file (folder) or
+        // single-file (file); the schema models the "can always be broken up"
+        // transition as swapping one key for the other, not setting both.
         if k.folder.is_some() && k.file.is_some() {
             return Err(anyhow!(
                 "{}: kind `{}` sets both `folder` and `file` (use one)",
                 format_path(path),
-                k.prefix
+                k.kind
             ));
         }
         // §FS-config.3.4: `index` names a file inside `folder`, so a kind
@@ -187,21 +248,42 @@ fn apply_parsed_kinds(path: &Path, mut parsed_kinds: Vec<KindConfig>, config: &m
             return Err(anyhow!(
                 "{}: kind `{}` sets `index` without `folder` (only a folder kind has an index)",
                 format_path(path),
-                k.prefix
+                k.kind
             ));
         }
-        // §FS-config.3.9.2: `code` is the reserved citing pseudo-kind; it can
-        // never be a real declaration kind, so reject it as a `[[kinds]]`
-        // prefix to keep that non-collision an invariant.
-        if k.prefix == CODE_SOURCE_KIND {
+        // §FS-config.3.4: an index lists the folder's declarations
+        // (§FS-check.4.6), and a non-citable kind has none — so the key is not a
+        // no-op here, it is a statement about a set that can never be non-empty.
+        if k.index != KindIndex::Default && !k.citable {
             return Err(anyhow!(
-                "{}: `{}` is reserved as the citation-direction pseudo-kind and cannot be a [[kinds]] prefix",
+                "{}: kind `{}` sets `index` and `citable = false` (a non-citable kind declares nothing to index)",
+                format_path(path),
+                k.kind
+            ));
+        }
+        // §FS-config.3.4: a non-citable kind is a *place* — it is what the
+        // Project map links, what the citation directions name, and what the
+        // scan is told to walk. Without a home there is none of that left, and
+        // the homeless non-citable kind already has a name: `code`.
+        if !k.citable && k.folder.is_none() && k.file.is_none() {
+            return Err(anyhow!(
+                "{}: kind `{}` sets `citable = false` without `folder` or `file` (a non-citable kind is a place; the homeless one is `{CODE_SOURCE_KIND}`)",
+                format_path(path),
+                k.kind
+            ));
+        }
+        // §FS-config.3.9.2: `code` is the reserved citing kind for every site
+        // outside a configured home — the complement of the whole table, which
+        // is why it cannot be a row in it.
+        if k.kind == CODE_SOURCE_KIND {
+            return Err(anyhow!(
+                "{}: `{}` is reserved as the citation-direction pseudo-kind and cannot be a [[kinds]] name",
                 format_path(path),
                 CODE_SOURCE_KIND
             ));
         }
     }
-    // §FS-config.3.4: the `index` default is keyed on the prefix, and this is
+    // §FS-config.3.4: the `index` default is keyed on the name, and this is
     // where a *declared* kind picks it up. `[[kinds]]` replaces the built-in list
     // rather than merging into it, so without this line the same block that
     // `grund init` writes would mean one thing when the file omits it and
@@ -209,28 +291,60 @@ fn apply_parsed_kinds(path: &Path, mut parsed_kinds: Vec<KindConfig>, config: &m
     // predates this key would inherit an obligation the built-in default
     // deliberately declines. Runs after the validation above, which reads
     // `index` as the file wrote it.
-    for kind in &mut parsed_kinds {
-        if kind.index == KindIndex::Default && kind.folder.is_some() {
-            kind.index = default_kind_index(&kind.prefix);
+    let mut kinds: Vec<KindConfig> = parsed.iter().map(|entry| entry.config.clone()).collect();
+    for kind in &mut kinds {
+        if kind.index == KindIndex::Default && kind.folder.is_some() && kind.citable {
+            kind.index = default_kind_index(&kind.kind);
         }
     }
-    // Reject kinds whose prefix is itself a prefix of another kind's prefix
-    // (§FS-config.3.4 — would make tokenization ambiguous).
-    for (i, a) in parsed_kinds.iter().enumerate() {
-        for (j, b) in parsed_kinds.iter().enumerate() {
+    // §FS-config.3.4: names are unique across the whole table — `[citations.*]`
+    // and `grund list --kind` key on one, so two rows wearing one name is a
+    // config with no answer to "which".
+    for (i, a) in kinds.iter().enumerate() {
+        if kinds[..i].iter().any(|b| b.kind == a.kind) {
+            return Err(anyhow!(
+                "{}: kind `{}` is declared twice",
+                format_path(path),
+                a.kind
+            ));
+        }
+    }
+    // Reject kinds whose name is itself a prefix of another kind's name
+    // (§FS-config.3.4 — would make tokenization ambiguous). Scoped to *citable*
+    // kinds: the rule exists because `DAT-foo` parses as either `DA` or `DAT`,
+    // and a name that never appears in an ID never tokenizes, so it has no
+    // prefix to be ambiguous with.
+    for (i, a) in kinds.iter().enumerate() {
+        for (j, b) in kinds.iter().enumerate() {
             if i != j
-                && a.prefix.len() <= b.prefix.len()
-                && b.prefix.starts_with(a.prefix.as_str())
+                && a.citable
+                && b.citable
+                && a.kind.len() <= b.kind.len()
+                && b.kind.starts_with(a.kind.as_str())
             {
                 return Err(anyhow!(
                     "{}: kinds `{}` and `{}` collide (one is a prefix of the other)",
                     format_path(path),
-                    a.prefix,
-                    b.prefix
+                    a.kind,
+                    b.kind
                 ));
             }
         }
     }
-    config.kinds = parsed_kinds;
+    // §FS-config.4.1 / §REQ-backwards-compatibility.2: the old spelling still
+    // loads, and the run says where it is and when it stops working. Anchored at
+    // the first entry that uses it — one warning per config, not one per row.
+    config.deprecated_kind_prefix = parsed
+        .iter()
+        .filter_map(|entry| match entry.name_key {
+            Some(("prefix", line)) => Some(line),
+            _ => None,
+        })
+        .min()
+        .map(|line| ConfigLocation {
+            path: path.to_path_buf(),
+            line,
+        });
+    config.kinds = kinds;
     Ok(())
 }

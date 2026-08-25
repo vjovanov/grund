@@ -327,6 +327,29 @@ fn nothing_recognized_warning(config: &Config, scanned_files: usize) -> Diagnost
     }
 }
 
+/// §FS-config.4.1 / §REQ-backwards-compatibility.2: the warning a config earns
+/// for spelling a `[[kinds]]` name with the deprecated `prefix` key. It names
+/// the release the old spelling stops loading in, because a deprecation that
+/// does not name its deadline is a rename with extra steps. `line`-less like the
+/// redundant-pair warning, with the `path:line` inside the text: it is a fact
+/// about the config file, not about the tree the run walked.
+fn deprecated_kind_prefix_warning(config: &Config) -> Option<Diagnostic> {
+    let site = config.deprecated_kind_prefix.as_ref()?;
+    Some(Diagnostic {
+        code: "deprecated-config-key",
+        path: None,
+        line: None,
+        column: None,
+        message: format!(
+            "{}:{}: [[kinds]] `prefix` is deprecated — rename it to `kind`; \
+             `prefix` stops loading in grund {KIND_PREFIX_KEY_REMOVAL_RELEASE}",
+            format_path(&site.path),
+            site.line
+        ),
+        sites: Vec::new(),
+    })
+}
+
 /// §FS-check.1.3: the caution a `--full` run earns when the caller also typed a
 /// path that is not the config root. `--full` cancels `[scan] include`, and an
 /// explicit path already bypasses that key, so the flag has nothing left to

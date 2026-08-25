@@ -5,7 +5,9 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::OnceLock;
 
-const CANONICAL_KINDS: &[&str] = &["GRUND", "GOAL", "FS", "AR", "DF", "DA", "E2E", "RM"];
+// The citable half of the canonical kind set (§FS-config.3.4). The two default
+// test kinds are non-citable, so no `spec.refs` entry can name one.
+const CANONICAL_KINDS: &[&str] = &["GRUND", "GOAL", "FS", "AR", "DF", "DA", "RM"];
 
 #[derive(Clone, Copy)]
 pub enum CaseKind {

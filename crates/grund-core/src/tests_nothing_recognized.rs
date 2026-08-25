@@ -105,7 +105,7 @@ mod tests_nothing_recognized {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\nproject_name = \"acme\"\n\n[reference]\nmarker = \"@\"\n\n\
-             [id]\nformat = \"{kind}-{slug}\"\n\n[[kinds]]\nprefix = \"SPEC\"\nfolder = \"docs\"\n\n\
+             [id]\nformat = \"{kind}-{slug}\"\n\n[[kinds]]\nkind = \"SPEC\"\nfolder = \"docs\"\n\n\
              [scan]\ninclude = [\"docs\"]\n",
         );
         write(&root.join("docs/note.md"), "# SPEC 1: Not a declaration\n");

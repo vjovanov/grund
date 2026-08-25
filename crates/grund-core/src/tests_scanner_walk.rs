@@ -211,7 +211,7 @@ mod tests_scanner_walk {
             // file read once under two root spellings, not about the index a
             // folder kind keeps.
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/functional-spec\"\nindex = false\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/functional-spec\"\nindex = false\n\n\
              [scan]\ninclude = [\"docs\", \"docs-link\"]\n",
         );
         write(

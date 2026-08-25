@@ -109,7 +109,7 @@ fn print_effective_config(config: &Config) {
     println!();
     for kind in &config.kinds {
         println!("[[kinds]]");
-        println!("prefix = \"{}\"", escape_toml_basic(&kind.prefix));
+        println!("kind = \"{}\"", escape_toml_basic(&kind.kind));
         if let Some(folder) = &kind.folder {
             println!("folder = \"{}\"", escape_toml_basic(folder));
         }
@@ -121,6 +121,13 @@ fn print_effective_config(config: &Config) {
         // (§FS-check.4.6).
         if let Some(index) = kind.index_toml_value() {
             println!("index = {index}");
+        }
+        // §FS-config.3.4: printed only where it is set, because absence
+        // *is* `citable = true` — the shown config has to load back as
+        // itself, and a `citable` line on every kind would be noise on
+        // the nine repositories out of ten that have no place kind.
+        if !kind.citable {
+            println!("citable = false");
         }
         if let Some(title) = &kind.title {
             println!("title = \"{}\"", escape_toml_basic(title));
