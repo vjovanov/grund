@@ -36,7 +36,11 @@ The alternative was to leave `[[kinds]]` alone and add `[[areas]]`: `path` + `ti
 
 Its name exists to key `[citations.*]` on and to be unique. There is nothing to cite, so `- [skills/](skills): …` in the Project map and `- **skills/** must cite FS.` in the directions ([§FS-init.2.3.4.4](../../functional-spec/FS-init.md#2344-project-map), [§FS-init.2.3.5](../../functional-spec/FS-init.md#235-citation-directions)), and the same label in every finding about it ([§FS-check.3.11](../../functional-spec/FS-check.md#311-missing-required-citation), [§FS-check.3.12](../../functional-spec/FS-check.md#312-forbidden-citation)). Printing the name would teach an agent a token it must never write.
 
-`code` keeps its name because it is the one non-citable kind with no place — the complement of every home there is. That is also why it stays reserved rather than becoming a writable row: giving it a `folder` would make the complement nameless again.
+The **homeless kind** keeps its name, because it is the one non-citable kind with no place — the complement of every home there is, and there is nothing else to call it by.
+
+`code` is that name by default and not by fiat. The complement is a category, and which word fits it is a property of the repository: `code` is right for most and wrong for a Terraform, SQL, or prose tree. So a project may declare the kind and name it — `citable = false` with no `folder` and no `file` is the declaration, since that shape *is* what "the complement of every home" means ([§FS-config.3.9.2](../../functional-spec/FS-config.md#392-the-homeless-kind)). What survives of the old rule is narrower and still load-bearing: exactly one row may be the complement, and the name `code` is available only to it, because any other row wearing it would collide with the kind every citation outside a home resolves to.
+
+An earlier draft of this decision kept `code` unwritable, on the grounds that a row for it would be printed by `grund config show` and the printed config has to load back as itself. That argument confused *materialising* the row with *permitting* it. The row is optional: absent means the reserved default, so a config that never declared it prints nothing for it and round-trips exactly as before.
 
 ### 2.4 The field is a kind, not a prefix
 

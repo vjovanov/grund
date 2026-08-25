@@ -256,15 +256,6 @@ mod tests_non_citable_kinds {
                 .contains("a non-citable kind declares nothing to index"),
             "the key is a statement about a set that can never be non-empty"
         );
-        write(
-            &root.join("grund.toml"),
-            "grund_config_version = 1\n\n[[kinds]]\nkind = \"skill\"\ncitable = false\n",
-        );
-        assert!(
-            config_error(&root)
-                .contains("the homeless one is `code`"),
-            "a non-citable kind is a place, and the placeless one already has a name"
-        );
     }
 
     /// §FS-config.3.9.5: a non-citable kind cites and is never cited, and the
@@ -344,6 +335,136 @@ mod tests_non_citable_kinds {
              key rather than moving the date.",
             env!("CARGO_PKG_VERSION")
         );
+    }
+
+    /// A repo whose complement kind is named, rather than left as `code`.
+    fn named_homeless_repo(name: &str, citations: &str) -> PathBuf {
+        let root = test_root(name);
+        write(
+            &root.join("grund.toml"),
+            &format!(
+                "grund_config_version = 1\n\n\
+                 [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n\n\
+                 [[kinds]]\nkind = \"src\"\ncitable = false\n\
+                 title = \"Deployment modules and scripts\"\n\n\
+                 [scan]\ninclude = [\"docs\", \"modules\"]\n\n{citations}"
+            ),
+        );
+        write(
+            &root.join("docs/specs/FS-001-login.md"),
+            "# FS-001-login: A user logs in\n\nBody.\n",
+        );
+        write(&root.join("modules/login.py"), "# Realizes §FS-001-login.\n");
+        root
+    }
+
+    /// §FS-config.3.9.2: `code` is the *default* name of the homeless kind, not a
+    /// fixed one — the complement of every home is a category, and which word
+    /// fits it is the project's to decide.
+    #[test]
+    fn a_project_may_name_the_homeless_kind() {
+        let root = named_homeless_repo(
+            "a_project_may_name_the_homeless_kind",
+            "[citations]\n[citations.src]\nmust-not = [\"FS\"]\n",
+        );
+        assert_eq!(
+            load_config(&root).expect("load config").homeless_kind(),
+            "src"
+        );
+        // The rule reaches the module, which is the whole claim: a site outside
+        // every home resolved to the name the project chose, and the finding
+        // says it back.
+        assert_eq!(
+            only(&check_run(&root, false), "forbidden-citation").message,
+            "src must not cite FS (citation direction)",
+        );
+    }
+
+    /// §FS-config.3.9.2: the named kind takes the rules, and `code` is then a
+    /// rule about nothing — so it is refused rather than silently inert.
+    #[test]
+    fn the_named_homeless_kind_takes_the_rules_and_code_becomes_unknown() {
+        let root = named_homeless_repo(
+            "the_named_homeless_kind_takes_the_rules_and_code_becomes_unknown",
+            "[citations]\n[citations.src]\nmust = [\"FS\"]\n",
+        );
+        let run = check_run(&root, false);
+        assert!(
+            !codes(&run).contains(&"missing-citation".to_string()),
+            "the module cites its FS, so the obligation is met under the new name: {:?}",
+            codes(&run)
+        );
+
+        let config_path = root.join("grund.toml");
+        let text = std::fs::read_to_string(&config_path).expect("read config");
+        write(
+            &config_path,
+            &text.replace("[citations.src]", "[citations.code]"),
+        );
+        assert!(
+            config_error(&root).contains("names an unknown kind `code`"),
+            "a config whose complement is `src` has no `code`"
+        );
+    }
+
+    /// §FS-init.2.3.4.4 / §FS-init.2.3.5: no map row — it is the one kind that is
+    /// not a place — and a directions row last, carrying its `title` as the scope
+    /// where the project wrote one.
+    #[test]
+    fn the_homeless_kind_renders_as_directions_only() {
+        let root = named_homeless_repo(
+            "the_homeless_kind_renders_as_directions_only",
+            "[citations]\n[citations.FS]\nshould = [\"FS\"]\n\n[citations.src]\nmust = [\"FS\"]\n",
+        );
+        let config = load_config(&root).expect("load config");
+        let block =
+            render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
+        assert!(
+            !block.contains("- [src]") && !block.contains("- `src`"),
+            "the complement of every home is not a place to link: {block}"
+        );
+        assert!(
+            block.contains("- **src** (Deployment modules and scripts) must cite FS."),
+            "its title says what it covers: {block}"
+        );
+        let directions = citation_directions_section(&config);
+        let src = directions.find("- **src**").expect("the src row");
+        let fs = directions.find("- **FS**").expect("the FS row");
+        assert!(fs < src, "the homeless kind closes the list: {directions}");
+    }
+
+    /// §FS-config.3.9.2: a complement is one place, and `code` is a name a row
+    /// may take only by *being* that complement.
+    #[test]
+    fn the_homeless_kind_is_one_row_and_code_is_reserved_to_it() {
+        let root = test_root("the_homeless_kind_is_one_row_and_code_is_reserved_to_it");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n\
+             [[kinds]]\nkind = \"src\"\ncitable = false\n\n\
+             [[kinds]]\nkind = \"other\"\ncitable = false\n",
+        );
+        assert!(
+            config_error(&root).contains("both declare the homeless kind"),
+            "two complements leave the fallback with no single answer"
+        );
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n\
+             [[kinds]]\nkind = \"code\"\nfolder = \"src\"\ncitable = false\n",
+        );
+        assert!(
+            config_error(&root).contains("names the homeless kind"),
+            "a homed row wearing `code` would collide with the fallback"
+        );
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs\"\nindex = false\n\n\
+             [[kinds]]\nkind = \"code\"\ncitable = false\ntitle = \"Implementation\"\n",
+        );
+        let config = load_config(&root).expect("declaring `code` itself is how it is retitled");
+        assert_eq!(config.homeless_kind(), "code");
     }
 
     /// The message a config this repo cannot load fails with. `Config` carries no

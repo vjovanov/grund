@@ -1,0 +1,25 @@
+grund_config_version = 1
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+
+[[kinds]]
+kind = "AR"
+folder = "docs/architecture"
+index = false
+
+# The complement of every home, under the name this repository uses for it.
+[[kinds]]
+kind = "src"
+citable = false
+title = "Deployment modules and scripts"
+
+[scan]
+include = ["docs", "modules"]
+
+[citations]
+
+[citations.src]
+must = ["FS"]

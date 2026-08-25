@@ -177,7 +177,7 @@ Some directories hold agent-facing content rather than specification — skills,
 
 What a non-citable kind **keeps**:
 
-- **A home**, which is what it is for, so `folder` or `file` is required. The homeless non-citable kind is `code` (§3.9.2), and it already has a name.
+- **A home** — `folder` or `file` — wherever the kind is a *place*. Leaving both out is not an omission but a different thing: the entry becomes the **homeless kind**, the complement of every home, whose default name is `code` (§3.9.2). Everything below is written about a non-citable kind with a home; §3.9.2 says where the homeless one differs.
 - **A row in the generated Project map and in the generated citation directions** ([§FS-init.2.3.4.4](FS-init.md#2344-project-map), [§FS-init.2.3.5](FS-init.md#235-citation-directions)) — rendered by **place**, never by name, because the name is a config handle and the place is the thing a reader can open.
 - **Citation-direction rules.** The citing-side classification already reaches it: a citation inside a kind's home is classified as that kind whether or not a declaration encloses it ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)). Obligations attach per file rather than per declaration ([§FS-check.3.11](FS-check.md#311-missing-required-citation)), since there is no declaration to attach them to.
 - **`[reference] require_grounding`**, over every scanned file in its home, `.md` included ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)).
@@ -285,7 +285,7 @@ A project that overrides this list replaces the defaults entirely — there is n
 
 **Citable names must also be prefix-free**: no citable kind's name may be a prefix of another citable kind's name. `kind = "DA"` and `kind = "DAT"` together are invalid because a token starting with `DAT-` would parse as either kind. The rule is about *tokenization*, so it stops where tokenization does: a non-citable kind's name never appears in an ID, so `skill` beside a citable `SKI` is fine and a config that spells it loads. grund validates this on load and refuses ambiguous configs with a single error pointing at the offending pair (per §4.3).
 
-**`code` is reserved** and may not be a `[[kinds]]` name (§3.9.2). It is the non-citable, *homeless* kind — the complement of every configured home — which is why it cannot be a row in the table that defines those homes, and why it is the one name a project cannot take.
+**`code` is reserved to the homeless kind** (§3.9.2). It is the default name of the complement of every configured home, so a row may take it only by *being* that complement — `citable = false`, no `folder`, no `file`. Any other row wearing it would collide with the kind every citation outside a home resolves to.
 
 #### 3.4.6 `prefix`, the former spelling of `kind` *(deprecated)*
 
@@ -415,11 +415,31 @@ An **obligation** asks: does each top-level declaration of the citing kind conta
 
 `must` and `must-not` gate (`grund check` errors); `should` and `should-not` are machine-checked suggestions that never appear in `grund check`'s standing output and are surfaced only at write time (the generated entrypoint, [§FS-init.2.3.5](FS-init.md#235-citation-directions)) and on demand (`grund check --suggestions`, [§FS-check.2.3](FS-check.md#23-suggestions-channel-opt-in)). The level→surface mapping is fixed, never a project knob, so two installs reading one config agree on what gates and what is suggested ([§FS-non-goals.9](FS-non-goals.md#9-severity-exit-code-or-report-ordering-customization)).
 
-#### 3.9.2 The `code` pseudo-kind
+#### 3.9.2 The homeless kind
 
-`code` is a reserved citing kind: a citation site that falls outside every configured kind home ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)). It is the non-citable, **homeless** kind — the complement of every home there is — which is why it is reserved rather than writable: giving it a `folder` would make that complement nameless again. `[citations.code]` obligations apply per file, only to files that contain at least one citation, and only to **source files** under the exact predicate `require_grounding` uses — a scanned file whose extension is not `.md` ([§DF-require-grounding.2.2](../decisions/functional/DF-require-grounding.md#22-grounded-is-defined-syntactically)). Markdown outside a kind home (a README, the changelog) is therefore prohibition-checked but obligation-exempt. A configured non-citable kind (§3.4.1) is the same species with a place, and differs on exactly that point: its unit is *every* scanned file in its home, `.md` included ([§FS-check.3.11](FS-check.md#311-missing-required-citation)).
+Every citation site that falls outside every configured kind home resolves to one citing kind ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)). That kind is the **complement** of the whole `[[kinds]]` table: it is the one kind that is not a place, which is why it has no `folder` and no `file` and why there is exactly one of it.
 
-`code` may not be used as a `[[kinds]]` name — it is the one reserved name, which keeps its non-collision with a configured kind an invariant rather than an assumption. It has no place, so it gets no Project map row; its citation-directions row renders last, as it always has ([§FS-init.2.3.5](FS-init.md#235-citation-directions)).
+Its name is `code` by default, and a project may name it something truer by declaring it:
+
+```toml
+[[kinds]]
+kind = "src"                              # or `modules`, `implementation`, `code`…
+citable = false                           # required: the complement declares no IDs
+title = "Terraform modules and shell"     # optional: what it covers, for the generated block
+
+[citations.src]
+should = ["FS|AR"]
+```
+
+An entry is the homeless kind exactly when it sets `citable = false` and neither `folder` nor `file` — that shape is the declaration, not a separate key. Declaring two is a config error (§4.3): a complement is one place, and two rows claiming it leave the fallback with no single answer.
+
+`code` is the default rather than a fixed name because it is the right word for most repositories and the wrong one for some — a Terraform tree, a SQL tree, a prose tree. It is still **reserved**: a `[[kinds]]` entry may take the name `code` only by *being* the homeless kind, because any other row wearing it would collide with the fallback every citation outside a home resolves to. Declaring `code` with a `title` is therefore how a project keeps the name and says what it covers.
+
+Naming the kind moves the rules with it: `[citations.src]` governs those sites, and `[citations.code]` in that config names an unknown kind (§3.9.5) rather than sitting inert.
+
+**Obligations apply per file**, only to files that contain at least one citation, and only to **source files** under the exact predicate `require_grounding` uses — a scanned file whose extension is not `.md` ([§DF-require-grounding.2.2](../decisions/functional/DF-require-grounding.md#22-grounded-is-defined-syntactically)). Markdown outside a kind home (a README, the changelog) is therefore prohibition-checked but obligation-exempt. A configured non-citable kind *with* a home (§3.4.1) is the same species and differs on exactly that point: its unit is every scanned file in its home, `.md` included ([§FS-check.3.11](FS-check.md#311-missing-required-citation)).
+
+**It gets no Project map row** ([§FS-init.2.3.4.4](FS-init.md#2344-project-map)) — every row there links a place, and this is the kind that has none. Its citation-directions row renders **last**, wherever in the table it was declared, labelled with its name and what it covers: its `title` where the project wrote one, and the fixed phrase *any file outside a kind home* otherwise ([§FS-init.2.3.5](FS-init.md#235-citation-directions)).
 
 #### 3.9.3 Namespace matching
 
@@ -431,7 +451,7 @@ Rule entries reuse the citation grammar of [§FS-workspace.1](FS-workspace.md#1-
 
 #### 3.9.5 Validation
 
-Config validation rejects: a `[citations.<kind>]` table whose kind is neither a configured `[[kinds]]` name nor `code`; a target naming a kind that is not a configured *citable* kind — reported as *an unknown target kind* for a name the table does not hold and *a non-citable target kind* for one it does, since those are different mistakes; `code` used as a `[[kinds]]` name (§3.4.5); an unknown level key; and two targets of the same cited kind at different levels whose namespace matchers can match the same citation. The last rule is on namespace **overlap**, not textual equality — `*/AR` (any namespace) overlaps a bare `AR` (local), so listing one at `should` and the other at `must-not` is rejected, while a local `AR` permitted alongside a pinned `alias/AR` forbidden is allowed because those matchers are disjoint (§3.9.3). The section composes unchanged with project-defined `[[kinds]]` — a new kind is one more `[citations.<KIND>]` table.
+Config validation rejects: a `[citations.<kind>]` table whose kind is neither a configured `[[kinds]]` name nor the homeless kind's name (§3.9.2) — so `[citations.code]` is rejected in a config that named its complement something else; a target naming a kind that is not a configured *citable* kind — reported as *an unknown target kind* for a name the table does not hold and *a non-citable target kind* for one it does, since those are different mistakes; `code` used as a `[[kinds]]` name by anything but the homeless kind (§3.4.5); two entries declaring the homeless kind (§3.9.2); an unknown level key; and two targets of the same cited kind at different levels whose namespace matchers can match the same citation. The last rule is on namespace **overlap**, not textual equality — `*/AR` (any namespace) overlaps a bare `AR` (local), so listing one at `should` and the other at `must-not` is rejected, while a local `AR` permitted alongside a pinned `alias/AR` forbidden is allowed because those matchers are disjoint (§3.9.3). The section composes unchanged with project-defined `[[kinds]]` — a new kind is one more `[citations.<KIND>]` table.
 
 Adding `[citations]` does **not** bump `grund_config_version` (§5): it is additive surface, like `[workspace]` and `require_grounding`. An older binary meeting it fails loudly with `unknown config section`.
 

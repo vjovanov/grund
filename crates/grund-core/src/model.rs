@@ -130,7 +130,7 @@ pub struct Citation {
     pub inline_site: Option<InlineCitationSite>,
     /// The resolved *citing* kind for this site (§AR-scanner.2.4): the kind of
     /// the enclosing declaration, else the file's unique kind home, else the
-    /// reserved `code` pseudo-kind. Drives the citation-direction
+    /// homeless kind (`code` by default, §FS-config.3.9.2). Drives the citation-direction
     /// checks (§FS-config.3.9, §AR-checker.2.9, §AR-checker.2.10).
     pub source_kind: String,
     /// The nearest preceding declaration whose body range contains this site
@@ -500,11 +500,12 @@ pub struct Config {
     pub grammar: Grammar,
 }
 
-/// The reserved citing kind for a citation site outside every configured kind
-/// home (§AR-scanner.2.4, §FS-config.3.9.2). It is the non-citable, homeless
-/// kind — the complement of every configured home — and the one name a
-/// `[[kinds]]` entry may not take, which keeps its non-collision with a
-/// configured kind an invariant rather than an assumption.
+/// The **default** name of the homeless kind — the citing kind of every site
+/// outside every configured home (§AR-scanner.2.4, §FS-config.3.9.2). It is a
+/// default and not a fixed name: `code` is the right word for most
+/// repositories and the wrong one for a Terraform, SQL, or prose tree, so a
+/// project may declare the homeless kind itself and name it (`src`,
+/// `modules`, …). See [`Config::homeless_kind`].
 const CODE_SOURCE_KIND: &str = "code";
 const DEFAULT_ID_FORMAT: &str = "{kind}-{number}-{slug}";
 const DEFAULT_SECTION_SEPARATOR: &str = ".";
@@ -626,6 +627,13 @@ impl Config {
         config
     }
 
+    /// The homeless kind for this config (§FS-config.3.9.2) — the citing kind
+    /// every site outside every configured home resolves to. The declared entry
+    /// when the table has one, else the reserved `code`.
+    fn homeless_kind(&self) -> &str {
+        declared_homeless_kind(&self.kinds).map_or(CODE_SOURCE_KIND, |kind| kind.kind.as_str())
+    }
+
     /// Recompile the `Grammar` after `[id]` / `[[kinds]]` / `[scan].comment_prefixes`
     /// keys are read from a config file (§FS-config.3) — keeps the regexes and the
     /// scalar config in lockstep.
@@ -671,16 +679,27 @@ fn non_citable_kind_error(kind: &KindConfig) -> String {
 }
 
 /// Every citing kind `[citations.<kind>]` may name (§FS-config.3.9): each
-/// configured kind, citable or not, plus the reserved `code` pseudo-kind. `code`
-/// is the non-citable, homeless kind — reserved rather than user-writable,
-/// because it is the *complement* of every configured home and naming a home for
-/// it would leave that complement nameless again (§FS-config.3.9.2).
+/// configured kind, citable or not, plus `code` — but only where the table did
+/// not declare the homeless kind itself. A config that names its complement
+/// `src` has no `code`, and `[citations.code]` in it is a rule about nothing
+/// (§FS-config.3.9.2).
 fn citing_kind_names(kinds: &[KindConfig]) -> Vec<&str> {
+    let named = declared_homeless_kind(kinds).is_some();
     kinds
         .iter()
         .map(|kind| kind.kind.as_str())
-        .chain(std::iter::once(CODE_SOURCE_KIND))
+        .chain((!named).then_some(CODE_SOURCE_KIND))
         .collect()
+}
+
+/// The `[[kinds]]` entry that *is* the homeless kind, if the table declares one
+/// (§FS-config.3.9.2): non-citable, and with no `folder` or `file`, because it
+/// is the complement of every home rather than one of them. At most one entry
+/// can be this, which the config validator holds.
+fn declared_homeless_kind(kinds: &[KindConfig]) -> Option<&KindConfig> {
+    kinds
+        .iter()
+        .find(|kind| !kind.citable && kind.folder.is_none() && kind.file.is_none())
 }
 
 /// A secondary location attached to a diagnostic — e.g. the other declaration in a

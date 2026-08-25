@@ -490,7 +490,8 @@ fn comment_block_ranges(text: &str, is_py: bool, config: &Config) -> Vec<(usize,
 /// Classify each citation's citing side by the three-step fallback of
 /// §AR-scanner.2.4: the enclosing declaration's kind (nearest preceding
 /// declaration whose body contains the site), else the file's unique kind home,
-/// else the reserved `code` pseudo-kind.
+/// else the homeless kind — `code`, or whatever the project named it
+/// (§FS-config.3.9.2).
 fn classify_citation_sources(findings: &mut Findings, config: &Config, path: &Path) {
     // (body_start, body_end, id) for this file's declarations, so the enclosing
     // lookup is a scan of a small local list.
@@ -501,6 +502,9 @@ fn classify_citation_sources(findings: &mut Findings, config: &Config, path: &Pa
         .map(|decl| (decl.body_start, decl.body_end, decl.id.clone()))
         .collect();
     let file_home = file_home_kind(path, config);
+    // §FS-config.3.9.2: step 3 of the fallback is the homeless kind, whose name
+    // is `code` only where the project did not name it something truer.
+    let homeless = config.homeless_kind();
     for cite in &mut findings.citations {
         let enclosing = bodies
             .iter()
@@ -515,7 +519,7 @@ fn classify_citation_sources(findings: &mut Findings, config: &Config, path: &Pa
             None => {
                 cite.source_kind = file_home
                     .clone()
-                    .unwrap_or_else(|| CODE_SOURCE_KIND.to_string());
+                    .unwrap_or_else(|| homeless.to_string());
             }
         }
     }
