@@ -137,10 +137,10 @@ mod tests_kind_index_enrollment {
             "the link is use, not a membership claim: {:?}",
             findings(&run)
         );
-        let (_, findings, entries) = scanned_index(&root);
+        let (config, findings, entries) = scanned_index(&root);
         assert!(
             entries
-                .entries_in(&root.join("docs/architecture/README.md"))
+                .entries_in(&config.root.join("docs/architecture/README.md"))
                 .is_none(),
             "an empty folder and a noncanonical link create no obligation"
         );
@@ -168,10 +168,10 @@ mod tests_kind_index_enrollment {
             "# Architecture\n\nSee [§AR-001-bus](../../notes/AR-001-bus.md#ar-001-bus-the-bus).\n",
         );
 
-        let (_, findings, entries) = scanned_index(&root);
+        let (config, findings, entries) = scanned_index(&root);
         assert!(
             entries
-                .entries_in(&root.join("docs/architecture/README.md"))
+                .entries_in(&config.root.join("docs/architecture/README.md"))
                 .is_none()
         );
         assert!(!entries.is_index_entry(&findings.citations[0]));
@@ -269,10 +269,10 @@ mod tests_kind_index_enrollment {
             "the earlier kind's enrollment is navigation: {:?}",
             findings(&run)
         );
-        let (_, _, entries) = scanned_index(&root);
+        let (config, _, entries) = scanned_index(&root);
         assert!(
             entries
-                .entries_in(&root.join("docs/design/README.md"))
+                .entries_in(&config.root.join("docs/design/README.md"))
                 .is_some_and(|owed| owed.contains(&bus_id())),
             "the shared index owns the earlier kind's external ID"
         );
@@ -294,11 +294,11 @@ mod tests_kind_index_enrollment {
             "the shorthand remains ordinary use: {:?}",
             findings(&run)
         );
-        let (_, findings, entries) = scanned_index(&root);
+        let (config, findings, entries) = scanned_index(&root);
         assert!(findings.citations[0].shorthand);
         assert!(
             entries
-                .entries_in(&root.join("docs/architecture/README.md"))
+                .entries_in(&config.root.join("docs/architecture/README.md"))
                 .is_none(),
             "shorthand cannot create external membership"
         );
@@ -321,10 +321,10 @@ mod tests_kind_index_enrollment {
             "the nested citation remains ordinary use: {:?}",
             findings(&run)
         );
-        let (_, findings, entries) = scanned_index(&root);
+        let (config, findings, entries) = scanned_index(&root);
         assert!(
             entries
-                .entries_in(&root.join("docs/architecture/README.md"))
+                .entries_in(&config.root.join("docs/architecture/README.md"))
                 .is_none(),
             "a Markdown destination cannot create external membership"
         );
