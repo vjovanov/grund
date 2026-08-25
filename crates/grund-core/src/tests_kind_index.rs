@@ -8,45 +8,12 @@ mod tests_kind_index {
     use super::*;
     use super::tests_support::*;
 
-    /// A repo whose `FS` kind is a folder with the default `README.md` index.
-    const FOLDER_CONFIG: &str = "grund_config_version = 1\n\n\
-        [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\n\n\
-        [scan]\ninclude = [\"docs\"]\n";
-
-    fn setup(name: &str) -> PathBuf {
-        let root = test_root(name);
-        write(&root.join("grund.toml"), FOLDER_CONFIG);
-        write(
-            &root.join("docs/specs/FS-001-login.md"),
-            "# FS-001-login: A user logs in\n\nBody.\n",
-        );
-        root
-    }
-
-    fn codes(run: &CheckRun) -> Vec<String> {
-        run.report
-            .errors
-            .iter()
-            .chain(run.report.warnings.iter())
-            .map(|diagnostic| diagnostic.code.to_string())
-            .collect()
-    }
-
-    fn only<'a>(run: &'a CheckRun, code: &str) -> &'a Diagnostic {
-        run.report
-            .errors
-            .iter()
-            .chain(run.report.warnings.iter())
-            .find(|diagnostic| diagnostic.code == code)
-            .unwrap_or_else(|| panic!("expected a {code} finding, got {:?}", codes(run)))
-    }
-
     /// §FS-check.4.6: the folder has an index and the index does not name the
     /// declaration. The finding is anchored at the declaration's own heading and
     /// names the index file plus the release the warning becomes an error in.
     #[test]
     fn a_declaration_the_index_does_not_name_is_a_warning_at_the_declaration() {
-        let root = setup("a_declaration_the_index_does_not_name_is_a_warning_at_the_declaration");
+        let root = kind_index_repo("a_declaration_the_index_does_not_name_is_a_warning_at_the_declaration");
         write(&root.join("docs/specs/README.md"), "# Specs\n\nNothing here yet.\n");
 
         let run = check_run(&root, false);
@@ -63,7 +30,9 @@ mod tests_kind_index {
             finding.message
         );
         assert!(
-            finding.message.contains("becomes an error in grund 0.12.0"),
+            finding.message.contains(&format!(
+                "becomes an error in grund {INDEX_ENTRY_ERROR_RELEASE}"
+            )),
             "§REQ-backwards-compatibility.2: the warning names the release: {}",
             finding.message
         );
@@ -77,7 +46,7 @@ mod tests_kind_index {
     /// once per declaration — which is why it is anchored at the declaration.
     #[test]
     fn a_missing_index_file_reports_once_per_declaration() {
-        let root = setup("a_missing_index_file_reports_once_per_declaration");
+        let root = kind_index_repo("a_missing_index_file_reports_once_per_declaration");
         write(
             &root.join("docs/specs/FS-002-logout.md"),
             "# FS-002-logout: A user logs out\n\nBody.\n",
@@ -105,7 +74,7 @@ mod tests_kind_index {
     /// citation's own line in the index, naming the command that fixes it.
     #[test]
     fn a_bare_entry_is_an_error_at_its_line_in_the_index() {
-        let root = setup("a_bare_entry_is_an_error_at_its_line_in_the_index");
+        let root = kind_index_repo("a_bare_entry_is_an_error_at_its_line_in_the_index");
         write(
             &root.join("docs/specs/README.md"),
             "# Specs\n\n- §FS-001-login\n",
@@ -124,6 +93,12 @@ mod tests_kind_index {
             finding.message
         );
         assert!(
+            finding.message.contains(&format!("unchecked in grund {INDEX_RULE_PRIOR_RELEASE}"))
+                && finding.message.contains(&format!("an error in {INDEX_RULE_RELEASE}")),
+            "§REQ-backwards-compatibility.3 asks for the versions the verdict moved between: {}",
+            finding.message
+        );
+        assert!(
             !codes(&run).contains(&"missing-index-entry".to_string()),
             "one cause, one finding: an ID with an entry never also reports as missing"
         );
@@ -133,7 +108,7 @@ mod tests_kind_index {
     /// rule, and `check` never looks at where the link points (§DF-index-entry-form.2.2).
     #[test]
     fn a_linked_entry_satisfies_the_rule_whatever_the_target_says() {
-        let root = setup("a_linked_entry_satisfies_the_rule_whatever_the_target_says");
+        let root = kind_index_repo("a_linked_entry_satisfies_the_rule_whatever_the_target_says");
         write(
             &root.join("docs/specs/README.md"),
             "# Specs\n\n- [§FS-001-login](FS-001-login.md#a-stale-anchor)\n",
@@ -182,34 +157,11 @@ mod tests_kind_index {
         );
     }
 
-    /// §DF-index-entry-form.2.3: a citation inside an inline-code span is neither
-    /// an entry nor a finding — `fmt` never wraps one, so demanding it would leave
-    /// the repository permanently red.
-    #[test]
-    fn an_inline_code_mention_is_not_an_entry_and_is_not_an_error() {
-        let root = setup("an_inline_code_mention_is_not_an_entry_and_is_not_an_error");
-        write(
-            &root.join("docs/specs/README.md"),
-            "# Specs\n\nThe login flow is `§FS-001-login`, explained below.\n",
-        );
-
-        let run = check_run(&root, false);
-        assert!(
-            !codes(&run).contains(&"unlinked-index-entry".to_string()),
-            "`fmt` declines to wrap it, so `check` must not demand it: {:?}",
-            findings(&run)
-        );
-        assert!(
-            codes(&run).contains(&"missing-index-entry".to_string()),
-            "the ID still has no entry, and that is the finding with a fix"
-        );
-    }
-
     /// §DF-index-entry-form.2.3: one link per ID. A prose mention beside a real
     /// linked entry is untouched — the AR index in this repository is the case.
     #[test]
     fn one_link_satisfies_an_id_that_is_also_mentioned_bare() {
-        let root = setup("one_link_satisfies_an_id_that_is_also_mentioned_bare");
+        let root = kind_index_repo("one_link_satisfies_an_id_that_is_also_mentioned_bare");
         write(
             &root.join("docs/specs/README.md"),
             "# Specs\n\n- [§FS-001-login](FS-001-login.md#fs-login-a-user-logs-in)\n\nSee also `§FS-001-login`.\n",
@@ -228,7 +180,7 @@ mod tests_kind_index {
     /// a kind's folder routinely holds a directory per topic.
     #[test]
     fn the_walk_reaches_a_declaration_in_a_subdirectory() {
-        let root = setup("the_walk_reaches_a_declaration_in_a_subdirectory");
+        let root = kind_index_repo("the_walk_reaches_a_declaration_in_a_subdirectory");
         write(
             &root.join("docs/specs/proposals/FS-003-draft.md"),
             "# FS-003-draft: A drafted spec\n\nBody.\n",
@@ -247,96 +199,12 @@ mod tests_kind_index {
         );
     }
 
-    /// §FS-config.3.4: `index = false` opts the kind out, and the rule then has
-    /// nothing to say about the folder at all.
-    #[test]
-    fn index_false_opts_the_kind_out() {
-        let root = test_root("index_false_opts_the_kind_out");
-        write(
-            &root.join("grund.toml"),
-            "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n\n\
-             [scan]\ninclude = [\"docs\"]\n",
-        );
-        write(
-            &root.join("docs/specs/FS-001-login.md"),
-            "# FS-001-login: A user logs in\n\nBody.\n",
-        );
-
-        let run = check_run(&root, false);
-        assert!(
-            !codes(&run).contains(&"missing-index-entry".to_string()),
-            "a kind whose declarations are exercised, not navigated, says so: {:?}",
-            findings(&run)
-        );
-    }
-
-    /// §FS-config.3.4: `index` names a file *inside* `folder`, so a kind with no
-    /// folder has nothing to index and the key is a config error.
-    #[test]
-    fn index_without_a_folder_is_a_config_error() {
-        let root = test_root("index_without_a_folder_is_a_config_error");
-        write(
-            &root.join("grund.toml"),
-            "grund_config_version = 1\n\n[[kinds]]\nprefix = \"FS\"\nfile = \"requirements.md\"\nindex = \"README.md\"\n",
-        );
-
-        let message = config_error(&root);
-        assert!(
-            message.contains("sets `index` without `folder`"),
-            "the error names the key and why it cannot apply: {message}"
-        );
-    }
-
-    /// §FS-config.3.4: `index = true` names no file. The default is spelled by
-    /// leaving the key out, so `true` is rejected rather than read as one.
-    #[test]
-    fn index_true_is_a_config_error() {
-        let root = test_root("index_true_is_a_config_error");
-        write(
-            &root.join("grund.toml"),
-            "grund_config_version = 1\n\n[[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\nindex = true\n",
-        );
-
-        let message = config_error(&root);
-        assert!(
-            message.contains("takes a file name or `false`"),
-            "the error says what to write instead: {message}"
-        );
-    }
-
-    /// §FS-config.3.4: `index = "<name>"` names another file, resolved relative
-    /// to `folder`.
-    #[test]
-    fn a_named_index_is_resolved_under_the_folder() {
-        let root = test_root("a_named_index_is_resolved_under_the_folder");
-        write(
-            &root.join("grund.toml"),
-            "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\nindex = \"INDEX.md\"\n\n\
-             [scan]\ninclude = [\"docs\"]\n",
-        );
-        write(
-            &root.join("docs/specs/FS-001-login.md"),
-            "# FS-001-login: A user logs in\n\nBody.\n",
-        );
-        write(&root.join("docs/specs/README.md"), "# Specs\n\nProse, not the index.\n");
-
-        let run = check_run(&root, false);
-        assert!(
-            only(&run, "missing-index-entry")
-                .message
-                .contains("docs/specs/INDEX.md"),
-            "the named file is the index, and the README beside it is just a file"
-        );
-    }
-
     /// §FS-check.4.1 / §DF-index-not-an-inbound-citation: the hazard. An index
     /// names every declaration in its folder by construction, so its entries must
     /// not make a declaration look used.
     #[test]
     fn an_index_entry_does_not_suppress_the_unused_warning() {
-        let root = setup("an_index_entry_does_not_suppress_the_unused_warning");
+        let root = kind_index_repo("an_index_entry_does_not_suppress_the_unused_warning");
         write(
             &root.join("docs/specs/README.md"),
             "# Specs\n\n- [§FS-001-login](FS-001-login.md#fs-login-a-user-logs-in)\n",
@@ -387,13 +255,142 @@ mod tests_kind_index {
         );
     }
 
-    /// The message a config this repo cannot load fails with. `Config` carries no
-    /// `Debug`, so the error is unwrapped by matching rather than by `expect_err`.
-    fn config_error(root: &Path) -> String {
-        match load_config(root) {
-            Ok(_) => panic!("expected the config to be rejected"),
-            Err(error) => format!("{error:#}"),
+    /// §DF-index-compatibility-ramp.2.3: the three releases the ramp is stated in
+    /// are literals in message text, and the version they are measured against is
+    /// bumped at release time rather than when the work lands. This is the guard:
+    /// the bump that reaches the deadline fails here, so §RM-index-entry-error
+    /// cannot be walked past and no run can print a date it is already behind.
+    #[test]
+    fn index_entry_ramp_releases_are_ordered() {
+        fn version(text: &str) -> (u64, u64, u64) {
+            let mut parts = text.split('.').map(|part| {
+                part.split(|ch: char| !ch.is_ascii_digit())
+                    .next()
+                    .unwrap_or("0")
+                    .parse::<u64>()
+                    .unwrap_or_else(|_| panic!("not a version: {text}"))
+            });
+            (
+                parts.next().unwrap_or(0),
+                parts.next().unwrap_or(0),
+                parts.next().unwrap_or(0),
+            )
         }
+
+        let current = version(env!("CARGO_PKG_VERSION"));
+        let prior = version(INDEX_RULE_PRIOR_RELEASE);
+        let arrival = version(INDEX_RULE_RELEASE);
+        let error = version(INDEX_ENTRY_ERROR_RELEASE);
+        assert!(prior < arrival, "{INDEX_RULE_PRIOR_RELEASE} < {INDEX_RULE_RELEASE}");
+        assert!(arrival < error, "{INDEX_RULE_RELEASE} < {INDEX_ENTRY_ERROR_RELEASE}");
+        assert!(
+            prior <= current,
+            "§FS-check.3.17 says the rule was unchecked in {INDEX_RULE_PRIOR_RELEASE}, which has to be a release that happened (this tree is {})",
+            env!("CARGO_PKG_VERSION")
+        );
+        assert!(
+            current < error,
+            "this tree is {}, which has reached the release §FS-check.4.6 promised the warning would become an error in ({INDEX_ENTRY_ERROR_RELEASE}). Ship §RM-index-entry-error rather than moving the date.",
+            env!("CARGO_PKG_VERSION")
+        );
+    }
+
+    /// §FS-check.4.6: the three ways an index file fails to read are named apart.
+    /// "does not exist", said about a directory that plainly does, is a diagnosis
+    /// the reader has to argue with before acting on it.
+    #[test]
+    fn an_index_path_that_is_a_directory_says_so() {
+        let root = kind_index_repo("an_index_path_that_is_a_directory_says_so");
+        std::fs::create_dir_all(root.join("docs/specs/README.md")).expect("create dir");
+
+        let run = check_run(&root, false);
+        assert!(
+            only(&run, "missing-index-entry")
+                .message
+                .contains("the index file is a directory"),
+            "{:?}",
+            findings(&run)
+        );
+    }
+
+    /// §FS-check.4.6: the entries come from the scan and the form from disk, so a
+    /// run that never scanned the index cannot say what it lists. Reporting every
+    /// declaration as unlisted there would be a finding about the scope.
+    #[test]
+    fn a_run_that_did_not_scan_the_index_does_not_judge_it() {
+        let root = kind_index_repo("a_run_that_did_not_scan_the_index_does_not_judge_it");
+        write(
+            &root.join("docs/specs/README.md"),
+            "# Specs\n\n- [§FS-001-login](FS-001-login.md#fs-001-login-a-user-logs-in)\n",
+        );
+
+        let run = run_check(&root.join("docs/specs/FS-001-login.md"), true, false, false)
+            .expect("narrowed check run");
+        let codes: Vec<&str> = run
+            .report
+            .errors
+            .iter()
+            .chain(run.report.warnings.iter())
+            .map(|diagnostic| diagnostic.code)
+            .collect();
+        assert!(
+            !codes.contains(&"missing-index-entry"),
+            "the index is out of this run's scope, and it does list the ID: {codes:?}"
+        );
+    }
+
+    /// §FS-fmt.6.1 / §DF-index-always-linkified.2.2: under `enabled = false` the
+    /// carve-out reaches the index for the sake of its entries and writes nothing
+    /// else — the smallest write that clears §FS-check.3.17.
+    #[test]
+    fn the_always_linkify_carve_out_wraps_entries_and_not_prose() {
+        let root = test_root("the_always_linkify_carve_out_wraps_entries_and_not_prose");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n\
+             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\n\n\
+             [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\nindex = false\n\n\
+             [scan]\ninclude = [\"docs\"]\n\n\
+             [fmt.cross_refs]\nenabled = false\n",
+        );
+        write(
+            &root.join("docs/specs/FS-001-login.md"),
+            "# FS-001-login: A user logs in\n\nBody.\n",
+        );
+        write(
+            &root.join("docs/architecture/AR-001-bus.md"),
+            "# AR-001-bus: The bus\n\nBody.\n",
+        );
+        write(
+            &root.join("docs/specs/README.md"),
+            "# Specs\n\n- §FS-001-login\n\nBuilt on §AR-001-bus.\n",
+        );
+
+        format_references(FmtOpts {
+            path: root.clone(),
+            path_provided: true,
+            write: true,
+            ..FmtOpts::default()
+        })
+        .expect("fmt");
+
+        let index = std::fs::read_to_string(root.join("docs/specs/README.md")).expect("read");
+        assert!(
+            index.contains("- [§FS-001-login](FS-001-login.md#fs-001-login-a-user-logs-in)"),
+            "the entry is wrapped whatever the toggle says: {index}"
+        );
+        assert!(
+            index.contains("Built on §AR-001-bus."),
+            "a citation of a foreign ID is prose in an ordinary file, and stays bare: {index}"
+        );
+        assert!(
+            check_run(&root, false)
+                .report
+                .errors
+                .iter()
+                .all(|diagnostic| diagnostic.code != "unlinked-index-entry"),
+            "and the minimum write is enough to clear the error"
+        );
     }
 
     fn run_unused_ids(root: &Path) -> Vec<String> {

@@ -76,7 +76,11 @@ fn parse_kinds_key(
                 )?;
                 unreachable!();
             } else {
-                KindIndex::Named(parse_string(path, line_no, value)?)
+                let name = parse_string(path, line_no, value)?;
+                if let Some(message) = kind_index_name_error(&name) {
+                    bail_config(path, line_no, message)?;
+                }
+                KindIndex::Named(name)
             };
             if let Some(slot) = current_kind.as_mut() {
                 slot.index = index;
@@ -105,12 +109,52 @@ fn parse_kinds_key(
     Ok(true)
 }
 
+/// Why `index = "<name>"` is not a usable index file name, or `None`
+/// (§FS-config.3.4). Two rules, each closing a state the rules built on this key
+/// cannot describe:
+///
+/// * **It names a file inside `folder`.** The value is joined onto `folder`, and
+///   an absolute path or one that climbs out with `..` silently replaces the
+///   folder instead of naming a file in it — `grund check` would then read, and
+///   `grund fmt --write` would then rewrite, a file outside the tree the config
+///   describes (§FS-non-goals.11). `.` is rejected with them: it names the same
+///   file by a path no message should have to print.
+/// * **It names a Markdown file.** `--cross-refs` runs on `.md` files only
+///   (§FS-fmt.6.1), so an index with any other extension is one the formatter can
+///   never linkify — and §FS-check.3.17, whose whole licence is that
+///   `grund fmt --write` fixes it, would be an error no command could clear
+///   (§DF-index-entry-form.2.3).
+fn kind_index_name_error(name: &str) -> Option<String> {
+    if name.is_empty() {
+        return Some("[[kinds]] `index` must name a file (use `false` to opt out)".to_string());
+    }
+    let inside_folder = !name.contains('\\')
+        && Path::new(name)
+            .components()
+            .all(|component| matches!(component, Component::Normal(_)));
+    if !inside_folder {
+        return Some(format!(
+            "[[kinds]] `index` must be a relative path inside `folder` (`{name}` is not)"
+        ));
+    }
+    if Path::new(name).extension().and_then(|ext| ext.to_str()) != Some("md") {
+        return Some(format!(
+            "[[kinds]] `index` must name a Markdown file (`{name}` is not a `.md` file)"
+        ));
+    }
+    None
+}
+
 /// Every whole-list rule a `[[kinds]]` block has to satisfy (§FS-config.3.4):
 /// each entry declares a prefix, `folder` and `file` are exclusive, `index`
 /// needs a folder, `code` is reserved, and no prefix is a prefix of another.
 /// Applied only when the file declared the block at all — `[[kinds]]` replaces
 /// the defaults entirely rather than merging into them.
-fn apply_parsed_kinds(path: &Path, parsed_kinds: Vec<KindConfig>, config: &mut Config) -> Result<()> {
+///
+/// It also resolves the per-prefix `index` defaults, so a declared kind and a
+/// built-in one of the same name agree about what `index` is when the key is
+/// absent (§FS-config.3.4).
+fn apply_parsed_kinds(path: &Path, mut parsed_kinds: Vec<KindConfig>, config: &mut Config) -> Result<()> {
     // [[kinds]] replaces defaults entirely, per §FS-config.3.4.
     if parsed_kinds.iter().any(|p| p.prefix.is_empty()) {
         return Err(anyhow!(
@@ -155,6 +199,19 @@ fn apply_parsed_kinds(path: &Path, parsed_kinds: Vec<KindConfig>, config: &mut C
                 format_path(path),
                 CODE_SOURCE_KIND
             ));
+        }
+    }
+    // §FS-config.3.4: the `index` default is keyed on the prefix, and this is
+    // where a *declared* kind picks it up. `[[kinds]]` replaces the built-in list
+    // rather than merging into it, so without this line the same block that
+    // `grund init` writes would mean one thing when the file omits it and
+    // another when the file spells it out — and every repository whose config
+    // predates this key would inherit an obligation the built-in default
+    // deliberately declines. Runs after the validation above, which reads
+    // `index` as the file wrote it.
+    for kind in &mut parsed_kinds {
+        if kind.index == KindIndex::Default && kind.folder.is_some() {
+            kind.index = default_kind_index(&kind.prefix);
         }
     }
     // Reject kinds whose prefix is itself a prefix of another kind's prefix

@@ -256,9 +256,6 @@ pub enum KindIndex {
 const DEFAULT_KIND_INDEX: &str = "README.md";
 
 impl KindConfig {
-    /// This kind's index file, relative to the config root — `None` for a kind
-    /// with no `folder` or with `index = false` (§FS-config.3.4). Joined onto
-    /// `folder`, because the key names a file *in* the folder it indexes.
     /// The `index` value `grund config show` prints for this kind
     /// (§FS-config.4.2): the TOML literal — `false`, or a quoted file name — and
     /// `None` for a kind with no folder, which has no index to speak of.
@@ -271,6 +268,10 @@ impl KindConfig {
         })
     }
 
+    /// This kind's index file, relative to the config root — `None` for a kind
+    /// with no `folder` or with `index = false` (§FS-config.3.4). Joined onto
+    /// `folder`, because the key names a file *in* the folder it indexes, which
+    /// is what `kind_index_name_error` holds the value to.
     fn index_path(&self) -> Option<PathBuf> {
         let folder = self.folder.as_deref()?;
         let name = match &self.index {

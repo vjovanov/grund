@@ -1,0 +1,16 @@
+grund_config_version = 1
+
+[[kinds]]
+prefix = "FS"
+folder = "docs/functional-spec"
+
+[[kinds]]
+prefix = "AR"
+folder = "docs/architecture"
+index = false
+
+[scan]
+include = ["docs"]
+
+[fmt.cross_refs]
+enabled = false

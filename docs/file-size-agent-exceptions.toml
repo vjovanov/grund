@@ -158,9 +158,9 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 until = "a third emission profile lands and the planner gains real branching"
-max_accepted = { value = 423, unit = "lines" }
+max_accepted = { value = 427, unit = "lines" }
 reason = """
-Link planning (which citations need a link, and to which anchor) and link writing (splice text without disturbing surrounding bytes) are two phases communicating through a plan type, so the seam exists and is clean. It is simply not worth taking at 73 lines over: two files whose combined interface is larger than today's. Revisit when a third emission profile lands (§FS-fmt.6) and the planner gains real branching.
+Link planning (which citations need a link, and to which anchor) and link writing (splice text without disturbing surrounding bytes) are two phases communicating through a plan type, so the seam exists and is clean. It is simply not worth taking at 77 lines over: two files whose combined interface is larger than today's. Revisit when a third emission profile lands (§FS-fmt.6) and the planner gains real branching. The ceiling moved 423 -> 427 when the wrapper learned to honour the always-linkify carve-out's ID filter (§FS-fmt.6.1) — four lines inside the planning phase, which is the phase that would move out.
 """
 [[exceptions]]
 path = "crates/grund-core/src/model.rs"
@@ -188,9 +188,11 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 until = "the renderers stop changing with the query"
-max_accepted = { value = 380, unit = "lines" }
+max_accepted = { value = 397, unit = "lines" }
 reason = """
-The declaration catalog query and its renderers, 30 lines over budget (18 before `--unused` learned to discount a kind's own index entries, §DF-index-not-an-inbound-citation). They change together — every field the query learns to select is a field the output shapes have to show — so splitting now produces two files that are always opened as a pair. What retires this is that coupling ending, not the file growing.
+The declaration catalog query and its renderers, 47 lines over budget (18 before `--unused` learned to discount a kind's own index entries, §DF-index-not-an-inbound-citation, and 30 before that discount stopped being written twice). They change together — every field the query learns to select is a field the output shapes have to show — so splitting now produces two files that are always opened as a pair. What retires this is that coupling ending, not the file growing.
+
+The last +17 is a deduplication, not accretion: `ListCitationCounts` is the one pass that builds both counts, and `api.rs` had carried a byte-identical copy of it. Moving the copy here took `api.rs` from 1573 to 1546 lines, so the pair is 10 lines smaller than before and the two commands can no longer disagree about what `--unused` selects.
 """
 [[exceptions]]
 path = "crates/grund-core/src/shorthand.rs"

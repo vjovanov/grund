@@ -69,6 +69,8 @@ include!("tests_config_scan.rs");
 include!("tests_id_grammar.rs");
 include!("tests_check_full.rs");
 include!("tests_kind_index.rs");
+include!("tests_kind_index_config.rs");
+include!("tests_kind_index_entry_form.rs");
 include!("tests_check_full_scope.rs");
 include!("tests_nothing_recognized.rs");
 include!("tests_duplicate_sections.rs");

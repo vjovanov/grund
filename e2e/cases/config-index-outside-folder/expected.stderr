@@ -1,0 +1,1 @@
+error: .agents/grund.toml:6: [[kinds]] `index` must be a relative path inside `folder` (`../../README.md` is not)

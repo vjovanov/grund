@@ -1,0 +1,10 @@
+grund_config_version = 1
+
+[[kinds]]
+prefix = "FS"
+folder = "docs/functional-spec"
+index = "INDEX.py"
+
+[scan]
+include = ["docs"]
+extensions = ["md", "py"]

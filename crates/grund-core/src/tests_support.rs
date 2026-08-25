@@ -377,6 +377,60 @@ mod tests_support {
     /// `path:line: message` (§FS-check.2.1).
     /// Unix only: every caller is a symlink case and so `#[cfg(unix)]` too.
     #[cfg(unix)]
+    /// A repo whose `FS` kind is a folder with the default `README.md` index
+    /// (§FS-config.3.4), holding one declaration — the fixture the kind-index
+    /// cases share across their three modules.
+    pub(crate) fn kind_index_repo(name: &str) -> PathBuf {
+        kind_index_repo_with(name, "")
+    }
+
+    /// The same fixture off strict mode, where a bare ID-shaped token is a
+    /// recognized citation (§FS-config.3.1) — the configuration the entry-form
+    /// cases need, because that is where `fmt` and `check` can disagree.
+    pub(crate) fn kind_index_repo_loose(name: &str) -> PathBuf {
+        kind_index_repo_with(name, "[reference]\nstrict = false\n\n")
+    }
+
+    fn kind_index_repo_with(name: &str, reference: &str) -> PathBuf {
+        let root = test_root(name);
+        write(
+            &root.join("grund.toml"),
+            &format!(
+                "grund_config_version = 1\n\n{reference}\
+                 [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\n\n\
+                 [scan]\ninclude = [\"docs\"]\n"
+            ),
+        );
+        write(
+            &root.join("docs/specs/FS-001-login.md"),
+            "# FS-001-login: A user logs in\n\nBody.\n",
+        );
+        root
+    }
+
+    /// Every finding's code, errors then warnings — what a case asserts on when
+    /// it cares which rules fired and not what they said.
+    pub(crate) fn codes(run: &CheckRun) -> Vec<String> {
+        run.report
+            .errors
+            .iter()
+            .chain(run.report.warnings.iter())
+            .map(|diagnostic| diagnostic.code.to_string())
+            .collect()
+    }
+
+    /// The first finding carrying `code`, panicking with the codes that did fire
+    /// when there is none — so a case that expected one rule and got another
+    /// fails naming both.
+    pub(crate) fn only<'a>(run: &'a CheckRun, code: &str) -> &'a Diagnostic {
+        run.report
+            .errors
+            .iter()
+            .chain(run.report.warnings.iter())
+            .find(|diagnostic| diagnostic.code == code)
+            .unwrap_or_else(|| panic!("expected a {code} finding, got {:?}", codes(run)))
+    }
+
     pub(crate) fn findings(run: &CheckRun) -> Vec<String> {
         let mut diagnostics = run
             .report

@@ -1,0 +1,2 @@
+docs/functional-spec/FS-001-login.md:1: FS-001-login is not listed in docs/functional-spec/README.md — an index entry becomes an error in grund 0.13.0
+docs/functional-spec/FS-001-login.md:1: declared but never cited: FS-001-login

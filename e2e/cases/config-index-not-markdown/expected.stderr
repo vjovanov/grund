@@ -1,0 +1,1 @@
+error: .agents/grund.toml:6: [[kinds]] `index` must name a Markdown file (`INDEX.py` is not a `.md` file)

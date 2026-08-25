@@ -333,6 +333,7 @@ members = ["apps/api"]
             &root_project.config,
             &root_project.findings,
             Some(&context),
+            None,
         );
         assert_eq!(
             wrapped,

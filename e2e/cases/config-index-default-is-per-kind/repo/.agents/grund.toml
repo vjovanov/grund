@@ -1,0 +1,12 @@
+grund_config_version = 1
+
+[[kinds]]
+prefix = "FS"
+folder = "docs/functional-spec"
+
+[[kinds]]
+prefix = "E2E"
+folder = "e2e/cases"
+
+[scan]
+include = ["docs", "e2e"]
