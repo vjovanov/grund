@@ -70,7 +70,7 @@ mod tests_kind_index_enrollment {
 
         let (config, findings, entries) = scanned_index(&root);
         let owed = entries
-            .entries_in(&root.join("docs/architecture/README.md"))
+            .entries_in(&config.root.join("docs/architecture/README.md"))
             .expect("configured index obligations");
         assert!(owed.contains(&bus_id()), "the index owns the external ID");
         let citation = findings.citations.first().expect("index citation");
