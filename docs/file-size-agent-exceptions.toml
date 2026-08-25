@@ -192,7 +192,7 @@ max_accepted = { value = 397, unit = "lines" }
 reason = """
 The declaration catalog query and its renderers, 47 lines over budget (18 before `--unused` learned to discount a kind's own index entries, §DF-index-not-an-inbound-citation, and 30 before that discount stopped being written twice). They change together — every field the query learns to select is a field the output shapes have to show — so splitting now produces two files that are always opened as a pair. What retires this is that coupling ending, not the file growing.
 
-The last +17 is a deduplication, not accretion: `ListCitationCounts` is the one pass that builds both counts, and `api.rs` had carried a byte-identical copy of it. Moving the copy here took `api.rs` from 1573 to 1546 lines, so the pair is 10 lines smaller than before and the two commands can no longer disagree about what `--unused` selects.
+The last +17 is a deduplication, not accretion: `ListCitationCounts` is the one pass that builds both counts, and `api.rs` had carried a byte-identical copy of it. Moving the copy here took `api.rs` from 1854 to 1822 raw lines while this file gained 30, so the pair is 2 lines smaller than before and the two commands can no longer disagree about what `--unused` selects.
 """
 [[exceptions]]
 path = "crates/grund-core/src/shorthand.rs"
