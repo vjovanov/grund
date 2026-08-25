@@ -350,25 +350,15 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
                 k.kind
             ));
         }
-        // §FS-config.3.4: a non-citable kind is a *place* — it is what the
-        // Project map links, what the citation directions name, and what the
-        // scan is told to walk. Without a home there is none of that left, and
-        // the homeless non-citable kind already has a name: `code`.
-        if !k.citable && k.folder.is_none() && k.file.is_none() {
+        // §FS-config.3.9.2: `code` is the *default* name of the homeless kind,
+        // and a name a project may take only by declaring that kind — the
+        // complement of every home, which is what "no `folder`, no `file`,
+        // `citable = false`" spells. Any other row wearing it would collide with
+        // the fallback every citation outside a home resolves to.
+        if k.kind == CODE_SOURCE_KIND && !(!k.citable && k.folder.is_none() && k.file.is_none()) {
             return Err(anyhow!(
-                "{}: kind `{}` sets `citable = false` without `folder` or `file` (a non-citable kind is a place; the homeless one is `{CODE_SOURCE_KIND}`)",
-                format_path(path),
-                k.kind
-            ));
-        }
-        // §FS-config.3.9.2: `code` is the reserved citing kind for every site
-        // outside a configured home — the complement of the whole table, which
-        // is why it cannot be a row in it.
-        if k.kind == CODE_SOURCE_KIND {
-            return Err(anyhow!(
-                "{}: `{}` is reserved as the citation-direction pseudo-kind and cannot be a [[kinds]] name",
-                format_path(path),
-                CODE_SOURCE_KIND
+                "{}: `{CODE_SOURCE_KIND}` names the homeless kind — a [[kinds]] entry may take it only with `citable = false` and no `folder` or `file` (§FS-config.3.9.2)",
+                format_path(path)
             ));
         }
     }
@@ -385,6 +375,22 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
         if kind.index == KindIndex::Default && kind.folder.is_some() && kind.citable {
             kind.index = default_kind_index(&kind.kind);
         }
+    }
+    // §FS-config.3.9.2: the homeless kind is the complement of every configured
+    // home, and a complement is one place. Two rows claiming it would leave the
+    // fallback with no single answer, so the second is refused where it is
+    // written rather than resolved by order.
+    let homeless: Vec<&KindConfig> = kinds
+        .iter()
+        .filter(|kind| !kind.citable && kind.folder.is_none() && kind.file.is_none())
+        .collect();
+    if let [first, second, ..] = homeless.as_slice() {
+        return Err(anyhow!(
+            "{}: kinds `{}` and `{}` both declare the homeless kind (no `folder`, no `file`) — there is one complement of every home",
+            format_path(path),
+            first.kind,
+            second.kind
+        ));
     }
     // §FS-config.3.4: names are unique across the whole table — `[citations.*]`
     // and `grund list --kind` key on one, so two rows wearing one name is a

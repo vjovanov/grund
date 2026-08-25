@@ -89,7 +89,7 @@
 /// satisfying each obligation entry (entries are conjunctive, `|` inside an entry is
 /// a disjunction). The body extent and the per-citation `enclosing_declaration` come
 /// from the scanner (§AR-scanner.2.4), so this pass is a lookup, not a re-scan. The
-/// `code` pseudo-kind obligation is per source file (§FS-config.3.9.2) rather than
+/// homeless-kind obligation is per source file (§FS-config.3.9.2) rather than
 /// per declaration. A `must` miss is a `missing-citation` error; a `should` miss is a
 /// `suggested-citation` suggestion, emitted only under `--suggestions` (§FS-check.2.3).
 ///

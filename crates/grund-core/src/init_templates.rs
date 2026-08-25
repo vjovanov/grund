@@ -205,10 +205,18 @@ fn citation_directions_section(config: &Config) -> String {
     {
         lines.push(default);
     }
-    // `[[kinds]]` order, then the `code` pseudo-kind last (§FS-init.2.3.5).
-    let mut kinds: Vec<String> = config.kinds.iter().map(|k| k.kind.clone()).collect();
-    if config.citations.per_kind.contains_key(CODE_SOURCE_KIND) {
-        kinds.push(CODE_SOURCE_KIND.to_string());
+    // `[[kinds]]` order, then the homeless kind last (§FS-init.2.3.5) — wherever
+    // in the table a project happened to declare it, because it is the
+    // complement of every row above it and reads as the closing case.
+    let homeless = config.homeless_kind();
+    let mut kinds: Vec<String> = config
+        .kinds
+        .iter()
+        .map(|k| k.kind.clone())
+        .filter(|kind| kind != homeless)
+        .collect();
+    if config.citations.per_kind.contains_key(homeless) {
+        kinds.push(homeless.to_string());
     }
     for kind in &kinds {
         let Some(rules) = config.citations.per_kind.get(kind) else {
@@ -217,11 +225,19 @@ fn citation_directions_section(config: &Config) -> String {
         let Some(clauses) = citation_direction_clauses(rules) else {
             continue;
         };
-        // §FS-init.2.3.5: a non-citable kind is named by its place here too, so
-        // the row reads as the instruction it is — "files in this directory
-        // cite X" — rather than naming a kind an agent can never write.
-        let label = if kind == CODE_SOURCE_KIND {
-            "**code** (any file outside a kind home)".to_string()
+        // §FS-init.2.3.5: a homed non-citable kind is named by its place, so the
+        // row reads as the instruction it is — "files in this directory cite X"
+        // — rather than naming a kind an agent can never write. The homeless
+        // kind has no place, so it keeps its name and says what it covers: its
+        // `title` where the project wrote one, the fixed phrase otherwise.
+        let label = if kind == homeless {
+            let scope = config
+                .kinds
+                .iter()
+                .find(|configured| configured.kind == *kind)
+                .and_then(|configured| configured.title.as_deref())
+                .unwrap_or("any file outside a kind home");
+            format!("**{kind}** ({scope})")
         } else {
             format!("**{}**", citing_side_label(config, kind))
         };
@@ -396,7 +412,11 @@ fn citation_rule_targets(disjunctions: &[CitationDisjunction]) -> String {
 /// has no ID namespace, so its name is a config handle and the only useful thing
 /// to show an agent is the directory to go and read.
 fn declaration_map(config: &Config) -> String {
-    let rows = config.kinds.iter().map(|kind| {
+    // §FS-init.2.3.4.4: the homeless kind gets no row. Every row is a link to a
+    // place, and it is the one kind that is not a place — the complement of all
+    // of them. Its citation directions still render (§FS-init.2.3.5).
+    let homeless = config.homeless_kind();
+    let rows = config.kinds.iter().filter(|kind| kind.kind != homeless).map(|kind| {
         let title = kind.title.as_deref().unwrap_or("Declaration");
         // A non-citable kind is labelled by its home, which `place_label`
         // already renders; every kind with a home links to it either way.

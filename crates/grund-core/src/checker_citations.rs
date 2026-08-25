@@ -35,11 +35,12 @@ fn check_citation_obligations(findings: &Findings, config: &Config, report: &mut
     // every citation in the tree, and answering it by scanning `[[kinds]]` each
     // time would make the pass O(citations × kinds) for no gain (§AR-benchmarks).
     let non_citable = non_citable_kind_names(config);
+    let homeless = config.homeless_kind();
     for cite in &findings.citations {
         if let Some(id) = &cite.enclosing_declaration {
             by_decl.entry(id).or_default().push(cite);
         }
-        if file_is_obligation_unit(&non_citable, cite) {
+        if file_is_obligation_unit(&non_citable, homeless, cite) {
             by_file
                 .entry((cite.source_kind.as_str(), cite.file.as_path()))
                 .or_default()
@@ -145,16 +146,21 @@ impl ObligationUnit<'_> {
 /// (§FS-check.3.11). Two kinds of citing side have no declaration to attach an
 /// obligation to, and both answer with the file:
 ///
-/// * `code` — every citation outside a configured home, source files only. A
-///   README or a changelog is a document, and §FS-check.3.6 exempts it for the
-///   same reason.
-/// * a **non-citable kind** — every scanned file in its home, `.md` included.
-///   Inheriting `code`'s Markdown exemption here would make `must` inert on the
-///   kinds that are usually all Markdown, which is most of them: the exemption
-///   reasons about implementation-versus-document, and a home the maintainer
-///   named is neither guess.
-fn file_is_obligation_unit(non_citable: &BTreeSet<&str>, cite: &Citation) -> bool {
-    if cite.source_kind == CODE_SOURCE_KIND {
+/// * the **homeless kind** (`code`, or whatever the project named it,
+///   §FS-config.3.9.2) — every citation outside a configured home, source files
+///   only. A README or a changelog is a document, and §FS-check.3.6 exempts it
+///   for the same reason.
+/// * a **homed non-citable kind** — every scanned file in its home, `.md`
+///   included. Inheriting the Markdown exemption here would make `must` inert on
+///   the kinds that are usually all Markdown, which is most of them: the
+///   exemption reasons about implementation-versus-document, and a home the
+///   maintainer named is neither guess.
+fn file_is_obligation_unit(
+    non_citable: &BTreeSet<&str>,
+    homeless: &str,
+    cite: &Citation,
+) -> bool {
+    if cite.source_kind == homeless {
         return cite.file.extension().and_then(|ext| ext.to_str()) != Some("md");
     }
     non_citable.contains(cite.source_kind.as_str())
@@ -183,7 +189,9 @@ fn obligation_units<'a>(
     by_file: &BTreeMap<(&'a str, &'a Path), Vec<&'a Citation>>,
     e2e_by_case: &BTreeMap<&'a Path, Vec<&'a Citation>>,
 ) -> Vec<ObligationUnit<'a>> {
-    if citing_kind == CODE_SOURCE_KIND || non_citable_kind_names(config).contains(citing_kind) {
+    if citing_kind == config.homeless_kind()
+        || non_citable_kind_names(config).contains(citing_kind)
+    {
         let place = config
             .kinds
             .iter()

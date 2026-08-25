@@ -16,12 +16,20 @@ evidence of how the outcome was reached. What shipped instead:
 - **`prefix` became `kind`** (open question 2), which is what made the
   collision-rule carve-out (open question 3) read as the rule's natural scope
   rather than an exception: prefix-freedom is a property of citable kinds.
-- **`code` stays reserved and implicit** rather than becoming a `[[kinds]]` row.
-  A row for it would be printed by `grund config show`, and the printed config
-  has to load back as itself — which a reserved name cannot. It therefore gets
-  **no Project map row**, and the managed block does not move for any existing
-  repository, so **no block version bump** (against the v8 this proposal
-  expected).
+- **`code` became a *default* name rather than a fixed one**, which is close to
+  what this proposal asked for and reached by a different route. The row is
+  **optional**: declaring `citable = false` with no `folder` and no `file` *is*
+  the declaration of the complement kind, so a project may name it `src`,
+  `modules`, or keep `code` and give it a `title`. Exactly one row may be it,
+  and `code` is reserved to that row. Because the row is optional rather than
+  always materialised, a config that never declared it prints nothing for it and
+  `grund config show` still round-trips — the objection that briefly argued for
+  keeping it unwritable.
+- **It gets no Project map row** (against this proposal's "renders
+  unconditionally"): every row there links a place, and the complement of every
+  home is the one kind that has none. So the managed block does not move for any
+  existing repository, and there is **no block version bump** — against the v8
+  this proposal expected.
 - **Non-citable kinds render by place, never by name** — `- [skills/](skills)`
   — a question this text did not reach.
 - **A configured kind home is always in the scan scope** (open questions 4 and
@@ -175,7 +183,7 @@ home*, and that plus a default title is what the row needs.
 ### The field is a kind, not a prefix
 
 Once `code` is an entry the field holds `"code"`, which never prefixes anything
-— [§FS-config.3.9.2](../../functional-spec/FS-config.md#392-the-code-pseudo-kind) already calls it a *pseudo-kind*. `prefix` is accurate for
+— [§FS-config.3.9.2](../../functional-spec/FS-config.md#392-the-homeless-kind) already calls it a *pseudo-kind*. `prefix` is accurate for
 the first row of the table above and for no other; `kind` is accurate for all
 three.
 
