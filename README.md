@@ -93,7 +93,7 @@ docs/requirements/REQ-no-wrong-citation.md:7: missing section FS-check.3.2
 3. No ID is declared in two places. *(duplicates)*
 4. Every stub heading `# <ID>: [<text>](<path>)` points at a file containing the inline declaration. *(broken stubs)*
 5. The `AGENTS.md` / `CLAUDE.md` entry-point block is up to date. *(stale init)*
-6. Declared-but-uncited IDs are flagged. *(unused — warning, not error; `E2E-` cases are exempt)*
+6. Declared-but-uncited IDs are flagged. *(unused — warning, not error; a configured `E2E` kind's cases are exempt)*
 7. *(opt-in)* With `[reference] require_grounding = true`: every source file carries at least one citation. *(ungrounded source file)*
 8. *(workspace)* Alias-qualified citations resolve across configured sub-projects. *(cross-project references — see [§FS-workspace](docs/functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace))*
 
@@ -143,7 +143,7 @@ See [§FS-workspace](docs/functional-spec/FS-workspace.md#fs-workspace-grund-val
 
 ## 4. The structure that gets cited
 
-Every fact in a `grund` repo has a stable ID. The default kinds (configurable):
+Every fact has a stable ID. The default kinds, all configurable — `*` marks a *place* rather than an ID namespace (`citable = false`: a home, a title and citation rules, no declarations), which is what a test is, and what any directory an agent must be told about can be:
 
 | Kind | What it is | Where it lives |
 | --- | --- | --- |
@@ -153,8 +153,9 @@ Every fact in a `grund` repo has a stable ID. The default kinds (configurable):
 | `AR` | How: high-level implementation, structure, and design | `docs/architecture/` — **or inline in a class / module doc-comment** |
 | `DF` | product behavior decisions and tradeoffs | `docs/decisions/functional/` (append-only) |
 | `DA` | architecture decisions and tradeoffs | `docs/decisions/architectural/` (append-only) |
-| `E2E` | executable user scenarios | `e2e/cases/<id>/` (the test *is* the body) |
 | `RM`   | planned milestones and sequencing           | `docs/roadmap.md`                              |
+| `e2e` * / `integration` * | proof: the spec as a user sees it, and the parts fitting as designed | `tests/e2e/` (must cite `FS`), `tests/integration/` (should cite `AR`) |
+
 
 **ID format:**
 
@@ -166,7 +167,7 @@ Every fact in a `grund` repo has a stable ID. The default kinds (configurable):
    │     │        │       │         │       └─ dotted path of arbitrary depth (.3, .3.1, …)
    │     │        │       │         └───────── [a-z0-9][a-z0-9-]*  (default slug_pattern)
    │     │        │       └─────────────────── optional ordinal (e.g., 001)
-   │     │        └─────────────────────────── GRUND│GOAL|FS│AR│DF│DA│E2E│RM│DISC|[custom]
+   │     │        └─────────────────────────── GRUND│GOAL|FS│AR│DF│DA│RM│[custom]
    │     └──────────────────────────────────── project alias for subprojects or monorepo
    └────────────────────────────────────────── citation marker (writing only)
 ```

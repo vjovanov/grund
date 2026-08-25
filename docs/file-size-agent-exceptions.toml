@@ -2,7 +2,7 @@ fissile_exceptions_version = 2
 # Soft-severity file-size exceptions. An agent may add an entry here on its own;
 # hard entries are a human's (§AR-ci.9).
 #
-# Two shapes live in this file. Most entries carry their own argument. Twelve are
+# Two shapes live in this file. Most entries carry their own argument. Nine are
 # *soft twins*: a file past the hard budget is past the soft one too, and a
 # `deferred` hard entry deliberately leaves the soft finding standing, so the file
 # needs an entry in each registry. (A `structural` hard entry silences both tiers
@@ -67,7 +67,7 @@ path = "crates/grund-core/src/checker.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 1000, unit = "lines" }
+max_accepted = { value = 758, unit = "lines" }
 until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
 Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
@@ -87,10 +87,10 @@ path = "crates/grund-core/src/init_templates.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 509, unit = "lines" }
-until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
+max_accepted = { value = 369, unit = "lines" }
+until = "payload and renderer are separated, leaving the managed-block renderer beside init.rs"
 reason = """
-Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
+The hard twin is retired: the workspace half — finding the workspace a target sits in, and rendering the member list the managed block carries — moved to init_workspace_members.rs, which took this file from 514 lines to 369 and under the hard budget. This entry now carries the argument alone. What is left is the managed-block renderer (citation directions, inline-style sentences, the Project map, link construction) sitting among the ten include_str! payload constants it composes, because both are reached from init. Missing boundary: payload and renderer are two jobs, and the renderer belongs beside init.rs.
 """
 [[exceptions]]
 path = "crates/grund-core/src/init.rs"
@@ -167,20 +167,20 @@ path = "crates/grund-core/src/model.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "structural"
-max_accepted = { value = 457, unit = "lines" }
+max_accepted = { value = 455, unit = "lines" }
 until = "indefinite"
 reason = """
-`Model` is the shared vocabulary layer of §AR-core-module-layout.1: 25 type definitions against 9 free functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. The ceiling therefore tracks that width and moves with it: adding a `Config` key or a field to a recorded type raises it (429 rather than 424 once the two `inline_note_layout` keys landed, 433 once the run's workspace scope path and the `[workspace]` block's own source location joined `Config`, 434 once `Citation` recorded whether a shorthand sits in a numeric run, 436 once `Config` learned where the run's other workspace projects are, 437 once `Declaration` recorded the headings that claimed a section path a second time, 457 once `KindConfig` learned which file indexes its folder, the `KindIndex` states that key takes, and how `grund config show` spells it), which is the registry growing, not this file accreting logic. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if such a sub-domain appears.
+`Model` is the shared vocabulary layer of §AR-core-module-layout.1: 25 type definitions against 9 free functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. The ceiling therefore tracks that width and moves with it: adding a `Config` key or a field to a recorded type raises it (429 rather than 424 once the two `inline_note_layout` keys landed, 433 once the run's workspace scope path and the `[workspace]` block's own source location joined `Config`, 434 once `Citation` recorded whether a shorthand sits in a numeric run, 436 once `Config` learned where the run's other workspace projects are, 437 once `Declaration` recorded the headings that claimed a section path a second time, 457 once `KindConfig` learned which file indexes its folder, the `KindIndex` states that key takes, and how `grund config show` spells it, 455 once a kind could declare no IDs at all — `KindConfig.citable`, the place label a kind with no name to print is rendered by, and the split of the kind list into "every citing kind" and "the citable ones", less the built-in kind table and its per-name defaults, which left for config_kinds.rs because they are config defaults rather than shared vocabulary), which is the registry growing, not this file accreting logic. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if such a sub-domain appears.
 """
 [[exceptions]]
 path = "skills/grund-init/SKILL.md"
 match = "exact"
 rules = ["entrypoints"]
 kind = "structural"
-max_accepted = { value = 387, unit = "lines" }
+max_accepted = { value = 394, unit = "lines" }
 until = "indefinite"
 reason = """
-This file cannot be split. It is a shipped artifact, not source: init_templates.rs embeds it verbatim via include_str! as AGENT_SETUP_INSTRUCTIONS, `grund agent-setup-instructions` prints exactly those bytes, and a test asserts it is byte-identical to the mirror under crates/grund-core/assets/ (§FS-init.5). Any split either changes the emitted document or makes the command reassemble it at runtime, which moves document structure into code. Its length is the length of the instructions grund promises to emit; the only honest way to shrink it is to promise less.
+This file cannot be split. It is a shipped artifact, not source: init_templates.rs embeds it verbatim via include_str! as AGENT_SETUP_INSTRUCTIONS, `grund agent-setup-instructions` prints exactly those bytes, and a test asserts it is byte-identical to the mirror under crates/grund-core/assets/ (§FS-init.5). Any split either changes the emitted document or makes the command reassemble it at runtime, which moves document structure into code. Its length is the length of the instructions grund promises to emit; the only honest way to shrink it is to promise less. The ceiling therefore moves with what grund promises to say: 387 -> 394 when `[[kinds]]` gained non-citable kinds (§FS-config.3.4.1) and the setup interview had to learn to ask about the directories that are places rather than ID namespaces.
 """
 [[exceptions]]
 path = "crates/grund-core/src/list.rs"
@@ -188,11 +188,13 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 until = "the renderers stop changing with the query"
-max_accepted = { value = 397, unit = "lines" }
+max_accepted = { value = 399, unit = "lines" }
 reason = """
 The declaration catalog query and its renderers, 47 lines over budget (18 before `--unused` learned to discount a kind's own index entries, §DF-index-not-an-inbound-citation, and 30 before that discount stopped being written twice). They change together — every field the query learns to select is a field the output shapes have to show — so splitting now produces two files that are always opened as a pair. What retires this is that coupling ending, not the file growing.
 
-The last +17 is a deduplication, not accretion: `ListCitationCounts` is the one pass that builds both counts, and `api.rs` had carried a byte-identical copy of it. Moving the copy here took `api.rs` from 1854 to 1822 raw lines while this file gained 30, so the pair is 2 lines smaller than before and the two commands can no longer disagree about what `--unused` selects.
+The last +2 is the `--kind` selector learning to tell a typo from a configured kind that declares no IDs (§FS-config.3.4.1) — one more arm on the check that was already there, in the query half rather than the renderers.
+
+The +17 before it is a deduplication, not accretion: `ListCitationCounts` is the one pass that builds both counts, and `api.rs` had carried a byte-identical copy of it. Moving the copy here took `api.rs` from 1854 to 1822 raw lines while this file gained 30, so the pair is 2 lines smaller than before and the two commands can no longer disagree about what `--unused` selects.
 """
 [[exceptions]]
 path = "crates/grund-core/src/shorthand.rs"

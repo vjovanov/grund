@@ -185,11 +185,19 @@ src/foo.rs:1: ungrounded source file: no § citation to a declared ID
 
 The marker in the message is the configured one ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). A file whose only citation is dangling (§3.1) is *not* grounded — it gets both findings; fixing the citation clears both. Markdown files are never subject to this rule (they are documents, not implementation); use the unused-declaration warning (§4.1) and dangling/section errors for those.
 
+**One exception, and it is a home rather than an extension.** Inside a **non-citable kind's home** ([§FS-config.3.4.1](FS-config.md#341-citable--kinds-that-declare-no-ids)) every scanned file is subject to the rule, `.md` included, and the finding names the home:
+
+```
+skills/triage/SKILL.md:1: ungrounded file in kind home skills/: no § citation to a declared ID
+```
+
+The Markdown exemption reasons about implementation versus document, and a non-citable home is neither guess: it is a directory the maintainer declared matters, and it is usually *all* Markdown — a skill, a runbook, a prompt library. Inheriting the exemption there would switch the rule off exactly where it was turned on. Files outside such a home are unaffected, so a repository that configures no non-citable kind sees this rule exactly as it did before.
+
 This is a pure function of `(tree, config)` like every other `check` rule ([§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)): it reads no git history ([§FS-non-goals.6](FS-non-goals.md#6-decision-database-audit-log-history-tracking)) and parses no code ([§FS-non-goals.3](FS-non-goals.md#3-code-ast-parsing)) — "source file" is decided by extension, "grounded" by the citations the scanner already collected. It is the floor of the grounding discipline — the verification-at-rest layer of [§GOAL-agent-grounding.1](../goals.md#1-the-three-layers), on top of which `grund cover` exposes the citation graph ([§FS-cover](FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file)) and [§RM-cochange-gate](../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test) tracks the diff-aware co-change gate. Decided in [§DF-require-grounding](../decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec).
 
 ### 3.7 Misplaced declaration (configured kind home)
 
-A kind configured with `file = "<path>"` in [[kinds]] ([§FS-config.3.4](FS-config.md#34-kinds--recognized-prefixes)) is a *single-file kind* — every declaration of that kind must live in that exact document. A declaration whose H1/H2 is found in any other scanned file is reported as a misplaced-declaration error, anchored at the declaration line:
+A kind configured with `file = "<path>"` in [[kinds]] ([§FS-config.3.4](FS-config.md#34-kinds--recognized-kinds)) is a *single-file kind* — every declaration of that kind must live in that exact document. A declaration whose H1/H2 is found in any other scanned file is reported as a misplaced-declaration error, anchored at the declaration line:
 
 ```
 docs/notes.md:42: GOAL-foo must be declared in docs/goals.md (single-file kind)
@@ -202,6 +210,14 @@ Every configured `file` and `folder` also acts as a declaration-home boundary. I
 ```
 docs/functional-spec/FS-lsp.md:42: AR-router declares kind AR inside FS home docs/functional-spec
 ```
+
+A **non-citable home** ([§FS-config.3.4.1](FS-config.md#341-citable--kinds-that-declare-no-ids)) admits no declaration of any kind. It has no kind an author could have declared instead, so the message names the place and says why rather than pointing at a kind that does not exist:
+
+```
+skills/review/SKILL.md:1: FS-review must not be declared in skills/ (not a citable home)
+```
+
+That is this rule working as designed, not a gap in it: `citable = false` says the directory is a place, and a place with a declaration in it is one of the two facts in conflict.
 
 The home-kind rule applies to declaration lines and stub lines, not citations or prose mentions. Files that belong to no configured home, or that match multiple homes because configured homes overlap or nest, are not checked by this rule because the expected kind is ambiguous.
 
@@ -240,7 +256,15 @@ When `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direct
 docs/architecture/AR-router.md:1: AR-router must cite FS or GOAL (citation direction)
 ```
 
-The body extent and the citing-side classification come from the scanner ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the obligation pass is [AR-checker.2.9](../../crates/grund-core/src/checker.rs). A `code`-kind obligation ([§FS-config.3.9.2](FS-config.md#392-the-code-pseudo-kind)) is per file rather than per declaration — a source file that contains at least one citation but none satisfying the obligation is the error, anchored at line 1. An `E2E`-kind obligation ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) is per case declaration, can be satisfied by the case's `spec.refs` manifest entries, and remains an error when the case has no scanned citations or matching manifest reference. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
+The body extent and the citing-side classification come from the scanner ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the obligation pass is [AR-checker.2.9](../../crates/grund-core/src/checker.rs). A `code`-kind obligation ([§FS-config.3.9.2](FS-config.md#392-the-code-pseudo-kind)) is per file rather than per declaration — a source file that contains at least one citation but none satisfying the obligation is the error, anchored at line 1.
+
+**A non-citable kind's obligation is per file too** ([§FS-config.3.4.1](FS-config.md#341-citable--kinds-that-declare-no-ids)), and its unit is every scanned file in the kind's home that carries at least one citation — **`.md` included**, unlike `code`. Obligations attach to declarations, and a kind that declares nothing would otherwise yield no units at all and let `must` pass vacuously; inheriting `code`'s Markdown exemption would do the same thing a second time, since such a home is usually all Markdown. The finding names the **home**, because the unit has no ID to print:
+
+```
+skills/review/SKILL.md:1: skills/ must cite FS (citation direction)
+```
+
+Units are still built from citations, so a file carrying none produces no unit and `must` cannot fire on it — the same hole §3.9.2 states for `code`. In a non-citable home `[reference] require_grounding` closes it (§3.6): there the grounding rule follows the home rather than the file extension, so "cite something" and "cite an `FS`" are two keys that compose. An `E2E`-kind obligation ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) is per case declaration, can be satisfied by the case's `spec.refs` manifest entries, and remains an error when the case has no scanned citations or matching manifest reference. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
 
 ### 3.12 Forbidden citation
 
@@ -250,7 +274,7 @@ When `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direct
 docs/functional-spec/FS-login.md:42: FS must not cite AR (citation direction)
 ```
 
-The citing kind is the site's resolved `source_kind` ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)); the cited kind and namespace come from the citation token, matched against the rule's namespace grammar ([§FS-config.3.9.3](FS-config.md#393-namespace-matching)). The prohibition pass is [AR-checker.2.10](../../crates/grund-core/src/checker.rs). The parallel `should-not` prohibition is not an error; it is a suggestion (§2.3). The sanctioned way to keep a discouraged downward pointer is a plain Markdown link, which is not a citation under `strict = true` and so is exempt from this rule.
+The citing kind is the site's resolved `source_kind` ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)), named the way §3.11 names it — by kind for a citable kind, by **home** for a non-citable one (`skills/ must not cite AR`), and as `code` for the one non-citable kind that has no home. The cited kind and namespace come from the citation token, matched against the rule's namespace grammar ([§FS-config.3.9.3](FS-config.md#393-namespace-matching)). The prohibition pass is [AR-checker.2.10](../../crates/grund-core/src/checker.rs). The parallel `should-not` prohibition is not an error; it is a suggestion (§2.3). The sanctioned way to keep a discouraged downward pointer is a plain Markdown link, which is not a citation under `strict = true` and so is exempt from this rule.
 
 ### 3.13 Number-only shorthand citation
 
@@ -336,7 +360,7 @@ This half is an **error on arrival**, under [§REQ-backwards-compatibility.3](..
 
 **Only a citation `fmt` would wrap reaches this rule.** The bare form this reports is, exactly, an occurrence the next `grund fmt --write` turns into the link above:
 
-- in the index file, which is a Markdown file by construction — `index` must name one ([§FS-config.3.4](FS-config.md#34-kinds--recognized-prefixes)) because `--cross-refs` runs on `.md` files only ([§FS-fmt.6.1](FS-fmt.md#61-scope));
+- in the index file, which is a Markdown file by construction — `index` must name one ([§FS-config.3.4](FS-config.md#34-kinds--recognized-kinds)) because `--cross-refs` runs on `.md` files only ([§FS-fmt.6.1](FS-fmt.md#61-scope));
 - **marker-prefixed**, because without `--marker` the link pass leaves a bare token bare ([§FS-fmt.6.5](FS-fmt.md#65-interaction-with---marker)). `grund fmt --write --marker` *would* reach an unmarked token — but only by marking every bare citation in the tree, which is the repository-wide style choice a project on `[reference] strict = false` has already declined ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). A finding may name a command that repairs it, not one that changes something else on the way; the same objection [§DF-index-always-linkified](../decisions/functional/DF-index-always-linkified.md#df-index-always-linkified-the-cross-reference-pass-always-runs-on-a-kinds-index-file) raises against `--cross-refs --write` as a fix;
 - outside every zone `fmt` never writes in ([§FS-fmt.2.3](FS-fmt.md#23-what-is-never-rewritten), [§FS-fmt.6.4](FS-fmt.md#64-what-is-never-wrapped)): an inline-code span, a Markdown link destination — a bare ID-shaped token inside `](…)` is a URL, not an entry — a fenced block, and a declaration heading line;
 - and **naming a section that exists**, when it names one at all. The pass has to compute a link target ([§FS-fmt.6.2](FS-fmt.md#62-form)), and a citation whose section no declaration declares has none, so `fmt` passes over the line. Such a citation is already reported by §3.2, and adding a second finding whose named command answers `rewrote 0 references` would be the trap this paragraph exists to avoid.
@@ -407,11 +431,13 @@ The per-heading half — naming each heading that looks like a declaration and d
 
 ### 4.6 Declaration missing from its kind's index
 
-A kind configured with a `folder` and an index file ([§FS-config.3.4](FS-config.md#34-kinds--recognized-prefixes)) promises that the index lists that folder's declarations; nothing verified it before. Every covered declaration the index does not name is one warning, anchored at the **declaration's heading** and naming the index file:
+A kind configured with a `folder` and an index file ([§FS-config.3.4](FS-config.md#34-kinds--recognized-kinds)) promises that the index lists that folder's declarations; nothing verified it before. Every covered declaration the index does not name is one warning, anchored at the **declaration's heading** and naming the index file:
 
 ```
 docs/decisions/functional/DF-md-link-emission.md:1: DF-md-link-emission is not listed in docs/decisions/functional/README.md — an index entry becomes an error in grund 0.13.0
 ```
+
+**Which kinds are covered.** Folder kinds that declare IDs. A `citable = false` kind ([§FS-config.3.4.1](FS-config.md#341-citable--kinds-that-declare-no-ids)) has no declarations, so it has no index and this rule never reaches it — which is why setting `index` on one is a config error rather than a silent no-op ([§FS-config.3.4.2](FS-config.md#342-index--the-kinds-index-file)).
 
 **Which declarations are covered.** Every ID of that kind with at least one declaration site anywhere under `folder` — the whole subtree, not its top level, because a kind's folder routinely holds a directory per topic or per year (`DISC`'s proposals all live in `docs/discussions/proposals/`). A stub-and-inline pair collapses the way [§FS-list.2](FS-list.md#2-behaviour) collapses it: the stub under `folder` is what puts the ID in the folder, and **one** entry for the ID satisfies the rule — pointing at wherever the body lives, which for an inline home is the source file. A declaration of some *other* kind sitting inside the folder is a misplaced declaration (§3.7) and is not additionally demanded here.
 

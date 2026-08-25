@@ -8,7 +8,7 @@ The `id` subcommand emits a single, conflict-free `<KIND>-<NNN>-<slug>` ID for a
 grund id <KIND> "<title>" [<path>] [--width <N>] [--explain] [--format text|json]
 ```
 
-- `<KIND>` — required. One of the configured `[[kinds]]` prefixes ([§FS-config.3.4](FS-config.md#34-kinds--recognized-prefixes)). An unknown kind is a CLI-level error: an `error:`-prefixed line naming the kind, then a `known kinds: …` line listing the configured prefixes, on stderr, exit `2` (§6) — the same shape `grund list --kind <unknown>` produces, so a typo is never mistaken for a clean run.
+- `<KIND>` — required. One of the configured *citable* `[[kinds]]` entries ([§FS-config.3.4](FS-config.md#34-kinds--recognized-kinds)). An unknown kind is a CLI-level error: an `error:`-prefixed line naming the kind, then a `known kinds: …` line listing the citable kinds, on stderr, exit `2` (§6) — the same shape `grund list --kind <unknown>` produces, so a typo is never mistaken for a clean run. A configured **non-citable** kind ([§FS-config.3.4.1](FS-config.md#341-citable--kinds-that-declare-no-ids)) is refused in the same shape with the reason in place of "unknown" — `error: kind `skill` declares no IDs — skills/ is not a citable home` — because `id` allocates an ID and that kind has none to allocate.
 - `<title>` — required. Free-form human title for the new declaration; converted to a slug per §3.
 - `<path>` — directory whose tree is scanned to determine "next free number." Defaults to the current directory. Discovery is the same as every other `grund` command (walks up to find `grund.toml`; falls back to defaults).
 - `--width <N>` — minimum digit width for the number. Default `3`, matching the canonical form's `-NNN-` — see [§DF-id-number-width](../decisions/functional/DF-id-number-width.md#df-id-number-width-grund-id-zero-pads-minted-numbers-to-a-default-width-of-3) for why 3, and why it is a per-invocation flag rather than an `[id]` config key (for now). The number is left-padded with zeros to at least this width; a number that already has more digits is emitted as-is (`FS-1000`), so the default is a floor, not a cap.
@@ -59,7 +59,7 @@ For a kind with a configured `folder`, the hint names the new declaration file u
 {"id":"FS-008-user-can-log-in-with-email","kind":"FS","number":8,"slug":"user-can-log-in-with-email","folder":"","file":"requirements.md"}
 ```
 
-`folder` and `file` are the configured `[[kinds]]` home for the kind ([§FS-config.3.4](FS-config.md#34-kinds--recognized-prefixes)) — exactly one is usually non-empty, included so editor "create new declaration" actions can place the declaration without a second lookup. Under a number-less `[id] format` the `number` field is `null` (§4.1).
+`folder` and `file` are the configured `[[kinds]]` home for the kind ([§FS-config.3.4](FS-config.md#34-kinds--recognized-kinds)) — exactly one is usually non-empty, included so editor "create new declaration" actions can place the declaration without a second lookup. Under a number-less `[id] format` the `number` field is `null` (§4.1).
 
 ## 3. Slug derivation
 

@@ -13,7 +13,7 @@ That claim has one hole. `[fmt.cross_refs] enabled = false` ([§FS-fmt.6.7](../.
 
 ### 2.1 A kind's index file is linkified regardless of `[fmt.cross_refs] enabled`
 
-The index a `[[kinds]]` entry names ([§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-prefixes)) is a region the cross-reference pass always runs on ([§FS-fmt.6.1](../../functional-spec/FS-fmt.md#61-scope)). It is the mirror image of [§FS-fmt.2.3](../../functional-spec/FS-fmt.md#23-what-is-never-rewritten)'s never-rewrite zones — one region `fmt` always writes, rather than one it never does — and it is what makes "the entry is a full link, unconditionally" cost nothing anywhere: the fix for [§FS-check.3.17](../../functional-spec/FS-check.md#317-index-entry-is-not-a-link) is plain `grund fmt --write` in every configuration.
+The index a `[[kinds]]` entry names ([§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-kinds)) is a region the cross-reference pass always runs on ([§FS-fmt.6.1](../../functional-spec/FS-fmt.md#61-scope)). It is the mirror image of [§FS-fmt.2.3](../../functional-spec/FS-fmt.md#23-what-is-never-rewritten)'s never-rewrite zones — one region `fmt` always writes, rather than one it never does — and it is what makes "the entry is a full link, unconditionally" cost nothing anywhere: the fix for [§FS-check.3.17](../../functional-spec/FS-check.md#317-index-entry-is-not-a-link) is plain `grund fmt --write` in every configuration.
 
 ### 2.2 It follows the pass's own gate, and reaches the entries rather than the page
 
