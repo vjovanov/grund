@@ -1,0 +1,7 @@
+grund_config_version = 1
+
+[[kinds]]
+kind = "skill"
+folder = "skills"
+citable = false
+index = "README.md"

@@ -1,0 +1,25 @@
+grund_config_version = 1
+
+[reference]
+require_grounding = true
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+
+[[kinds]]
+kind = "AR"
+folder = "docs/architecture"
+index = false
+
+[[kinds]]
+kind = "skill"
+folder = "skills"
+citable = false
+title = "Agent skills"
+
+[citations]
+
+[citations.skill]
+must = ["FS"]

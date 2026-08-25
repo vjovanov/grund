@@ -78,8 +78,8 @@ fn command_id(args: &[String]) -> ExitCode {
         }
     };
     match outcome {
-        IdProposalOutcome::UnknownKind { kind, known } => {
-            eprintln!("error: unknown kind `{kind}`");
+        IdProposalOutcome::UnknownKind { headline, known } => {
+            eprintln!("error: {headline}");
             eprintln!("known kinds: {}", known.join(", "));
             ExitCode::from(2)
         }

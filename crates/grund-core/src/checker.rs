@@ -346,7 +346,7 @@ fn check_with_workspace(
                     format!(
                         "{} must not be declared in {} (not a citable home)",
                         render_id(config, id),
-                        home.path
+                        home.place()
                     )
                 };
                 report.errors.push(Diagnostic {
@@ -536,7 +536,7 @@ fn check_with_workspace(
             let non_citable_home = kind_homes
                 .unique_decl_home_for_file(file)
                 .filter(|home| !home.citable)
-                .map(|home| home.path.to_string());
+                .map(|home| home.place());
             if non_citable_home.is_none()
                 && file.extension().and_then(|ext| ext.to_str()) == Some("md")
             {
@@ -969,6 +969,23 @@ struct DeclarationHome<'a> {
     /// admits no declaration at all, so the finding it produces names the home
     /// rather than a kind the author was supposed to have written.
     citable: bool,
+    /// Whether the home is one exact `file` rather than a `folder`, so the label
+    /// below reads as the directory it is.
+    exact: bool,
+}
+
+impl DeclarationHome<'_> {
+    /// How a non-citable home is named in a finding (§FS-check.3.7,
+    /// §FS-check.3.6) — the same `<folder>/` label the citation-direction
+    /// findings and the generated block use, so one home reads one way
+    /// everywhere.
+    fn place(&self) -> String {
+        if self.exact {
+            self.path.to_string()
+        } else {
+            format!("{}/", self.path)
+        }
+    }
 }
 
 struct SingleFileHome<'a> {
@@ -1069,6 +1086,7 @@ impl<'a> KindHomeIndex<'a> {
                     kind: home.kind,
                     path: home.path,
                     citable: home.citable,
+                    exact: home.exact,
                 });
         }
 
@@ -1077,6 +1095,7 @@ impl<'a> KindHomeIndex<'a> {
                 kind: home.kind,
                 path: home.path,
                 citable: home.citable,
+                exact: home.exact,
             })
         });
 
