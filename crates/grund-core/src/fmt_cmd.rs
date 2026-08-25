@@ -4,22 +4,6 @@
 // normalizer, this one is the command surface wrapped around it, and only this
 // one knows about argv, stdout, and `ExitCode`.
 
-/// A project's already-computed findings from `load_workspace_context`,
-/// reusable as `fmt_tree`'s `precomputed_findings` only when the scan that
-/// produced them met no error (§FS-fmt.3). Resolving a cross-reference or a
-/// shorthand against a partial declaration set can name the wrong
-/// declaration — the hazard `fmt_findings_or_abort` already guards a fresh
-/// scan against — so a caller that reuses a scan instead of running one must
-/// check the same field a fresh scan would have failed on, not just borrow
-/// the `Findings` beside it.
-/// A project's already-computed findings from `load_workspace_context`,
-/// reusable as `fmt_tree`'s `precomputed_findings` only when the scan that
-/// produced them met no error (§FS-fmt.3). Resolving a cross-reference or a
-/// shorthand against a partial declaration set can name the wrong
-/// declaration — the hazard `fmt_findings_or_abort` already guards a fresh
-/// scan against — so a caller that reuses a scan instead of running one must
-/// check the same field a fresh scan would have failed on, not just borrow
-/// the `Findings` beside it.
 /// §FS-fmt.6.6: whether this invocation turns the cross-reference pass on by
 /// itself — `[fmt.cross_refs] enabled`, a `--write` scope, and at least one
 /// Markdown file in it. It answers a question about the *command*, so it lives
@@ -46,6 +30,14 @@ fn scope_contains_markdown(
         .any(|path| path.extension().and_then(|ext| ext.to_str()) == Some("md")))
 }
 
+/// A project's already-computed findings from `load_workspace_context`,
+/// reusable as `fmt_tree`'s `precomputed_findings` only when the scan that
+/// produced them met no error (§FS-fmt.3). Resolving a cross-reference or a
+/// shorthand against a partial declaration set can name the wrong
+/// declaration — the hazard `fmt_findings_or_abort` already guards a fresh
+/// scan against — so a caller that reuses a scan instead of running one must
+/// check the same field a fresh scan would have failed on, not just borrow
+/// the `Findings` beside it.
 fn usable_findings(project: &WorkspaceProject) -> Option<&Findings> {
     project.scan_errors.is_empty().then_some(&project.findings)
 }

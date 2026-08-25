@@ -3,6 +3,79 @@
 /// §FS-list.3), optionally filtered to one kind or to declarations nothing cites
 /// (the same set as the §FS-check.4.1 warning). The discovery side of the loop:
 /// how an agent finds the right `<ID>` before citing it (§FS-list.5).
+/// The two per-target-alias citation counts `grund list` needs, built in one
+/// pass (§FS-list.3.2, §DF-index-not-an-inbound-citation).
+///
+/// §FS-workspace.8.3: each citation belongs to exactly one target project — its
+/// `namespace` when qualified, the citing project when not — so a single pass
+/// over every project's citations builds the per-target lookup. Doing this once
+/// up front (rather than re-walking every project's citations per target) keeps
+/// the count linear in the total citation set, not quadratic in the project
+/// count.
+///
+/// The two counts differ by exactly the index entries. `refs` is the total
+/// `grund refs` lists, which is the number the `refs` column prints; `used` drops
+/// each kind's own index entries, which name every declaration in their folder
+/// by construction, and is the number `--unused` selects on. One count would
+/// have to be wrong for one of the two questions; two counts printed by two
+/// commands that disagreed would be worse than one that needs a sentence of
+/// explanation, so `refs` stays the total and the sentence lives in §FS-list.3.2.
+struct ListCitationCounts<'a> {
+    refs: BTreeMap<&'a str, BTreeMap<&'a Id, usize>>,
+    used: BTreeMap<&'a str, BTreeMap<&'a Id, usize>>,
+    empty: BTreeMap<&'a Id, usize>,
+}
+
+impl<'a> ListCitationCounts<'a> {
+    fn new(context: &'a WorkspaceContext) -> Self {
+        let mut counts = Self {
+            refs: BTreeMap::new(),
+            used: BTreeMap::new(),
+            empty: BTreeMap::new(),
+        };
+        for source in &context.projects {
+            let index_entries = KindIndexEntries::new(&source.findings, &source.config);
+            for citation in &source.findings.citations {
+                let target_alias: &str = match &citation.namespace {
+                    Some(ns) => ns.as_str(),
+                    None => source.alias.as_str(),
+                };
+                *counts
+                    .refs
+                    .entry(target_alias)
+                    .or_default()
+                    .entry(&citation.id)
+                    .or_insert(0) += 1;
+                if !index_entries.is_index_entry(citation) {
+                    *counts
+                        .used
+                        .entry(target_alias)
+                        .or_default()
+                        .entry(&citation.id)
+                        .or_insert(0) += 1;
+                }
+            }
+        }
+        counts
+    }
+
+    /// How many citations name each of `alias`'s IDs — the `refs` column.
+    ///
+    /// A `<§><alias>/<ID>` citation targets `<alias>`'s declaration, so it is
+    /// attributed to the *target* project, not the citing one; that is what lets
+    /// a workspace-root `grund list --unused` see members' declarations that only
+    /// sibling projects cite.
+    fn refs_for(&self, alias: &str) -> &BTreeMap<&'a Id, usize> {
+        self.refs.get(alias).unwrap_or(&self.empty)
+    }
+
+    /// The same count minus each kind's own index entries — what `--unused`
+    /// asks, so a declaration only its index names still counts as unused.
+    fn used_for(&self, alias: &str) -> &BTreeMap<&'a Id, usize> {
+        self.used.get(alias).unwrap_or(&self.empty)
+    }
+}
+
 fn command_list(args: &[String]) -> ExitCode {
     let mut path = PathBuf::from(".");
     let mut path_provided = false;
@@ -141,41 +214,7 @@ fn command_list(args: &[String]) -> ExitCode {
         duplicate: bool,
         refs: usize,
     }
-    // §FS-workspace.8.3: each citation belongs to exactly one target
-    // project — its `namespace` when qualified, the citing project when
-    // not — so a single pass over every project's citations builds the
-    // per-target lookup. Doing this once up front (rather than re-walking
-    // every project's citations per target) keeps the count linear in the
-    // total citation set, not quadratic in the project count.
-    let mut ref_counts_by_alias: BTreeMap<&str, BTreeMap<&Id, usize>> = BTreeMap::new();
-    // §FS-list.1 / §DF-index-not-an-inbound-citation: `--unused` counts the same
-    // citations minus each kind's own index entries. `refs` below stays the total
-    // `grund refs` lists (§FS-list.3.2) — two counts of "citations of this ID"
-    // that differed by which command printed them would be worse than one that
-    // needs a sentence of explanation.
-    let mut used_counts_by_alias: BTreeMap<&str, BTreeMap<&Id, usize>> = BTreeMap::new();
-    for source in &context.projects {
-        let index_entries = KindIndexEntries::new(&source.findings, &source.config);
-        for citation in &source.findings.citations {
-            let target_alias: &str = match &citation.namespace {
-                Some(ns) => ns.as_str(),
-                None => source.alias.as_str(),
-            };
-            *ref_counts_by_alias
-                .entry(target_alias)
-                .or_default()
-                .entry(&citation.id)
-                .or_insert(0) += 1;
-            if !index_entries.is_index_entry(citation) {
-                *used_counts_by_alias
-                    .entry(target_alias)
-                    .or_default()
-                    .entry(&citation.id)
-                    .or_insert(0) += 1;
-            }
-        }
-    }
-    let empty_ref_counts: BTreeMap<&Id, usize> = BTreeMap::new();
+    let counts = ListCitationCounts::new(&context);
     let mut entries: Vec<Entry> = Vec::new();
     let mut had_scan_errors = false;
     for project in &context.projects {
@@ -183,17 +222,8 @@ fn command_list(args: &[String]) -> ExitCode {
             continue;
         }
         had_scan_errors |= !project.scan_errors.is_empty();
-        // Per-project reference counts. A `<§><alias>/<ID>` citation
-        // targets `<alias>`'s declaration, so it must be attributed to the
-        // *target* project's ref count, not the citing project's — that
-        // lets a workspace-root `grund list --unused` see members'
-        // declarations that only sibling projects cite.
-        let ref_counts: &BTreeMap<&Id, usize> = ref_counts_by_alias
-            .get(project.alias.as_str())
-            .unwrap_or(&empty_ref_counts);
-        let used_counts: &BTreeMap<&Id, usize> = used_counts_by_alias
-            .get(project.alias.as_str())
-            .unwrap_or(&empty_ref_counts);
+        let ref_counts = counts.refs_for(project.alias.as_str());
+        let used_counts = counts.used_for(project.alias.as_str());
         for (id, decls) in &project.findings.declarations {
             if !kind_filter.is_empty() && !kind_filter.contains(&id.kind) {
                 continue;

@@ -14,11 +14,21 @@ fn wrap_markdown_links(
     config: &Config,
     findings: &Findings,
     workspace: Option<&WorkspaceContext>,
+    only_ids: Option<&BTreeSet<Id>>,
 ) -> String {
     let mut output = String::new();
     let mut cursor = 0;
     for citation in markdown_link_citations(line, config, workspace) {
         if citation.marker_start < cursor {
+            continue;
+        }
+        // §FS-fmt.6.1: the always-linkify carve-out reaches this file for the
+        // sake of its index entries (§FS-check.4.6) and writes nothing else —
+        // a qualified citation is never an entry, and an unqualified one of an
+        // ID the index does not owe is prose.
+        if let Some(only_ids) = only_ids
+            && (citation.namespace.is_some() || !only_ids.contains(&citation.id))
+        {
             continue;
         }
         // §FS-workspace.8.5: a qualified `§<alias>/<ID>` resolves against

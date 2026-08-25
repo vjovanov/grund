@@ -202,6 +202,26 @@ A reader in the requirements-traceability community currently sees `grund` as "a
 
 The README (and landing page, if any) carries a "vs. traceability tools" section whose matrix names the six tools above with creation year, whose capability columns include the sectioned-citation row, and whose closing sentence is the "traceability tool / grounding tool" pair. The "we deliberately don't" footnote names the three rejected features with [§FS-non-goals](functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) pointers. `grund check` stays clean.
 
+## RM-index-entry-error: flip the missing-index-entry warning to an error
+
+[§FS-check.4.6](functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index) ships as a warning that names the release it becomes an error in, which is the deprecation path [§REQ-backwards-compatibility.2](requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) requires of a finding no command can fix. The warning is only half a contract: the release it names has to actually happen, or `grund` has told every user a deadline it then let slip. This milestone is that release.
+
+### 1. What
+
+Move `missing-index-entry` from `report.warnings` to `report.errors` in `checker_index.rs`, drop the deadline clause from its message, and delete `INDEX_ENTRY_ERROR_RELEASE` with the ramp constants beside it. [§FS-check.4.6](functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index) loses its "a warning in this release" paragraph and moves to §3; [§DF-index-compatibility-ramp](decisions/functional/DF-index-compatibility-ramp.md#df-index-compatibility-ramp-a-findings-ramp-follows-its-fix-command-not-the-size-of-the-offence) gains a consequence line rather than being rewritten, because the decision it records is about which ramp applied, and that stays true after the ramp completes.
+
+The two-release window is the whole point of the ramp, so this is not a milestone to pull forward: a repository that upgrades on the day of the flip must have had a release in which the warning told it what was coming.
+
+### 2. Why now
+
+`index_entry_ramp_releases_are_ordered` in `tests_kind_index.rs` asserts that `INDEX_ENTRY_ERROR_RELEASE` is still ahead of `CARGO_PKG_VERSION`, so the version bump that reaches it fails CI. That is the forcing function: the ramp cannot expire quietly, and the release helper ([§FS-distribution.4](functional-spec/FS-distribution.md#4-release-process)) stops on it rather than shipping a warning whose deadline has passed.
+
+An index renderer would change the shape of this milestone rather than remove it — a `fmt`-written managed block is what would let the flip happen in one release under [§REQ-backwards-compatibility.3](requirements/REQ-backwards-compatibility.md#3-loud-mechanical-migrations) instead of two. It is not a prerequisite: the deadline stands whether or not the renderer arrives first.
+
+### 3. Measurable
+
+`grund check` over a folder kind whose index omits one declaration exits `1`, not `0`, and no message in the tree names a release the running binary is already past. The e2e cases that pin the warning today (`check-index-missing-entry`, `check-index-missing-file`, `check-index-recursive-subtree`) move to `expected.exit` `1`, and `grund check --full` over this repository stays green.
+
 ## Shipped milestones
 
 Done milestones leave their full record in `docs/changelog.md` (the `Implemented` block of the latest release). They keep a one-line declaration here so existing `§RM-…` citations still resolve — the changelog has the detail.

@@ -209,6 +209,7 @@ mod tests_shorthand_rewrite {
             &FmtLineOpts {
                 add_marker: false,
                 cross_refs: false,
+                index_entry_ids: None,
                 findings: Some(&findings),
                 workspace: None,
                 shorthand_targets: &ShorthandTargets::new(Some(&findings), None),
@@ -229,6 +230,7 @@ mod tests_shorthand_rewrite {
             &FmtLineOpts {
                 add_marker: false,
                 cross_refs: false,
+                index_entry_ids: None,
                 findings: Some(&findings),
                 workspace: None,
                 shorthand_targets: &ShorthandTargets::new(Some(&findings), None),

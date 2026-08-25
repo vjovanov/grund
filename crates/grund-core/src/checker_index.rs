@@ -27,6 +27,16 @@ fn kind_index_targets(config: &Config) -> Vec<KindIndexTarget<'_>> {
         .filter_map(|kind| {
             let folder = kind.folder.as_deref()?;
             let index = kind.index_path()?;
+            // §FS-config.3.4 rejects an `index` that does not name a `.md` file,
+            // so this filter never fires on a config that loaded. It is here
+            // because every rule below is stated in terms of what
+            // `grund fmt --cross-refs` would write, and that pass runs on `.md`
+            // files only (§FS-fmt.6.1): a non-Markdown index is a file the
+            // formatter can never repair, and the honest report about one is no
+            // report at all rather than a finding with no fix.
+            if index.extension().and_then(|ext| ext.to_str()) != Some("md") {
+                return None;
+            }
             Some(KindIndexTarget {
                 kind: kind.prefix.as_str(),
                 folder_key: configured_home_path_key(folder),
@@ -44,17 +54,37 @@ enum IndexCitationForm {
     /// Wrapped as `[§<ID>…](<target>)` — the form `grund fmt --cross-refs`
     /// writes (§FS-fmt.6.2), which is what the entry has to be.
     Link,
-    /// A recognized citation of the ID, unwrapped. §FS-check.3.17's finding.
+    /// A recognized citation of the ID, unwrapped, **and one the
+    /// cross-reference pass would wrap on its next `--write`**. §FS-check.3.17's
+    /// finding, and the only form that earns it.
     Bare,
-    /// Inside a Markdown inline-code span. `fmt` never wraps one (§FS-fmt.6.4),
-    /// so it is neither an entry nor a finding (§DF-index-entry-form.2.3).
+    /// Everything else: a citation `fmt` declines to wrap, so it is neither an
+    /// entry nor a finding, and the ID falls to §FS-check.4.6's warning
+    /// (§DF-index-entry-form.2.3).
     Ignored,
 }
 
 /// Classify every occurrence of `text` on `line` and keep the strongest form.
 /// Reading the line rather than trusting a recorded column is what makes this
 /// agree with `fmt` on a line that carries the same citation twice.
-fn index_citation_form(line: &str, text: &str) -> IndexCitationForm {
+///
+/// The two verdicts are deliberately asymmetric, because they ask different
+/// questions. `Link` asks whether the entry *is* the link a reader can follow,
+/// and any wrap satisfies that — including a hand-written one around an
+/// unmarked token, which `fmt` would leave alone but which is a correct entry
+/// as it stands. `Bare` asks whether `grund fmt --write` would turn this
+/// occurrence into that link, and only an occurrence the cross-reference pass
+/// actually reaches may answer yes: marker-prefixed (§FS-fmt.6.5) and outside
+/// §FS-fmt.2.3's never-rewrite zones. Anything else is `Ignored` — §FS-check.3.17
+/// names `grund fmt --write` as its fix, and an error whose named fix the tool
+/// declines to perform is an error a repository can never clear
+/// (§DF-index-entry-form.2.3), the same trap `shorthand_rewritable` keeps
+/// §FS-check.3.13 out of.
+///
+/// `line` is Markdown: §FS-config.3.4 requires `index` to name a `.md` file and
+/// `kind_index_targets` drops anything else, which is what lets the never-rewrite
+/// test below be asked in its Markdown form.
+fn index_citation_form(line: &str, text: &str, marker: &str) -> IndexCitationForm {
     let mut form = IndexCitationForm::Ignored;
     let mut cursor = 0;
     while let Some(relative) = line[cursor..].find(text) {
@@ -73,12 +103,24 @@ fn index_citation_form(line: &str, text: &str) -> IndexCitationForm {
                 .strip_prefix("](")
                 .and_then(|rest| rest.find(')'))
                 .is_some_and(|close| close > 0);
-        let code_at = if wrapped { start - 1 } else { start };
-        if is_inside_inline_code(line, code_at) {
-            continue;
-        }
         if wrapped {
+            if is_inside_inline_code(line, start - 1) {
+                continue;
+            }
             return IndexCitationForm::Link;
+        }
+        // §FS-fmt.6.5: `--cross-refs` wraps marker-prefixed citations only, and
+        // without `--marker` a bare token stays bare — so a bare token is not an
+        // entry `fmt` can repair. The marker may be part of the recorded text or
+        // sit just before this occurrence of it, which is the same token either
+        // way; an empty marker (permitted outside strict mode) matches both
+        // tests, exactly as it makes the formatter's own test vacuous.
+        let marked = text.starts_with(marker) || line[..start].ends_with(marker);
+        // §FS-fmt.2.3, through the one predicate the scanner and the rewrite
+        // already share: an inline-code illustration and a Markdown link
+        // destination are zones `fmt` never writes in.
+        if !marked || never_rewrite_context(line, true, start) {
+            continue;
         }
         form = IndexCitationForm::Bare;
     }
@@ -175,6 +217,19 @@ impl KindIndexEntries {
         }
     }
 
+    /// The IDs this index owes an entry for, or `None` when `path` is not a
+    /// configured index (§FS-fmt.6.1). What the always-linkify carve-out wraps:
+    /// the entries the rule is about, and not the rest of the page
+    /// (§DF-index-always-linkified.2.2).
+    fn entries_in(&self, path: &Path) -> Option<&BTreeSet<Id>> {
+        if self.owed.is_empty() {
+            return None;
+        }
+        let relative =
+            scanned_decl_relative_path(path, &self.configured_root, &self.physical_root)?;
+        self.owed.get(relative.as_ref())
+    }
+
     /// §FS-check.4.1 / §DF-index-not-an-inbound-citation.2.2: this citation is a
     /// kind's own index entry — navigation, not use. Narrow on purpose: a
     /// citation in an index file of an ID whose home lies outside that folder is
@@ -196,11 +251,29 @@ impl KindIndexEntries {
     }
 }
 
+// The three releases the kind-index ramp is stated in
+// (§DF-index-compatibility-ramp.2.3). All three are named in message text, so
+// all three are part of the release process: bumping the workspace version is
+// also the moment to ask whether these still say what they mean
+// (§FS-distribution.4). `index_entry_ramp_releases_are_ordered` below is the
+// guard — it fails the build once the tree reaches `INDEX_ENTRY_ERROR_RELEASE`,
+// which is the release §RM-index-entry-error has to land in, so the ramp cannot
+// expire quietly.
+
+/// The last release before `check` knew anything about a kind's index — the
+/// "from" half of the pair §REQ-backwards-compatibility.3 requires a
+/// verdict-flipping finding to name.
+const INDEX_RULE_PRIOR_RELEASE: &str = "0.11.0";
+
+/// The release the kind-index rules arrive in, and in which §FS-check.3.17 is an
+/// error on arrival — the "to" half of that pair.
+const INDEX_RULE_RELEASE: &str = "0.12.0";
+
 /// The release in which §FS-check.4.6's warning becomes an error
 /// (§REQ-backwards-compatibility.2, §DF-index-compatibility-ramp.2.3). Named in
 /// the message text, because a warning that does not say when it bites tells a
 /// maintainer they have a problem and not that they have a deadline.
-const INDEX_ENTRY_ERROR_RELEASE: &str = "0.12.0";
+const INDEX_ENTRY_ERROR_RELEASE: &str = "0.13.0";
 
 /// §AR-checker.2.16 — the kind-index rule (§FS-check.4.6, §FS-check.3.17). One
 /// pass per configured index: read the file once, classify the citations the
@@ -241,8 +314,27 @@ fn check_kind_indexes(
             cited_in_index.entry(key).or_default().push(citation);
         }
     }
+    // §FS-check.4.6: which index files *this run* read. The entries come from the
+    // scan and the form from disk, so an index the run never scanned — a narrowed
+    // `grund check <one-file>`, or an index the `[scan]` set excludes — would
+    // otherwise look empty and report every declaration in the folder as
+    // unlisted. A run that cannot see the index does not get to judge it; an
+    // index file that does not exist is a different fact and still reported.
+    let index_scanned: BTreeSet<&Path> = findings
+        .scanned_files
+        .iter()
+        .filter_map(|file| scanned_decl_relative_path(file, &configured_root, &physical_root))
+        .filter_map(|relative| index_keys.get(relative.as_ref()).copied())
+        .collect();
 
     for target in &targets {
+        // `is_file`, not `exists`: a path that is not a readable file is not an
+        // index this run failed to read, it is an index that is not there — a
+        // missing one, or a directory wearing the name — and that is §FS-check.4.6's
+        // finding, not a reason to stay quiet.
+        if !index_scanned.contains(target.index_key.as_path()) && target.index_file.is_file() {
+            continue;
+        }
         let covered: Vec<(&Id, &Declaration)> = findings
             .declarations
             .iter()
@@ -263,8 +355,16 @@ fn check_kind_indexes(
         let index_display = display_path(path_config, &target.index_file);
         // §FS-check.4.6: a folder whose index file does not exist is the same
         // finding, once per declaration — the strongest form of the same fact,
-        // not a different one.
+        // not a different one. The three ways it can fail to read are named
+        // apart, because "does not exist" said about a directory that plainly
+        // does is a diagnosis a reader has to argue with.
         let text = fs::read_to_string(&target.index_file).ok();
+        let absent = match &text {
+            Some(_) => "",
+            None if target.index_file.is_dir() => " (the index file is a directory)",
+            None if target.index_file.exists() => " (the index file could not be read)",
+            None => " (the index file does not exist)",
+        };
         let lines: Vec<&str> = text.as_deref().map(|text| text.lines().collect()).unwrap_or_default();
         let mut entries: BTreeMap<&Id, IndexEntryState> = BTreeMap::new();
         for citation in cited_in_index
@@ -275,10 +375,17 @@ fn check_kind_indexes(
             let Some(line) = lines.get(citation.line.saturating_sub(1)) else {
                 continue;
             };
+            // §FS-fmt.6.4: `fmt` leaves a declaration heading alone, so a
+            // citation riding on one is no more repairable than one in an
+            // inline-code span. Fenced blocks need no test here — the scanner
+            // records no citation inside one.
+            if declaration_captures(&config.grammar, line, false, true).is_some() {
+                continue;
+            }
             // An `Ignored` form creates no entry: a citation `fmt` will not wrap
             // neither satisfies the rule nor triggers §FS-check.3.17
             // (§DF-index-entry-form.2.3), so the ID is reported as unlisted.
-            let form = index_citation_form(line, &citation.text);
+            let form = index_citation_form(line, &citation.text, &config.marker);
             if form == IndexCitationForm::Ignored {
                 continue;
             }
@@ -299,8 +406,14 @@ fn check_kind_indexes(
                         path: Some(target.index_file.clone()),
                         line: Some(line),
                         column: Some(column),
+                        // §REQ-backwards-compatibility.3 wants all three: the
+                        // versions the verdict moved between, one command the
+                        // tool ships, and a release note. The first two are
+                        // here — and the command is only ever named on a site
+                        // `fmt --write` will in fact rewrite, which is what
+                        // `IndexCitationForm::Bare` is narrowed to mean.
                         message: format!(
-                            "index entry {}{} is not a link; run `grund fmt --write`",
+                            "index entry {}{} is not a link; unchecked in grund {INDEX_RULE_PRIOR_RELEASE}, an error in {INDEX_RULE_RELEASE} — run `grund fmt --write`",
                             config.marker,
                             render_id(config, id)
                         ),
@@ -312,11 +425,6 @@ fn check_kind_indexes(
                 // own heading — the one line that exists whether or not the
                 // index file does (§DF-index-entry-form.2.6).
                 None => {
-                    let absent = if text.is_none() {
-                        " (the index file does not exist)"
-                    } else {
-                        ""
-                    };
                     report.warnings.push(Diagnostic {
                         code: "missing-index-entry",
                         path: Some(decl.file.clone()),

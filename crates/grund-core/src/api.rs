@@ -1489,35 +1489,7 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
         refs: usize,
     }
 
-    let mut ref_counts_by_alias: BTreeMap<&str, BTreeMap<&Id, usize>> = BTreeMap::new();
-    // §FS-list.1 / §DF-index-not-an-inbound-citation: `--unused` counts the same
-    // citations minus each kind's own index entries, which name every declaration
-    // in their folder by construction. `refs` below stays the total `grund refs`
-    // lists (§FS-list.3.2) — two counts of "citations of this ID" that differed by
-    // which command printed them would be worse than one that needs explaining.
-    let mut used_counts_by_alias: BTreeMap<&str, BTreeMap<&Id, usize>> = BTreeMap::new();
-    for source in &context.projects {
-        let index_entries = KindIndexEntries::new(&source.findings, &source.config);
-        for citation in &source.findings.citations {
-            let target_alias: &str = match &citation.namespace {
-                Some(ns) => ns.as_str(),
-                None => source.alias.as_str(),
-            };
-            *ref_counts_by_alias
-                .entry(target_alias)
-                .or_default()
-                .entry(&citation.id)
-                .or_insert(0) += 1;
-            if !index_entries.is_index_entry(citation) {
-                *used_counts_by_alias
-                    .entry(target_alias)
-                    .or_default()
-                    .entry(&citation.id)
-                    .or_insert(0) += 1;
-            }
-        }
-    }
-    let empty_ref_counts: BTreeMap<&Id, usize> = BTreeMap::new();
+    let counts = ListCitationCounts::new(&context);
     let mut entries: Vec<Entry<'_>> = Vec::new();
     let mut scan_errors = Vec::new();
     for project in &context.projects {
@@ -1530,12 +1502,8 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
                 .iter()
                 .map(|(file, message)| api_scan_error(&project.config, file, message)),
         );
-        let ref_counts: &BTreeMap<&Id, usize> = ref_counts_by_alias
-            .get(project.alias.as_str())
-            .unwrap_or(&empty_ref_counts);
-        let used_counts: &BTreeMap<&Id, usize> = used_counts_by_alias
-            .get(project.alias.as_str())
-            .unwrap_or(&empty_ref_counts);
+        let ref_counts = counts.refs_for(project.alias.as_str());
+        let used_counts = counts.used_for(project.alias.as_str());
         for (id, decls) in &project.findings.declarations {
             if !opts.kind_filter.is_empty() && !opts.kind_filter.contains(&id.kind) {
                 continue;

@@ -103,6 +103,12 @@ fn fmt_tree(
     } else {
         precomputed_findings
     };
+    // §FS-fmt.6.1: which IDs each index in this walk owes an entry for. Built
+    // only for the carve-out, and only ever read there: a run that already
+    // linkifies everything wraps the whole file and never asks.
+    let index_entries = findings
+        .filter(|_| index_in_scope)
+        .map(|findings| KindIndexEntries::new(findings, config));
     // Holds the scan the shorthand pass triggers, so the borrow in `findings`
     // outlives the file that asked for it.
     #[allow(unused_assignments)]
@@ -138,12 +144,17 @@ fn fmt_tree(
         let original =
             fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
         let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
-        // §FS-fmt.6.1: the index is linkified whatever the toggle says.
-        let cross_refs = cross_refs || index_files.contains(&path);
+        // §FS-fmt.6.1: an index's own entries are linkified whatever the toggle
+        // says — the entries, not the page. A citation of a foreign ID in the
+        // prose around them is an ordinary citation in an ordinary file, and a
+        // repository that set `enabled = false` asked for it to stay bare.
+        let index_entry_ids = index_entries.as_ref().and_then(|it| it.entries_in(&path));
+        let cross_refs = cross_refs || index_entry_ids.is_some();
         let file_changes_start = changes.len();
         let mut rewritten = rewrite_file(&original, &path, config, is_md, &FmtLineOpts {
             add_marker,
             cross_refs,
+            index_entry_ids,
             findings,
             workspace,
             shorthand_targets: &shorthand_targets,
@@ -160,6 +171,7 @@ fn fmt_tree(
             rewritten = rewrite_file(&original, &path, config, is_md, &FmtLineOpts {
                 add_marker,
                 cross_refs,
+                index_entry_ids,
                 findings,
                 workspace,
                 shorthand_targets: &shorthand_targets,
@@ -258,6 +270,11 @@ fn rewrite_file(
 struct FmtLineOpts<'a> {
     add_marker: bool,
     cross_refs: bool,
+    /// §FS-fmt.6.1: when this file is a kind's index reached only through the
+    /// always-linkify carve-out, the IDs that index owes an entry for — the only
+    /// citations the pass wraps here. `None` in every other run, where
+    /// `cross_refs` already means "wrap what this file has".
+    index_entry_ids: Option<&'a BTreeSet<Id>>,
     findings: Option<&'a Findings>,
     workspace: Option<&'a WorkspaceContext>,
     /// The declaration indexes the shorthand rewrite resolves against, built once
@@ -313,7 +330,8 @@ fn fmt_line(
         && is_md
         && let Some(findings) = opts.findings
     {
-        let wrapped = wrap_markdown_links(&final_line, path, config, findings, opts.workspace);
+        let wrapped = wrap_markdown_links(&final_line, path, config, findings, opts.workspace,
+            opts.index_entry_ids);
         link_changed = wrapped != final_line;
         final_line = wrapped;
     }

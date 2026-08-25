@@ -15,9 +15,13 @@ That claim has one hole. `[fmt.cross_refs] enabled = false` ([§FS-fmt.6.7](../.
 
 The index a `[[kinds]]` entry names ([§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-prefixes)) is a region the cross-reference pass always runs on ([§FS-fmt.6.1](../../functional-spec/FS-fmt.md#61-scope)). It is the mirror image of [§FS-fmt.2.3](../../functional-spec/FS-fmt.md#23-what-is-never-rewritten)'s never-rewrite zones — one region `fmt` always writes, rather than one it never does — and it is what makes "the entry is a full link, unconditionally" cost nothing anywhere: the fix for [§FS-check.3.17](../../functional-spec/FS-check.md#317-index-entry-is-not-a-link) is plain `grund fmt --write` in every configuration.
 
-### 2.2 It follows the pass's own gate, and widens nothing else
+### 2.2 It follows the pass's own gate, and reaches the entries rather than the page
 
-The carve-out decides *which files* the pass touches when it runs, never *whether* it runs. A scope that would run no cross-reference pass at all — `grund fmt --check` without `--cross-refs`, which does not predict the automatic pass today — still runs none. And the index file is the only file the carve-out reaches: a repository with `enabled = false` keeps every other document unlinked, which is what it asked for.
+The carve-out decides *which citations* the pass touches when it runs, never *whether* it runs. A scope that would run no cross-reference pass at all — `grund fmt --check` without `--cross-refs`, which does not predict the automatic pass today — still runs none.
+
+Within the index file it is narrower still: the citations wrapped are the ones the index owes an entry for ([§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index)), and a citation of a foreign ID in the prose around the list is left bare. The size of the carve-out is argued from what [§FS-check.3.17](../../functional-spec/FS-check.md#317-index-entry-is-not-a-link) demands, and it demands exactly one link per covered ID; a repository that set `enabled = false` gets the smallest write that clears the error and nothing beyond it. Writing the whole page would still have been defensible — the file is the unit `fmt` reasons in — but it would answer a question nobody asked, in the one configuration whose maintainers were explicit about not wanting generated links.
+
+The narrowing has one visible consequence: an *existing* wrap around a non-entry citation in an index file is no longer re-derived under `enabled = false` ([§FS-fmt.6.3](../../functional-spec/FS-fmt.md#63-idempotency-and-re-derive)). That is the same answer the rest of that repository already gets for a wrap it hand-wrote, and the entries — the links the rule is about — are re-derived as always.
 
 ### 2.3 The two carve-outs are the same shape
 
