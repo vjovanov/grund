@@ -368,7 +368,7 @@ mod tests_api {
             r#"grund_config_version = 1
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 title = "Requirements"
 file = "specs/requirements.md"
 "#,
@@ -411,7 +411,7 @@ file = "specs/requirements.md"
         });
         let e2e_readme = files
             .iter()
-            .find(|(path, _)| path == "e2e/README.md")
+            .find(|(path, _)| path == "tests/e2e/README.md")
             .map(|(_, contents)| contents)
             .expect("e2e README scaffold");
 
@@ -431,7 +431,7 @@ file = "specs/requirements.md"
         });
         let e2e_readme = files
             .iter()
-            .find(|(path, _)| path == "e2e/README.md")
+            .find(|(path, _)| path == "tests/e2e/README.md")
             .map(|(_, contents)| contents)
             .expect("e2e README scaffold");
         assert!(

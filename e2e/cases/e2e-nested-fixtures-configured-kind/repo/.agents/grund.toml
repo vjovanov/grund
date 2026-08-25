@@ -1,0 +1,16 @@
+grund_config_version = 1
+
+[reference]
+strict = false
+
+# The E2E kind, declared: it left the default set in grund 0.12.0
+# (FS-config.3.4), and the case-directory pruning this case is about follows the
+# configured home (AR-scanner.6).
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+
+[[kinds]]
+kind = "E2E"
+folder = "e2e/cases"
+index = false

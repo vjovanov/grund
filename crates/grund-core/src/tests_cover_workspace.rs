@@ -15,7 +15,7 @@ mod tests_cover_workspace {
         format = \"{kind}-{slug}\"\n\
         slug_pattern = \"[a-z][a-z0-9-]*\"\n\n\
         [[kinds]]\n\
-        prefix = \"FS\"\n\
+        kind = \"FS\"\n\
         folder = \"docs\"\n\n\
         [scan]\n\
         include = [\"docs\"]\n\
@@ -32,7 +32,7 @@ mod tests_cover_workspace {
              [id]\n\
              {extra}\n\
              [[kinds]]\n\
-             prefix = \"FS\"\n\
+             kind = \"FS\"\n\
              folder = \"docs\"\n\n\
              [scan]\n\
              include = [\"docs\"]\n\

@@ -10,7 +10,7 @@ format = "{kind}-{slug}"
 slug_pattern = "[a-z][a-z0-9-]*"
 
 [[kinds]]
-prefix = "E2E"
+kind = "E2E"
 folder = "e2e/cases"
 title = "Executable user scenarios"
 

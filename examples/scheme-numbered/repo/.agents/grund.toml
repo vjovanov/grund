@@ -8,11 +8,11 @@ section_separator = "."
 # Override the default kinds list to demonstrate a project that
 # tracks RFC-shaped specs alongside its functional spec.
 [[kinds]]
-prefix = "RFC"
+kind = "RFC"
 folder = "docs/rfcs"
 title = "Request for Comments"
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "docs/functional-spec"
 title = "Functional spec"

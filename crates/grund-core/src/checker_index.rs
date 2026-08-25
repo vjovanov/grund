@@ -39,7 +39,7 @@ fn kind_index_targets(config: &Config) -> Vec<KindIndexTarget<'_>> {
                 return None;
             }
             Some(KindIndexTarget {
-                kind: kind.prefix.as_str(),
+                kind: kind.kind.as_str(),
                 folder_key: configured_home_path_key(folder),
                 index_key: scanned_path_key(&index),
                 index_file: config.root.join(&index),

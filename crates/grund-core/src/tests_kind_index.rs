@@ -132,7 +132,7 @@ mod tests_kind_index {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\n\n\
+             [[kinds]]\nkind = \"AR\"\nfolder = \"docs/architecture\"\n\n\
              [scan]\ninclude = [\"docs\", \"src\"]\n",
         );
         write(
@@ -227,8 +227,8 @@ mod tests_kind_index {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\n\n\
-             [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\nindex = false\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\n\n\
+             [[kinds]]\nkind = \"AR\"\nfolder = \"docs/architecture\"\nindex = false\n\n\
              [scan]\ninclude = [\"docs\"]\n",
         );
         write(
@@ -348,8 +348,8 @@ mod tests_kind_index {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\n\n\
-             [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\nindex = false\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\n\n\
+             [[kinds]]\nkind = \"AR\"\nfolder = \"docs/architecture\"\nindex = false\n\n\
              [scan]\ninclude = [\"docs\"]\n\n\
              [fmt.cross_refs]\nenabled = false\n",
         );

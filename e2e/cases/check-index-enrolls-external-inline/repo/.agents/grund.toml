@@ -1,7 +1,7 @@
 grund_config_version = 1
 
 [[kinds]]
-prefix = "AR"
+kind = "AR"
 folder = "docs/architecture"
 
 [scan]

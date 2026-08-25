@@ -78,8 +78,8 @@ fn init_docs_form_emits_full_scaffold_and_check_is_clean() {
         "docs/architecture/README.md",
         "docs/decisions/architectural/README.md",
         "docs/decisions/functional/README.md",
-        "e2e/README.md",
-        "e2e/cases/.gitkeep",
+        "tests/e2e/README.md",
+        "tests/integration/.gitkeep",
     ];
     for rel in expected {
         assert!(target.join(rel).exists(), "init --docs did not write {rel}");
@@ -300,12 +300,12 @@ fn init_agents_guidance_uses_existing_configured_artifact_homes() {
 include = ["specs", "records", "crates"]
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "specs"
 title = "Product spec"
 
 [[kinds]]
-prefix = "ADR"
+kind = "ADR"
 folder = "records/adr"
 title = "Architecture decision"
 "#,
@@ -474,7 +474,7 @@ fn init_force_never_overwrites_an_existing_config() {
     let custom_config = "grund_config_version = 1\n\
         project_name = \"Custom\"\n\n\
         [reference]\nstrict = true\n\n\
-        [[kinds]]\nprefix = \"SPEC\"\nfolder = \"specs\"\ntitle = \"Spec\"\n";
+        [[kinds]]\nkind = \"SPEC\"\nfolder = \"specs\"\ntitle = \"Spec\"\n";
     fs::write(target.join(".agents/grund.toml"), custom_config).expect("write custom config");
 
     let output = run_grund(
@@ -619,8 +619,8 @@ fn init_dry_run_with_docs_previews_scaffold_without_writing() {
         "docs/architecture/README.md",
         "docs/decisions/architectural/README.md",
         "docs/decisions/functional/README.md",
-        "e2e/README.md",
-        "e2e/cases/.gitkeep",
+        "tests/e2e/README.md",
+        "tests/integration/.gitkeep",
     ] {
         assert!(
             stderr.contains(&format!("would-write {rel}")),
@@ -704,7 +704,7 @@ strict = true
 include = ["AGENTS.md", "docs"]
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "docs/functional-spec"
 title = "Spec"
 "#,

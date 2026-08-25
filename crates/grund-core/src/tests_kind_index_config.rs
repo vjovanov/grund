@@ -16,7 +16,7 @@ mod tests_kind_index_config {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n\n\
              [scan]\ninclude = [\"docs\"]\n",
         );
         write(
@@ -39,7 +39,7 @@ mod tests_kind_index_config {
         let root = test_root("index_without_a_folder_is_a_config_error");
         write(
             &root.join("grund.toml"),
-            "grund_config_version = 1\n\n[[kinds]]\nprefix = \"FS\"\nfile = \"requirements.md\"\nindex = \"README.md\"\n",
+            "grund_config_version = 1\n\n[[kinds]]\nkind = \"FS\"\nfile = \"requirements.md\"\nindex = \"README.md\"\n",
         );
 
         let message = config_error(&root);
@@ -56,7 +56,7 @@ mod tests_kind_index_config {
         let root = test_root("index_true_is_a_config_error");
         write(
             &root.join("grund.toml"),
-            "grund_config_version = 1\n\n[[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\nindex = true\n",
+            "grund_config_version = 1\n\n[[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = true\n",
         );
 
         let message = config_error(&root);
@@ -74,7 +74,7 @@ mod tests_kind_index_config {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\nindex = \"INDEX.md\"\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = \"INDEX.md\"\n\n\
              [scan]\ninclude = [\"docs\"]\n",
         );
         write(
@@ -101,7 +101,7 @@ mod tests_kind_index_config {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\nindex = \"INDEX.py\"\n",
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = \"INDEX.py\"\n",
         );
 
         let message = config_error(&root);
@@ -126,7 +126,7 @@ mod tests_kind_index_config {
                 &root.join("grund.toml"),
                 &format!(
                     "grund_config_version = 1\n\n\
-                     [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\nindex = \"{value}\"\n"
+                     [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = \"{value}\"\n"
                 ),
             );
 
@@ -148,8 +148,8 @@ mod tests_kind_index_config {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\n\n\
-             [[kinds]]\nprefix = \"E2E\"\nfolder = \"e2e/cases\"\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\n\n\
+             [[kinds]]\nkind = \"E2E\"\nfolder = \"e2e/cases\"\n\n\
              [scan]\ninclude = [\"docs\", \"e2e\"]\n",
         );
         write(
@@ -167,7 +167,7 @@ mod tests_kind_index_config {
         let e2e = config
             .kinds
             .iter()
-            .find(|kind| kind.prefix == "E2E")
+            .find(|kind| kind.kind == "E2E")
             .expect("the declared E2E kind");
         assert_eq!(
             e2e.index_toml_value().as_deref(),

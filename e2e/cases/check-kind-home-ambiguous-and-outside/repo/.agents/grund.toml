@@ -7,11 +7,11 @@ strict = true
 include = ["docs", "notes"]
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "docs"
 title = "Functional specs"
 
 [[kinds]]
-prefix = "AR"
+kind = "AR"
 folder = "docs/architecture"
 title = "Architecture"

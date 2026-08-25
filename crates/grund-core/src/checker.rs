@@ -331,18 +331,30 @@ fn check_with_workspace(
                 continue;
             };
             if home.kind != id.kind {
-                report.errors.push(Diagnostic {
-                    code: "misplaced-declaration",
-                    path: Some(decl.file.clone()),
-                    line: Some(decl.line),
-                    column: None,
-                    message: format!(
+                // §FS-check.3.7: a non-citable home has no kind an author could
+                // have declared instead, so the message names the place and says
+                // why, rather than pointing at a kind that does not exist.
+                let message = if home.citable {
+                    format!(
                         "{} declares kind {} inside {} home {}",
                         render_id(config, id),
                         id.kind,
                         home.kind,
                         home.path
-                    ),
+                    )
+                } else {
+                    format!(
+                        "{} must not be declared in {} (not a citable home)",
+                        render_id(config, id),
+                        home.path
+                    )
+                };
+                report.errors.push(Diagnostic {
+                    code: "misplaced-declaration",
+                    path: Some(decl.file.clone()),
+                    line: Some(decl.line),
+                    column: None,
+                    message,
                     sites: Vec::new(),
                 });
             }
@@ -516,17 +528,32 @@ fn check_with_workspace(
                 .map(|decl| decl.file.as_path()),
         );
         for file in &findings.scanned_files {
-            if file.extension().and_then(|ext| ext.to_str()) == Some("md") {
+            // §FS-check.3.6: Markdown is exempt because a document is not
+            // implementation — except inside a non-citable home, which is a
+            // directory the maintainer declared matters and which is usually all
+            // Markdown. There the exemption would make the rule inert exactly
+            // where it was asked for.
+            let non_citable_home = kind_homes
+                .unique_decl_home_for_file(file)
+                .filter(|home| !home.citable)
+                .map(|home| home.path.to_string());
+            if non_citable_home.is_none()
+                && file.extension().and_then(|ext| ext.to_str()) == Some("md")
+            {
                 continue;
             }
             if !grounded_files.contains(file.as_path()) {
+                let subject = match &non_citable_home {
+                    Some(home) => format!("ungrounded file in kind home {home}"),
+                    None => "ungrounded source file".to_string(),
+                };
                 report.errors.push(Diagnostic {
                     code: "ungrounded",
                     path: Some(file.clone()),
                     line: Some(1),
                     column: None,
                     message: format!(
-                        "ungrounded source file: no {} citation to a declared ID",
+                        "{subject}: no {} citation to a declared ID",
                         config.marker
                     ),
                     sites: Vec::new(),
@@ -548,6 +575,20 @@ fn check_with_workspace(
     report
 }
 
+/// How a citing kind is named in a finding (§FS-check.3.11, §FS-check.3.12): a
+/// citable kind by its name, which is the prefix of every ID in it; a
+/// non-citable one by its home, which is all a reader of the message could go
+/// and look at. `code` keeps its own name — it is the one non-citable kind with
+/// no place, being the complement of every home there is.
+fn citing_side_label(config: &Config, kind: &str) -> String {
+    config
+        .kinds
+        .iter()
+        .find(|configured| configured.kind == kind && !configured.citable)
+        .and_then(KindConfig::place_label)
+        .unwrap_or_else(|| kind.to_string())
+}
+
 /// §AR-checker.2.9 / §FS-check.3.11: every top-level declaration of a citing
 /// kind with a `must` / `should` obligation must carry, in its body, a citation
 /// satisfying each obligation entry. `must` misses are `missing-citation`
@@ -558,15 +599,16 @@ fn check_citation_obligations(findings: &Findings, config: &Config, report: &mut
     // the per-declaration / per-case rescans were O(kinds × declarations ×
     // citations) and dominated `grund check` on a large tree (§AR-benchmarks).
     let mut by_decl: BTreeMap<&Id, Vec<&Citation>> = BTreeMap::new();
-    let mut code_by_file: BTreeMap<&Path, Vec<&Citation>> = BTreeMap::new();
+    let mut by_file: BTreeMap<(&str, &Path), Vec<&Citation>> = BTreeMap::new();
     for cite in &findings.citations {
         if let Some(id) = &cite.enclosing_declaration {
             by_decl.entry(id).or_default().push(cite);
         }
-        if cite.source_kind == CODE_SOURCE_KIND
-            && cite.file.extension().and_then(|ext| ext.to_str()) != Some("md")
-        {
-            code_by_file.entry(cite.file.as_path()).or_default().push(cite);
+        if file_is_obligation_unit(config, cite) {
+            by_file
+                .entry((cite.source_kind.as_str(), cite.file.as_path()))
+                .or_default()
+                .push(cite);
         }
     }
     // Bucket the (usually zero — fixture trees are carved out of `[scan]`)
@@ -595,7 +637,14 @@ fn check_citation_obligations(findings: &Findings, config: &Config, report: &mut
         if rules.must.is_empty() && rules.should.is_empty() {
             continue;
         }
-        for unit in obligation_units(citing_kind, findings, &by_decl, &code_by_file, &e2e_by_case) {
+        for unit in obligation_units(
+            citing_kind,
+            config,
+            findings,
+            &by_decl,
+            &by_file,
+            &e2e_by_case,
+        ) {
             for entry in &rules.must {
                 if !entry.targets.iter().any(|t| unit.satisfies(t)) {
                     report.errors.push(obligation_diagnostic(
@@ -628,6 +677,9 @@ fn check_citation_obligations(findings: &Findings, config: &Config, report: &mut
 /// `id` (a declaration) or `None` (a `code` source file).
 struct ObligationUnit<'a> {
     id: Option<&'a Id>,
+    /// The place a non-citable kind's unit is named by (§FS-check.3.11) — its
+    /// home, since the unit is a file in it and the kind has no ID to print.
+    place: Option<String>,
     path: PathBuf,
     line: usize,
     citations: Vec<&'a Citation>,
@@ -646,29 +698,66 @@ impl ObligationUnit<'_> {
     }
 
     fn subject(&self, config: &Config) -> String {
-        match self.id {
-            Some(id) => render_id(config, id),
-            None => "source file".to_string(),
+        match (self.id, &self.place) {
+            (Some(id), _) => render_id(config, id),
+            (None, Some(place)) => place.clone(),
+            (None, None) => "source file".to_string(),
         }
     }
 }
 
+/// Whether this citation site counts toward a *per-file* obligation unit
+/// (§FS-check.3.11). Two kinds of citing side have no declaration to attach an
+/// obligation to, and both answer with the file:
+///
+/// * `code` — every citation outside a configured home, source files only. A
+///   README or a changelog is a document, and §FS-check.3.6 exempts it for the
+///   same reason.
+/// * a **non-citable kind** — every scanned file in its home, `.md` included.
+///   Inheriting `code`'s Markdown exemption here would make `must` inert on the
+///   kinds that are usually all Markdown, which is most of them: the exemption
+///   reasons about implementation-versus-document, and a home the maintainer
+///   named is neither guess.
+fn file_is_obligation_unit(config: &Config, cite: &Citation) -> bool {
+    if cite.source_kind == CODE_SOURCE_KIND {
+        return cite.file.extension().and_then(|ext| ext.to_str()) != Some("md");
+    }
+    kind_is_non_citable(config, &cite.source_kind)
+}
+
+/// Whether `kind` is a configured kind that declares no IDs (§FS-config.3.4).
+fn kind_is_non_citable(config: &Config, kind: &str) -> bool {
+    config
+        .kinds
+        .iter()
+        .any(|configured| configured.kind == kind && !configured.citable)
+}
+
 /// The evaluation units for one citing kind's obligations (§FS-config.3.9):
-/// per source file for `code`, per case (over the case's scanned-file citations)
-/// for `E2E`, per non-stub declaration otherwise. Reads the citation indexes
-/// built once in [`check_citation_obligations`] rather than rescanning.
+/// per file for `code` and for every non-citable kind, per case (over the case's
+/// scanned-file citations) for `E2E`, per non-stub declaration otherwise. Reads
+/// the citation indexes built once in [`check_citation_obligations`] rather than
+/// rescanning.
 fn obligation_units<'a>(
     citing_kind: &str,
+    config: &Config,
     findings: &'a Findings,
     by_decl: &BTreeMap<&'a Id, Vec<&'a Citation>>,
-    code_by_file: &BTreeMap<&'a Path, Vec<&'a Citation>>,
+    by_file: &BTreeMap<(&'a str, &'a Path), Vec<&'a Citation>>,
     e2e_by_case: &BTreeMap<&'a Path, Vec<&'a Citation>>,
 ) -> Vec<ObligationUnit<'a>> {
-    if citing_kind == CODE_SOURCE_KIND {
-        return code_by_file
+    if citing_kind == CODE_SOURCE_KIND || kind_is_non_citable(config, citing_kind) {
+        let place = config
+            .kinds
             .iter()
-            .map(|(file, citations)| ObligationUnit {
+            .find(|kind| kind.kind == citing_kind)
+            .and_then(KindConfig::place_label);
+        return by_file
+            .iter()
+            .filter(|((kind, _), _)| *kind == citing_kind)
+            .map(|((_, file), citations)| ObligationUnit {
                 id: None,
+                place: place.clone(),
                 path: file.to_path_buf(),
                 line: 1,
                 citations: citations.clone(),
@@ -699,6 +788,7 @@ fn obligation_units<'a>(
                 let e2e_spec_refs = case.spec_refs.iter().collect();
                 units.push(ObligationUnit {
                     id: Some(id),
+                    place: None,
                     path: decl.file.clone(),
                     line: decl.line,
                     citations,
@@ -708,6 +798,7 @@ fn obligation_units<'a>(
                 let citations = by_decl.get(id).cloned().unwrap_or_default();
                 units.push(ObligationUnit {
                     id: Some(id),
+                    place: None,
                     path: decl.file.clone(),
                     line: decl.line,
                     citations,
@@ -748,11 +839,13 @@ fn check_citation_prohibitions(findings: &Findings, config: &Config, report: &mu
         match citation_site_level(config, cite) {
             Some(CitationLevel::MustNot) => report.errors.push(prohibition_diagnostic(
                 "forbidden-citation",
+                config,
                 cite,
                 "must not",
             )),
             Some(CitationLevel::ShouldNot) => report.suggestions.push(prohibition_diagnostic(
                 "discouraged-citation",
+                config,
                 cite,
                 "should not",
             )),
@@ -761,7 +854,12 @@ fn check_citation_prohibitions(findings: &Findings, config: &Config, report: &mu
     }
 }
 
-fn prohibition_diagnostic(code: &'static str, cite: &Citation, verb: &str) -> Diagnostic {
+fn prohibition_diagnostic(
+    code: &'static str,
+    config: &Config,
+    cite: &Citation,
+    verb: &str,
+) -> Diagnostic {
     let target = CitationTarget {
         namespace: match &cite.namespace {
             None => NamespaceMatch::Local,
@@ -776,7 +874,10 @@ fn prohibition_diagnostic(code: &'static str, cite: &Citation, verb: &str) -> Di
         column: Some(cite.column),
         message: format!(
             "{} {verb} cite {} (citation direction)",
-            cite.source_kind,
+            // §FS-check.3.12: a non-citable citing kind is named by its place —
+            // the same label §FS-check.3.11 and the generated directions use,
+            // because its name is a config handle and not a thing to read.
+            citing_side_label(config, &cite.source_kind),
             render_citation_target(&target)
         ),
         sites: Vec::new(),
@@ -1239,6 +1340,10 @@ fn is_stub_for_inline_decl(root: &Path, decl: &Declaration, decls: &[Declaration
 struct DeclarationHome<'a> {
     kind: &'a str,
     path: &'a str,
+    /// Whether the home's kind declares IDs (§FS-config.3.4). A non-citable home
+    /// admits no declaration at all, so the finding it produces names the home
+    /// rather than a kind the author was supposed to have written.
+    citable: bool,
 }
 
 struct SingleFileHome<'a> {
@@ -1252,6 +1357,7 @@ struct ConfiguredHome<'a> {
     path: &'a str,
     key: PathBuf,
     exact: bool,
+    citable: bool,
 }
 
 struct KindHomeIndex<'a> {
@@ -1271,25 +1377,33 @@ impl<'a> KindHomeIndex<'a> {
 
         for kind in &config.kinds {
             if let Some(file) = kind.file.as_deref() {
-                single_files.push(SingleFileHome {
-                    kind: kind.prefix.as_str(),
-                    path: file,
-                    physical_path: physical_path_key(&config.root.join(file)),
-                });
+                // §FS-check.3.7: only a citable kind has declarations to keep in
+                // one document, so the single-file rule has nothing to say about
+                // a non-citable `file` home — the home-kind rule below reports
+                // anything declared there, once.
+                if kind.citable {
+                    single_files.push(SingleFileHome {
+                        kind: kind.kind.as_str(),
+                        path: file,
+                        physical_path: physical_path_key(&config.root.join(file)),
+                    });
+                }
                 homes.push(ConfiguredHome {
-                    kind: kind.prefix.as_str(),
+                    kind: kind.kind.as_str(),
                     path: file,
                     key: configured_home_path_key(file),
                     exact: true,
+                    citable: kind.citable,
                 });
             }
 
             if let Some(folder) = kind.folder.as_deref() {
                 homes.push(ConfiguredHome {
-                    kind: kind.prefix.as_str(),
+                    kind: kind.kind.as_str(),
                     path: folder,
                     key: configured_home_path_key(folder),
                     exact: false,
+                    citable: kind.citable,
                 });
             }
         }
@@ -1329,6 +1443,7 @@ impl<'a> KindHomeIndex<'a> {
                 .map(|home| DeclarationHome {
                     kind: home.kind,
                     path: home.path,
+                    citable: home.citable,
                 });
         }
 
@@ -1336,6 +1451,7 @@ impl<'a> KindHomeIndex<'a> {
             home_contains_path(home, path.as_ref()).then_some(DeclarationHome {
                 kind: home.kind,
                 path: home.path,
+                citable: home.citable,
             })
         });
 

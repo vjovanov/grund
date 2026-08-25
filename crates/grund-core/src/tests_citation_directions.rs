@@ -106,13 +106,13 @@ mod tests_citation_directions {
             &root.join(".agents/grund.toml"),
             r#"project_name = "scratch"
 [[kinds]]
-prefix = "GOAL"
+kind = "GOAL"
 file = "docs/goals.md"
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "docs/functional-spec"
 [[kinds]]
-prefix = "AR"
+kind = "AR"
 folder = "docs/architecture"
 [scan]
 include = ["docs"]
@@ -213,6 +213,13 @@ must = ["FS"]
         write(
             &root.join(".agents/grund.toml"),
             r#"project_name = "scratch"
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+[[kinds]]
+kind = "E2E"
+folder = "e2e/cases"
+index = false
 [scan]
 include = ["e2e"]
 [citations]
@@ -247,6 +254,13 @@ must = ["FS"]
         write(
             &root.join(".agents/grund.toml"),
             r#"project_name = "scratch"
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+[[kinds]]
+kind = "E2E"
+folder = "e2e/cases"
+index = false
 [scan]
 include = ["e2e"]
 [citations]
@@ -305,7 +319,7 @@ must = ["FS"]
 [citations.FS]
 should = ["GOAL|FS"]
 must-not = ["AR"]
-[citations.E2E]
+[citations.e2e]
 must = ["FS"]
 [citations.code]
 should = ["FS|AR"]
@@ -314,7 +328,8 @@ should = ["FS|AR"]
         let config = load_config(&root).expect("load config");
         let section = citation_directions_section(&config);
         assert!(section.contains("- **FS** should cite GOAL or FS; never cite AR."));
-        assert!(section.contains("- **E2E** must cite FS."));
+        // §FS-init.2.3.5: a non-citable kind renders by place, not by name.
+        assert!(section.contains("- **tests/e2e/** must cite FS."));
         assert!(section.contains("- **code** (any file outside a kind home) should cite FS or AR."));
         assert!(section.trim_end().ends_with("Unlisted kinds and pairs are fine."));
         // No trailing newline, so the template's placeholder keeps init idempotent.
@@ -351,7 +366,7 @@ default = "must-not"
         let root = test_root("citation_validation_rejects_overlapping_namespace_polarities");
         let cfg = |body: &str| {
             format!(
-                "[[kinds]]\nprefix = \"FS\"\nfolder = \"docs/functional-spec\"\n[[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\n[citations.FS]\n{body}"
+                "[[kinds]]\nkind = \"FS\"\nfolder = \"docs/functional-spec\"\n[[kinds]]\nkind = \"AR\"\nfolder = \"docs/architecture\"\n[citations.FS]\n{body}"
             )
         };
 
@@ -378,7 +393,7 @@ default = "must-not"
         let root = test_root("citation_validation_rejects_malformed_namespace_qualifiers");
         let cfg = |target: &str| {
             format!(
-                "[[kinds]]\nprefix = \"FS\"\nfolder = \"docs/functional-spec\"\n[[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\n[citations.FS]\nmust-not = [\"{target}\"]\n"
+                "[[kinds]]\nkind = \"FS\"\nfolder = \"docs/functional-spec\"\n[[kinds]]\nkind = \"AR\"\nfolder = \"docs/architecture\"\n[citations.FS]\nmust-not = [\"{target}\"]\n"
             )
         };
 

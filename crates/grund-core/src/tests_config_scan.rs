@@ -284,7 +284,7 @@ members = ["packages/*"]
 
         let mut config = Config::default_for(root.clone());
         for kind in &mut config.kinds {
-            match kind.prefix.as_str() {
+            match kind.kind.as_str() {
                 "FS" => {
                     kind.folder = Some("docs".to_string());
                     kind.file = None;

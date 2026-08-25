@@ -543,10 +543,10 @@ fn file_home_kind(path: &Path, config: &Config) -> Option<String> {
             _ => false,
         };
         if hit {
-            if matched.is_some_and(|prev| prev != kind.prefix.as_str()) {
+            if matched.is_some_and(|prev| prev != kind.kind.as_str()) {
                 return None;
             }
-            matched = Some(kind.prefix.as_str());
+            matched = Some(kind.kind.as_str());
         }
     }
     matched.map(str::to_string)
@@ -993,7 +993,7 @@ fn scan_e2e_cases(
     explicit_scope: bool,
     findings: &mut Findings,
 ) -> Result<()> {
-    let Some(kind) = config.kinds.iter().find(|kind| kind.prefix == "E2E") else {
+    let Some(kind) = config.kinds.iter().find(|kind| kind.kind == "E2E" && kind.citable) else {
         return Ok(());
     };
     let Some(folder) = kind.folder.as_deref() else {
@@ -1446,7 +1446,7 @@ fn new_overlay_file_passes_walk_filters(config: &Config, roots: &[PathBuf], path
         let e2e_cases_root = config
             .kinds
             .iter()
-            .find(|kind| kind.prefix == "E2E")
+            .find(|kind| kind.kind == "E2E" && kind.citable)
             .and_then(|kind| kind.folder.as_deref())
             .map(|folder| config.root.join(folder));
         let mut ancestor = path.parent();

@@ -7,5 +7,5 @@ strict = false
 include = ["d"]
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "d"

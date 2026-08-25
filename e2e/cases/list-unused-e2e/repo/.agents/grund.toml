@@ -7,6 +7,6 @@ strict = false
 format = "{kind}-{slug}"
 
 [[kinds]]
-prefix = "E2E"
+kind = "E2E"
 folder = "e2e/cases"
 title = "End-to-end test"

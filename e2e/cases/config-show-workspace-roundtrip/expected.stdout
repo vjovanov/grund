@@ -22,47 +22,53 @@ section_heading_levels = "strict"
 slug_pattern = "[a-z][a-z0-9-]*"
 
 [[kinds]]
-prefix = "GRUND"
+kind = "GRUND"
 file = "docs/grund.md"
 title = "Why: project motivation"
 
 [[kinds]]
-prefix = "GOAL"
+kind = "GOAL"
 file = "docs/goals.md"
 title = "Where: project direction and outcomes"
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "docs/functional-spec"
 index = "README.md"
 title = "What: behavior, requirements, and constraints"
 
 [[kinds]]
-prefix = "AR"
+kind = "AR"
 folder = "docs/architecture"
 index = "README.md"
 title = "How: high-level implementation, structure, and design"
 
 [[kinds]]
-prefix = "DF"
+kind = "DF"
 folder = "docs/decisions/functional"
 index = "README.md"
 title = "Product behavior decisions and tradeoffs"
 
 [[kinds]]
-prefix = "DA"
+kind = "DA"
 folder = "docs/decisions/architectural"
 index = "README.md"
 title = "Architecture decisions and tradeoffs"
 
 [[kinds]]
-prefix = "E2E"
-folder = "e2e/cases"
-index = false
-title = "Executable user scenarios"
+kind = "e2e"
+folder = "tests/e2e"
+citable = false
+title = "User scenarios: black-box proof of the spec"
 
 [[kinds]]
-prefix = "RM"
+kind = "integration"
+folder = "tests/integration"
+citable = false
+title = "Integration tests: proof that the parts fit as designed"
+
+[[kinds]]
+kind = "RM"
 file = "docs/roadmap.md"
 title = "Planned milestones and sequencing"
 

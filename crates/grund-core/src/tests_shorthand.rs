@@ -507,8 +507,8 @@ mod tests_shorthand {
             let mut config = legacy_fs_folder_config(root.clone());
             config.id_format = id_format.into();
             for kind in &mut config.kinds {
-                if kind.prefix == "FS" {
-                    kind.prefix = kind_prefix.into();
+                if kind.kind == "FS" {
+                    kind.kind = kind_prefix.into();
                 }
             }
             config.rebuild_grammar().expect("rebuild grammar");

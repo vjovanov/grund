@@ -117,7 +117,7 @@ fn render_init_next(next: &InitNext) {
         let fs_home_path = match &next.fs_home {
             InitFsHome::File { path, .. } | InitFsHome::Folder { path } => path,
         };
-        eprintln!("  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan");
+        eprintln!("  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and tests/ (or create them yourself) — until then `grund check` has nothing to scan");
         eprintln!("  2. run `grund check` — a scaffolded tree is clean");
         match &next.fs_home {
             InitFsHome::File { path, .. } => {

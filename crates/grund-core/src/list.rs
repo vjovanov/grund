@@ -176,34 +176,40 @@ fn command_list(args: &[String]) -> ExitCode {
     // `[[kinds]]`), so the validation widens — a kind only needs to exist
     // in at least one project in scope.
     for kind in &kind_filter {
-        let exists = context
+        // §FS-list.1: the selector names a *citable* kind. A configured kind
+        // that declares no IDs would silently select nothing, which is exactly
+        // the empty-catalog-from-a-typo this check exists to prevent — so it is
+        // refused too, with the reason rather than "unknown".
+        let matched = context
             .projects
             .iter()
             .filter(|project| project_filter.is_empty() || project_filter.contains(&project.alias))
-            .any(|project| {
+            .find_map(|project| {
                 project
                     .config
                     .kinds
                     .iter()
-                    .any(|candidate| &candidate.prefix == kind)
+                    .find(|candidate| &candidate.kind == kind)
             });
-        if !exists {
-            eprintln!("error: unknown kind `{kind}`");
-            // Preserve each project's configured `[[kinds]]` order
-            // (§FS-list.4 takes its hint from `[[kinds]]`, not the
-            // alphabet); only deduplicate across projects.
-            let mut known: Vec<String> = Vec::new();
-            let mut seen: BTreeSet<String> = BTreeSet::new();
-            for project in &context.projects {
-                for k in &project.config.kinds {
-                    if seen.insert(k.prefix.clone()) {
-                        known.push(k.prefix.clone());
-                    }
+        match matched {
+            Some(candidate) if candidate.citable => continue,
+            Some(candidate) => eprintln!("error: {}", non_citable_kind_error(candidate)),
+            None => eprintln!("error: unknown kind `{kind}`"),
+        }
+        // Preserve each project's configured `[[kinds]]` order
+        // (§FS-list.4 takes its hint from `[[kinds]]`, not the
+        // alphabet); only deduplicate across projects.
+        let mut known: Vec<String> = Vec::new();
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        for project in &context.projects {
+            for k in &project.config.kinds {
+                if k.citable && seen.insert(k.kind.clone()) {
+                    known.push(k.kind.clone());
                 }
             }
-            eprintln!("known kinds: {}", known.join(", "));
-            return ExitCode::from(2);
         }
+        eprintln!("known kinds: {}", known.join(", "));
+        return ExitCode::from(2);
     }
 
     struct Entry<'a> {
@@ -305,7 +311,7 @@ fn command_list(args: &[String]) -> ExitCode {
                 }
                 for kind in &project.config.kinds {
                     let count = counts
-                        .get(&(project.alias.clone(), kind.prefix.clone()))
+                        .get(&(project.alias.clone(), kind.kind.clone()))
                         .copied()
                         .unwrap_or(0);
                     if count == 0 {
@@ -315,7 +321,7 @@ fn command_list(args: &[String]) -> ExitCode {
                         println!(
                             "{{\"project\":\"{}\",\"kind\":\"{}\",\"title\":\"{}\",\"home\":\"{}\",\"count\":{}}}",
                             json_escape(&project.alias),
-                            json_escape(&kind.prefix),
+                            json_escape(&kind.kind),
                             json_escape(kind.title.as_deref().unwrap_or("Declaration")),
                             json_escape(kind.folder.as_deref().unwrap_or("")),
                             count
@@ -324,7 +330,7 @@ fn command_list(args: &[String]) -> ExitCode {
                         println!(
                             "{:<10}  {:<4}  {:>3}  {}",
                             project.alias,
-                            kind.prefix,
+                            kind.kind,
                             count,
                             kind.folder.as_deref().unwrap_or("")
                         );
@@ -338,13 +344,13 @@ fn command_list(args: &[String]) -> ExitCode {
             }
             if format == "json" {
                 for kind in &config.kinds {
-                    let count = counts.get(kind.prefix.as_str()).copied().unwrap_or(0);
+                    let count = counts.get(kind.kind.as_str()).copied().unwrap_or(0);
                     if count == 0 {
                         continue;
                     }
                     println!(
                         "{{\"kind\":\"{}\",\"title\":\"{}\",\"home\":\"{}\",\"count\":{}}}",
-                        json_escape(&kind.prefix),
+                        json_escape(&kind.kind),
                         json_escape(kind.title.as_deref().unwrap_or("Declaration")),
                         json_escape(kind.folder.as_deref().unwrap_or("")),
                         count
@@ -352,13 +358,13 @@ fn command_list(args: &[String]) -> ExitCode {
                 }
             } else {
                 for kind in &config.kinds {
-                    let count = counts.get(kind.prefix.as_str()).copied().unwrap_or(0);
+                    let count = counts.get(kind.kind.as_str()).copied().unwrap_or(0);
                     if count == 0 {
                         continue;
                     }
                     println!(
                         "{:<4}  {:>3}  {}",
-                        kind.prefix,
+                        kind.kind,
                         count,
                         kind.folder.as_deref().unwrap_or("")
                     );

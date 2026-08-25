@@ -14,7 +14,7 @@ format = "{kind}-{slug}"
 slug_pattern = "[a-z][a-z0-9-]*"
 
 [[kinds]]
-prefix = "SPEC"
+kind = "SPEC"
 folder = "specs"
 title = "Spec"
 

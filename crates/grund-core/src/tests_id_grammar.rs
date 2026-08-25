@@ -36,8 +36,8 @@ mod tests_id_grammar {
                 2,
             ),
             (
-                "[[kinds]]\nprefix = \"F/S\"\nfolder = \"docs\"\n",
-                "[[kinds]] prefix `F/S` must not contain `/`",
+                "[[kinds]]\nkind = \"F/S\"\nfolder = \"docs\"\n",
+                "[[kinds]] kind `F/S` must not contain `/`",
                 2,
             ),
         ];

@@ -23,43 +23,53 @@ number_pattern = "\\d+"
 slug_pattern = "[a-z0-9][a-z0-9-]*"
 
 [[kinds]]
-prefix = "GRUND"
+kind = "GRUND"
 file = "docs/grund.md"
 title = "Why: project motivation"
 
 [[kinds]]
-prefix = "GOAL"
+kind = "GOAL"
 file = "docs/goals.md"
 title = "Where: project direction and outcomes"
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 file = "requirements.md"
 title = "What: behavior, requirements, and constraints"
 
 [[kinds]]
-prefix = "AR"
+kind = "AR"
 folder = "docs/architecture"
 title = "How: high-level implementation, structure, and design"
 
 [[kinds]]
-prefix = "DF"
+kind = "DF"
 folder = "docs/decisions/functional"
 title = "Product behavior decisions and tradeoffs"
 
 [[kinds]]
-prefix = "DA"
+kind = "DA"
 folder = "docs/decisions/architectural"
 title = "Architecture decisions and tradeoffs"
 
+# A test cites the document whose claim it proves, and is never cited back — so
+# the two test kinds are `citable = false`: a home and citation directions, no ID
+# namespace. `index` is a folder kind's index file, relative to `folder`; `false`
+# opts out. A non-citable kind has no declarations, so it has no index at all.
 [[kinds]]
-prefix = "E2E"
-folder = "e2e/cases"
-index = false # a folder kind's index file, relative to `folder`; false opts out
-title = "Executable user scenarios"
+kind = "e2e"
+folder = "tests/e2e"
+citable = false
+title = "User scenarios: black-box proof of the spec"
 
 [[kinds]]
-prefix = "RM"
+kind = "integration"
+folder = "tests/integration"
+citable = false
+title = "Integration tests: proof that the parts fit as designed"
+
+[[kinds]]
+kind = "RM"
 file = "docs/roadmap.md"
 title = "Planned milestones and sequencing"
 

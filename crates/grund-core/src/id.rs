@@ -66,14 +66,20 @@ fn command_id(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // §FS-id.1: `id` mints an ID, so the kind it is handed has to be one that
+    // has IDs. A configured non-citable kind is refused with the reason — it is
+    // a place, and there is nothing to allocate in it.
     let kind_config = match config
         .kinds
         .iter()
-        .find(|candidate| &candidate.prefix == kind)
+        .find(|candidate| &candidate.kind == kind)
     {
-        Some(kind_config) => kind_config,
-        None => {
-            eprintln!("error: unknown kind `{kind}`");
+        Some(kind_config) if kind_config.citable => kind_config,
+        other => {
+            match other {
+                Some(kind_config) => eprintln!("error: {}", non_citable_kind_error(kind_config)),
+                None => eprintln!("error: unknown kind `{kind}`"),
+            }
             eprintln!("known kinds: {}", kind_prefixes(&config.kinds).join(", "));
             return ExitCode::from(2);
         }

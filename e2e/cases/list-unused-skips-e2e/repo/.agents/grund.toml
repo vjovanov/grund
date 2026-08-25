@@ -7,11 +7,11 @@ strict = false
 format = "{kind}-{slug}"
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "docs/functional-spec"
 title = "Functional spec"
 
 [[kinds]]
-prefix = "E2E"
+kind = "E2E"
 folder = "e2e/cases"
 title = "End-to-end test"

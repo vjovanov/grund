@@ -1,1 +1,2 @@
-
+error: unknown kind `E2E`
+known kinds: GRUND, GOAL, FS, AR, DF, DA, RM

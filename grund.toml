@@ -23,38 +23,38 @@ section_heading_levels = "strict"
 slug_pattern = "[a-z][a-z0-9-]*"
 
 [[kinds]]
-prefix = "GRUND"
+kind = "GRUND"
 file = "docs/grund.md"
 title = "Why: project motivation"
 
 [[kinds]]
-prefix = "GOAL"
+kind = "GOAL"
 file = "docs/goals.md"
 title = "Where: project direction and outcomes"
 
 [[kinds]]
-prefix = "FS"
+kind = "FS"
 folder = "docs/functional-spec"
 title = "What: behavior, requirements, and constraints"
 
 [[kinds]]
-prefix = "REQ"
+kind = "REQ"
 folder = "docs/requirements"
 title = "Hard requirements: what grund must never break"
 
 [[kinds]]
-prefix = "AR"
+kind = "AR"
 folder = "docs/architecture"
 title = "How: high-level implementation, structure, and design"
 
 # DF before DA, matching the canonical default kind order (FS-config.3.4, templates/grund.toml).
 [[kinds]]
-prefix = "DF"
+kind = "DF"
 folder = "docs/decisions/functional"
 title = "Product behavior decisions and tradeoffs"
 
 [[kinds]]
-prefix = "DA"
+kind = "DA"
 folder = "docs/decisions/architectural"
 title = "Architecture decisions and tradeoffs"
 
@@ -62,18 +62,18 @@ title = "Architecture decisions and tradeoffs"
 # README — a case is exercised by being run, not navigated to, and e2e/README.md
 # one level up documents the case layout in English rather than naming E2E- IDs.
 [[kinds]]
-prefix = "E2E"
+kind = "E2E"
 folder = "e2e/cases"
 index = false
 title = "Executable user scenarios"
 
 [[kinds]]
-prefix = "RM"
+kind = "RM"
 file = "docs/roadmap.md"
 title = "Planned milestones and sequencing"
 
 [[kinds]]
-prefix = "DISC"
+kind = "DISC"
 folder = "docs/discussions"
 title = "Design discussions and proposals"
 
