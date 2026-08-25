@@ -153,6 +153,23 @@ One `[[kinds]]` table per allowed prefix. A kind is either *multi-file* (`folder
 
 `folder` is used by `grund id` ([§FS-id.2.2](FS-id.md#22---format-json) emits it as the `folder` field) and by editor "create new declaration" / "go to home folder" actions; it is also a checker boundary: a declaration inside exactly one configured `folder` home must declare that folder's kind ([§FS-check.3.7](FS-check.md#37-misplaced-declaration-configured-kind-home)). `file` is stricter: declarations of a single-file kind found outside the configured path are reported under [§FS-check.3.7](FS-check.md#37-misplaced-declaration-configured-kind-home), and a different-kind declaration inside that exact file is likewise a unique-home conflict. Declarations are still recognized outside configured homes — including inline source declarations — and declarations in files covered by zero or multiple configured homes are not rejected by the home-kind rule because there is no single expected kind.
 
+`index` names the kind's **index file** — the document under `folder` that must list every declaration in it ([§FS-check.4.6](FS-check.md#46-declaration-missing-from-its-kinds-index)). It is resolved relative to `folder`, defaults to `README.md`, and takes either a file name or `false`:
+
+```toml
+[[kinds]]
+prefix = "DF"
+folder = "docs/decisions/functional"
+# index = "README.md"   # the default, relative to `folder`
+# index = false         # opt out — the folder is not navigated
+# index = "INDEX.md"    # or name a different file
+```
+
+The default follows from `folder` rather than from a second key restating it: a kind whose declarations live in a directory has a directory a reader arrives at, and `grund init --docs` already scaffolds that README and writes the convention into it ([§FS-init.2.1](FS-init.md#21-files-written-updated-or-left-in-place)). `index = false` is for a kind whose declarations are *exercised* rather than navigated — the canonical case is `E2E`, whose home holds case directories and no README, and whose `e2e/README.md` one level up documents the case layout in English instead of naming `E2E-` IDs. That is why the opt-out spells a file name or `false` rather than being inferred from a README's absence: "any folder README is an index" is not true of every tree.
+
+`index` requires `folder`. On a single-file kind (`file = "<path>"`) or a kind with no configured home there is nothing to index, and the key is a config error reported per §4.3. `index = true` is an error for the same reason a bare `true` names no file — write the name, or leave the key out for the default.
+
+The key is purely additive and does not move `grund_config_version` (§5): a config that sets it is only ever written for a binary that understands it, and an older binary meets it through the unknown-key rejection in §4.3.
+
 `title` is human-readable metadata: it surfaces in `grund <ID> --format=json`, `grund refs --format=json`, and IDE hover previews, and is **not** injected into `grund <ID> --format=md` text (which is the declaration verbatim — [§FS-show.3](FS-show.md#3-outputs)).
 
 The defaults declare the canonical eight, in this order:
@@ -191,6 +208,7 @@ title  = "Architecture decisions and tradeoffs"
 [[kinds]]
 prefix = "E2E"
 folder = "e2e/cases"
+index  = false
 title  = "Executable user scenarios"
 
 [[kinds]]
@@ -216,6 +234,8 @@ respect_gitignore  = true
 ```
 
 `include` is the set of paths walked **from the config root** — the directory the discovered `grund.toml` was found at (§1), or, when no config was discovered, the current working directory (never a subdirectory that merely happened to be passed as `grund`'s path argument). So in a config-less repo `grund` (no path) and `grund check .` both walk `requirements.md`, `docs/`, `e2e/`, `src/` relative to the cwd, while `grund check src/foo` or `grund check lib/` scans exactly the file or directory it is handed — an explicit path argument overrides `include` rather than being filtered by it. A walk that ends up reading no files at all is reported, not silently passed ([§FS-check.2.2](FS-check.md#22-empty-scan)). `exclude` is the set of directory names skipped at any depth. `extensions` filters which files are read. `comment_prefixes` are the markers recognized when looking for inline declarations and citations in source files. The two lists compose: adding `sql` without `--`, or `--` without `sql` (or another extension using that marker), does not enable SQL doc-comments. `docstring_python` enables Python triple-quoted-string scanning in addition to `#` comments.
+
+Listing an extension makes a file *readable*, not declarable. A prose markup format other than Markdown — AsciiDoc, reStructuredText, LaTeX — has its citations checked as soon as its extension appears here, because the citation grammar is format-agnostic; its native heading syntax still declares nothing, since a declaration is a `#`-prefixed heading or a comment-prefixed line. Whether those formats should be declaration homes of their own is an open discussion ([§DISC-markup-format-declarations](../discussions/proposals/2026-05-25-markup-format-declarations.md#disc-markup-format-declarations-declarations-in-asciidoc-restructuredtext-latex-and-similar-markup-document-formats)), not a configured behavior.
 
 Every default comment prefix has a path through the default extension list: `;` pairs with Lisp, Scheme, and Clojure extensions; `--` pairs with SQL, Haskell, Lua, and Ada extensions; and `*` / `/*` are block-comment continuation and opener forms in the C-family extensions. Any line whose first non-whitespace run is a configured prefix is eligible to host a declaration heading or a citation. Each claimed form has a strict-mode executable case that plants a marked dangling citation in that form ([§REQ-no-missed-citation.3](../requirements/REQ-no-missed-citation.md#3-proven-per-host-language)).
 

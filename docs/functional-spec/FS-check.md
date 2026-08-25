@@ -320,6 +320,24 @@ This is §3.3 one level down. A section path is a citation target, so two headin
 - **The same record `show` reads.** This rule and [§FS-show.2.2.2](FS-show.md#222-ambiguous-section) answer from one recorded section set, so `grund <ID>.<path>` refuses exactly when this rule reports `<ID>.<path>` and returns a body exactly when it does not. Two readers that each decided for themselves would disagree — a fenced example, a heading past the end of the body — and a coordinate `check` calls clean but `show` will not resolve is [§REQ-no-wrong-citation](../requirements/REQ-no-wrong-citation.md#req-no-wrong-citation-a-citation-never-resolves-to-a-guess) failing quietly in the other direction.
 - **Code:** `duplicate-section` ([§FS-errors.5](FS-errors.md#5-json-format)), carrying the same multi-site `sites` list §3.3 carries.
 
+### 3.17 Index entry is not a link
+
+An index entry (§4.6) that is present as a bare citation rather than a full Markdown link, reported at **the citation's line in the index**:
+
+```
+docs/discussions/README.md:12: index entry §DISC-external-ticket-resolvers is not a link; run `grund fmt --write`
+```
+
+The index is a *file* index: its job is to get a reader from the folder to the declaration, and a bare `§<ID>` in it is a promise the reader cannot follow. The required form is exactly the link `grund fmt --cross-refs` writes ([§FS-fmt.6.2](FS-fmt.md#62-form)) — the relative path to the declaration's home, plus the heading anchor under the active `anchor_format`. That is the canonical target, not "has an anchor": a declaration whose home is a source file links to the bare file path with no anchor, and `anchor_format = "none"` drops anchors everywhere. `docs/architecture/README.md` already carries that case, and it is correct as written.
+
+`check` requires the **shape** — the citation wrapped as `[§<ID>…](<target>)` — and never the target. A wrap's URL is re-derived on every `grund fmt --cross-refs` pass ([§FS-fmt.6.3](FS-fmt.md#63-idempotency-and-re-derive)), so a heading rename that rots an anchor is a one-line `fmt` diff rather than a second finding here, and re-deriving it in `check` would put the anchor algorithm in a second command for no new coverage.
+
+This half is an **error on arrival**, under [§REQ-backwards-compatibility.3](../requirements/REQ-backwards-compatibility.md#3-loud-mechanical-migrations): the fix is one documented command the tool ships, `grund fmt --write`, and that command linkifies an index file whatever `[fmt.cross_refs] enabled` says ([§FS-fmt.6.1](FS-fmt.md#61-scope)) — so there is no configuration in which `check` demands a form `fmt` declines to write. The inversion against §4.6 — the greater offence warns while the lesser errors — is what having a fix command, rather than the size of the offence, decides ([§DF-index-compatibility-ramp](../decisions/functional/DF-index-compatibility-ramp.md#df-index-compatibility-ramp-a-findings-ramp-follows-its-fix-command-not-the-size-of-the-offence)).
+
+Only an ID that already has an entry reaches this rule; an ID with none is §4.6's, and one cause never yields both findings. Where several citations of one ID sit in the index and none is a link, the finding anchors at the first of them in file order.
+
+- **Code:** `unlinked-index-entry` ([§FS-errors.5](FS-errors.md#5-json-format)).
+
 ## 4. Warnings
 
 ### 4.1 Unused declaration
@@ -327,6 +345,8 @@ This is §3.3 one level down. A section path is a citation target, so two headin
 An ID that is declared but never cited. Reported as a warning, not an error — newly declared IDs may not yet have citations. Warnings never affect the exit code (§2).
 
 A number-only shorthand citation that resolves counts here like any other citation (§1.2): a declaration abbreviated as `§FS-042` everywhere is cited, and reporting it as unused would state the opposite of the truth.
+
+A citation that is a kind's own **index entry** (§4.6) does not count here. An index names every declaration in its folder by construction, so counting its entries would leave every ID in an indexed folder permanently cited and delete the signal this warning exists to give ([§DF-index-not-an-inbound-citation](../decisions/functional/DF-index-not-an-inbound-citation.md#df-index-not-an-inbound-citation-an-index-entry-is-navigation-not-use)). The exclusion is exactly the entry: a citation in an index file of an ID whose home lies *outside* that folder is an ordinary citation and counts like any other. `grund refs` is unaffected and still lists index entries — they are real citations, and a reader asking who points at an ID wants to be told that its index does.
 
 `E2E` declarations ([AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations)) are exempt: an end-to-end case is exercised by being run, not by being cited, so a `§E2E-<name>` that nothing references is not a warning. Every other kind is subject to this rule. `grund list --unused` ([§FS-list](FS-list.md#fs-list-grund-lists-every-declared-id)) uses the same default signal and suppresses uncited `E2E` cases unless `E2E` is explicitly selected with `--kind` (including a multi-kind filter such as `--kind FS,E2E`).
 
@@ -373,6 +393,28 @@ Like §2.2 it is a warning, and like §2.2 it is withheld from a run that has an
 The per-heading half — naming each heading that looks like a declaration and does not match — is [§RM-declaration-near-miss](../roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format) and §5, a different rule that needs a judgement about what any one line meant; this one is arithmetic over what the scan already recorded.
 
 - **Code:** `nothing-recognized` ([§FS-errors.5](FS-errors.md#5-json-format)), with `path` and `line` null like every CLI-level diagnostic.
+
+### 4.6 Declaration missing from its kind's index
+
+A kind configured with a `folder` and an index file ([§FS-config.3.4](FS-config.md#34-kinds--recognized-prefixes)) promises that the index lists that folder's declarations; nothing verified it before. Every covered declaration the index does not name is one warning, anchored at the **declaration's heading** and naming the index file:
+
+```
+docs/decisions/functional/DF-md-link-emission.md:1: DF-md-link-emission is not listed in docs/decisions/functional/README.md — an index entry becomes an error in grund 0.12.0
+```
+
+**Which declarations are covered.** Every ID of that kind with at least one declaration site anywhere under `folder` — the whole subtree, not its top level, because a kind's folder routinely holds a directory per topic or per year (`DISC`'s proposals all live in `docs/discussions/proposals/`). A stub-and-inline pair collapses the way [§FS-list.2](FS-list.md#2-behaviour) collapses it: the stub under `folder` is what puts the ID in the folder, and **one** entry for the ID satisfies the rule — pointing at wherever the body lives, which for an inline home is the source file. A declaration of some *other* kind sitting inside the folder is a misplaced declaration (§3.7) and is not additionally demanded here; an index naming an ID whose home is outside its own folder is an ordinary citation and never a finding.
+
+**What an entry is.** One recognized citation (§1.1) of the ID in the index file, written as a full Markdown link. The two conditions are the entry's contract and either one unmet is a finding: this rule is the first, and §3.17 is the second. A citation inside a Markdown inline-code span is neither — `fmt` deliberately never wraps one ([§FS-fmt.6.4](FS-fmt.md#64-what-is-never-wrapped)) — so an index that mentions the ID only that way has no entry yet and is reported here, where the fix is to write one, rather than under §3.17, where no command could clear it.
+
+**And nothing more.** Layout is free: table or list, grouped or flat, in any order, with any prose around it. `docs/functional-spec/README.md` groups its 21 entries under six curated headings, and a rule that dictated a table would break the best index in the tree. One link per ID is enough — every other occurrence of the ID in the index is untouched and is never a finding.
+
+**A missing index file** is this same finding class, once per declaration in the folder: a folder whose index nobody wrote is the strongest form of the same fact, not a different one. It is also why the finding is anchored at the declaration and not at the index — an index file that does not exist has no line to point at, and every declaration has one.
+
+**A warning in this release, an error in the next.** No `grund` command writes a missing entry — rendering the index is not a pass `fmt` has — so the [§REQ-backwards-compatibility.3](../requirements/REQ-backwards-compatibility.md#3-loud-mechanical-migrations) licence for a same-release verdict flip does not apply and [§REQ-backwards-compatibility.2](../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path)'s deprecation path does: the message names the release in which the finding becomes an error. Like every warning it leaves the exit code alone (§2), and like every warning it stands in place of the `success` marker (§2.1).
+
+Decided in [§DF-index-entry-form](../decisions/functional/DF-index-entry-form.md#df-index-entry-form-an-index-entry-is-one-full-link-per-id-and-nothing-else-about-the-page), [§DF-index-compatibility-ramp](../decisions/functional/DF-index-compatibility-ramp.md#df-index-compatibility-ramp-a-findings-ramp-follows-its-fix-command-not-the-size-of-the-offence), and [§DF-index-not-an-inbound-citation](../decisions/functional/DF-index-not-an-inbound-citation.md#df-index-not-an-inbound-citation-an-index-entry-is-navigation-not-use).
+
+- **Code:** `missing-index-entry` ([§FS-errors.5](FS-errors.md#5-json-format)).
 
 ## 5. What grund does not check
 

@@ -34,26 +34,31 @@ title = "Where: project direction and outcomes"
 [[kinds]]
 prefix = "FS"
 folder = "docs/functional-spec"
+index = "README.md"
 title = "What: behavior, requirements, and constraints"
 
 [[kinds]]
 prefix = "AR"
 folder = "docs/architecture"
+index = "README.md"
 title = "How: high-level implementation, structure, and design"
 
 [[kinds]]
 prefix = "DF"
 folder = "docs/decisions/functional"
+index = "README.md"
 title = "Product behavior decisions and tradeoffs"
 
 [[kinds]]
 prefix = "DA"
 folder = "docs/decisions/architectural"
+index = "README.md"
 title = "Architecture decisions and tradeoffs"
 
 [[kinds]]
 prefix = "E2E"
 folder = "e2e/cases"
+index = false
 title = "Executable user scenarios"
 
 [[kinds]]

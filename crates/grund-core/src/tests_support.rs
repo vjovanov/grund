@@ -46,6 +46,14 @@ mod tests_support {
                 kind.folder = Some("docs/functional-spec".to_string());
                 kind.file = None;
             }
+            // §FS-config.3.4: the suites built on this helper are about the
+            // scanner, the shorthand, and the walk — not about the index a folder
+            // kind keeps. Opting every folder kind out keeps their fixtures from
+            // carrying a README they never assert on (the rule's own cases live in
+            // `tests_kind_index.rs`).
+            if kind.folder.is_some() {
+                kind.index = KindIndex::Disabled;
+            }
         }
         config
     }
@@ -348,7 +356,15 @@ mod tests_support {
         let root = test_root(name);
         write(
             &root.join("grund.toml"),
-            "grund_config_version = 1\n\n[scan]\ninclude = [\"docs\"]\n",
+            // §FS-config.3.4: `index = false` on both folder kinds — these cases
+            // are about which *files* the walk reads under a link, and an index
+            // README in the fixture would only add findings none of them assert on.
+            // The `E2E` kind is restated because `[[kinds]]` replaces the defaults
+            // entirely, and one case here is about an e2e case directory.
+            "grund_config_version = 1\n\n\
+             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/functional-spec\"\nindex = false\n\n\
+             [[kinds]]\nprefix = \"E2E\"\nfolder = \"e2e/cases\"\nindex = false\n\n\
+             [scan]\ninclude = [\"docs\"]\n",
         );
         write(
             &root.join("docs/functional-spec/FS-001-alpha.md"),

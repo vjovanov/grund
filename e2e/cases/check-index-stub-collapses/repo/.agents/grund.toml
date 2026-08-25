@@ -1,0 +1,8 @@
+grund_config_version = 1
+
+[[kinds]]
+prefix = "AR"
+folder = "docs/architecture"
+
+[scan]
+include = ["docs", "src"]

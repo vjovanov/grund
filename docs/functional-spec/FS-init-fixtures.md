@@ -57,8 +57,8 @@ wrote docs/goals.md
 wrote docs/roadmap.md
 wrote docs/changelog.md
 wrote docs/architecture/README.md
-wrote docs/decisions/architectural/.gitkeep
-wrote docs/decisions/functional/.gitkeep
+wrote docs/decisions/architectural/README.md
+wrote docs/decisions/functional/README.md
 wrote e2e/README.md
 wrote e2e/cases/.gitkeep
 
@@ -79,8 +79,8 @@ docs/goals.md
 docs/roadmap.md
 docs/changelog.md
 docs/architecture/README.md
-docs/decisions/architectural/.gitkeep
-docs/decisions/functional/.gitkeep
+docs/decisions/architectural/README.md
+docs/decisions/functional/README.md
 e2e/README.md
 e2e/cases/.gitkeep
 ```

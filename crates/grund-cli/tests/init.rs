@@ -76,8 +76,8 @@ fn init_docs_form_emits_full_scaffold_and_check_is_clean() {
         "docs/changelog.md",
         "requirements.md",
         "docs/architecture/README.md",
-        "docs/decisions/architectural/.gitkeep",
-        "docs/decisions/functional/.gitkeep",
+        "docs/decisions/architectural/README.md",
+        "docs/decisions/functional/README.md",
         "e2e/README.md",
         "e2e/cases/.gitkeep",
     ];
@@ -617,8 +617,8 @@ fn init_dry_run_with_docs_previews_scaffold_without_writing() {
         "docs/changelog.md",
         "requirements.md",
         "docs/architecture/README.md",
-        "docs/decisions/architectural/.gitkeep",
-        "docs/decisions/functional/.gitkeep",
+        "docs/decisions/architectural/README.md",
+        "docs/decisions/functional/README.md",
         "e2e/README.md",
         "e2e/cases/.gitkeep",
     ] {

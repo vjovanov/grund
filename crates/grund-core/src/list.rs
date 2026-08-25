@@ -148,7 +148,14 @@ fn command_list(args: &[String]) -> ExitCode {
     // every project's citations per target) keeps the count linear in the
     // total citation set, not quadratic in the project count.
     let mut ref_counts_by_alias: BTreeMap<&str, BTreeMap<&Id, usize>> = BTreeMap::new();
+    // §FS-list.1 / §DF-index-not-an-inbound-citation: `--unused` counts the same
+    // citations minus each kind's own index entries. `refs` below stays the total
+    // `grund refs` lists (§FS-list.3.2) — two counts of "citations of this ID"
+    // that differed by which command printed them would be worse than one that
+    // needs a sentence of explanation.
+    let mut used_counts_by_alias: BTreeMap<&str, BTreeMap<&Id, usize>> = BTreeMap::new();
     for source in &context.projects {
+        let index_entries = KindIndexEntries::new(&source.findings, &source.config);
         for citation in &source.findings.citations {
             let target_alias: &str = match &citation.namespace {
                 Some(ns) => ns.as_str(),
@@ -159,6 +166,13 @@ fn command_list(args: &[String]) -> ExitCode {
                 .or_default()
                 .entry(&citation.id)
                 .or_insert(0) += 1;
+            if !index_entries.is_index_entry(citation) {
+                *used_counts_by_alias
+                    .entry(target_alias)
+                    .or_default()
+                    .entry(&citation.id)
+                    .or_insert(0) += 1;
+            }
         }
     }
     let empty_ref_counts: BTreeMap<&Id, usize> = BTreeMap::new();
@@ -177,12 +191,15 @@ fn command_list(args: &[String]) -> ExitCode {
         let ref_counts: &BTreeMap<&Id, usize> = ref_counts_by_alias
             .get(project.alias.as_str())
             .unwrap_or(&empty_ref_counts);
+        let used_counts: &BTreeMap<&Id, usize> = used_counts_by_alias
+            .get(project.alias.as_str())
+            .unwrap_or(&empty_ref_counts);
         for (id, decls) in &project.findings.declarations {
             if !kind_filter.is_empty() && !kind_filter.contains(&id.kind) {
                 continue;
             }
             let refs = ref_counts.get(id).copied().unwrap_or(0);
-            if unused_only && refs > 0 {
+            if unused_only && used_counts.get(id).copied().unwrap_or(0) > 0 {
                 continue;
             }
             // §FS-list.1 / §FS-check.4.1: `--unused` skips E2E cases by

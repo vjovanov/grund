@@ -12,6 +12,40 @@
 /// scan against — so a caller that reuses a scan instead of running one must
 /// check the same field a fresh scan would have failed on, not just borrow
 /// the `Findings` beside it.
+/// A project's already-computed findings from `load_workspace_context`,
+/// reusable as `fmt_tree`'s `precomputed_findings` only when the scan that
+/// produced them met no error (§FS-fmt.3). Resolving a cross-reference or a
+/// shorthand against a partial declaration set can name the wrong
+/// declaration — the hazard `fmt_findings_or_abort` already guards a fresh
+/// scan against — so a caller that reuses a scan instead of running one must
+/// check the same field a fresh scan would have failed on, not just borrow
+/// the `Findings` beside it.
+/// §FS-fmt.6.6: whether this invocation turns the cross-reference pass on by
+/// itself — `[fmt.cross_refs] enabled`, a `--write` scope, and at least one
+/// Markdown file in it. It answers a question about the *command*, so it lives
+/// beside the command surface rather than in the rewrite walk.
+fn auto_cross_refs_for_scope(
+    config: &Config,
+    scope: Option<&Path>,
+    explicit_scope: bool,
+    write: bool,
+) -> Result<bool> {
+    if !write || !config.fmt_cross_refs_enabled {
+        return Ok(false);
+    }
+    scope_contains_markdown(config, scope, explicit_scope)
+}
+
+fn scope_contains_markdown(
+    config: &Config,
+    scope: Option<&Path>,
+    explicit_scope: bool,
+) -> Result<bool> {
+    Ok(walk_scannable_files(config, scope, explicit_scope)?
+        .iter()
+        .any(|path| path.extension().and_then(|ext| ext.to_str()) == Some("md")))
+}
+
 fn usable_findings(project: &WorkspaceProject) -> Option<&Findings> {
     project.scan_errors.is_empty().then_some(&project.findings)
 }
@@ -115,6 +149,8 @@ fn command_fmt(args: &[String]) -> ExitCode {
                 render: &config,
                 workspace: workspace_for_wrap,
                 precomputed_findings: usable_findings(project),
+                // §FS-fmt.6.1: the index is linkified whatever the toggle says.
+                index_cross_refs: write || explicit_cross_refs,
             };
             match fmt_tree(
                 &project.config,
@@ -162,6 +198,7 @@ fn command_fmt(args: &[String]) -> ExitCode {
             render: &config,
             workspace: workspace_for_wrap,
             precomputed_findings: reusable_findings,
+            index_cross_refs: write || explicit_cross_refs,
         };
         match fmt_tree(&config, Some(&path), path_provided, &opts) {
             Ok(walked) => {

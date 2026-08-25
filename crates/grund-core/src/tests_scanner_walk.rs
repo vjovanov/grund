@@ -207,7 +207,12 @@ mod tests_scanner_walk {
         let root = test_root("a_plain_run_collapses_an_aliased_root");
         write(
             &root.join("grund.toml"),
-            "grund_config_version = 1\n\n[scan]\ninclude = [\"docs\", \"docs-link\"]\n",
+            // §FS-config.3.4: `index = false` — this case is about one physical
+            // file read once under two root spellings, not about the index a
+            // folder kind keeps.
+            "grund_config_version = 1\n\n\
+             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/functional-spec\"\nindex = false\n\n\
+             [scan]\ninclude = [\"docs\", \"docs-link\"]\n",
         );
         write(
             &root.join("docs/functional-spec/FS-001-alpha.md"),

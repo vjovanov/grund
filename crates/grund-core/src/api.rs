@@ -1316,6 +1316,8 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 render: &config,
                 workspace: workspace_for_wrap,
                 precomputed_findings: usable_findings(project),
+                // §FS-fmt.6.1: the index is linkified whatever the toggle says.
+                index_cross_refs: opts.write || explicit_cross_refs,
             };
             let mut walked = fmt_tree(
                 &project.config,
@@ -1345,6 +1347,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             render: &config,
             workspace: workspace_for_wrap,
             precomputed_findings: reusable_findings,
+            index_cross_refs: opts.write || explicit_cross_refs,
         };
         let walked = fmt_tree(&config, Some(&opts.path), opts.path_provided, &run_opts)?;
         changes = walked.changes;
@@ -1487,7 +1490,14 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
     }
 
     let mut ref_counts_by_alias: BTreeMap<&str, BTreeMap<&Id, usize>> = BTreeMap::new();
+    // §FS-list.1 / §DF-index-not-an-inbound-citation: `--unused` counts the same
+    // citations minus each kind's own index entries, which name every declaration
+    // in their folder by construction. `refs` below stays the total `grund refs`
+    // lists (§FS-list.3.2) — two counts of "citations of this ID" that differed by
+    // which command printed them would be worse than one that needs explaining.
+    let mut used_counts_by_alias: BTreeMap<&str, BTreeMap<&Id, usize>> = BTreeMap::new();
     for source in &context.projects {
+        let index_entries = KindIndexEntries::new(&source.findings, &source.config);
         for citation in &source.findings.citations {
             let target_alias: &str = match &citation.namespace {
                 Some(ns) => ns.as_str(),
@@ -1498,6 +1508,13 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
                 .or_default()
                 .entry(&citation.id)
                 .or_insert(0) += 1;
+            if !index_entries.is_index_entry(citation) {
+                *used_counts_by_alias
+                    .entry(target_alias)
+                    .or_default()
+                    .entry(&citation.id)
+                    .or_insert(0) += 1;
+            }
         }
     }
     let empty_ref_counts: BTreeMap<&Id, usize> = BTreeMap::new();
@@ -1516,12 +1533,15 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
         let ref_counts: &BTreeMap<&Id, usize> = ref_counts_by_alias
             .get(project.alias.as_str())
             .unwrap_or(&empty_ref_counts);
+        let used_counts: &BTreeMap<&Id, usize> = used_counts_by_alias
+            .get(project.alias.as_str())
+            .unwrap_or(&empty_ref_counts);
         for (id, decls) in &project.findings.declarations {
             if !opts.kind_filter.is_empty() && !opts.kind_filter.contains(&id.kind) {
                 continue;
             }
             let refs = ref_counts.get(id).copied().unwrap_or(0);
-            if opts.unused_only && refs > 0 {
+            if opts.unused_only && used_counts.get(id).copied().unwrap_or(0) > 0 {
                 continue;
             }
             if opts.unused_only && id.kind == "E2E" && !opts.kind_filter.contains("E2E") {

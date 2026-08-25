@@ -189,6 +189,25 @@
 /// doc-comment and a stub's prose are outside the body and never reach the list,
 /// so neither is filtered here (§FS-check.3.16).
 ///
+/// ### 2.16 Kind indexes (§FS-check.4.6, §FS-check.3.17, §DF-index-entry-form)
+///
+/// One pass per `[[kinds]]` entry that has a `folder` and an enabled `index`
+/// (§FS-config.3.4). For each, the declarations under that folder's whole
+/// subtree come from `findings.declarations` — a stub and the inline body it
+/// points at collapsing to one ID, as in §2.1 — and the citations already
+/// recorded in the index file say which of them the index names. The index file
+/// itself is re-read, the second and last rule that touches disk after §2.5,
+/// because the *form* of an entry is a fact about the line and not about the
+/// citation record: `check` asks whether the citation is wrapped as the link
+/// `fmt` writes (§FS-fmt.6.2), never what the link points at (§FS-check.3.17).
+///
+/// A missing entry is a warning anchored at the declaration; a bare one is an
+/// error anchored at its line in the index. The same pass owns the carve-out
+/// that keeps §2.6 honest: an index entry is not an inbound citation, so the
+/// unused warning still fires for a declaration only its own index names
+/// (§DF-index-not-an-inbound-citation). It lives in `checker_index.rs`, one file
+/// per invariant family (§AR-core-module-layout.1).
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and
@@ -417,12 +436,23 @@ fn check_with_workspace(
         }
     }
 
+    // §FS-check.4.6 / §FS-check.3.17: a kind's index must list every declaration
+    // in its folder, as a full link. In `checker_index.rs` — one file per
+    // invariant family, the arrangement §2.15's section rules already use.
+    check_kind_indexes(findings, config, path_config, &mut report);
+
     // §FS-check.4.1: a declaration nothing cites is a warning, not an error —
     // except E2E cases, which are proof artifacts, not citation targets.
+    //
+    // An index entry is not an inbound citation (§DF-index-not-an-inbound-citation):
+    // an index names every declaration in its folder by construction, so counting
+    // its entries would leave every ID in an indexed folder permanently "cited"
+    // and empty this warning of everything it exists to find.
+    let index_entries = KindIndexEntries::new(findings, config);
     let mut cited: BTreeSet<&Id> = findings
         .citations
         .iter()
-        .filter(|cite| cite.namespace.is_none())
+        .filter(|cite| cite.namespace.is_none() && !index_entries.is_index_entry(cite))
         .map(|c| &c.id)
         .collect();
     if let Some(alias) = current_alias {

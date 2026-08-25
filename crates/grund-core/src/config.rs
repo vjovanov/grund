@@ -59,6 +59,7 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                         folder: None,
                         file: None,
                         title: None,
+                        index: KindIndex::Default,
                     });
                     kinds_block_seen = true;
                 }
@@ -230,60 +231,11 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                 }
                 config.section_heading_levels = mode;
             }
-            ("kinds", "prefix") => {
-                let prefix = parse_string(path, line_no, value)?;
-                // §FS-config.3.2: a kind prefix is the leading component of every ID
-                // in its kind, so a `/` here lands in the ID as surely as one in
-                // `slug_pattern` does.
-                if let Some(message) =
-                    id_grammar_literal_slash_error(&format!("[[kinds]] prefix `{prefix}`"), &prefix)
-                {
-                    bail_config(path, line_no, message)?;
-                }
-                if let Some(slot) = current_kind.as_mut() {
-                    slot.prefix = prefix;
-                } else {
-                    bail_config(
-                        path,
-                        line_no,
-                        "`prefix` outside of [[kinds]] block".to_string(),
-                    )?;
-                }
-            }
-            ("kinds", "folder") => {
-                let folder = parse_string(path, line_no, value)?;
-                if let Some(slot) = current_kind.as_mut() {
-                    slot.folder = Some(folder);
-                } else {
-                    bail_config(
-                        path,
-                        line_no,
-                        "`folder` outside of [[kinds]] block".to_string(),
-                    )?;
-                }
-            }
-            ("kinds", "file") => {
-                let file = parse_string(path, line_no, value)?;
-                if let Some(slot) = current_kind.as_mut() {
-                    slot.file = Some(file);
-                } else {
-                    bail_config(
-                        path,
-                        line_no,
-                        "`file` outside of [[kinds]] block".to_string(),
-                    )?;
-                }
-            }
-            ("kinds", "title") => {
-                let title = parse_string(path, line_no, value)?;
-                if let Some(slot) = current_kind.as_mut() {
-                    slot.title = Some(title);
-                } else {
-                    bail_config(
-                        path,
-                        line_no,
-                        "`title` outside of [[kinds]] block".to_string(),
-                    )?;
+            // §FS-config.3.4: the `[[kinds]]` keys, in `config_kinds.rs`
+            // (§AR-core-module-layout.1).
+            ("kinds", key) => {
+                if !parse_kinds_key(path, line_no, key, value, &mut current_kind)? {
+                    bail_config(path, line_no, format!("unknown config key `{key}`"))?;
                 }
             }
             ("scan", "include") => config.include = Some(parse_string_list(path, line_no, value)?),
@@ -377,60 +329,7 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
         )?;
     }
     if kinds_block_seen {
-        // [[kinds]] replaces defaults entirely, per §FS-config.3.4.
-        if parsed_kinds.iter().any(|p| p.prefix.is_empty()) {
-            return Err(anyhow!(
-                "{}: every [[kinds]] entry must declare a `prefix`",
-                format_path(path)
-            ));
-        }
-        if parsed_kinds.is_empty() {
-            return Err(anyhow!(
-                "{}: at least one [[kinds]] entry must declare a `prefix`",
-                format_path(path)
-            ));
-        }
-        // Reject kinds that set both `folder` and `file` — they're mutually
-        // exclusive (§FS-config.3.4). A kind is either multi-file (folder) or
-        // single-file (file); the schema models the "can always be broken up"
-        // transition as swapping one key for the other, not setting both.
-        for k in &parsed_kinds {
-            if k.folder.is_some() && k.file.is_some() {
-                return Err(anyhow!(
-                    "{}: kind `{}` sets both `folder` and `file` (use one)",
-                    format_path(path),
-                    k.prefix
-                ));
-            }
-            // §FS-config.3.9.2: `code` is the reserved citing pseudo-kind; it can
-            // never be a real declaration kind, so reject it as a `[[kinds]]`
-            // prefix to keep that non-collision an invariant.
-            if k.prefix == CODE_SOURCE_KIND {
-                return Err(anyhow!(
-                    "{}: `{}` is reserved as the citation-direction pseudo-kind and cannot be a [[kinds]] prefix",
-                    format_path(path),
-                    CODE_SOURCE_KIND
-                ));
-            }
-        }
-        // Reject kinds whose prefix is itself a prefix of another kind's prefix
-        // (§FS-config.3.4 — would make tokenization ambiguous).
-        for (i, a) in parsed_kinds.iter().enumerate() {
-            for (j, b) in parsed_kinds.iter().enumerate() {
-                if i != j
-                    && a.prefix.len() <= b.prefix.len()
-                    && b.prefix.starts_with(a.prefix.as_str())
-                {
-                    return Err(anyhow!(
-                        "{}: kinds `{}` and `{}` collide (one is a prefix of the other)",
-                        format_path(path),
-                        a.prefix,
-                        b.prefix
-                    ));
-                }
-            }
-        }
-        config.kinds = parsed_kinds;
+        apply_parsed_kinds(path, parsed_kinds, config)?;
     }
     if grammar_dirty || kinds_block_seen {
         config

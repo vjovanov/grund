@@ -136,6 +136,12 @@ fn command_config(args: &[String]) -> ExitCode {
                     if let Some(file) = &kind.file {
                         println!("file = \"{}\"", escape_toml_basic(file));
                     }
+                    // §FS-config.3.4: the effective index, spelled out — a
+                    // folder kind either has one or has opted out, and which it
+                    // is decides a verdict (§FS-check.4.6).
+                    if let Some(index) = kind.index_toml_value() {
+                        println!("index = {index}");
+                    }
                     if let Some(title) = &kind.title {
                         println!("title = \"{}\"", escape_toml_basic(title));
                     }
