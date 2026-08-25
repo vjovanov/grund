@@ -192,19 +192,18 @@ Type `$$` in a `grund`-aware editor and it's rewritten to `§` automatically. Bo
 
 The marker is the whole signal: a `§`-prefixed token is a live, checked citation wherever it appears — including inside Markdown backticks — so to show an *example* ID that shouldn't resolve, write it without the marker (`FS-user-login`), inside a fenced code block (which is how the two citations above are written), or with the marker bracketed (`<§>FS-user-login`) — the escape `grund check` names in its own hint when a citation resolves to nothing.
 
-**Specs can live inline in source.** Drop a one-line stub in `docs/architecture/AR-foo.md` whose H1 is `# AR-foo: [src/foo.rs](src/foo.rs)`, then declare the spec in the class doc-comment:
+**Specs can live inline in source.** Declare the spec in a class or module doc-comment, then enroll it from the configured kind index with the canonical bare-ID link `grund fmt --cross-refs` writes — no stub file is required:
 
 ```rust
 /// AR-event-bus: In-process event broadcaster
 ///
 /// ## 1. Topology
-/// One sender, many receivers. Senders never block.
 pub struct EventBus { /* … */ }
+// Kind index: - [§AR-event-bus](../../src/bus.rs)
 ```
+`grund AR-event-bus` reads the source declaration directly, strips the `///` markers, and prints the Rustdoc prose. The same goes for Javadoc, JSDoc, Python docstrings, Go doc blocks, KDoc, Doxygen — every comment form enumerated in `grund`'s scanner spec. A one-line Markdown stub remains supported when a separate pointer file is useful.
 
-`grund AR-event-bus` follows the stub, strips the `///` markers, and prints the Rustdoc prose. The same goes for Javadoc, JSDoc, Python docstrings, Go doc blocks, KDoc, Doxygen — every comment form enumerated in `grund`'s scanner spec.
-
-`grund` does this itself: [§AR-checker](crates/grund-core/src/checker.rs) lives in the doc-comment of `fn check` in [`crates/grund-core/src/checker.rs`](crates/grund-core/src/checker.rs), with the one-line stub at [`docs/architecture/AR-checker.md`](docs/architecture/AR-checker.md) — `grund AR-checker` prints it.
+`grund` does this itself: [§AR-checker](crates/grund-core/src/checker.rs) lives only in the doc-comment of `fn check` in [`crates/grund-core/src/checker.rs`](crates/grund-core/src/checker.rs), and its canonical row in [`docs/architecture/README.md`](docs/architecture/README.md) enrolls it without a stub — `grund AR-checker` prints the source prose.
 
 ## 5. Reviewing code
 

@@ -192,21 +192,25 @@
 /// ### 2.16 Kind indexes (§FS-check.4.6, §FS-check.3.17, §DF-index-entry-form)
 ///
 /// One pass per `[[kinds]]` entry that has a `folder` and an enabled `index`
-/// (§FS-config.3.4). For each, the declarations under that folder's whole
-/// subtree come from `findings.declarations` — a stub and the inline body it
-/// points at collapsing to one ID, as in §2.1 — and the citations already
-/// recorded in the index file say which of them the index names. The index file
-/// itself is re-read, the second and last rule that touches disk after §2.5,
-/// because the *form* of an entry is a fact about the line and not about the
-/// citation record: `check` asks whether the citation is wrapped as the link
-/// `fmt` writes (§FS-fmt.6.2), never what the link points at (§FS-check.3.17).
+/// (§FS-config.3.4). For each, membership is the declarations under that
+/// folder's whole subtree — a stub and the inline body it points at collapsing
+/// to one ID, as in §2.1 — plus an external inline declaration whose canonical
+/// bare-ID source link enrolls it directly (§FS-check.4.6). The citations already
+/// recorded in the index file say which members it names. The index file itself
+/// is re-read, the second and last rule that touches disk after §2.5, because
+/// wrapper form and an external enrollment's exact destination are facts about
+/// the line, not the citation record. Ordinary in-folder entries still require
+/// only the wrapper shape; only external enrollment compares the destination to
+/// the one `fmt` derives (§FS-fmt.6.2, §DF-index-entry-form.2.7).
 ///
 /// A missing entry is a warning anchored at the declaration; a bare one is an
 /// error anchored at its line in the index. The same pass owns the carve-out
 /// that keeps §2.6 honest: an index entry is not an inbound citation, so the
 /// unused warning still fires for a declaration only its own index names
-/// (§DF-index-not-an-inbound-citation). It lives in `checker_index.rs`, one file
-/// per invariant family (§AR-core-module-layout.1).
+/// (§DF-index-not-an-inbound-citation). The finding pass lives in
+/// `checker_index.rs` and its shared membership derivation in
+/// `checker_index_entries.rs`, one file per invariant family and bounded helper
+/// (§AR-core-module-layout.1, §AR-core-module-layout.3).
 ///
 /// ## 3. Error format
 ///

@@ -1,8 +1,9 @@
 // The kind-index invariant, in a file of its own beside the section and
 // reference families (§AR-checker.2.16, §AR-core-module-layout.1): a kind with a
 // `folder` and an `index` (§FS-config.3.4) promises that the index names every
-// declaration in that folder, as a full Markdown link. §FS-check.4.6 is the
-// coverage half and §FS-check.3.17 the link half; this module owns both, plus
+// declaration in that folder, and may enroll an external inline declaration by
+// canonical source link, as full Markdown links. §FS-check.4.6 is the coverage
+// half and §FS-check.3.17 the link half; this module owns both, plus
 // the set of citations they make navigational rather than referential
 // (§FS-check.4.1, §DF-index-not-an-inbound-citation).
 
@@ -192,79 +193,6 @@ fn declarations_under_folder(
     })
 }
 
-/// The IDs each kind index owes an entry for, keyed by the index's
-/// config-root-relative path (§FS-check.4.6). Built once and read by both the
-/// rule below and the unused-declaration carve-out.
-struct KindIndexEntries {
-    configured_root: PathBuf,
-    physical_root: PathBuf,
-    owed: BTreeMap<PathBuf, BTreeSet<Id>>,
-}
-
-impl KindIndexEntries {
-    fn new(findings: &Findings, config: &Config) -> Self {
-        let configured_root = scanned_path_key(&config.root);
-        let physical_root = physical_path_key(&config.root);
-        let mut owed: BTreeMap<PathBuf, BTreeSet<Id>> = BTreeMap::new();
-        for target in kind_index_targets(config) {
-            for (id, decls) in &findings.declarations {
-                if id.kind != target.kind {
-                    continue;
-                }
-                if declarations_under_folder(
-                    decls,
-                    &target.folder_key,
-                    &configured_root,
-                    &physical_root,
-                ) {
-                    owed
-                        .entry(target.index_key.clone())
-                        .or_default()
-                        .insert(id.clone());
-                }
-            }
-        }
-        Self {
-            configured_root,
-            physical_root,
-            owed,
-        }
-    }
-
-    /// The IDs this index owes an entry for, or `None` when `path` is not a
-    /// configured index (§FS-fmt.6.1). What the always-linkify carve-out wraps:
-    /// the entries the rule is about, and not the rest of the page
-    /// (§DF-index-always-linkified.2.2).
-    fn entries_in(&self, path: &Path) -> Option<&BTreeSet<Id>> {
-        if self.owed.is_empty() {
-            return None;
-        }
-        let relative =
-            scanned_decl_relative_path(path, &self.configured_root, &self.physical_root)?;
-        self.owed.get(relative.as_ref())
-    }
-
-    /// §FS-check.4.1 / §DF-index-not-an-inbound-citation.2.2: this citation is a
-    /// kind's own index entry — navigation, not use. Narrow on purpose: a
-    /// citation in an index file of an ID whose home lies outside that folder is
-    /// an ordinary reference and is not matched here.
-    fn is_index_entry(&self, citation: &Citation) -> bool {
-        if citation.namespace.is_some() || self.owed.is_empty() {
-            return false;
-        }
-        let Some(relative) = scanned_decl_relative_path(
-            &citation.file,
-            &self.configured_root,
-            &self.physical_root,
-        ) else {
-            return false;
-        };
-        self.owed
-            .get(relative.as_ref())
-            .is_some_and(|ids| ids.contains(&citation.id))
-    }
-}
-
 // The three releases the kind-index ramp is stated in
 // (§DF-index-compatibility-ramp.2.3). All three are named in message text, so
 // all three are part of the release process: bumping the workspace version is
@@ -291,7 +219,7 @@ const INDEX_ENTRY_ERROR_RELEASE: &str = "0.13.0";
 
 /// §AR-checker.2.16 — the kind-index rule (§FS-check.4.6, §FS-check.3.17). One
 /// pass per configured index: read the file once, classify the citations the
-/// scanner already recorded in it, then judge each declaration the folder holds.
+/// scanner already recorded in it, then judge each declaration the index owns.
 /// The index file is the only thing re-read here, the way §AR-checker.2.5
 /// re-reads a stub's target.
 fn check_kind_indexes(
@@ -306,6 +234,10 @@ fn check_kind_indexes(
     }
     let configured_root = scanned_path_key(&config.root);
     let physical_root = physical_path_key(&config.root);
+    // §FS-check.4.6: folder declarations plus the external inline declarations
+    // their canonical index links enroll. `KindIndexEntries` is also what `fmt`
+    // and the unused-accounting surfaces read, so membership has one derivation.
+    let index_entries = KindIndexEntries::new(findings, config);
 
     // One pass over the citations, bucketed by index file, so the per-kind loop
     // below is a lookup rather than another walk of the whole citation list
@@ -349,18 +281,14 @@ fn check_kind_indexes(
         if !index_scanned.contains(target.index_key.as_path()) && target.index_file.is_file() {
             continue;
         }
+        let Some(owed) = index_entries.entries_in(&target.index_file) else {
+            continue;
+        };
         let covered: Vec<(&Id, &Declaration)> = findings
             .declarations
             .iter()
             .filter(|(id, _)| id.kind == target.kind)
-            .filter(|(_, decls)| {
-                declarations_under_folder(
-                    decls,
-                    &target.folder_key,
-                    &configured_root,
-                    &physical_root,
-                )
-            })
+            .filter(|(id, _)| owed.contains(*id))
             .filter_map(|(id, decls)| Some((id, index_home_declaration(config, decls)?)))
             .collect();
         if covered.is_empty() {

@@ -68,6 +68,39 @@ fn build_fixture(name: &str, strict: bool, index_body: &str) -> PathBuf {
     dir
 }
 
+/// §FS-check.4.6 / §FS-list.2 / §FS-show.2.3: the issue #133 shape. The index
+/// directly enrolls the source declaration, with no Markdown stub to become a
+/// second scanner record or a query home.
+fn build_external_inline_fixture() -> PathBuf {
+    let dir = manifest_dir()
+        .join("target/index-round-trip")
+        .join("external-inline-enrollment");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(dir.join("docs/architecture")).expect("create architecture dir");
+    fs::create_dir_all(dir.join("src")).expect("create source dir");
+    fs::write(
+        dir.join("grund.toml"),
+        "grund_config_version = 1\nproject_name = \"external-inline\"\n\n\
+         [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\n\n\
+         [scan]\ninclude = [\"docs\", \"src\"]\n",
+    )
+    .expect("write grund.toml");
+    fs::write(
+        dir.join("src/bus.rs"),
+        "/// AR-001-bus: The in-process event bus\n\
+         ///\n\
+         /// Broadcasts to subscribers in registration order.\n\
+         fn bus() {}\n",
+    )
+    .expect("write source declaration");
+    fs::write(
+        dir.join("docs/architecture/README.md"),
+        "# Architecture\n\n- [§AR-001-bus](../../src/bus.rs)\n",
+    )
+    .expect("write index");
+    dir
+}
+
 fn has_unlinked_entry(output: &Output) -> bool {
     stdout(output).contains("is not a link")
 }
@@ -170,5 +203,48 @@ fn a_dangling_section_is_not_an_entry() {
         stdout(&fmt).contains("rewrote 0 references"),
         "the fixture is only meaningful while `fmt` leaves this line alone: {}",
         stdout(&fmt)
+    );
+}
+
+/// The canonical external link is navigation rather than use, while declaration
+/// consumers still have exactly one home — the source file. This runs the real
+/// binary so the result cannot be an artifact of the checker's internal model.
+#[test]
+fn an_external_inline_enrollment_keeps_the_source_as_the_cli_home() {
+    let dir = build_external_inline_fixture();
+
+    let check = run_grund(&["check", "."], &dir);
+    let check_stdout = stdout(&check);
+    assert_eq!(check.status.code(), Some(0));
+    assert!(
+        check_stdout.contains("declared but never cited: AR-001-bus"),
+        "the enrollment is navigation, not use: {check_stdout}"
+    );
+    assert!(
+        !check_stdout.contains("not listed"),
+        "the canonical link enrolls and lists the declaration: {check_stdout}"
+    );
+
+    let list = run_grund(&["list", "."], &dir);
+    let list_stdout = stdout(&list);
+    assert_eq!(list.status.code(), Some(0));
+    assert!(
+        list_stdout.contains("AR-001-bus") && list_stdout.contains("src/bus.rs:1"),
+        "list must name the source declaration: {list_stdout}"
+    );
+
+    let unused = run_grund(&["list", ".", "--unused"], &dir);
+    assert!(
+        stdout(&unused).contains("src/bus.rs:1"),
+        "list --unused applies the same navigation carve-out as check: {}",
+        stdout(&unused)
+    );
+
+    let show = run_grund(&["show", "AR-001-bus", "."], &dir);
+    assert_eq!(show.status.code(), Some(0));
+    assert!(
+        stdout(&show).contains("Broadcasts to subscribers in registration order."),
+        "show must read the source doc-comment: {}",
+        stdout(&show)
     );
 }
