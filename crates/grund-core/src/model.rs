@@ -237,6 +237,49 @@ pub struct KindConfig {
     pub folder: Option<String>,
     pub file: Option<String>,
     pub title: Option<String>,
+    /// The `index` key (§FS-config.3.4): which file under `folder` must list
+    /// every declaration in it (§FS-check.4.6). Absent means the `README.md`
+    /// default; `false` opts the kind out.
+    pub index: KindIndex,
+}
+
+/// The three states of `[[kinds]] index` (§FS-config.3.4): unset (the
+/// `README.md` default), `false`, or a file name relative to `folder`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum KindIndex {
+    Default,
+    Disabled,
+    Named(String),
+}
+
+/// The index file a kind carries when `index` is left unset (§FS-config.3.4).
+const DEFAULT_KIND_INDEX: &str = "README.md";
+
+impl KindConfig {
+    /// This kind's index file, relative to the config root — `None` for a kind
+    /// with no `folder` or with `index = false` (§FS-config.3.4). Joined onto
+    /// `folder`, because the key names a file *in* the folder it indexes.
+    /// The `index` value `grund config show` prints for this kind
+    /// (§FS-config.4.2): the TOML literal — `false`, or a quoted file name — and
+    /// `None` for a kind with no folder, which has no index to speak of.
+    pub fn index_toml_value(&self) -> Option<String> {
+        self.folder.as_ref()?;
+        Some(match &self.index {
+            KindIndex::Disabled => "false".to_string(),
+            KindIndex::Default => format!("\"{DEFAULT_KIND_INDEX}\""),
+            KindIndex::Named(name) => format!("\"{}\"", escape_toml_basic(name)),
+        })
+    }
+
+    fn index_path(&self) -> Option<PathBuf> {
+        let folder = self.folder.as_deref()?;
+        let name = match &self.index {
+            KindIndex::Disabled => return None,
+            KindIndex::Default => DEFAULT_KIND_INDEX,
+            KindIndex::Named(name) => name.as_str(),
+        };
+        Some(Path::new(folder).join(name))
+    }
 }
 
 #[derive(Clone)]
@@ -447,6 +490,7 @@ impl Config {
                 folder: default_kind_folder(prefix).map(str::to_string),
                 file: default_kind_file(prefix).map(str::to_string),
                 title: default_kind_title(prefix).map(str::to_string),
+                index: default_kind_index(prefix),
             })
             .collect();
         let kind_prefixes = kind_prefixes(&kinds);
@@ -566,6 +610,17 @@ impl Config {
 
 fn kind_prefixes(kinds: &[KindConfig]) -> Vec<String> {
     kinds.iter().map(|kind| kind.prefix.clone()).collect()
+}
+
+/// §FS-config.3.4: `E2E` is the canonical `index = false` kind — its home holds
+/// case directories rather than a navigable document set, and the `e2e/README.md`
+/// one level up describes the case layout in English instead of naming `E2E-` IDs.
+/// Every other default folder kind takes the `README.md` default.
+fn default_kind_index(prefix: &str) -> KindIndex {
+    match prefix {
+        "E2E" => KindIndex::Disabled,
+        _ => KindIndex::Default,
+    }
 }
 
 /// Default home folder for each built-in kind — the directory `grund id` proposes

@@ -564,9 +564,10 @@ fn verb_updated(dry_run: bool) -> &'static str {
 }
 
 /// The `--docs` scaffold: the default requirements/spec home, canonical `docs/`
-/// files (`grund.md`, `goals.md`, `roadmap.md`, `changelog.md`, architecture
-/// README, decision `.gitkeep`s), plus an empty `e2e/` with a README — the file
-/// list of §FS-init.2.1, each a minimal starter that leaves `grund check` clean.
+/// files (`grund.md`, `goals.md`, `roadmap.md`, `changelog.md`, and an index
+/// README for each folder kind that has one — architecture and the two decision
+/// folders), plus an empty `e2e/` with a README — the file list of §FS-init.2.1,
+/// each a minimal starter that leaves `grund check` clean.
 fn init_fs_home(config: &Config) -> InitFsHome {
     if let Some(kind) = config.kinds.iter().find(|kind| kind.prefix == "FS") {
         if let Some(file) = &kind.file {
@@ -622,13 +623,17 @@ fn docs_scaffold(fs_home: &InitFsHome) -> Vec<(String, String)> {
             "docs/architecture/README.md",
             canonical_template_text(AS_README_TEMPLATE),
         ),
+        // §FS-init.2.1 / §FS-check.4.6: every folder kind the generated config
+        // leaves at the default `index` gets its index README scaffolded, not a
+        // bare `.gitkeep` — under those defaults that is `AR`, `DF` and `DA`,
+        // while `E2E` sets `index = false` (§FS-config.3.4).
         (
-            "docs/decisions/architectural/.gitkeep",
-            canonical_template_text(GITKEEP_TEMPLATE),
+            "docs/decisions/architectural/README.md",
+            canonical_template_text(DA_README_TEMPLATE),
         ),
         (
-            "docs/decisions/functional/.gitkeep",
-            canonical_template_text(GITKEEP_TEMPLATE),
+            "docs/decisions/functional/README.md",
+            canonical_template_text(DF_README_TEMPLATE),
         ),
         (
             "e2e/README.md",

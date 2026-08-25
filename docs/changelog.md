@@ -24,6 +24,17 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Added
+
+- [§FS-check.4.6](functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index), [§FS-check.3.17](functional-spec/FS-check.md#317-index-entry-is-not-a-link): a folder kind's index must list every declaration in its folder, as a full Markdown link. A missing entry is a warning naming the release it becomes an error in ([§REQ-backwards-compatibility.2](requirements/REQ-backwards-compatibility.md#2-the-deprecation-path)); an entry that is present and unlinked is an error, because `grund fmt --write` fixes it ([§REQ-backwards-compatibility.3](requirements/REQ-backwards-compatibility.md#3-loud-mechanical-migrations)). Decided in [§DF-index-entry-form](decisions/functional/DF-index-entry-form.md#df-index-entry-form-an-index-entry-is-one-full-link-per-id-and-nothing-else-about-the-page) and [§DF-index-compatibility-ramp](decisions/functional/DF-index-compatibility-ramp.md#df-index-compatibility-ramp-a-findings-ramp-follows-its-fix-command-not-the-size-of-the-offence). *(PR number pending — this branch has no PR yet.)*
+- [§FS-config.3.4](functional-spec/FS-config.md#34-kinds--recognized-prefixes): `[[kinds]] index` names the index file, relative to `folder`. It defaults to `README.md`, `index = false` opts a kind out — `E2E` does, in the generated config and here — and setting it on a kind with no `folder` is a config error. Purely additive, so `grund_config_version` stays at 1 ([§FS-config.5](functional-spec/FS-config.md#5-schema-versioning)).
+
+### Changed
+
+- [§FS-check.4.1](functional-spec/FS-check.md#41-unused-declaration), [§FS-list.1](functional-spec/FS-list.md#1-inputs): an index entry no longer counts as an inbound citation for the unused-declaration warning or `grund list --unused`. An index names every declaration in its folder by construction, so counting its entries would empty the signal ([§DF-index-not-an-inbound-citation](decisions/functional/DF-index-not-an-inbound-citation.md#df-index-not-an-inbound-citation-an-index-entry-is-navigation-not-use)).
+- [§FS-fmt.6.1](functional-spec/FS-fmt.md#61-scope): `grund fmt` runs the cross-reference pass on a kind's index file whatever `[fmt.cross_refs] enabled` says, so the fix for an unlinked entry is plain `grund fmt --write` in every configuration ([§DF-index-always-linkified](decisions/functional/DF-index-always-linkified.md#df-index-always-linkified-the-cross-reference-pass-always-runs-on-a-kinds-index-file)).
+- [§FS-init.2.1](functional-spec/FS-init.md#21-files-written-updated-or-left-in-place): `grund init --docs` scaffolds `docs/decisions/functional/README.md` and `docs/decisions/architectural/README.md` in place of the two `.gitkeep` files, so every folder kind with an index is scaffolded with one.
+
 ## 2. [0.11.0] — 2026-08-24
 
 ### Fixed

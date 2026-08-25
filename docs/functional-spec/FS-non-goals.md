@@ -36,6 +36,8 @@ A non-goal is not the same as "we'll do it later." Non-goals are commitments. To
 
 `grund` does not validate other kinds of references — RFC numbers in random codebases, bug tracker IDs, etc. — outside the configured `[[kinds]]`. If a project does not adopt the ID scheme, `grund` has nothing to offer. Reasoning: see [§GRUND-grund](../grund.md#grund-grund-agents-stay-grounded-in-the-spec) — generalization dilutes the promise without expanding the audience.
 
+A *separate* concept for external references — one that could recognize a GitHub issue or a Jira ticket in the same prose without pretending it is a declaration — is an open discussion and not a plan ([§DISC-external-ticket-resolvers](../discussions/proposals/2026-05-09-external-ticket-resolvers.md#disc-external-ticket-resolvers-external-ticket-resolvers)). It stays out here because the tension it has to resolve is this section's: resolving a ticket needs the network, and §11 says a check never touches it.
+
 ## 9. Severity, exit code, or report-ordering customization
 
 Per [§GOAL-friendliness-first.2](../goals.md#2-what-this-rules-out) and [§FS-config.6](FS-config.md#6-what-is-not-configured-here), the severity model (`error`/`warning`), the exit-code mapping (`0`/`1`/`2`), and the deterministic report ordering are **not** configurable. Reasoning: two correctly-configured `grund` installs must agree on whether a repo passes. Letting any of these vary by project breaks that contract.

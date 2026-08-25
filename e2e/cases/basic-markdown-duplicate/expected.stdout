@@ -1,1 +1,1 @@
-docs/functional-spec/FS-001-login-a.md:1: duplicate declaration of FS-001-login (also declared at docs/functional-spec/FS-001-login-b.md:1)
+docs/functional-spec/login-a.md:1: duplicate declaration of FS-001-login (also declared at docs/functional-spec/login-b.md:1)

@@ -5,28 +5,6 @@
 // decisions inside it. The command surface around it is `fmt_cmd.rs`, and the
 // link construction §FS-fmt.6 needs is `fmt_links.rs`.
 
-fn auto_cross_refs_for_scope(
-    config: &Config,
-    scope: Option<&Path>,
-    explicit_scope: bool,
-    write: bool,
-) -> Result<bool> {
-    if !write || !config.fmt_cross_refs_enabled {
-        return Ok(false);
-    }
-    scope_contains_markdown(config, scope, explicit_scope)
-}
-
-fn scope_contains_markdown(
-    config: &Config,
-    scope: Option<&Path>,
-    explicit_scope: bool,
-) -> Result<bool> {
-    Ok(walk_scannable_files(config, scope, explicit_scope)?
-        .iter()
-        .any(|path| path.extension().and_then(|ext| ext.to_str()) == Some("md")))
-}
-
 /// Walk the tree and rewrite each scannable file line by line — never touching a
 /// declaration heading or anything inside a fenced code block (§FS-fmt.2.3) — and
 /// either write the changes back (`--write`) or just collect `(path, line, label)`
@@ -64,6 +42,12 @@ struct FmtRunOpts<'a> {
     /// (workspace-root `fmt` reuses each project's `WorkspaceContext` scan).
     /// `None` falls back to `scan_tree_strict` inside `fmt_tree`.
     precomputed_findings: Option<&'a Findings>,
+    /// §FS-fmt.6.1 / §DF-index-always-linkified: run the cross-reference pass on
+    /// a kind's index file even where `[fmt.cross_refs] enabled = false` turned
+    /// `cross_refs` off. It decides *which files* the pass touches when the pass
+    /// runs at all, never whether it runs: a scope that would run none — `fmt
+    /// --check` without `--cross-refs` — still runs none.
+    index_cross_refs: bool,
 }
 
 fn fmt_tree(
@@ -97,12 +81,24 @@ fn fmt_tree(
     // repo to serve a rewrite most of them never need is the wrong trade
     // (§GOAL-fast-feedback). Instead the walk below starts without findings and
     // scans on the first candidate it meets.
-    let owned_findings = if cross_refs && precomputed_findings.is_none() {
+    let walked = walk_scannable_files_reporting(config, scope, explicit_scope)?;
+    // §FS-fmt.6.1: the index files this walk reached. Empty unless the run would
+    // otherwise skip the cross-reference pass on them, so a repository on the
+    // default `enabled = true` pays nothing for the carve-out.
+    let index_files = if opts.index_cross_refs && !cross_refs {
+        KindIndexFiles::new(config)
+    } else {
+        KindIndexFiles::empty()
+    };
+    let index_in_scope =
+        !index_files.is_empty() && walked.files.iter().any(|path| index_files.contains(path));
+    let link_pass = cross_refs || index_in_scope;
+    let owned_findings = if link_pass && precomputed_findings.is_none() {
         Some(fmt_findings_or_abort(config, opts.render)?)
     } else {
         None
     };
-    let mut findings: Option<&Findings> = if cross_refs {
+    let mut findings: Option<&Findings> = if link_pass {
         precomputed_findings.or(owned_findings.as_ref())
     } else {
         precomputed_findings
@@ -114,7 +110,6 @@ fn fmt_tree(
     // §FS-fmt.2.4: built once for the whole walk, not once per line — see
     // `ShorthandTargets`. Rebuilt at most once, when the deferred scan lands.
     let mut shorthand_targets = ShorthandTargets::new(findings, workspace);
-    let walked = walk_scannable_files_reporting(config, scope, explicit_scope)?;
     // §FS-fmt.3: the paths this walk could not read, rendered here while the
     // config that names them is at hand. `fmt` walks the tree `check` walks and
     // owes the same account of it (§FS-check.2) — the alternative is the one
@@ -143,6 +138,8 @@ fn fmt_tree(
         let original =
             fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
         let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
+        // §FS-fmt.6.1: the index is linkified whatever the toggle says.
+        let cross_refs = cross_refs || index_files.contains(&path);
         let file_changes_start = changes.len();
         let mut rewritten = rewrite_file(&original, &path, config, is_md, &FmtLineOpts {
             add_marker,

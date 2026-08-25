@@ -1,0 +1,11 @@
+grund_config_version = 1
+
+[[kinds]]
+prefix = "FS"
+folder = "docs/functional-spec"
+
+[scan]
+include = ["docs"]
+
+[fmt.cross_refs]
+enabled = false
