@@ -19,9 +19,9 @@ For the unused-declaration warning and for `grund list --unused` only. `grund re
 
 ### 2.2 The exclusion is the entry, not the file
 
-A citation in an index file of an ID whose home lies *outside* that folder is an ordinary citation and counts like any other. `docs/architecture/README.md` cites [§GOAL-fast-feedback](../../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) in the row for the benchmark harness; that is a reference to a goal, made in prose the author chose to write, and nothing about the file it sits in makes it navigation.
+A citation in an index file of an ID whose home lies *outside* that folder is ordinarily a reference and counts like any other. `docs/architecture/README.md` cites [§GOAL-fast-feedback](../../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) in the row for the benchmark harness; that is a reference to a goal, made in prose the author chose to write, and nothing about the file it sits in makes it navigation. The exception is the exact canonical bare-ID link that enrolls an external inline declaration ([§DF-index-entry-form.2.7](DF-index-entry-form.md#27-a-canonical-bare-id-link-enrolls-an-external-inline-declaration)): that one site is the entry, while another citation of the same ID on the same page remains ordinary use.
 
-This is the narrow reading of the same fact [§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index) states in the other direction: an index naming an ID whose home is outside its folder is an ordinary citation and never a finding. One rule decides both.
+This is the narrow reading of the same fact [§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index) states in the other direction: location alone never turns a citation into navigation. Folder membership or the external enrollment form decides it, and the latter is tracked by exact site rather than by ID so it does not swallow surrounding references.
 
 ### 2.3 `refs` in `grund list --format json` stays the total
 

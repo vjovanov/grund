@@ -19,7 +19,7 @@ Two conditions, and either one unmet is a finding ([§FS-check.4.6](../../functi
 
 ### 2.2 "Full link" is the link `fmt` would write here, not "has an anchor"
 
-The required form is the one `grund fmt --cross-refs` emits ([§FS-fmt.6.2](../../functional-spec/FS-fmt.md#62-form)): the relative path to the declaration's home plus the heading anchor under the active `anchor_format`. Stated as "must carry an anchor" the rule would be wrong twice over — a declaration whose home is a source file gets a bare file path with no anchor, and `anchor_format = "none"` drops anchors everywhere. `docs/architecture/README.md` carries the first case today — its collapsed stub-and-inline pair for [§AR-checker](../../../crates/grund-core/src/checker.rs) is a bare link to the Rust file that holds the body, anchorless and correct as written.
+The required form is the one `grund fmt --cross-refs` emits ([§FS-fmt.6.2](../../functional-spec/FS-fmt.md#62-form)): the relative path to the declaration's home plus the heading anchor under the active `anchor_format`. Stated as "must carry an anchor" the rule would be wrong twice over — a declaration whose home is a source file gets a bare file path with no anchor, and `anchor_format = "none"` drops anchors everywhere. `docs/architecture/README.md` carries the first case today — its directly enrolled source declaration for [§AR-checker](../../../crates/grund-core/src/checker.rs) is a bare link to the Rust file that holds the body, anchorless and correct as written.
 
 Naming `fmt`'s output as the target also keeps the anchor algorithm in one command. `check` therefore requires the *shape* and never re-derives the URL ([§FS-check.3.17](../../functional-spec/FS-check.md#317-index-entry-is-not-a-link)): a heading rename that rots an anchor is a one-line `fmt` diff on the next pass ([§FS-fmt.6.3](../../functional-spec/FS-fmt.md#63-idempotency-and-re-derive)), not a second finding in a second implementation of the same slugger.
 
@@ -52,6 +52,14 @@ No table, no ordering, no headings, no placement. Grouping, recommended reading 
 A **missing entry** is anchored at the *declaration's heading*, with the index file named in the message. The subject is the declaration and the fix is an edit to the index, which argues both ways — the tiebreak is uniformity: a folder whose index file does not exist has no line to point at, and every declaration has one, so anchoring at the declaration is the only rule that does not need a second rule beside it for the empty case.
 
 An **unlinked entry** is anchored at *the citation's line in the index*. That finding is about a site that exists, and it is the line `grund fmt --write` rewrites.
+
+### 2.7 A canonical bare-ID link enrolls an external inline declaration
+
+An inline declaration of the indexed kind whose only home is a non-Markdown source file outside `folder` may join the kind's index without a stub. Its enrollment is the exact link `grund fmt --cross-refs` writes for a marker-prefixed, unqualified citation of the bare ID from that index to the source home ([§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index), [§FS-fmt.6.2](../../functional-spec/FS-fmt.md#62-form)). The link is both membership and entry. It creates no declaration, so `show`, `list`, duplicate detection, and every other declaration consumer keep the source doc-comment as the canonical home.
+
+This is intentionally stricter than §2.1's entry for a declaration already under `folder`, where `check` requires the wrapper shape and leaves the target to `fmt`. Here the target is the discriminator: without exact equality to `fmt`'s derived destination, a same-kind citation in surrounding index prose would silently become structural membership. The citation must name the whole ID rather than a section, must be unqualified, and must carry the marker; section references, cross-project references, custom links, and links to external Markdown declarations stay ordinary references. A bare marker-prefixed whole-ID mention becomes enrollment if a formatting pass writes the canonical wrapper around it — the persisted canonical link, not guessed layout or prose intent, is the signal.
+
+No table row, list item, heading, or managed region is required. That preserves §2.4's layout freedom and makes existing table and list indexes equally capable of enrollment. No new citation grammar or config key is required either: both would spread a one-file membership question into the scanner, LSP, formatter, completion, and configuration surfaces. The one extra comparison reuses the formatter's canonical target function, so path and anchor semantics still have one owner.
 
 ## 3. Alternatives considered
 
