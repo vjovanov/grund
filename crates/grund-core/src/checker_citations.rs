@@ -31,11 +31,15 @@ fn check_citation_obligations(findings: &Findings, config: &Config, report: &mut
     // citations) and dominated `grund check` on a large tree (§AR-benchmarks).
     let mut by_decl: BTreeMap<&Id, Vec<&Citation>> = BTreeMap::new();
     let mut by_file: BTreeMap<(&str, &Path), Vec<&Citation>> = BTreeMap::new();
+    // Resolved once, not per citation: the per-file question below is asked of
+    // every citation in the tree, and answering it by scanning `[[kinds]]` each
+    // time would make the pass O(citations × kinds) for no gain (§AR-benchmarks).
+    let non_citable = non_citable_kind_names(config);
     for cite in &findings.citations {
         if let Some(id) = &cite.enclosing_declaration {
             by_decl.entry(id).or_default().push(cite);
         }
-        if file_is_obligation_unit(config, cite) {
+        if file_is_obligation_unit(&non_citable, cite) {
             by_file
                 .entry((cite.source_kind.as_str(), cite.file.as_path()))
                 .or_default()
@@ -149,19 +153,21 @@ impl ObligationUnit<'_> {
 ///   kinds that are usually all Markdown, which is most of them: the exemption
 ///   reasons about implementation-versus-document, and a home the maintainer
 ///   named is neither guess.
-fn file_is_obligation_unit(config: &Config, cite: &Citation) -> bool {
+fn file_is_obligation_unit(non_citable: &BTreeSet<&str>, cite: &Citation) -> bool {
     if cite.source_kind == CODE_SOURCE_KIND {
         return cite.file.extension().and_then(|ext| ext.to_str()) != Some("md");
     }
-    kind_is_non_citable(config, &cite.source_kind)
+    non_citable.contains(cite.source_kind.as_str())
 }
 
-/// Whether `kind` is a configured kind that declares no IDs (§FS-config.3.4).
-fn kind_is_non_citable(config: &Config, kind: &str) -> bool {
+/// The configured kinds that declare no IDs (§FS-config.3.4.1), by name.
+fn non_citable_kind_names(config: &Config) -> BTreeSet<&str> {
     config
         .kinds
         .iter()
-        .any(|configured| configured.kind == kind && !configured.citable)
+        .filter(|kind| !kind.citable)
+        .map(|kind| kind.kind.as_str())
+        .collect()
 }
 
 /// The evaluation units for one citing kind's obligations (§FS-config.3.9):
@@ -177,7 +183,7 @@ fn obligation_units<'a>(
     by_file: &BTreeMap<(&'a str, &'a Path), Vec<&'a Citation>>,
     e2e_by_case: &BTreeMap<&'a Path, Vec<&'a Citation>>,
 ) -> Vec<ObligationUnit<'a>> {
-    if citing_kind == CODE_SOURCE_KIND || kind_is_non_citable(config, citing_kind) {
+    if citing_kind == CODE_SOURCE_KIND || non_citable_kind_names(config).contains(citing_kind) {
         let place = config
             .kinds
             .iter()
