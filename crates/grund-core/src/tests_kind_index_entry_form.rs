@@ -8,7 +8,6 @@
 /// in `tests_kind_index.rs`.
 #[cfg(test)]
 mod tests_kind_index_entry_form {
-    use super::*;
     use super::tests_support::*;
 
     /// §FS-check.3.17 / §DF-index-entry-form.2.3: an unmarked token is a
