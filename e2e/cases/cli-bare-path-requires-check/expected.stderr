@@ -1,3 +1,0 @@
-invalid ID `e2e/cases/cli-bare-path-requires-check/repo`
-hint: this repo's [id] format is `{kind}-{slug}` (run `grund config show`); `grund list` shows the IDs that exist
-hint: run `grund check e2e/cases/cli-bare-path-requires-check/repo` to validate a path

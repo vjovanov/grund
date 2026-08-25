@@ -1,7 +1,7 @@
 //! §FS-init.1.2 — the targets `grund init` declines to scaffold into, and the
 //! one flag that lifts the rule that has a legitimate other side.
 //!
-//! These cases live outside `tests/init.rs` and outside the `e2e/cases` corpus
+//! These cases live outside `tests/init.rs` and outside the `tests/e2e/cases` corpus
 //! because both run inside this repository's own git tree, where the
 //! version-control rule can never fire: the condition under test is the state
 //! every other init fixture takes for granted. Each case here therefore builds

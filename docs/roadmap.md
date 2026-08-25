@@ -266,7 +266,7 @@ Shipped. Large sorted file lists and workspace projects now scan in parallel whi
 
 ## RM-self-host: guard the self-host loop in CI
 
-Shipped. CI self-checks this repository, the host scan ignores fixture repos, and the e2e corpus covers nested fixture directories under the canonical default config — see `docs/changelog.md` and [§AR-scanner.6](architecture/AR-scanner.md#6-e2e-case-declarations).
+Shipped. CI self-checks this repository; `[scan] exclude` keeps the fixture repositories under `tests/e2e/cases/*/` out of the host scan now that the corpus lives in the non-citable `e2e` home ([§FS-config.3.5](functional-spec/FS-config.md#35-scan--what-gets-walked)); and the e2e corpus covers the fixture pruning of the `E2E` case pass for the repositories that declare that kind — see `docs/changelog.md` and [§AR-scanner.6](architecture/AR-scanner.md#6-e2e-case-declarations).
 
 ## RM-init-workspace-members: `init` mentions workspace members
 
@@ -276,9 +276,9 @@ Shipped. `grund init` now emits a `### Workspace members` section in the generat
 
 Shipped. `[reference] require_grounding` (and `grund check --require-grounding`), the `ungrounded source file` error class, the inline-declaration exemption, Markdown skipped — see `docs/changelog.md`, [§FS-check.3.6](functional-spec/FS-check.md#36-ungrounded-source-file-opt-in), [§FS-config.3.1](functional-spec/FS-config.md#31-reference--citation-form), and [§DF-require-grounding](decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec). The diff-aware co-change recipe is [§RM-cochange-gate](roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test).
 
-## RM-e2e-corpus: the e2e/cases/* corpus and CI harness
+## RM-e2e-corpus: the tests/e2e/cases/* corpus and CI harness
 
-Shipped. The `e2e/cases/*` corpus, `tests/e2e.rs`, `tests/init.rs`, the per-error-class fixtures, and the byte-for-byte determinism sweep — see `docs/changelog.md`.
+Shipped. The `tests/e2e/cases/*` corpus, `crates/grund-cli/tests/e2e.rs`, `crates/grund-cli/tests/init.rs`, the per-error-class fixtures, and the byte-for-byte determinism sweep — see `docs/changelog.md`.
 
 ## RM-show: ID-query reads
 

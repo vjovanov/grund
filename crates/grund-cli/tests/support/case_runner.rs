@@ -71,7 +71,7 @@ pub fn assert_every_case_ran(label: &str, outcomes: &[CaseOutcome]) {
 }
 
 pub fn discover_e2e_cases(manifest_dir: &Path) -> Vec<PathBuf> {
-    let cases_dir = manifest_dir.join("e2e/cases");
+    let cases_dir = manifest_dir.join("tests/e2e/cases");
     let cases = discover_case_dirs(&cases_dir, |_| true);
     assert!(
         !cases.is_empty(),
@@ -375,13 +375,21 @@ fn assert_spec_refs(case: &Path, name: &str) {
         "{name}: expected at least one spec reference in {}",
         refs_path.display()
     );
-    for reference in refs {
+    for reference in &refs {
         assert!(
             has_canonical_kind_prefix(reference),
             "{name}: spec.refs entry {reference} does not start with a canonical kind ({})",
             CANONICAL_KINDS.join(", ")
         );
     }
+    // `[citations.e2e] must = ["FS"]` in grund.toml, held here because `spec.refs`
+    // is a manifest the scanner never reads: a case that proves nothing in the
+    // spec is not an e2e case (§FS-config.3.4.4).
+    assert!(
+        refs.iter().any(|reference| reference.starts_with("FS-")),
+        "{name}: spec.refs in {} names no FS point; an e2e case cites the spec it proves",
+        refs_path.display()
+    );
 }
 
 fn has_canonical_kind_prefix(reference: &str) -> bool {

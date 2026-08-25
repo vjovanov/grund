@@ -294,7 +294,7 @@ The server speaks LSP over stdio and has no daemon or socket. The [setup guide](
 
 ```bash
 grund init           # writes AGENTS.md and grund.toml in the cwd
-grund init --docs    # also scaffolds docs/ and e2e/ trees
+grund init --docs    # also scaffolds docs/ and tests/ trees
 ```
 
 `init` is non-interactive and idempotent: re-running never errors on existing files. It also checks *where* it was pointed before writing anything: a target no `.git`, `.hg`, `.jj`, or `.svn` marker covers is refused unless you pass `--no-vcs` — use it to scaffold a directory before `git init` — and the home directory and the machine-global agent instruction files are refused outright. See [`FS-init`](docs/functional-spec/FS-init.md) for the full state table.
@@ -343,4 +343,4 @@ That rule plus a clean `grund check` is the whole contract: every reference reso
 - [`docs/functional-spec/`](docs/functional-spec/) — external behavior
 - [`docs/architecture/`](docs/architecture/) — internals: [§AR-scanner](docs/architecture/AR-scanner.md#ar-scanner-how-grund-discovers-declarations-and-citations) for discovery, [§AR-checker](crates/grund-core/src/checker.rs) for validation, and [§AR-core-module-layout](docs/architecture/AR-core-module-layout.md#ar-core-module-layout-core-implementation-is-split-by-category) for the core source layout
 - [`docs/decisions/`](docs/decisions/) — how we got here
-- [`e2e/`](e2e/) — executable proof that the spec holds
+- [`tests/e2e/`](tests/e2e/) — executable proof that the spec holds

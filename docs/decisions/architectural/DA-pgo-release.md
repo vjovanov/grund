@@ -43,7 +43,7 @@ PGO that is documented but never run rots, but running two optimized builds on e
 - Normal development CI does not run PGO; [§AR-ci.6](../../architecture/AR-ci.md#6-pgo-stays-out-of-development-ci) pins that boundary and the required pre-release PGO check.
 - [§FS-distribution.4](../../functional-spec/FS-distribution.md#4-release-process) (release process) states that the distributed binaries are PGO-built via `scripts/pgo-build.sh` with the [§AR-benchmarks](../../architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands) self-repo workload as the training run.
 - [§AR-benchmarks](../../architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands) notes that its self-repo workload doubles as the PGO training corpus, with the why here.
-- No CLI surface change, no `grund_config_version` change, no `e2e/cases/*` change — this is packaging, outside the [§GOAL-no-silent-breakage](../../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) user-visible surface. The PGO binary is byte-for-byte behavior-identical to the LTO-only one; only its performance differs.
+- No CLI surface change, no `grund_config_version` change, no `tests/e2e/cases/*` change — this is packaging, outside the [§GOAL-no-silent-breakage](../../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) user-visible surface. The PGO binary is byte-for-byte behavior-identical to the LTO-only one; only its performance differs.
 
 ## 5. Alternatives considered
 

@@ -12,13 +12,12 @@ fissile_config_version = 1
 
 [scan]
 # Mirrors the reasoning in `.agents/grund.toml` [scan]: the e2e fixture trees
-# under `e2e/cases/*/` are test inputs, not this project's code, and `assets/`
+# under `tests/e2e/cases/*/` are test inputs, not this project's code, and `assets/`
 # holds generated payload that is byte-identical to its source by test
 # (§FS-init.5) — splitting either is not a legal move, so neither is measured.
 include = [
   "crates",
   "docs",
-  "e2e",
   "scripts",
   "tests",
   "skills",
@@ -35,8 +34,8 @@ exclude = [
   ".git/**",
   "**/*.lock",
   "**/assets/**",
-  "e2e/cases/*/repo/**",
-  "e2e/cases/*/expected.repo/**",
+  "tests/e2e/cases/*/repo/**",
+  "tests/e2e/cases/*/expected.repo/**",
   "**/*.png",
   "**/*.jpg",
   "**/*.svg",
@@ -284,7 +283,7 @@ message = "split-workflow"
 # `examples/` too — those are the same thing wearing a different directory.
 [[rules]]
 id = "e2e-fixtures"
-include = ["e2e/cases/**", "examples/**"]
+include = ["tests/e2e/cases/**", "examples/**"]
 unit = "bytes"
 soft = 65536
 hard = 262144

@@ -1,7 +1,7 @@
 # Examples
 
 Self-contained mini-repos demonstrating each ID scheme `grund` supports.
-Each subfolder is shaped like an `e2e/cases/<name>/` directory — `repo/`
+Each subfolder is shaped like an `tests/e2e/cases/<name>/` directory — `repo/`
 holds the fixture, and `expected.exit`/`expected.stdout`/`expected.stderr`
 record the contract — so each example doubles as a regression fixture.
 The e2e test runner also runs `grund <repo>` against every example on `cargo
@@ -11,7 +11,7 @@ Examples are maintained as user-facing walkthroughs for canonical `grund`
 workflows, per [FS-examples](../docs/functional-spec/FS-examples.md).
 Each example README should name the use-case it teaches, show the command to
 run, explain the expected output, and call out the practical trade-offs.
-Runnable examples share the same golden-output runner as `e2e/cases/`; the
+Runnable examples share the same golden-output runner as `tests/e2e/cases/`; the
 examples tree should not grow a parallel test harness.
 
 ## ID schemes

@@ -112,7 +112,7 @@ jobs:
               sys.exit(1)
           PY
 
-      # crates/grund-cli/tests/e2e.rs walks every fixture under e2e/cases and asserts each case's
+      # crates/grund-cli/tests/e2e.rs walks every fixture under tests/e2e/cases and asserts each case's
       # exit code, stdout, and stderr against its expected.* files; tests/init.rs
       # covers the file-content / config-validation contract for `grund init`. So
       # `cargo test` runs the full e2e suite plus the core and CLI unit tests.

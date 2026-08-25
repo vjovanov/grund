@@ -55,7 +55,7 @@ The LSP must produce the same diagnostics for the same workspace state as `grund
 - `textDocument/onTypeFormatting` calls the same configured trigger/marker and ID-grammar checks as `grund fmt`.
 - Focused `grund-lsp` tests cover UTF-16 range conversion, hover linkification, configured trigger punctuation, member-local trigger/marker overrides, section-heading definition and references, declaration-title usage counts end to end (with the citation hover left as the `--toc` body), whole-title stub document links, the absence of a self-pointing link on ordinary declaration titles (so the click resolves to go-to-definition usages, [§FS-lsp.1.3.2](../functional-spec/FS-lsp.md#132-document-links)), whole-token occurrence highlight ([§FS-lsp.1.3.3](../functional-spec/FS-lsp.md#133-occurrence-highlight)), and citation document-link line fragments. The declaration/citation matcher itself is no longer unit-tested in this crate: it moved to `grund-core` with `citation_under_title`, and its cases live beside the counts they feed in `crates/grund-core/src/tests_lsp_hover.rs`. This crate still covers it end to end, over a real server, in the navigation case.
 
-A broader child-process sweep over `e2e/cases/*` remains a useful hardening step, but it is not part of the current shipped test harness.
+A broader child-process sweep over `tests/e2e/cases/*` remains a useful hardening step, but it is not part of the current shipped test harness.
 
 This is what makes the LSP "the same engine with a different transport" rather than a parallel implementation that could drift.
 

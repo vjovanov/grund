@@ -1,1 +1,0 @@
-{"severity":"warning","path":null,"line":null,"code":"empty-scan","message":"nothing to scan — no files under `e2e/cases/check-empty-json/repo` matched grund's extensions (md, rs, go, java, kt, ts, tsx, js, py, c, cpp, swift, scala, rb, php, cs, lisp, scm, clj, sql, hs, lhs, lua, ada, adb, ads, yml, yaml).","sites":null}

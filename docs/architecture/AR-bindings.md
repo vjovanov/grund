@@ -14,7 +14,7 @@ grund/
 │   ├── grund-cli/      # package `grund`; binary entrypoint, help, and top-level dispatch
 │   └── grund-lsp/      # package `grund-lsp`; LSP transport over stdio
 ├── docs/
-└── e2e/
+└── tests/
 ```
 
 This split keeps CLI behavior byte-identical while giving `grund-lsp` and the language bindings a library package they can depend on. `grund-core` exposes data-returning APIs for the CLI and LSP surfaces (`check`, `show`, `refs`, `list`, `cover`, `fmt`, `id`, `init`, config inspection, and LSP snapshots); the user-facing binary, help text, version handling, SIGPIPE setup, top-level command dispatch, flag parsing, text/JSON rendering, and exit-code mapping live in `grund-cli`.
@@ -30,7 +30,7 @@ grund/
 │   ├── grund-node/   # napi-rs binding. Published to npm as `grund-cli` (with the prebuilt CLI binary).
 │   └── grund-py/     # PyO3 binding. Published to PyPI as `grund`.
 ├── docs/
-└── e2e/
+└── tests/
 ```
 
 All four frontend crates depend on `grund-core` and only on `grund-core` for engine logic. None depend on each other. This is the property that lets [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary) hold: `grund-cli`'s dependency tree contains no JSON-RPC machinery and no LSP types, because none of those reach `grund-core`.

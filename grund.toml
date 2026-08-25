@@ -58,14 +58,24 @@ kind = "DA"
 folder = "docs/decisions/architectural"
 title = "Architecture decisions and tradeoffs"
 
-# `index = false` (FS-config.3.4): e2e/cases holds 406 case directories and no
-# README — a case is exercised by being run, not navigated to, and e2e/README.md
-# one level up documents the case layout in English rather than naming E2E- IDs.
+# The two test homes are places, not ID namespaces (FS-config.3.4.1,
+# FS-config.3.4.4): a test cites the document whose claim it proves and is never
+# cited back. The e2e corpus is `tests/e2e/cases/<case>/`, one fixture repository
+# plus goldens per case; the harness in crates/grund-cli/tests/e2e.rs runs it and
+# carries the per-case form of `must cite FS`, because `spec.refs` is a manifest
+# the scanner never reads. Cargo keeps the Rust integration tests beside their
+# crates under crates/*/tests — tests/integration/README.md says where.
 [[kinds]]
-kind = "E2E"
-folder = "e2e/cases"
-index = false
-title = "Executable user scenarios"
+kind = "e2e"
+folder = "tests/e2e"
+citable = false
+title = "User scenarios: black-box proof of the spec"
+
+[[kinds]]
+kind = "integration"
+folder = "tests/integration"
+citable = false
+title = "Integration tests: proof that the parts fit as designed"
 
 [[kinds]]
 kind = "RM"
@@ -90,10 +100,14 @@ title = "Agent review and automation skills"
 [scan]
 # README.md, AGENTS.md, and the workflow YAML are cited surfaces too — scanned
 # so their citations are checked, not decorative (REQ-readme.3, REQ-agents-md.4).
-include = ["docs", "e2e", "src", "crates", ".github/workflows", "README.md", "AGENTS.md"]
-# `repo` / `expected.repo`: the e2e fixture trees under `e2e/cases/*/` are test
-# inputs, not this project's code — keep them out of the host scan so strict mode
-# and `require_grounding` (above) apply to grund's own sources, not the fixtures.
+# Every `[[kinds]]` home is walked by construction (FS-config.3.5), so `tests/e2e`
+# and `tests/integration` are not repeated here.
+include = ["docs", "src", "crates", ".github/workflows", "README.md", "AGENTS.md"]
+# `repo` / `expected.repo`: the e2e fixture trees under `tests/e2e/cases/*/` are
+# test inputs, not this project's code — keep them out of the host scan so strict
+# mode and `require_grounding` (above) apply to grund's own sources, not the
+# fixtures. With `e2e` a plain home rather than the `E2E` case kind, this exclude
+# is the only thing between the walk and the fixtures.
 exclude = ["target", "node_modules", ".git", "dist", "build", ".venv", "repo", "expected.repo", "assets"]
 extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs", "lisp", "scm", "clj", "sql", "hs", "lhs", "lua", "ada", "adb", "ads", "yml", "yaml"]
 comment_prefixes = ["//", "#", ";", "--", "*", "/*"]
@@ -137,8 +151,16 @@ should = ["FS|GOAL"]
 [citations.DA]
 should = ["AR|FS"]
 
-[citations.E2E]
+# A scenario proves the What as a user sees it; one that reads the design is not
+# black-box. `must` reaches every scanned file in the home — the README — and the
+# harness holds the same rule per case over `spec.refs`.
+[citations.e2e]
 must = ["FS"]
+should-not = ["AR"]
+
+# An integration test proves the How: that the parts fit as designed.
+[citations.integration]
+should = ["AR"]
 
 # A skill tells an agent what to do; the spec is what makes that checkable, so a
 # skill file names the behaviour it drives. Never AR: a skill is a user-facing
