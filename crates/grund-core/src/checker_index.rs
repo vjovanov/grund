@@ -127,6 +127,20 @@ fn index_citation_form(line: &str, text: &str, marker: &str) -> IndexCitationFor
     form
 }
 
+/// Whether the section this citation names is one some declaration of the ID
+/// declares — the same test §FS-check.3.2 applies before reporting a missing
+/// section. A citation with no section always resolves; the ID itself is known
+/// to be declared, because only declared IDs reach the index rule.
+fn index_section_resolves(findings: &Findings, citation: &Citation) -> bool {
+    let Some(section) = &citation.section else {
+        return true;
+    };
+    findings
+        .declarations
+        .get(&citation.id)
+        .is_some_and(|decls| decls.iter().any(|decl| decl.sections.contains_key(section)))
+}
+
 /// What an index says about one ID: whether any citation of it is a full link,
 /// and where the first bare one sits (§FS-check.3.17 anchors there).
 #[derive(Default)]
@@ -386,6 +400,22 @@ fn check_kind_indexes(
             // neither satisfies the rule nor triggers §FS-check.3.17
             // (§DF-index-entry-form.2.3), so the ID is reported as unlisted.
             let form = index_citation_form(line, &citation.text, &config.marker);
+            // §FS-fmt.6.2: the pass has to compute a link target, and a citation
+            // naming a section no declaration declares has none — `fmt` skips
+            // the line and answers `rewrote 0 references`. Only the bare form is
+            // gated: §FS-check.3.17 is the finding that names `grund fmt
+            // --write`, so it may only reach an occurrence the pass would
+            // rewrite, while a link already written stands whatever `fmt` would
+            // do with it (§DF-index-entry-form.2.4). The tree is already red for
+            // the section itself (§FS-check.3.2); the ID falls to
+            // §FS-check.4.6's warning, whose fix is an edit.
+            let form = if form == IndexCitationForm::Bare
+                && !index_section_resolves(findings, citation)
+            {
+                IndexCitationForm::Ignored
+            } else {
+                form
+            };
             if form == IndexCitationForm::Ignored {
                 continue;
             }
