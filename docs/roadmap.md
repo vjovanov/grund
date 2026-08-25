@@ -222,6 +222,24 @@ An index renderer would change the shape of this milestone rather than remove it
 
 `grund check` over a folder kind whose index omits one declaration exits `1`, not `0`, and no message in the tree names a release the running binary is already past. The e2e cases that pin the warning today (`check-index-missing-entry`, `check-index-missing-file`, `check-index-recursive-subtree`) move to `expected.exit` `1`, and `grund check --full` over this repository stays green.
 
+## RM-kind-prefix-removal: stop loading the deprecated `[[kinds]] prefix` key
+
+[§FS-config.3.4.6](functional-spec/FS-config.md#346-prefix-the-former-spelling-of-kind-deprecated) keeps `prefix` loading beside `kind`, with a warning naming the release it stops in — the deprecation path [§REQ-backwards-compatibility.2](requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) asks of a renamed config key. A named deadline is half a contract until the release that keeps it. This milestone is that release.
+
+### 1. What
+
+Drop `prefix` from the `[[kinds]]` key match in `config_kinds.rs`, so it falls through to the unknown-key rejection of [§FS-config.4.3](functional-spec/FS-config.md#43-invalid-config-behavior) like any other misspelling. With it go the "both set" error, `Config::deprecated_kind_prefix`, `deprecated_kind_prefix_warning`, and `KIND_PREFIX_KEY_REMOVAL_RELEASE`. [§FS-config.3.4.6](functional-spec/FS-config.md#346-prefix-the-former-spelling-of-kind-deprecated) becomes a sentence in [§FS-config.3.4](functional-spec/FS-config.md#34-kinds--recognized-kinds) naming the old spelling and the release it died in, rather than a subsection describing a key that still works; [§DF-non-citable-kinds.2.4](decisions/functional/DF-non-citable-kinds.md#24-the-field-is-a-kind-not-a-prefix) is left as written, because the rename it argues for is what happened.
+
+The deprecation window is the point, so this is not a milestone to pull forward: a repository that upgrades on the day of the removal must have had a release in which the warning told it what was coming, and `grund config show` has printed the canonical spelling since the rename, so the migration is one `grund config show > grund.toml` away.
+
+### 2. Why now
+
+`the_prefix_deprecation_release_is_still_ahead` in `tests_non_citable_kinds.rs` asserts that `KIND_PREFIX_KEY_REMOVAL_RELEASE` is still ahead of `CARGO_PKG_VERSION`, so the version bump that reaches it fails CI — the same forcing function [§RM-index-entry-error](roadmap.md#rm-index-entry-error-flip-the-missing-index-entry-warning-to-an-error) uses, for the same reason: a deadline that can pass quietly is not a deadline.
+
+### 3. Measurable
+
+A `grund.toml` whose `[[kinds]]` entry spells `prefix` fails to load with the unknown-key error of [§FS-config.4.3](functional-spec/FS-config.md#43-invalid-config-behavior), no message in the tree names a release the running binary is already past, and `grund check --full` over this repository stays green. The e2e case that pins the warning today (`config-kind-prefix-deprecated`) becomes a rejection case.
+
 ## Shipped milestones
 
 Done milestones leave their full record in `docs/changelog.md` (the `Implemented` block of the latest release). They keep a one-line declaration here so existing `§RM-…` citations still resolve — the changelog has the detail.
