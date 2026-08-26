@@ -131,7 +131,7 @@ fn walk_scannable_files_reporting(
                 .and_then(|kind| kind.folder.as_deref())
                 .map(|folder| config.root.join(folder)),
             physical_root: physical_root.clone(),
-            unwalked_homes: walk_pruned_home_keys(config),
+            unwalked_homes: walk_pruned_home_keys(config, &scan_root, &physical_root),
             config: config.clone(),
             link_roots: std::sync::Arc::clone(&link_roots),
             looping_links: std::sync::Arc::clone(&looping_links),
@@ -286,10 +286,39 @@ struct WalkDirFilter {
 
 impl WalkDirFilter {
     /// Whether the walk keeps this entry — and, for a directory, descends into
-    /// it. Files are never filtered here; the extension test is the caller's.
+    /// it. Files are otherwise not filtered here; the extension test is the
+    /// caller's.
     fn keep(&self, entry: &ignore::DirEntry) -> bool {
         if entry.depth() == 0 {
             return true;
+        }
+        // §FS-config.3.4.7: a home the config lists without walking is pruned
+        // here as well as left out of `kind_home_roots`. Keeping it out of the
+        // roots is only half the rule — the walk meets the same home again as a
+        // descendant of any root above it, the config root or an `include` entry
+        // it sits under, and read there it would be walked after all.
+        //
+        // This is the one rule asked of files as well as directories, and it is
+        // asked before the directory gate below for that reason: a single-file
+        // home (`file = "docs/template.md"`) is never a directory to prune, and
+        // pruning its parent is not on offer — the parent is `docs`. The test is
+        // on the in-tree path rather than the name, the way §AR-scanner.2.4
+        // decides which home a file is in, so it prunes *this* home and nothing
+        // that merely shares its last component. Empty under `--full` and in
+        // every tree that configures no such kind, which is where the cost of
+        // asking it per entry would otherwise fall (§GOAL-fast-feedback).
+        if !self.unwalked_homes.is_empty()
+            && let Some(relative) = scanned_decl_relative_path(
+                entry.path(),
+                &self.config.root,
+                &self.physical_root,
+            )
+            && self
+                .unwalked_homes
+                .iter()
+                .any(|home| relative.starts_with(home))
+        {
+            return false;
         }
         if !entry
             .file_type()
@@ -310,23 +339,6 @@ impl WalkDirFilter {
             return true;
         };
         if self.excluded.iter().any(|item| item == name) {
-            return false;
-        }
-        // §FS-config.3.4.7: a home the config lists without walking is pruned
-        // here as well as left out of `kind_home_roots`. Keeping it out of the
-        // roots is only half the rule — the walk meets the same directory again
-        // as a descendant of any root above it, the config root or an `include`
-        // entry it sits under, and read there it would be walked after all. The
-        // test is on the in-tree path rather than the name, so it prunes *this*
-        // home and not every directory that happens to share its last component.
-        if !self.unwalked_homes.is_empty()
-            && let Some(relative) =
-                scanned_decl_relative_path(path, &self.config.root, &self.physical_root)
-            && self
-                .unwalked_homes
-                .iter()
-                .any(|home| relative.starts_with(home))
-        {
             return false;
         }
         // §FS-config.3.5.5: a directory link whose target is at or above the walk
@@ -622,19 +634,27 @@ fn unwalked_home_roots(config: &Config) -> Vec<PathBuf> {
         .collect()
 }
 
-/// The same homes as home *path keys*, for the walk's per-directory test: it
+/// The same homes as home *path keys*, for the walk's per-entry test: it
 /// compares an in-tree path stripped to the config root, the way the scanner
 /// decides which home a file is in (§AR-scanner.2.4), so a root reached through
 /// a symlink still recognizes them.
-fn walk_pruned_home_keys(config: &Config) -> Vec<PathBuf> {
-    // §FS-check.1.3: `--full` walks the whole config root and reaches an
-    // unwalked home like any directory nobody configured, so it prunes nothing.
+///
+/// Empty for the two walks that are meant to read such a home. `--full` reaches
+/// it like any directory nobody configured (§FS-check.1.3). And a walk whose own
+/// root is at or inside one is a path a user typed — `grund check docs/templates`
+/// — which reads the directory it names the way an explicit argument already
+/// reads past `[scan] include` (§FS-config.3.4.7); the key describes the default
+/// scope, and `grund check .` resolves to that scope rather than to this branch.
+fn walk_pruned_home_keys(config: &Config, scan_root: &Path, physical_root: &Path) -> Vec<PathBuf> {
     if config.scan_full {
         return Vec::new();
     }
-    unwalked_homes(config)
+    let homes = unwalked_homes(config)
         .map(configured_home_path_key)
-        .collect()
+        .collect::<Vec<_>>();
+    let asked_for_one = scanned_decl_relative_path(scan_root, &config.root, physical_root)
+        .is_some_and(|relative| homes.iter().any(|home| relative.starts_with(home)));
+    if asked_for_one { Vec::new() } else { homes }
 }
 
 fn unwalked_homes(config: &Config) -> impl Iterator<Item = &str> + '_ {

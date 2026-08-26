@@ -149,6 +149,54 @@ mod tests_unwalked_kinds {
         );
     }
 
+    /// §FS-config.3.4.7: a single-file home is unwalked too — and it is never a
+    /// directory to prune, so a rule asked only of directories would miss it and
+    /// pruning its parent is not on offer, `docs` being an ordinary scanned home.
+    #[test]
+    fn a_single_file_unwalked_home_is_not_walked() {
+        let root = test_root("a_single_file_unwalked_home_is_not_walked");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n\n\
+             [[kinds]]\nkind = \"template\"\nfile = \"docs/template.md\"\ncitable = false\n\
+             scan = false\ntitle = \"Scaffold template\"\n\n\
+             [scan]\ninclude = [\"docs\"]\n",
+        );
+        write(
+            &root.join("docs/specs/FS-001-login.md"),
+            "# FS-001-login: A user logs in\n\nBody.\n",
+        );
+        write(
+            &root.join("docs/template.md"),
+            "# Scaffold\n\nSee §FS-999-ghost.\n",
+        );
+        let plain = codes(&check_run(&root, false));
+        assert!(
+            !plain.iter().any(|code| code.contains("dangling")),
+            "a file home is a home: {plain:?}"
+        );
+        let full = codes(&check_run(&root, true));
+        assert!(
+            full.iter().any(|code| code == "out-of-scope-dangling"),
+            "and `--full` still reaches it from outside the scope: {full:?}"
+        );
+    }
+
+    /// §FS-config.3.4.7: the key describes the default scope. A path the user
+    /// typed reads the directory it names, the way an explicit argument already
+    /// reads past `[scan] include`.
+    #[test]
+    fn an_explicit_path_argument_reads_an_unwalked_home() {
+        let root = templates_repo("an_explicit_path_argument_reads_an_unwalked_home", "");
+        let run = run_check(&root.join("templates"), true, false, false).expect("check run");
+        let codes = codes(&run);
+        assert!(
+            codes.iter().any(|code| code == "dangling"),
+            "the argument is the scope: {codes:?}"
+        );
+    }
+
     /// §FS-check.3.14: `--full` reaches a home under a walk root like any other
     /// unconfigured directory, and the finding lands in the out-of-scope tier —
     /// the enclosing `docs` root does not make it part of the configured scope.

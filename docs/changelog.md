@@ -30,7 +30,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Fixed
 
-- [§FS-config.3.4.7](functional-spec/FS-config.md#347-scan--a-place-that-is-listed-not-walked): `scan = false` kept the home out of the walk *roots* only, so a walk still read it on the way down from a root above it — `docs/templates` under an `include = ["docs"]` entry, or the config root — and `[scan] include` naming the home walked it outright. The key was a silent no-op for the layout it is most often written for. The home is now pruned wherever a walk meets it, and a file in one is outside the configured scope under `--full` even when a walk root encloses it ([§FS-check.3.14](functional-spec/FS-check.md#314-out-of-scope-unresolvable-citation---full-only)). (PR #146)
+- [§FS-config.3.4.7](functional-spec/FS-config.md#347-scan--a-place-that-is-listed-not-walked): `scan = false` kept the home out of the walk *roots* only, so a walk still read it on the way down from a root above it — `docs/templates` under an `include = ["docs"]` entry, or the config root — and `[scan] include` naming the home walked it outright. The key was a silent no-op for the layout it is most often written for. The home is now pruned wherever a walk meets it — `folder` and `file` homes alike, the latter never being a directory to skip — and a file in one is outside the configured scope under `--full` even when a walk root encloses it ([§FS-check.3.14](functional-spec/FS-check.md#314-out-of-scope-unresolvable-citation---full-only)). (PR #146)
 
 ### Changed
 
