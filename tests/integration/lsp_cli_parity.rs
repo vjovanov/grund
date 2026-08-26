@@ -10,13 +10,15 @@
 
 #[path = "binaries.rs"]
 mod binaries;
+#[path = "corpus.rs"]
+mod corpus;
 #[path = "../../crates/grund-lsp/tests/support/mod.rs"]
 mod support;
 
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use std::time::{Duration, Instant};
 use support::{send_message, start_server, wait_for_exit};
@@ -34,49 +36,6 @@ struct Finding {
     severity: &'static str,
     code: String,
     message: String,
-}
-
-struct Case {
-    name: String,
-    root: PathBuf,
-}
-
-/// The cases whose command is a plain `check` of the fixture root — the only
-/// shape whose CLI scope and whose editor-root scope name the same tree.
-fn parity_cases(repo: &Path) -> (Vec<Case>, usize, Vec<String>) {
-    let cases_dir = repo.join("tests/e2e/cases");
-    let mut entries = fs::read_dir(&cases_dir)
-        .unwrap_or_else(|err| panic!("read {}: {err}", cases_dir.display()))
-        .map(|entry| entry.expect("case entry").path())
-        .filter(|path| path.is_dir())
-        .collect::<Vec<_>>();
-    entries.sort();
-    let mut cases = Vec::new();
-    let mut other_commands = 0;
-    let mut no_config = Vec::new();
-    for dir in entries {
-        let name = dir.file_name().unwrap().to_string_lossy().into_owned();
-        let command = fs::read_to_string(dir.join("command.args")).ok();
-        let plain_check = match command.as_deref().map(str::trim) {
-            None | Some("check {repo}") => true,
-            Some(_) => false,
-        };
-        if !plain_check || dir.join("symlinks").is_file() {
-            other_commands += 1;
-            continue;
-        }
-        let root = dir.join("repo");
-        if !root.is_dir() {
-            other_commands += 1;
-            continue;
-        }
-        if !root.join("grund.toml").is_file() && !root.join(".agents/grund.toml").is_file() {
-            no_config.push(name);
-            continue;
-        }
-        cases.push(Case { name, root });
-    }
-    (cases, other_commands, no_config)
 }
 
 /// `grund check . --format json` from the fixture root: every located finding
@@ -199,7 +158,11 @@ fn lsp_diagnostics_are_the_cli_findings_for_every_plain_check_case() {
     let repo = binaries::repo_root();
     let grund = binaries::grund();
     let _ = support::SERVER_BINARY.set(binaries::grund_lsp());
-    let (cases, other_commands, no_config) = parity_cases(&repo);
+    let corpus::Selection {
+        cases,
+        other_commands,
+        no_config,
+    } = corpus::plain_check_cases(&repo);
     let mut compared = 0;
     let mut refused = Vec::new();
     let mut mismatches = Vec::new();
