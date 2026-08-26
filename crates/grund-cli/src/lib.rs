@@ -1,4 +1,4 @@
-// §RM-core-cli-split: the `grund` frontend crate owns top-level CLI dispatch.
+// §AR-bindings.3: the `grund` frontend crate owns top-level CLI dispatch.
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;

@@ -479,7 +479,7 @@ That colon is the discriminator, and it earns its place: a line opening with an 
 
 **It is a warning, so the exit code is unchanged** (§4), and `grund list` is unchanged with it: a near-miss heading is still not a declaration, and this rule reports that rather than repairing it. Where every heading in a project misses this way, these findings are what the run says and [§FS-check.4.5](FS-check.md#45-nothing-recognized) is withheld under its own rule — the specific fact displaces the general one, which is the outcome that rule's "or the headings are written to a different shape than that" was standing in for.
 
-Decided in [§RM-declaration-near-miss](../roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format), which also records the line-oriented opt-out held in reserve should the warning prove noisy on a real tree.
+The line-oriented opt-out held in reserve while the warning was new was never needed and is not implemented: the position rules are the declaration rules, so the rule reads only the lines where a declaration would have been.
 
 - **Code:** `declaration-near-miss` ([§FS-errors.5](FS-errors.md#5-json-format)).
 

@@ -118,7 +118,7 @@ pub fn scan(path: &Path) -> Result<Findings> {
 
 /// Programmatic `check`: load config, scan, and return structured findings
 /// without CLI argument parsing, stdout/stderr rendering, or exit-code mapping
-/// (§FS-distribution.3.1, §RM-core-cli-split.3).
+/// (§FS-distribution.3.1, §AR-bindings.2).
 pub fn check(path: &Path) -> Result<Report> {
     Ok(check_with_opts(CheckOpts {
         path: path.to_path_buf(),
@@ -385,7 +385,7 @@ pub enum IdProposalOutcome {
 }
 
 /// Programmatic `id`: compute the next conflict-free declaration ID without
-/// parsing CLI flags or printing the text/JSON report (§RM-core-cli-split).
+/// parsing CLI flags or printing the text/JSON report (§AR-bindings.2).
 pub fn propose_id(kind: &str, title: &str, opts: IdOpts) -> Result<IdProposalOutcome> {
     let config = resolve_workspace_config(&opts.path)?;
     let configured = config
@@ -1189,7 +1189,7 @@ fn cover_scan_errors(context: &WorkspaceContext) -> Vec<ApiScanError> {
 
 /// Programmatic `cover`: group every citation by scanned file, across every
 /// project the run loaded, without choosing a CLI output format or process exit
-/// code (§RM-core-cli-split, §FS-workspace.8.6).
+/// code (§AR-bindings.2, §FS-workspace.8.6).
 pub fn cover(opts: CoverOpts) -> Result<CoverOutput> {
     let context = cover_context(&opts)?;
     let entries = cover_rows(&context)
@@ -1224,7 +1224,7 @@ pub fn cover(opts: CoverOpts) -> Result<CoverOutput> {
 
 /// Programmatic text-oriented `cover`: return only the citation fields needed
 /// for the default human-readable cover view while still leaving rendering to
-/// frontends (§RM-core-cli-split). Same index as [`cover`] (§FS-workspace.8.6);
+/// frontends (§AR-bindings.2). Same index as [`cover`] (§FS-workspace.8.6);
 /// the text view carries no alias because the path already renders from the
 /// workspace root and the token is printed verbatim (§FS-cover.3.1).
 pub fn cover_text(opts: CoverOpts) -> Result<CoverTextOutput> {
@@ -1295,7 +1295,7 @@ pub struct FmtOutput {
 }
 
 /// Programmatic `fmt`: run the normalizer and return the changed locations
-/// without printing the CLI report or mapping the exit code (§RM-core-cli-split).
+/// without printing the CLI report or mapping the exit code (§AR-bindings.2).
 pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
     let context = load_workspace_context(&opts.path, opts.path_provided)?;
     let config = context.render_config().clone();
@@ -1447,7 +1447,7 @@ fn list_summary_home(kind: &KindConfig) -> String {
 }
 
 /// Programmatic `list`: return the catalog and per-kind summary rows without
-/// selecting text/JSON rendering or an exit code (§RM-core-cli-split).
+/// selecting text/JSON rendering or an exit code (§AR-bindings.2).
 pub fn list(opts: ListOpts) -> Result<ListOutput> {
     let context = load_workspace_context(&opts.path, opts.path_provided)?;
     if !opts.project_filter.is_empty() && !context.workspace_loaded {
@@ -1694,7 +1694,7 @@ pub struct RefsOutput {
 }
 
 /// Programmatic `refs`: resolve an ID query and return all citation sites
-/// without selecting text/summary/JSON rendering (§RM-core-cli-split).
+/// without selecting text/summary/JSON rendering (§AR-bindings.2).
 pub fn refs(opts: RefsOpts) -> Result<RefsOutput> {
     let context = load_workspace_context(&opts.path, opts.path_provided)?;
     let current_config = context

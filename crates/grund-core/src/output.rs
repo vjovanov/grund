@@ -301,7 +301,7 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
 /// two runs over one config print one string (§FS-errors.4).
 ///
 /// The closing sentence offers both readings because the run cannot tell them
-/// apart without judging a line, which is §RM-declaration-near-miss's job: a tree
+/// apart without judging a line, which is §FS-check.4.7's job: a tree
 /// written to another format and a `grund init` scaffold nobody has declared in
 /// yet produce the identical fact, and naming only the first would send a fresh
 /// adopter to look for a bug in a config that is fine.

@@ -13,7 +13,7 @@ The stronger discipline we want — "implementation cannot change without the sp
 2. **A `grund cover` plumbing surface** — the scan exposed as data: for each file, the IDs it cites and their line ranges; for each test / `§E2E-` case, the IDs it cites. Still static.
 3. **A co-change gate** — diff-aware: a changed source file must be grounded, and the diff must also touch the cited spec *or* a test of it, with an explicit, greppable escape hatch for refactors.
 
-Tier 1 is most of the value and the only part that fits inside `grund-core` without bending a bright line. This record covers Tier 1; Tiers 2–3 are tracked under [§RM-cover](../../roadmap.md#rm-cover-grund-cover) and [§RM-cochange-gate](../../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test).
+Tier 1 is most of the value and the only part that fits inside `grund-core` without bending a bright line. This record covers Tier 1; Tiers 2–3 are tracked under [§FS-cover](../../functional-spec/FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file) and [§RM-cochange-gate](../../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test).
 
 ## 2. Decision
 
@@ -43,7 +43,7 @@ Like `strict`, grounding is a discipline a repo opts into once it is ready (and 
 - `Config` gains a `require_grounding: bool`; `check` gains the [§FS-check.3.6](../../functional-spec/FS-check.md#36-ungrounded-source-file-opt-in) loop over the scanner's file list (a new `Findings.scanned_files`); `grund config show` prints the key; `grund check --help` lists the flag; `templates/grund.toml` carries `require_grounding = false` so the generated config still documents every key ([§FS-init.2.4](../../functional-spec/FS-init.md#24-generated-grundtoml)).
 - No `grund_config_version` bump: a v1 config without the key keeps working, and a v1 config that sets it is only understood by a `grund` new enough to have this record — an additive change, like `[fmt.cross_refs]`.
 - The reverse-lookup story tightens: in a `require_grounding` repo, `grund refs <ID>` over the source tree is complete by construction, because an ungrounded file cannot land.
-- Tiers 2 and 3 ([§RM-cover](../../roadmap.md#rm-cover-grund-cover), [§RM-cochange-gate](../../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test)) build on this; the co-change gate in particular lives in the pre-commit / CI recipe layer, not in `grund-core` — a third first-party surface is out of scope ([§FS-non-goals.12](../../functional-spec/FS-non-goals.md#12-surfaces-outside-grund-core-and-the-lsp-transport)).
+- Tiers 2 and 3 ([§FS-cover](../../functional-spec/FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file), [§RM-cochange-gate](../../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test)) build on this; the co-change gate in particular lives in the pre-commit / CI recipe layer, not in `grund-core` — a third first-party surface is out of scope ([§FS-non-goals.12](../../functional-spec/FS-non-goals.md#12-surfaces-outside-grund-core-and-the-lsp-transport)).
 
 ## 4. Alternatives considered
 

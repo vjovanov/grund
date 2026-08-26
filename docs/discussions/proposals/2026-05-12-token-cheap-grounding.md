@@ -2,7 +2,7 @@
 
 ## Status
 
-Discussion. Implementation tracked by [§RM-token-cheap-grounding](../../roadmap.md#rm-token-cheap-grounding-token-cheap-read-surfaces-for-agents).
+Concluded. Implementation shipped as [§DF-show-default-token-cheap](../../decisions/functional/DF-show-default-token-cheap.md#df-show-default-token-cheap-grund-show-defaults-to-the-cheap-read-the-full-body-is-opt-in).
 
 ## Context
 

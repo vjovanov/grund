@@ -1,6 +1,6 @@
 # Local benchmark report
 
-This report is a local wall-clock snapshot for the `grund` repo. It complements the instruction-counting CI benchmark in [§AR-benchmarks](architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands) and the baseline work tracked by [§RM-benchmarks](roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets). It is meant for product-facing comparisons with Lychee; it is not the release-blocking regression meter.
+This report is a local wall-clock snapshot for the `grund` repo. It complements the instruction-counting CI benchmark in [§AR-benchmarks](architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands). It is meant for product-facing comparisons with Lychee; it is not the release-blocking regression meter.
 
 ## Instruction-Count Baseline
 

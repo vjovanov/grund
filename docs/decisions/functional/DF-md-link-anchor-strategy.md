@@ -67,7 +67,7 @@ A repo using a renderer with no matching profile selects `none` until a profile 
 - [§FS-fmt.6.7](../../functional-spec/FS-fmt.md#67-configurability)'s `anchor_format` config gains the named-profile shape from §2.3 above.
 - [§FS-fmt.6.2](../../functional-spec/FS-fmt.md#62-form)'s anchor form depends on recording heading text per section, in addition to the existing section path.
 - [§DF-md-link-emission.2.2](DF-md-link-emission.md#22-anchor-format) is superseded by this DR. The section-coord stability framing in that section is retracted.
-- [§RM-md-link-emission](../../roadmap.md#rm-md-link-emission-grund-fmt---cross-refs)'s "What" section grows by one item: implement the renderer-profile slugifiers and the heading-text storage in `Findings`.
+- The implementation ([§FS-fmt.6](../../functional-spec/FS-fmt.md#6-cross-reference-emission)) grows by one item: implement the renderer-profile slugifiers and the heading-text storage in `Findings`.
 
 ## 5. Alternatives considered
 

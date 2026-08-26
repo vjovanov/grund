@@ -74,7 +74,7 @@ Linear scans, streaming reads, shared compiled regexes, skipped dead directories
 
 ### 3. Measurable
 
-See [AR-benchmarks](architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands), [AR-ci.5](architecture/AR-ci.md#5-benchmark-job), [RM-benchmarks](roadmap.md#rm-benchmarks-a-benchmark-harness-for-the-goal-fast-feedback-budgets), and [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
+See [AR-benchmarks](architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands), [AR-ci.5](architecture/AR-ci.md#5-benchmark-job), and [AR-goal-measurement.2](architecture/AR-goal-measurement.md#2-goal-meters).
 
 ## GOAL-zero-config: works on any conformant tree
 

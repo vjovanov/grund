@@ -1,4 +1,4 @@
-// §RM-core-cli-split: e2e tests now exercise the dedicated CLI frontend crate.
+// §AR-bindings.3: the e2e tests exercise the dedicated CLI frontend crate.
 use std::path::PathBuf;
 
 #[path = "support/case_runner.rs"]

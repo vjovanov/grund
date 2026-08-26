@@ -334,7 +334,7 @@ mod tests_cover_workspace {
     }
 
     /// §FS-cover.3.2: the deprecated compat surface (`grund_core::main_entry`,
-    /// §RM-core-cli-split) renders `cover` JSON from its own copy of the
+    /// §AR-bindings.2) renders `cover` JSON from its own copy of the
     /// emitter, and nothing in the corpus reaches it — every e2e case drives the
     /// `grund` binary, which is `grund-cli`. A mutation to the compat renderer
     /// therefore passed the whole gate. This pins the bytes directly, so the two

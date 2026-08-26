@@ -1,4 +1,4 @@
-// §RM-e2e-corpus: golden CLI cases verify byte-for-byte command behavior.
+// §FS-errors.4: golden CLI cases verify byte-for-byte command behavior.
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path, PathBuf};

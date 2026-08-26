@@ -61,7 +61,7 @@ fn command_cover(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    // §RM-core-cli-split: the deprecated compatibility surface renders the
+    // §AR-bindings.2: the deprecated compatibility surface renders the
     // same `cover` the CLI does, so the index — including its workspace scope
     // (§FS-workspace.8.6) — is built once, in the API.
     let output = match cover(opts) {
