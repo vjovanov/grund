@@ -263,6 +263,10 @@ pub struct KindConfig {
     /// its home is scanned and its citations are directed, but it admits no
     /// declaration and contributes no prefix to the ID grammar.
     pub citable: bool,
+    /// The `scan` key (§FS-config.3.4.7): whether this kind's home is a walk
+    /// root. `false` is a place that is listed — its Project map row — and not
+    /// walked: content that ships verbatim, which nothing here may check.
+    pub scan: bool,
 }
 
 /// The three states of `[[kinds]] index` (§FS-config.3.4): unset (the
@@ -540,6 +544,7 @@ impl Config {
                 title: default_kind_title(kind).map(str::to_string),
                 index: default_kind_index(kind),
                 citable: default_kind_citable(kind),
+                scan: true,
             })
             .collect();
         let kind_prefixes = kind_prefixes(&kinds);

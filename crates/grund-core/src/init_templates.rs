@@ -419,7 +419,9 @@ fn declaration_map(config: &Config) -> String {
     let rows = config.kinds.iter().filter(|kind| kind.kind != homeless).map(|kind| {
         let title = kind.title.as_deref().unwrap_or("Declaration");
         // A non-citable kind is labelled by its home, which `place_label`
-        // already renders; every kind with a home links to it either way.
+        // already renders; every kind with a home links to it either way. An
+        // unwalked kind (§FS-config.3.4.7) is one of them: the row is why it
+        // is configured, and its missing directions bullet is §2.3.5's.
         match (kind.file.as_deref().or(kind.folder.as_deref()), kind.citable) {
             (Some(home), true) => row(&kind.kind, home, title),
             (Some(home), false) => row(&kind.place_label().unwrap_or_default(), home, title),

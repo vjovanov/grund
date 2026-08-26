@@ -127,11 +127,25 @@ folder = "scripts"
 citable = false
 title = "Repository scripts: hook checks, release preparation, benchmarks, PGO build"
 
+# The reference copies of what `grund init` writes (FS-init.2.1); the binary
+# embeds byte-identical copies under crates/grund-core/assets, which `[scan]
+# exclude` keeps out. Listed, not walked (FS-config.3.4.7): these files land
+# verbatim in other repositories, so a citation in one would ship as a dangling
+# reference — nothing here is this repository's to check, and the row in the
+# Project map is what an agent needs.
+[[kinds]]
+kind = "template"
+folder = "templates"
+citable = false
+scan = false
+title = "Init scaffold templates: what grund init writes, verbatim"
+
 [scan]
 # README.md and AGENTS.md are cited surfaces too — scanned so their citations
 # are checked, not decorative (REQ-readme.3, REQ-agents-md.4). Every `[[kinds]]`
 # home is walked by construction (FS-config.3.5), so the test homes, `examples`,
-# `.github/workflows`, and `scripts` are not repeated here.
+# `.github/workflows`, and `scripts` are not repeated here; `templates` is a
+# home too, and one the config lists without walking.
 include = ["docs", "src", "crates", "README.md", "AGENTS.md"]
 # `repo` / `expected.repo`: the e2e fixture trees under `tests/e2e/cases/*/` are
 # test inputs, not this project's code — keep them out of the host scan so strict

@@ -75,6 +75,7 @@ include!("tests_check_full.rs");
 include!("tests_kind_index.rs");
 include!("tests_kind_index_config.rs");
 include!("tests_non_citable_kinds.rs");
+include!("tests_unwalked_kinds.rs");
 include!("tests_kind_index_entry_form.rs");
 include!("tests_kind_index_enrollment.rs");
 include!("tests_check_full_scope.rs");
