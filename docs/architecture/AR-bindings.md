@@ -53,7 +53,7 @@ Every check, every show, every regex, every walker invocation lives in `grund-co
 - `grund_core::effective_config(path)` / `grund_core::validate_config(path)`
 - The `Findings`, `Declaration`, `Citation`, `Report` data types.
 
-The embedding API returns data; callers decide what to do with it. The deprecated `grund_core::main_entry()` compatibility path remains for existing 0.4 consumers, but the published `grund` CLI owns command parsing, terminal rendering, and exit-code policy and imports no `grund_core::command_*` symbol.
+The embedding API returns data; callers decide what to do with it. The deprecated `grund_core::main_entry()` compatibility path remains for existing 0.4 consumers, but the published `grund` CLI owns command parsing, terminal rendering, and exit-code policy and imports no `grund_core::command_*` symbol. `tests/integration/test_engine_boundary.py` holds the boundary: the embedding API writes to no stream, the engine modules that render are a closed set the test names, and neither frontend references `main_entry`, `compat_cli` or a `command_*` symbol of the engine.
 
 ## 3. grund-cli: the CLI binary
 

@@ -52,6 +52,8 @@ A file belongs to the category whose prefix its name carries — `scanner_walk.r
 | **lsp** | `lsp`, `on_type` |
 | **compat** | `compat` |
 
+`tests/integration/test_module_categories.py` holds this table against the tree: every implementation file owned by exactly one row, every prefix owning a file.
+
 ## 2. Refactor boundary
 
 Splitting the core and CLI crates is an architectural refactor only: it must not change CLI output, diagnostics, scan behavior, template bytes, or public entrypoints. The CLI package may keep calling compatibility command adapters while narrower data-returning APIs are introduced, but embedders use the public API in `api.rs`.
