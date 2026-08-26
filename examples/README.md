@@ -30,7 +30,7 @@ summarizes when to reach for each.
 
 | Folder                                                       | Use-case                                                 |
 |--------------------------------------------------------------|----------------------------------------------------------|
-| [`workspace/`](workspace/)                                   | Cross-project citation in a monorepo ([§FS-workspace](../docs/functional-spec/FS-workspace.md)) |
+| [`workspace/`](workspace/)                                   | Cross-project citation in a monorepo ([§FS-workspace](../docs/functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace)) |
 
 ## Run an example
 
