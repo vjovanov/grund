@@ -67,7 +67,7 @@ path = "crates/grund-core/src/checker.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 770, unit = "lines" }
+max_accepted = { value = 771, unit = "lines" }
 until = "the entry for this path in docs/file-size-human-exceptions.toml is retired"
 reason = """
 Soft twin of this path's entry in docs/file-size-human-exceptions.toml, which carries the argument. This entry holds no judgment of its own: same ceiling, retires with its twin. Edit the reason there, not here.
@@ -167,10 +167,10 @@ path = "crates/grund-core/src/model.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "structural"
-max_accepted = { value = 464, unit = "lines" }
+max_accepted = { value = 470, unit = "lines" }
 until = "indefinite"
 reason = """
-`Model` is the shared vocabulary layer of §AR-core-module-layout.1: 25 type definitions against 9 free functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. The ceiling therefore tracks that width and moves with it: adding a `Config` key or a field to a recorded type raises it (429 rather than 424 once the two `inline_note_layout` keys landed, 433 once the run's workspace scope path and the `[workspace]` block's own source location joined `Config`, 434 once `Citation` recorded whether a shorthand sits in a numeric run, 436 once `Config` learned where the run's other workspace projects are, 437 once `Declaration` recorded the headings that claimed a section path a second time, 457 once `KindConfig` learned which file indexes its folder, the `KindIndex` states that key takes, and how `grund config show` spells it, 455 once a kind could declare no IDs at all — `KindConfig.citable`, the place label a kind with no name to print is rendered by, and the split of the kind list into "every citing kind" and "the citable ones", less the built-in kind table and its per-name defaults, which left for config_kinds.rs because they are config defaults rather than shared vocabulary; 464 once the homeless kind could be named, which is one lookup over the same registry), which is the registry growing, not this file accreting logic. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if such a sub-domain appears.
+`Model` is the shared vocabulary layer of §AR-core-module-layout.1: 25 type definitions against 9 free functions, imported by every other category in the crate. Its size is the width of the domain, not accumulated logic, and a type registry has no internal seam. The ceiling therefore tracks that width and moves with it: adding a `Config` key or a field to a recorded type raises it (429 rather than 424 once the two `inline_note_layout` keys landed, 433 once the run's workspace scope path and the `[workspace]` block's own source location joined `Config`, 434 once `Citation` recorded whether a shorthand sits in a numeric run, 436 once `Config` learned where the run's other workspace projects are, 437 once `Declaration` recorded the headings that claimed a section path a second time, 457 once `KindConfig` learned which file indexes its folder, the `KindIndex` states that key takes, and how `grund config show` spells it, 455 once a kind could declare no IDs at all — `KindConfig.citable`, the place label a kind with no name to print is rendered by, and the split of the kind list into "every citing kind" and "the citable ones", less the built-in kind table and its per-name defaults, which left for config_kinds.rs because they are config defaults rather than shared vocabulary; 464 once the homeless kind could be named, which is one lookup over the same registry; 470 once the scanner recorded the headings that came close, §FS-check.4.7), which is the registry growing, not this file accreting logic. Any split groups types by a taxonomy the compiler does not enforce and a reader has to memorise, while every dependent module gains a second place to look. The boundary that would justify splitting is a sub-domain no other category depends on; none exists. Revisit only if such a sub-domain appears.
 """
 [[exceptions]]
 path = "skills/grund-init/SKILL.md"
@@ -216,3 +216,15 @@ until = "a third shorthand behaviour area earns its own module, the way the rewr
 reason = """
 The rewrite cases already left, to tests_shorthand_rewrite.rs — that was the seam, and it is spent. What remains is one area: what `check` reports about a shorthand, plus the two surfaces that must agree with it (the CLI argument resolver and the LSP snapshot). These fail together — a change to the recognition boundary or the candidate rule breaks the report, the query, and the editor in one move — so a reader chasing one is chasing all three. A second cut here would be by fixture shape rather than by behaviour, which is the split the tests rule exists to prevent.
 """
+
+[[exceptions]]
+path = "crates/grund-core/src/grammar.rs"
+match = "exact"
+rules = ["core-source"]
+kind = "deferred"
+max_accepted = { value = 382, unit = "lines" }
+until = "the per-line readers leave, so this file is the compiled grammar and nothing that walks a line with it"
+reason = """
+The compiled ID grammar: `Grammar::build` turning `[id] format`, the kinds and the comment prefixes into one set of regexes, plus the small readers that ask them a question about a line — `declaration_captures`, `source_scan_line`, the near-miss pair §FS-check.4.7 added. Building and asking are two jobs, and the second is what has grown: 350 -> 382 when the near-miss patterns landed, which are a second opinion about the same line the declaration pattern just declined. Missing boundary: the per-line readers as their own file, leaving this one the grammar it compiles. Not taken at 32 lines over, because the readers are the only callers of the private pattern strings and splitting now trades a long file for a wider interface between two halves that change together.
+"""
+

@@ -143,6 +143,12 @@ pub struct Grammar {
     /// match; this regex never has two modes.
     citation_re: Regex,
     id_input_re: Regex,
+    /// The near-miss patterns (§FS-check.4.7): a heading that opens with a
+    /// configured kind and the literal an ID puts after it, without parsing as
+    /// an ID. `None` where `[id] format` puts no literal between `{kind}` and
+    /// what follows — there "looks like a declaration" cannot be told from prose
+    /// beginning with a kind name, and the rule declines rather than guess.
+    near_miss: Option<NearMissGrammar>,
     /// The number-only shorthand patterns (§FS-check.1.2, §AR-scanner.2.6),
     /// present only when `[id] format` carries both `{number}` and `{slug}`.
     /// `None` is the whole opt-out: every shorthand pass downstream is gated on
@@ -316,6 +322,9 @@ impl Grammar {
             section_re,
             citation_re,
             id_input_re,
+            near_miss: literal_after_kind_placeholder(format)
+                .filter(|literal| !literal.is_empty())
+                .map(|literal| NearMissGrammar::build(&kind_alt, &comment_prefix, literal)),
             shorthand,
             elements,
         })
@@ -431,6 +440,96 @@ fn python_docstring_quote(line: &str) -> Option<&'static str> {
     } else {
         None
     }
+}
+
+/// The near-miss half of the compiled [`Grammar`] (§FS-check.4.7): the
+/// declaration patterns with the ID grammar replaced by "a configured kind, the
+/// separator an ID puts after it, and whatever follows". Two of them for the
+/// same reason the declaration pair has two — a Python docstring line carries no
+/// comment prefix (§AR-scanner.4).
+///
+/// Derived with the rest of the grammar so the rule reads the *project's* kinds
+/// and comment prefixes rather than a second opinion about them, but **compiled
+/// on first use**, the way the shorthand patterns are: a tree whose headings all
+/// parse never matches with these, and on a small tree the fixed cost of
+/// compiling a regex is a visible share of the whole command (§GOAL-fast-feedback,
+/// §AR-benchmarks). The `expect` cannot fire: both patterns are built from an
+/// alternation of `regex::escape`d kinds and the comment-prefix group
+/// [`Grammar::build`] has already compiled on its own.
+#[derive(Clone)]
+struct NearMissGrammar {
+    decl_pattern: String,
+    docstring_pattern: String,
+    decl_re: once_cell::sync::OnceCell<Regex>,
+    docstring_re: once_cell::sync::OnceCell<Regex>,
+}
+
+impl NearMissGrammar {
+    fn build(kind_alt: &str, comment_prefix: &str, after_kind: &str) -> Self {
+        // The trailing `:` is the discriminator, and it is doing real work: a
+        // line that opens with an ID-shaped token and *no* colon is prose far
+        // more often than it is a declaration attempt — a wrapped comment whose
+        // continuation happens to begin with one is the case that found this.
+        // §FS-check.4.7 therefore reads what §RM-declaration-near-miss describes,
+        // `<KIND>-…: <title>`, and says nothing about the rest.
+        //
+        // The token stops at whitespace, at the colon, and at a backtick, so an
+        // inline-code mention (`` `FS-login`: ``) is not one either and the
+        // quoted token is the token as written.
+        let near = format!(
+            r"(?P<near>(?:{kind_alt}){after}[^\s:`]*):",
+            after = regex::escape(after_kind)
+        );
+        Self {
+            decl_pattern: format!(r"^\s*(?:{comment_prefix}\s+|(?P<mdhashes>#+)\s+){near}"),
+            docstring_pattern: format!(r"^\s*{near}"),
+            decl_re: once_cell::sync::OnceCell::new(),
+            docstring_re: once_cell::sync::OnceCell::new(),
+        }
+    }
+
+    /// The ID-shaped token of a heading, or `None` where no heading is. Same
+    /// position rules as [`declaration_captures`] — including the one that keeps
+    /// a Markdown-style heading in a source file from counting
+    /// (§DF-code-declarations-drop-hash) — so a near miss is only ever read
+    /// where a declaration would have been.
+    fn heading_text<'a>(
+        &self,
+        line: &'a str,
+        in_py_docstring: bool,
+        is_md: bool,
+    ) -> Option<&'a str> {
+        let caps = if in_py_docstring {
+            self.docstring_re
+                .get_or_init(|| {
+                    Regex::new(&self.docstring_pattern).expect("near-miss pattern compiles")
+                })
+                .captures(line)
+        } else {
+            self.decl_re
+                .get_or_init(|| {
+                    Regex::new(&self.decl_pattern).expect("near-miss pattern compiles")
+                })
+                .captures(line)
+                .filter(|caps| is_md || caps.name("mdhashes").is_none())
+        }?;
+        Some(caps.name("near")?.as_str())
+    }
+}
+
+/// The heading token §FS-check.4.7 reports, or `None` when this line is not one.
+/// Asked only where [`declaration_captures`] already declined, so a hit is by
+/// construction a heading that came close and missed.
+fn near_miss_heading<'a>(
+    grammar: &Grammar,
+    line: &'a str,
+    in_py_docstring: bool,
+    is_md: bool,
+) -> Option<&'a str> {
+    grammar
+        .near_miss
+        .as_ref()?
+        .heading_text(line, in_py_docstring, is_md)
 }
 
 fn declaration_captures<'a>(

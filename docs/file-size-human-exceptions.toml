@@ -64,10 +64,10 @@ path = "crates/grund-core/src/checker.rs"
 match = "exact"
 rules = ["core-source"]
 kind = "deferred"
-max_accepted = { value = 770, unit = "lines" }
+max_accepted = { value = 771, unit = "lines" }
 until = "the six rule bodies still inline in check_with_workspace become named functions"
 reason = """
-The reference-resolution family has already left, to checker_references.rs, the inline citation style rule with it, to inline_note_layout.rs, and the section-shape family — heading-level strictness beside the new duplicate-section rule — to checker_sections.rs, which is what dropped the ceiling 1083 -> 1013 -> 1000, and the citation-direction family — the obligation and prohibition passes — to checker_citations.rs, taking it to 770. What remains is blocked for a different reason. Six rules — duplicate homes, configured kind homes, the escaped-citation suggestion, broken stub links, unused declarations, and the grounding floor — are written as inline blocks inside one body of check_with_workspace, sharing a KindHomeIndex, repeated passes over findings.declarations, and one &mut CheckReport. They are statements, not functions, so there is nothing to move yet. Missing boundary: each of them named, after which the declaration-placement rules leave as one family and this file keeps the citation-side rules and the shared diagnostic helpers.
+The reference-resolution family has already left, to checker_references.rs, the inline citation style rule with it, to inline_note_layout.rs, and the section-shape family — heading-level strictness beside the new duplicate-section rule — to checker_sections.rs, which is what dropped the ceiling 1083 -> 1013 -> 1000, and the citation-direction family — the obligation and prohibition passes — to checker_citations.rs, taking it to 770; the §FS-check.4.7 call added one back. What remains is blocked for a different reason. Six rules — duplicate homes, configured kind homes, the escaped-citation suggestion, broken stub links, unused declarations, and the grounding floor — are written as inline blocks inside one body of check_with_workspace, sharing a KindHomeIndex, repeated passes over findings.declarations, and one &mut CheckReport. They are statements, not functions, so there is nothing to move yet. Missing boundary: each of them named, after which the declaration-placement rules leave as one family and this file keeps the citation-side rules and the shared diagnostic helpers.
 """
 [[exceptions]]
 path = "crates/grund-core/src/config.rs"

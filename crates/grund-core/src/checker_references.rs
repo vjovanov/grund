@@ -80,6 +80,12 @@ fn retain_findings_in_scope(findings: &mut Findings, scope: Option<&ScanScope>) 
     findings
         .escaped_citations
         .retain(|cite| scope.contains(&cite.file));
+    // §FS-check.4.7 asks a question about the configured scope, so a `--full`
+    // walk's extra files are dropped with the rest: `--full` widens the
+    // *reference* tier (§FS-check.3.14) and nothing else.
+    findings
+        .near_miss_headings
+        .retain(|heading| scope.contains(&heading.file));
     findings.scanned_files.retain(|file| scope.contains(file));
     // The shorthand resolutions §AR-scanner.2.6 performed against the whole walk
     // are deliberately left standing. A site whose declaration the retains above

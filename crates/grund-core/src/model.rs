@@ -204,6 +204,20 @@ pub struct Findings {
     /// resolves to a real declaration — a likely bracketed live citation rather
     /// than an intended illustration (§FS-check.2.3.1, §AR-checker.2.11).
     pub escaped_citations: Vec<Citation>,
+    /// Headings that open like a declaration and do not parse as one
+    /// (§FS-check.4.7) — recorded where the scan already decided the line was
+    /// not a declaration, so the rule costs one regex on heading-shaped lines
+    /// rather than a second read of the tree.
+    pub near_miss_headings: Vec<NearMissHeading>,
+}
+
+/// One heading that opens with a configured kind and the literal an ID puts
+/// after it, without parsing as an ID (§FS-check.4.7). `text` is the token as
+/// written, so the finding can quote it back beside the format it missed.
+pub struct NearMissHeading {
+    pub file: PathBuf,
+    pub line: usize,
+    pub text: String,
 }
 
 /// ID-query slice mode (§FS-show.1): each rung adds to the previous one —

@@ -425,7 +425,7 @@ It is asked only of a run whose scope **is** that project's root (no path argume
 
 Like §2.2 it is a warning, and like §2.2 it is withheld from a run that has any other finding about the configured scope: the exit code stays `0` (a tree with nothing in it yet is the ordinary first day of a repository), and a report that already says something about that scope is not the silent verdict this rule exists to break. It inherits §2.2's two exceptions unchanged, and for the same reasons. A redundant-config pair (§4.3) is a fact about which file was read — and a repository mid-migration between the two config names is exactly where a mismatched `[id] format` hides, in the file that is no longer read. The out-of-scope tier (§3.14) is a fact about the tree beyond the scope, and a `--full` run that reports every citation out there while the configured scope holds nothing is the strongest form of this diagnosis, not a reason to withhold half of it. What it buys is the `success` marker — a warning stands in its place (§2.1), so the run that recognized nothing stops printing the same word as the run that checked everything.
 
-The per-heading half — naming each heading that looks like a declaration and does not match — is [§RM-declaration-near-miss](../roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format) and §5, a different rule that needs a judgement about what any one line meant; this one is arithmetic over what the scan already recorded.
+The per-heading half — naming each heading that looks like a declaration and does not match — is §4.7, a different rule asking a different question: this one is arithmetic over what the scan recorded, that one is about what a single line came close to being. Where both could speak, §4.7 does and this one is withheld under the rule above, because "these two headings, at these lines" is the same fact said usefully.
 
 - **Code:** `nothing-recognized` ([§FS-errors.5](FS-errors.md#5-json-format)), with `path` and `line` null like every CLI-level diagnostic.
 
@@ -461,11 +461,33 @@ Decided in [§DF-index-entry-form](../decisions/functional/DF-index-entry-form.m
 
 - **Code:** `missing-index-entry` ([§FS-errors.5](FS-errors.md#5-json-format)).
 
+### 4.7 Declaration near miss
+
+A heading that opens the way a declaration does and does not parse as one is, today, simply not a declaration: invisible to `check`, to `grund list`, and to citation resolution, with nothing said about it. The classic stumble is `# FS-login: …` under the default `{kind}-{number}-{slug}` — the `-NNN-` left out. `check` emits one **warning** per such heading, at the line a contributor has to edit:
+
+```
+docs/spec.md:1: `FS-login` is heading-shaped and declares nothing — [id] format = "{kind}-{number}-{slug}" reads `# <KIND>-<NNN>-<slug>: <title>`
+```
+
+**What counts.** A line in declaration position — a Markdown heading, or a comment-prefixed line in a source file under the rules of [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) — whose first token is a configured kind name ([§FS-config.3.4](FS-config.md#34-kinds--recognized-kinds)) followed by the literal `[id] format` puts after `{kind}`, which the ID grammar then rejects, and which is **followed by the declaration colon**.
+
+That colon is the discriminator, and it earns its place: a line opening with an ID-shaped token and no colon is prose far more often than it is a declaration attempt — a comment wrapped across lines whose continuation begins with one is the case that proved it, in this repository's own source. So the rule reads exactly the shape a declaration attempt has, `<KIND>-…: <title>`, and says nothing about the rest. A near miss written without a title is not reported; that is the cost, and it buys a rule that stays quiet on prose. The token also stops at a backtick, so an inline-code mention is not one either. The position rules are the declaration rules exactly, so a near miss is only ever read where a declaration would have been: a bare `FS-login: …` in Markdown prose is not one ([§DF-code-declarations-drop-hash](../decisions/functional/DF-code-declarations-drop-hash.md#df-code-declarations-drop-hash-code-resident-declarations-may-drop-the--prefix)), and neither is anything inside a fenced block.
+
+**Three facts, and no fourth.** The message names the token as written, the configured template, and the shape that template reads. It does **not** propose the corrected ID. `check` reports facts about the tree and the config (§3 vs §4), and an ID assembled from `number_pattern` and `slug_pattern` would be a guess at what the author meant — the same line [§FS-check.4.5](FS-check.md#45-nothing-recognized) holds for the same reason. What the reader gets is the mismatch; what to do about it is theirs.
+
+**A format with no literal after `{kind}` is not judged.** Where `[id] format` runs `{kind}` straight into what follows, "looks like a declaration" cannot be told from prose beginning with a kind name, so the rule declines rather than guess ([§FS-config.3.2](FS-config.md#32-id--id-grammar)). Every format that separates them — which is every default and every generated config — is covered.
+
+**It is a warning, so the exit code is unchanged** (§4), and `grund list` is unchanged with it: a near-miss heading is still not a declaration, and this rule reports that rather than repairing it. Where every heading in a project misses this way, these findings are what the run says and [§FS-check.4.5](FS-check.md#45-nothing-recognized) is withheld under its own rule — the specific fact displaces the general one, which is the outcome that rule's "or the headings are written to a different shape than that" was standing in for.
+
+Decided in [§RM-declaration-near-miss](../roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format), which also records the line-oriented opt-out held in reserve should the warning prove noisy on a real tree.
+
+- **Code:** `declaration-near-miss` ([§FS-errors.5](FS-errors.md#5-json-format)).
+
 ## 5. What grund does not check
 
 See [§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) — in particular [§FS-non-goals.1](FS-non-goals.md#1-markdown-link-validation) (markdown links / URLs), [§FS-non-goals.2](FS-non-goals.md#2-spelling-grammar-prose-quality) (spelling/grammar), and the convention that ID numbers are stable handles, not ordinal positions.
 
-One near-miss `check` does not flag *today*: a heading shaped like `# <KIND>-…: <title>` whose ID does not match the configured `[id] format` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) is simply not a declaration — invisible to `check`, to `grund list`, and to citation resolution, with no warning that something heading-shaped was ignored (the classic stumble: `# FS-login: …` under the default `{kind}-{number}-{slug}`). A tree in which *every* heading misses that way no longer passes silently — the run recognized nothing and says so (§4.5) — but the per-heading half, a non-heuristic "looks like a declaration" warning naming each one, is tracked under [§RM-declaration-near-miss](../roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format) — it would surface the mismatch, never guess the corrected ID (`check` reports facts about the tree, §3 vs §4). That is the *declaration*-side near miss; the citation-side one — a `§`-marked token in the shorthand shape — is no longer in this section, because §1.2 and §3.13 now recognize and report it.
+The declaration-side near miss is **no longer** in this section: a heading shaped like `# <KIND>-…: <title>` whose ID does not match the configured `[id] format` is reported per heading by §4.7, and a tree in which every heading misses that way says so twice over — once per line, and once as the run that recognized nothing (§4.5). Neither guesses the corrected ID. The citation-side near miss — a `§`-marked token in the shorthand shape — left this section earlier, when §1.2 and §3.13 began recognizing and reporting it.
 
 ## 6. Watch mode (`--watch`)
 
