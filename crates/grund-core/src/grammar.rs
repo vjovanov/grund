@@ -467,8 +467,10 @@ struct NearMissGrammar {
     /// this and on the absence of the declaration colon before the regex is
     /// asked anything, because the regex is asked of *every* line the scan did
     /// not take as a declaration, which is very nearly every line in the tree.
-    /// Measured on the 10k-file fixture: without the gate this rule cost 3–7% of
-    /// `check`; with it, under 1% (§GOAL-fast-feedback, §AR-benchmarks).
+    /// Measured on the 10k-file fixture, base against branch in one worktree:
+    /// without the gate this rule cost +0.65% of `check` on the mean and +1.69%
+    /// at worst; with it, +0.07% and +0.66% (§GOAL-fast-feedback,
+    /// §AR-benchmarks.5, which records how the numbers were taken).
     first_bytes: Vec<u8>,
 }
 
