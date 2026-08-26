@@ -1,8 +1,12 @@
+"""§FS-init.5 — what the binary embeds is what the tree shows: the `grund-init`
+skill under `skills/` is byte-identical to its copy under
+`crates/grund-core/assets/`, so neither can drift from the other unnoticed."""
+
 from pathlib import Path
 import unittest
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class SkillAssetSyncTests(unittest.TestCase):

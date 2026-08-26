@@ -74,7 +74,7 @@ repos:
         stages: [pre-push]
       - id: python-test
         name: python tests
-        entry: python -m unittest discover -s tests -p test_*.py
+        entry: python -m unittest discover -s tests/integration -p test_*.py
         language: system
         pass_filenames: false
         always_run: true

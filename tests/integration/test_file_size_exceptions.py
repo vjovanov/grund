@@ -14,7 +14,7 @@ import tomllib
 import unittest
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 HARD_REGISTRY = REPO_ROOT / "docs" / "file-size-human-exceptions.toml"
 SOFT_REGISTRY = REPO_ROOT / "docs" / "file-size-agent-exceptions.toml"
 

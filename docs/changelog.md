@@ -30,6 +30,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 ### Changed
 
 - [§FS-config.3.4.4](functional-spec/FS-config.md#344-the-default-kinds): this repository adopts the default test homes it ships. The `E2E` kind over `e2e/cases` gives way to the two non-citable kinds — `e2e` at `tests/e2e` (must cite `FS`, should-not cite `AR`) and `integration` at `tests/integration` (should cite `AR`) — so the corpus moves to `tests/e2e/cases/*`, `[scan] exclude` rather than the `E2E` case pass keeps the fixture repositories out of the host scan ([§FS-config.3.5](functional-spec/FS-config.md#35-scan--what-gets-walked)), and the per-case `must cite FS` obligation moves into the harness's `spec.refs` gate (`crates/grund-cli/tests/e2e.rs`), since a manifest is not a scanned file. `E2E` itself is untouched: the cases that declare it still exercise the case machinery of [§AR-scanner.6](architecture/AR-scanner.md#6-e2e-case-declarations). The generated agent block loses its `E2E` map row and gains the two test homes, rendered by place. (PR #139)
+- The Python tests for `scripts/` move from `tests/` into the `tests/integration` home, where `require_grounding` and `[citations.integration]` reach them, and each now opens with the point it proves. `tests/fixtures/valid`, which nothing has read since the architecture specs were renamed, is removed. (PR #142)
 
 ### Fixed
 

@@ -1,10 +1,14 @@
+"""§AR-ci.8 — the attribution gate in each of its modes: no assistant
+attribution boilerplate lands in this repository's files or commit messages,
+whether the script is handed files, a message file, or a commit range."""
+
 import importlib.util
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "check_no_claude_attribution.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "check_no_claude_attribution.py"
 SPEC = importlib.util.spec_from_file_location("check_no_claude_attribution", SCRIPT_PATH)
 check_no_claude_attribution = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None

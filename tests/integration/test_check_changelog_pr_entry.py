@@ -1,3 +1,8 @@
+"""§AR-ci.7 — the pull-request changelog gate, exercised the way CI runs it: a
+pull request must be named in the `## Unreleased` section of `docs/changelog.md`
+(§FS-distribution.4), and the script reads the PR number the way the event
+supplies it."""
+
 import importlib.util
 import json
 import tempfile
@@ -6,7 +11,7 @@ from subprocess import CompletedProcess
 from unittest.mock import patch
 from pathlib import Path
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "check_changelog_pr_entry.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "check_changelog_pr_entry.py"
 SPEC = importlib.util.spec_from_file_location("check_changelog_pr_entry", SCRIPT_PATH)
 check_changelog_pr_entry = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
