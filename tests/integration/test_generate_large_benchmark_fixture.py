@@ -1,3 +1,7 @@
+"""§AR-benchmarks.1 — the generated large conformant fixture the
+instruction-counting benches read: what the generator writes is conformant, and
+the same arguments write the same tree."""
+
 import importlib.util
 import tempfile
 import unittest
@@ -5,7 +9,7 @@ from pathlib import Path
 
 
 SCRIPT_PATH = (
-    Path(__file__).resolve().parents[1] / "scripts" / "generate_large_benchmark_fixture.py"
+    Path(__file__).resolve().parents[2] / "scripts" / "generate_large_benchmark_fixture.py"
 )
 SPEC = importlib.util.spec_from_file_location("generate_large_benchmark_fixture", SCRIPT_PATH)
 generate_large_benchmark_fixture = importlib.util.module_from_spec(SPEC)

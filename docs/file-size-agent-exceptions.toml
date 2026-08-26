@@ -10,7 +10,7 @@ fissile_exceptions_version = 2
 # lives once, in `docs/file-size-human-exceptions.toml`, and the twin here points
 # at it the way fissile identifies any entry: by registry and path, both already
 # on the lines above. Copying the prose instead would give one file two arguments
-# that can silently disagree, and `tests/test_file_size_exceptions.py` enforces
+# that can silently disagree, and `tests/integration/test_file_size_exceptions.py` enforces
 # the pointer shape.
 [[exceptions]]
 path = "crates/grund-core/src/api.rs"

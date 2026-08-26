@@ -1,10 +1,14 @@
+"""§FS-distribution.4 — the release step that moves the changelog: the
+`## Unreleased` section becomes the inline latest release, the previous latest is
+archived one-per-file, and the release notes are read back from it."""
+
 import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
 
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "prepare_changelog_release.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "prepare_changelog_release.py"
 SPEC = importlib.util.spec_from_file_location("prepare_changelog_release", SCRIPT_PATH)
 prepare_changelog_release = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
