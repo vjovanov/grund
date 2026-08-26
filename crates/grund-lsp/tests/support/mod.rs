@@ -15,6 +15,21 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
+/// The server under test. Inside this package Cargo names the binary it just
+/// built; compiled into another package — `tests/integration/` reuses this
+/// harness — nothing does, so that package sets this before the first spawn.
+pub static SERVER_BINARY: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+pub fn server_binary() -> PathBuf {
+    if let Some(path) = SERVER_BINARY.get() {
+        return path.clone();
+    }
+    match option_env!("CARGO_BIN_EXE_grund-lsp") {
+        Some(path) => PathBuf::from(path),
+        None => panic!("no grund-lsp binary: set support::SERVER_BINARY before spawning"),
+    }
+}
+
 pub fn test_root(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
         "grund-lsp-{name}-{}-{:?}",
@@ -241,7 +256,7 @@ pub fn start_server_with_initialize(
     current_dir: &Path,
     initialize_params: Value,
 ) -> (Child, ChildStdin, mpsc::Receiver<Value>) {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_grund-lsp"))
+    let mut child = Command::new(server_binary())
         .current_dir(current_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
