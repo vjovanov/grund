@@ -213,7 +213,10 @@ read_marker() {
 
 grund_here() { (cd "$FIXTURE" && env "${SANDBOX_ENV[@]}" "$GRUND_BIN" "$@"); }
 
-first_id() { grund_here list --kind "$1" 2>/dev/null | awk 'NR==1 {print $1}'; }
+# A kind the fixture does not declare (`E2E` in a repository on the default
+# test homes) is an empty answer, not a failed run: `list --kind` refuses it
+# with exit 2, which `pipefail` would otherwise turn into the script's exit.
+first_id() { { grund_here list --kind "$1" 2>/dev/null || true; } | awk 'NR==1 {print $1}'; }
 
 # Pick the citation forms the matchers and the resolver each have to survive.
 # Everything is discovered from the fixture repository, so this works on any
