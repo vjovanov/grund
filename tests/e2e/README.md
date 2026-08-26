@@ -110,6 +110,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - Go line doc-comment declaration and marked citation under strict mode
 - Python `"""` / `'''` docstring declarations and marked citations under strict mode
 - Clojure `;` and SQL `--` declarations and marked citations under strict mode
+- a marked dangling citation planted in every default extension and opened by every default comment prefix, one file per extension (`doccomment-polyglot-dangling`): the per-host-language proof of [§REQ-no-missed-citation.3](../../docs/requirements/REQ-no-missed-citation.md#3-proven-per-host-language)
 - missing stub-link target
 - stub-link target is a directory
 - stub-link target has an unsupported extension
