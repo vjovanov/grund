@@ -249,7 +249,11 @@ collect_citations() {
     if [ -n "$MEMBER_DIR" ]; then
         MEMBER_DIR=$(dirname "$MEMBER_DIR")
         # A member on the `.agents/` form has its root one level further up.
-        [ "$(basename "$MEMBER_DIR")" = .agents ] && MEMBER_DIR=$(dirname "$MEMBER_DIR")
+        # An `if`, not `[ … ] && …`: this is the function's last command, and
+        # under `set -e` a false test there would end the whole run.
+        if [ "$(basename "$MEMBER_DIR")" = .agents ]; then
+            MEMBER_DIR=$(dirname "$MEMBER_DIR")
+        fi
     fi
 }
 
