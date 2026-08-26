@@ -27,3 +27,11 @@ path = "integrations_resolve.rs"
 [dev-dependencies]
 serde_json = "1"
 url = "2"
+
+[[test]]
+name = "scan_determinism"
+path = "scan_determinism.rs"
+
+[[test]]
+name = "host_language_dangling_proof"
+path = "host_language_dangling_proof.rs"
