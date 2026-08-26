@@ -51,6 +51,21 @@ The millisecond budget itself is still backstopped by the cheap wall-clock guard
 - [§RM-core-cli-split](../roadmap.md#rm-core-cli-split-split-grund-core-from-grund-cli) / [§RM-distribution](../roadmap.md#rm-distribution-cargo--npm--pypi-from-one-engine) — the harness is deliberately established before the workspace split and bindings work move the engine around, so any slowdown shows up as a diff against a known-good instruction count rather than going unnoticed.
 - [§DA-pgo-release](../decisions/architectural/DA-pgo-release.md#da-pgo-release-distributed-binaries-are-pgo-built-trained-on-the-benchmark-workload) — reuses the self-repo hot command list as the PGO training corpus for the distributed release binary; the release pipeline that runs `scripts/pgo-build.sh` is owned by [§RM-distribution](../roadmap.md#rm-distribution-cargo--npm--pypi-from-one-engine), the release contract is [§FS-distribution.4](../functional-spec/FS-distribution.md#4-release-process), and normal development CI does not run PGO ([§AR-ci.6](AR-ci.md#6-pgo-stays-out-of-development-ci)).
 
-## 5. Scope
+## 5. Measuring a change against this harness
+
+An optimization is a claim about a number, so it is recorded with the number and with how the number was taken. Two rules, both learned the hard way.
+
+**Compare within one worktree.** The counts are deterministic for a given binary, not for a given source tree: two checkouts have their own `target/` directories, and one of them may hold a differently-built binary — a PGO build from `scripts/pgo-build.sh` ([§DA-pgo-release](../decisions/architectural/DA-pgo-release.md#da-pgo-release-distributed-binaries-are-pgo-built-trained-on-the-benchmark-workload)) is the case to watch, since it is trained on this very workload and reads several percent faster on it. Benching branch-in-one-checkout against main-in-another therefore measures the build as much as the change. Take both numbers in the same worktree, switching the source under one `target/`, against the branch's **merge base** rather than whatever `main` has since become.
+
+**A per-line rule is measured before it is optimized, and after.** Recorded so the next one starts from evidence:
+
+| change | mean | worst |
+|---|---|---|
+| [§FS-check.4.7](../functional-spec/FS-check.md#47-declaration-near-miss), regex asked of every non-declaration line | +0.65% | +1.69% |
+| the same rule behind the byte gate that precedes it | +0.07% | +0.66% |
+
+The gate is two byte tests — the line must hold the declaration colon, and must begin with `#` or a comment-prefix byte — each of them implied by the pattern, so the gate can never be narrower than the rule. It is worth roughly a factor of ten here, and the shape generalizes: a rule that runs on every line pays for the *rejections*, not the matches, so the cheapest correct over-approximation of its pattern belongs in front of it.
+
+## 6. Scope
 
 This is a build-and-CI tool, not a CLI surface: it adds no subcommand, no flag, no output shape, so the `tests/e2e/cases/*` corpus is unchanged and nothing here is covered by the [§GOAL-no-silent-breakage](../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) user-visible-surface contract. The benched commands are described above by reference to their functional specs ([§FS-check](../functional-spec/FS-check.md#fs-check-grund-validates-every-reference-in-a-repo), [§FS-cli](../functional-spec/FS-cli.md#fs-cli-grunds-command-line-surface-conventions)) rather than re-specified here.
