@@ -1,22 +1,20 @@
 # Discussions
 
-Working notes for ideas that are not yet accepted specs or decision records.
+Working notes for ideas that are not yet accepted specs or decision records. Use this area for design sketches, trade-off notes, and proposals that need more review before they become `FS-*`, `AR-*`, `DF-*`, `DA-*`, or roadmap entries. Each proposal lives in its own file under `proposals/`, named by the date it was opened; the H1 declares a `DISC-<slug>` ID, and the proposal's own **Status** section says where it stands.
 
-Use this area for design sketches, trade-off notes, and proposals that need more
-review before they become `FS-*`, `AR-*`, `DF-*`, `DA-*`, or roadmap entries.
+Discussion notes use the project-local `DISC` kind declared in `grund.toml`. Proposals, oldest first:
 
-Discussion notes use the project-local `DISC-*` kind in `.agents/grund.toml`.
-Current proposals:
+- [§DISC-link-support](proposals/2026-05-09-link-support.md#disc-link-support-link-support-as-a-derived-presentation-layer) — *(resolved)* Link support as a derived presentation layer — by [§DF-md-link-emission](../decisions/functional/DF-md-link-emission.md#df-md-link-emission-grund-fmt-may-emit-clickable-markdown-links-alongside--prefixed-citations) and [§DF-md-link-anchor-strategy](../decisions/functional/DF-md-link-anchor-strategy.md#df-md-link-anchor-strategy-heading-text-slugs-re-derived-on-every-fmt-pass)
+- [§DISC-external-ticket-resolvers](proposals/2026-05-09-external-ticket-resolvers.md#disc-external-ticket-resolvers-external-ticket-resolvers) — External ticket resolvers
+- [§DISC-token-cheap-grounding](proposals/2026-05-12-token-cheap-grounding.md#disc-token-cheap-grounding-token-cheap-grounding-surfaces) — Token-cheap grounding surfaces
+- [§DISC-init-workspace-members](proposals/2026-05-17-init-workspace-members.md#disc-init-workspace-members-have-init-mention-workspace-members) — *(concluded)* Have `init` mention workspace members
+- [§DISC-doc-comment-declarations](proposals/2026-05-21-doc-comment-declarations.md#disc-doc-comment-declarations-declarations-live-only-in-classmethod-doc-comments-never-inline) — Declarations live only in class/method doc-comments, never inline
+- [§DISC-doc-comment-section-syntax](proposals/2026-05-24-doc-comment-section-syntax.md#disc-doc-comment-section-syntax-native-looking-section-syntax-inside-doc-comment-declarations) — Native-looking section syntax inside doc-comment declarations
+- [§DISC-declaration-local-shorthand](proposals/2026-05-24-declaration-local-shorthand.md#disc-declaration-local-shorthand-declaration-local-shorthand-for-citing-sections-of-the-same-declaration) — Declaration-local shorthand for citing sections of the same declaration
+- [§DISC-markup-format-declarations](proposals/2026-05-25-markup-format-declarations.md#disc-markup-format-declarations-declarations-in-asciidoc-restructuredtext-latex-and-similar-markup-document-formats) — Declarations in AsciiDoc, reStructuredText, LaTeX, and similar markup document formats
+- [§DISC-workspace-member-descriptions](proposals/2026-06-12-workspace-member-descriptions.md#disc-workspace-member-descriptions-describe-workspace-members-in-generated-lists) — *(concluded)* Describe workspace members in generated lists — decided in [§DF-workspace-member-descriptions](../decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists)
+- [§DISC-citation-directions](proposals/2026-06-13-citation-directions.md#disc-citation-directions-encode-citation-directions-as-checked-config) — *(concluded)* Encode citation directions as checked config — decided in [§DF-citation-directions](../decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels)
+- [§DISC-conversation-rendering-layers](proposals/2026-07-21-conversation-rendering-layers.md#disc-conversation-rendering-layers-layered-ownership-of-local-conversation-citation-rendering) — *(concluded)* Layered ownership of local-conversation citation rendering — decided in [§DF-repo-conversation-opinion](../decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion)
+- [§DISC-id-less-kinds](proposals/2026-08-25-id-less-kinds.md#disc-id-less-kinds-kinds-that-declare-no-ids) — *(closed)* Kinds that declare no IDs — decided in [§DF-non-citable-kinds](../decisions/functional/DF-non-citable-kinds.md#df-non-citable-kinds-a-kind-may-declare-no-ids-and-stays-one-kinds-table-when-it-does)
 
-- [§DISC-link-support](proposals/2026-05-09-link-support.md#disc-link-support-link-support-as-a-derived-presentation-layer)
-- [§DISC-external-ticket-resolvers](proposals/2026-05-09-external-ticket-resolvers.md#disc-external-ticket-resolvers-external-ticket-resolvers)
-- [§DISC-token-cheap-grounding](proposals/2026-05-12-token-cheap-grounding.md#disc-token-cheap-grounding-token-cheap-grounding-surfaces)
-- [§DISC-init-workspace-members](proposals/2026-05-17-init-workspace-members.md#disc-init-workspace-members-have-init-mention-workspace-members)
-- [§DISC-doc-comment-declarations](proposals/2026-05-21-doc-comment-declarations.md#disc-doc-comment-declarations-declarations-live-only-in-classmethod-doc-comments-never-inline)
-- [§DISC-doc-comment-section-syntax](proposals/2026-05-24-doc-comment-section-syntax.md#disc-doc-comment-section-syntax-native-looking-section-syntax-inside-doc-comment-declarations)
-- [§DISC-declaration-local-shorthand](proposals/2026-05-24-declaration-local-shorthand.md#disc-declaration-local-shorthand-declaration-local-shorthand-for-citing-sections-of-the-same-declaration)
-- [§DISC-markup-format-declarations](proposals/2026-05-25-markup-format-declarations.md#disc-markup-format-declarations-declarations-in-asciidoc-restructuredtext-latex-and-similar-markup-document-formats)
-- [§DISC-workspace-member-descriptions](proposals/2026-06-12-workspace-member-descriptions.md#disc-workspace-member-descriptions-describe-workspace-members-in-generated-lists)
-- [§DISC-citation-directions](proposals/2026-06-13-citation-directions.md#disc-citation-directions-encode-citation-directions-as-checked-config)
-- [§DISC-conversation-rendering-layers](proposals/2026-07-21-conversation-rendering-layers.md#disc-conversation-rendering-layers-layered-ownership-of-local-conversation-citation-rendering)
-- [§DISC-id-less-kinds](proposals/2026-08-25-id-less-kinds.md#disc-id-less-kinds-kinds-that-declare-no-ids) — closed, decided in [§DF-non-citable-kinds](../decisions/functional/DF-non-citable-kinds.md#df-non-citable-kinds-a-kind-may-declare-no-ids-and-stays-one-kinds-table-when-it-does)
+This index is navigational — citations should target the proposal ID directly, never this file.
