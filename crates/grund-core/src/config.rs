@@ -641,6 +641,15 @@ fn validate_citation_rules(path: &Path, config: &Config) -> Result<()> {
                 format_path(path)
             ));
         }
+        // §FS-config.3.4.7: a rule on a kind whose home is not walked could
+        // never fire — the vacuous pass §DF-non-citable-kinds.2.5 refused, one
+        // level up — so the config is refused where it makes the promise.
+        if config.kinds.iter().any(|k| k.kind == *citing && !k.scan) {
+            return Err(anyhow!(
+                "{}: [citations.{citing}] names an unwalked kind `{citing}` (its home is `scan = false`, so no file in it is checked and the rule could never fire)",
+                format_path(path)
+            ));
+        }
         // Flatten every target with the level it was declared at, rejecting any
         // that names an unconfigured kind on the way.
         let mut targets: Vec<(&'static str, &CitationTarget)> = Vec::new();

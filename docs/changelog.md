@@ -24,6 +24,14 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Added
+
+- [§FS-config.3.4.7](functional-spec/FS-config.md#347-scan--a-place-that-is-listed-not-walked): `[[kinds]] scan = false` — a non-citable kind that is listed in the generated Project map and not walked, for content that ships verbatim (scaffold templates, embedded assets, example configs). `scan = false` on a citable kind, on a kind with no home, and a `[citations.<kind>]` rule naming an unwalked kind are config errors; `check --full` still reaches the directory as out-of-scope territory, and `grund config show` prints the key where it is set. Decided in [§DF-unwalked-kind-home](decisions/functional/DF-unwalked-kind-home.md#df-unwalked-kind-home-a-kind-may-be-a-place-that-is-listed-but-not-walked). This repository lists `templates/` that way. (PR #145)
+
+### Changed
+
+- This repository's `examples/`, `.github/workflows/` and `scripts/` are non-citable homes ([§FS-config.3.4.1](functional-spec/FS-config.md#341-citable--kinds-that-declare-no-ids)) — `sh` joins `[scan] extensions` so the shell scripts are checked — and every folder-kind index carries each declaration's own title sentence. (PR #145)
+
 ## 2. [0.12.1] — 2026-08-26
 
 ### Added

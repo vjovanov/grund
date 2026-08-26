@@ -1,0 +1,30 @@
+grund_config_version = 1
+project_name = "demo"
+
+[id]
+format = "{kind}-{slug}"
+slug_pattern = "[a-z][a-z0-9-]*"
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+title = "What: behavior, requirements, and constraints"
+
+[[kinds]]
+kind = "skill"
+folder = "skills"
+citable = false
+title = "Agent review and automation skills"
+
+[[kinds]]
+kind = "template"
+folder = "templates"
+citable = false
+scan = false
+title = "Scaffold templates: what init writes, verbatim"
+
+[citations]
+
+[citations.skill]
+must = ["FS"]

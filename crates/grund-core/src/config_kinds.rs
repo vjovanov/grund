@@ -120,6 +120,7 @@ impl ParsedKind {
                 title: None,
                 index: KindIndex::Default,
                 citable: true,
+                scan: true,
             },
             header_line,
             name_key: None,
@@ -179,6 +180,21 @@ fn parse_kinds_key(
                     path,
                     line_no,
                     "`citable` outside of [[kinds]] block".to_string(),
+                )?;
+            }
+        }
+        // §FS-config.3.4.7: `scan = false` lists the place without walking it —
+        // for content that ships verbatim and is nothing of this repository's
+        // to check. What it may combine with is validated in `apply_parsed_kinds`.
+        "scan" => {
+            let scan = parse_bool(path, line_no, value)?;
+            if let Some(slot) = current_kind.as_mut() {
+                slot.config.scan = scan;
+            } else {
+                bail_config(
+                    path,
+                    line_no,
+                    "`scan` outside of [[kinds]] block".to_string(),
                 )?;
             }
         }
@@ -359,6 +375,30 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
             return Err(anyhow!(
                 "{}: `{CODE_SOURCE_KIND}` names the homeless kind — a [[kinds]] entry may take it only with `citable = false` and no `folder` or `file` (§FS-config.3.9.2)",
                 format_path(path)
+            ));
+        }
+    }
+    // §FS-config.3.4.7: an unwalked kind is a place and nothing more. A citable
+    // one would have declarations nobody reads — the trap §FS-config.3.5 closes
+    // — and the homeless kind has no home to leave unwalked: what of the
+    // complement is read is `[scan] include`'s to say.
+    for entry in &parsed {
+        let k = &entry.config;
+        if k.scan {
+            continue;
+        }
+        if k.citable {
+            return Err(anyhow!(
+                "{}: kind `{}` sets `scan = false` and declares IDs (an unwalked kind's declarations would be invisible — set `citable = false`, or drop the key)",
+                format_path(path),
+                k.kind
+            ));
+        }
+        if k.folder.is_none() && k.file.is_none() {
+            return Err(anyhow!(
+                "{}: kind `{}` sets `scan = false` without a home (what of the homeless kind is walked is `[scan] include`'s to say)",
+                format_path(path),
+                k.kind
             ));
         }
     }

@@ -1,0 +1,1 @@
+error: grund.toml: kind `FS` sets `scan = false` and declares IDs (an unwalked kind's declarations would be invisible — set `citable = false`, or drop the key)

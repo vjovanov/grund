@@ -574,9 +574,14 @@ fn root_scope_roots(config: &Config, full: bool) -> Vec<PathBuf> {
 /// Every configured `[[kinds]]` home as a walk root (§FS-config.3.5) — `file`
 /// homes included, since a single-file kind's document is as much a home as a
 /// folder is. A home that does not exist walks as nothing, so a fresh repository
-/// whose default homes are not scaffolded yet stays silent.
+/// whose default homes are not scaffolded yet stays silent. An unwalked home
+/// (`scan = false`, §FS-config.3.4.7) is not a root: it is a place the Project
+/// map names, and nothing in it is read short of `--full`'s root walk.
 fn kind_home_roots(config: &Config) -> impl Iterator<Item = PathBuf> + '_ {
     config.kinds.iter().filter_map(|kind| {
+        if !kind.scan {
+            return None;
+        }
         let home = kind.file.as_deref().or(kind.folder.as_deref())?;
         Some(config.root.join(home).components().collect::<PathBuf>())
     })

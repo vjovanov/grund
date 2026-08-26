@@ -1,0 +1,19 @@
+grund_config_version = 1
+
+[reference]
+require_grounding = true
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+
+[[kinds]]
+kind = "template"
+folder = "templates"
+citable = false
+scan = false
+title = "Scaffold templates: what init writes, verbatim"
+
+[scan]
+include = ["docs"]

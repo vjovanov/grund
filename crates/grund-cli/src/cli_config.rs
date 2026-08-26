@@ -129,6 +129,10 @@ fn print_effective_config(config: &Config) {
         if !kind.citable {
             println!("citable = false");
         }
+        // §FS-config.3.4.7: the same rule — absence is `scan = true`.
+        if !kind.scan {
+            println!("scan = false");
+        }
         if let Some(title) = &kind.title {
             println!("title = \"{}\"", escape_toml_basic(title));
         }

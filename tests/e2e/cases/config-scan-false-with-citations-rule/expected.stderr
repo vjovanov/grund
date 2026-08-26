@@ -1,0 +1,1 @@
+error: grund.toml: [citations.template] names an unwalked kind `template` (its home is `scan = false`, so no file in it is checked and the rule could never fire)

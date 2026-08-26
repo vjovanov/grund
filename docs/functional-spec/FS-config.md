@@ -189,7 +189,7 @@ What it **loses**:
 - **An index.** `index` lists a folder's declarations ([§FS-check.4.6](FS-check.md#46-declaration-missing-from-its-kinds-index)) and this kind has none, so setting both keys is a config error rather than a no-op — a statement about a set that can never be non-empty.
 - **Being cited.** A `[citations.<kind>]` rule may not *name it as a target*; there is no ID to point at (§3.9.5).
 
-`citable` is an additive optional key and does not move `grund_config_version` (§5): a config that sets it is only ever written for a binary that understands it, and an older binary meets it through the unknown-key rejection in §4.3.
+`citable` is an additive optional key and does not move `grund_config_version` (§5): a config that sets it is only ever written for a binary that understands it, and an older binary meets it through the unknown-key rejection in §4.3. A non-citable kind whose files are not this repository's to read — content that ships verbatim — sets `scan = false` as well (§3.4.7).
 
 #### 3.4.2 `index` — the kind's index file
 
@@ -293,6 +293,31 @@ A project that overrides this list replaces the defaults entirely — there is n
 
 The rename is what `citable = false` forces. `prefix` was accurate for every row of the table and stopped being accurate for half of it; *kind* is what the rest of grund already calls this value — the `{kind}` placeholder of `[id] format` (§3.2), the `--kind <KIND>` selector of [§FS-list.1](FS-list.md#1-inputs), and the `[citations.<kind>]` table key (§3.9). Under the new name, prefix-ness is a *derived* property of citable kinds (§3.4.5) rather than the schema's word for the whole concept. Decided in [§DF-non-citable-kinds.2.4](../decisions/functional/DF-non-citable-kinds.md#24-the-field-is-a-kind-not-a-prefix).
 
+#### 3.4.7 `scan` — a place that is listed, not walked
+
+`scan = false` (default `true`) keeps a non-citable kind's home out of the walk. The kind is still a **place**: it gets its Project map row ([§FS-init.2.3.4.4](FS-init.md#2344-project-map)) with its title, so an agent is told the directory exists and what it is for — and nothing in it is read, so nothing in it is checked.
+
+```toml
+[[kinds]]
+kind = "template"
+folder = "templates"
+citable = false
+scan = false
+title = "Init scaffold templates: what grund init writes, verbatim"
+```
+
+The case it exists for is content that ships verbatim somewhere else: scaffold templates, embedded assets, example configs. Such files cannot be grounded — a `§` citation in one lands in every tree it is copied into as a dangling reference to a declaration that tree does not have — and leaving the kind unconfigured would leave the directory out of the map. §3.5's rule that a home is a walk root `exclude` cannot prune is about a config that says both "this directory matters" and "skip its descendants"; this key is the config saying one thing: listed, not walked.
+
+What an unwalked kind keeps: its home, its title, and its Project map row. What it loses, beyond what `citable = false` already takes (§3.4.1), is every rule that reaches a file — citation checking, the directions bullet and `[citations.<kind>]` rules, and the `require_grounding` clause of §3.4.1 — because no file in it is scanned. Under `grund check --full` ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)) the whole config root is walked and its files are reached like any directory nobody configured: resolution failures only, never a convention it did not adopt.
+
+Three combinations are config errors, reported per §4.3, each closing a state the key cannot describe:
+
+- `scan = false` on a **citable** kind. Its declarations would be invisible rather than declared — the trap §3.5 closes — so a kind that declares IDs is always walked. Set `citable = false`, or drop the key.
+- `scan = false` with **no home**. The homeless kind (§3.9.2) is the complement of every home, and what of that complement is walked is `[scan] include`'s to say.
+- a `[citations.<kind>]` table naming an unwalked kind as the **citing** kind. No file in the home is scanned, so the rule could never fire — the vacuous pass [§DF-non-citable-kinds.2.5](../decisions/functional/DF-non-citable-kinds.md#25-obligations-get-a-per-file-unit-and-grounding-follows-the-home) refused for a kind with no declarations, one level up.
+
+`grund config show` (§4.2) prints `scan = false` where it is set and nothing where it is not, as it does for `citable`. The key is additive and does not move `grund_config_version` (§5). Decided in [§DF-unwalked-kind-home](../decisions/functional/DF-unwalked-kind-home.md#df-unwalked-kind-home-a-kind-may-be-a-place-that-is-listed-but-not-walked).
+
 ### 3.5 `[scan]` — what gets walked
 
 ```toml
@@ -311,7 +336,7 @@ Listing an extension makes a file *readable*, not declarable. A prose markup for
 
 Every default comment prefix has a path through the default extension list: `;` pairs with Lisp, Scheme, and Clojure extensions; `--` pairs with SQL, Haskell, Lua, and Ada extensions; and `*` / `/*` are block-comment continuation and opener forms in the C-family extensions. Any line whose first non-whitespace run is a configured prefix is eligible to host a declaration heading or a citation. Each claimed form has a strict-mode executable case that plants a marked dangling citation in that form ([§REQ-no-missed-citation.3](../requirements/REQ-no-missed-citation.md#3-proven-per-host-language)).
 
-**Every configured kind home is walked, whether or not `include` names it** (§3.4). A home is the repository saying "declarations and citations live here", so `include` names the *extra* roots — `src`, `crates`, a `README.md` — rather than having to repeat the homes the `[[kinds]]` table already spelled. A home that does not exist walks as nothing and earns no finding, so a fresh repository whose default homes are not scaffolded yet stays silent. A home is a **walk root**, and no walk root is pruned by `exclude`, an ignore file, or the hidden-directory rule ([AR-scanner.1](../architecture/AR-scanner.md#1-tree-walk)) — so a home the repository also excludes is read, while everything *below* it is filtered as usual. That is the honest reading of a config that says both: the `[[kinds]]` entry names the directory, and `exclude` was written about descendants.
+**Every configured kind home is walked, whether or not `include` names it** (§3.4). A home is the repository saying "declarations and citations live here", so `include` names the *extra* roots — `src`, `crates`, a `README.md` — rather than having to repeat the homes the `[[kinds]]` table already spelled. A home that does not exist walks as nothing and earns no finding, so a fresh repository whose default homes are not scaffolded yet stays silent. A home is a **walk root**, and no walk root is pruned by `exclude`, an ignore file, or the hidden-directory rule ([AR-scanner.1](../architecture/AR-scanner.md#1-tree-walk)) — so a home the repository also excludes is read, while everything *below* it is filtered as usual. That is the honest reading of a config that says both: the `[[kinds]]` entry names the directory, and `exclude` was written about descendants. The one home that is not a walk root is the one the config says so about: `scan = false` (§3.4.7) lists a place without walking it.
 
 This closes a trap that had nothing to do with non-citable kinds and everything to do with why one would be configured: a `folder` or `file` outside `include` was never walked, so its declarations did not exist and its citations were **invisible rather than dangling** — no resolution, no finding, nothing to notice. A kind whose entire content is "this directory matters" would have fallen into it on its first line of config. **Upgrade note:** a repository that had a home outside `include` starts seeing that home's findings; they were always true of the tree, and the run was simply not reading it.
 

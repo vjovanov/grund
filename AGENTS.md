@@ -33,6 +33,7 @@ A `§<ID>` is a pointer to a fact, not a file path. Resolve it with `grund` and 
 - [examples/](examples): Worked examples: user-facing walkthroughs that double as fixtures
 - [.github/workflows/](.github/workflows): CI and release workflows: the gate on GitHub, and how a release ships
 - [scripts/](scripts): Repository scripts: hook checks, release preparation, benchmarks, PGO build
+- [templates/](templates): Init scaffold templates: what grund init writes, verbatim
 
 ### Project namespaces
 
