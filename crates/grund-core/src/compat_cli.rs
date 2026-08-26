@@ -67,7 +67,7 @@ fn compat_print_subcommand_help(cmd: &str) {
 ///
 /// New code should depend on the `grund` CLI package for process entry points,
 /// or call the structured `grund-core` APIs (`check`, `show`, `scan`) when
-/// embedding the engine (§RM-core-cli-split, §FS-distribution.3.1).
+/// embedding the engine (§AR-bindings.2, §FS-distribution.3.1).
 #[deprecated(
     since = "0.4.1",
     note = "use the `grund` CLI package for process entry points, or `grund_core::{check, show, scan}` for embedding"

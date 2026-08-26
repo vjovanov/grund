@@ -1,6 +1,6 @@
 # FS-cover: grund groups citations by scanned file
 
-The `cover` subcommand exposes the citation graph as data: for each scanned file, which spec IDs does it cite, and where? This is the plumbing surface for the diff-aware co-change recipe ([§RM-cochange-gate](../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test)): git decides what changed, `cover` says which IDs the changed files lean on. Serves [§RM-cover](../roadmap.md#rm-cover-grund-cover) and keeps the policy layer out of `grund-core`.
+The `cover` subcommand exposes the citation graph as data: for each scanned file, which spec IDs does it cite, and where? This is the plumbing surface for the diff-aware co-change recipe ([§RM-cochange-gate](../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test)): git decides what changed, `cover` says which IDs the changed files lean on. Serves [§FS-cover](FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file) and keeps the policy layer out of `grund-core`.
 
 ## 1. Inputs
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Resolved by [§DF-md-link-emission](../../decisions/functional/DF-md-link-emission.md#df-md-link-emission-grund-fmt-may-emit-clickable-markdown-links-alongside--prefixed-citations) and [§DF-md-link-anchor-strategy](../../decisions/functional/DF-md-link-anchor-strategy.md#df-md-link-anchor-strategy-heading-text-slugs-re-derived-on-every-fmt-pass). Implementation tracked under [§RM-md-link-emission](../../roadmap.md#rm-md-link-emission-grund-fmt---cross-refs). The "Open questions" section below is preserved as-is for historical context; the answers live in the two DFs above.
+Resolved by [§DF-md-link-emission](../../decisions/functional/DF-md-link-emission.md#df-md-link-emission-grund-fmt-may-emit-clickable-markdown-links-alongside--prefixed-citations) and [§DF-md-link-anchor-strategy](../../decisions/functional/DF-md-link-anchor-strategy.md#df-md-link-anchor-strategy-heading-text-slugs-re-derived-on-every-fmt-pass). Implementation shipped as [§FS-fmt.6](../../functional-spec/FS-fmt.md#6-cross-reference-emission). The "Open questions" section below is preserved as-is for historical context; the answers live in the two DFs above.
 
 ## Context
 

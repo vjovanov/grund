@@ -35,7 +35,7 @@ mod tests_declaration_near_miss {
         assert_eq!(finding.line, Some(1));
     }
 
-    /// §FS-check.4.7, and §RM-declaration-near-miss's own measurable: a heading that *does* match
+    /// §FS-check.4.7 read from the other side: a heading that *does* match
     /// gets none.
     #[test]
     fn a_heading_that_matches_is_not_reported() {

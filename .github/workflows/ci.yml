@@ -157,7 +157,7 @@ jobs:
   # Callgrind — only this job needs Valgrind, and the `bench` Cargo feature gate
   # keeps the matrix above from building or running it. One platform: it measures
   # instruction counts, not cross-platform behavior. Pull requests save a
-  # base-branch baseline first, then fail when the PR crosses the §RM-benchmarks
+  # base-branch baseline first, then fail when the PR crosses the §AR-benchmarks
   # instruction-count threshold.
   bench:
     name: cargo bench (instruction counts)

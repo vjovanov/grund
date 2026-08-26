@@ -65,7 +65,7 @@ The link emission is a transformation on the source `.md` file (a sibling of the
 ## 4. Consequences
 
 - A new `--cross-refs` flag on `grund fmt` and a `[fmt.cross_refs]` config block in `grund.toml` ([§FS-fmt.6.7](../../functional-spec/FS-fmt.md#67-configurability)).
-- A new roadmap item [§RM-md-link-emission](../../roadmap.md#rm-md-link-emission-grund-fmt---cross-refs) carries the implementation.
+- The implementation shipped as [§FS-fmt.6](../../functional-spec/FS-fmt.md#6-cross-reference-emission).
 - The [§GOAL-polyglot-citation](../../goals.md#goal-polyglot-citation-ids-cite-cleanly-from-anywhere-they-are-useful) goal explicitly states that the polyglot grammar is the canonical form; this decision is the sanctioned exception that adds a presentation-layer view in `.md` only.
 - Repos that keep the default should run `grund fmt --write` as a pre-commit hook so the generated links stay in sync with file moves and citation edits. CI that wants to flag link drift without writing should run `grund fmt --cross-refs --check`, because `enabled = true` auto-runs the link pass only for `--write`.
 - The [§GOAL-no-silent-breakage](../../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) path: generated configs write `enabled = true` explicitly so new repos see and can edit the default. Existing repos that do not want Markdown links can pin `enabled = false`; the flag remains an explicit one-shot opt-in.

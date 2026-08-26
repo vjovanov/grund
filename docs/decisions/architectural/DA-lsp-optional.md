@@ -47,7 +47,7 @@ A separate package means the LSP's release cadence can decouple from the CLI's w
 - The workspace gains a third crate: `crates/grund-lsp/`. [§AR-bindings.1](../../architecture/AR-bindings.md#1-target-workspace-layout) is updated to list it alongside `grund-core`, `grund-cli`, `grund-node`, and `grund-py`.
 - The Cargo package `grund-lsp` is published independently from the CLI. The npm and PyPI packages remain planned targets in [§FS-distribution.1](../../functional-spec/FS-distribution.md#1-targets).
 - [§FS-lsp.2.1](../../functional-spec/FS-lsp.md#21-install) ("Install") states that the CLI install does not pull in `grund-lsp` transitively; the inverse is also true (`grund-lsp` does not pull in the CLI binary).
-- The roadmap item [§RM-lsp](../../roadmap.md#rm-lsp-ship-the-optional-lsp-server) owns shipping the crate and Cargo package. The remaining npm/PyPI packaging rides with [§RM-distribution](../../roadmap.md#rm-distribution-cargo--npm--pypi-from-one-engine).
+- The crate and Cargo package shipped ([§FS-lsp](../../functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server)); the remaining npm/PyPI packaging rides with [§RM-distribution](../../roadmap.md#rm-distribution-cargo--npm--pypi-from-one-engine).
 - [§FS-non-goals](../../functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) adds an explicit entry: first-party per-editor plugins (VSCode/IntelliJ/Vim/Emacs wrappers) are out of scope. The LSP server is the only editor surface; editor configuration is the user's one-time work.
 
 ## 5. Alternatives considered

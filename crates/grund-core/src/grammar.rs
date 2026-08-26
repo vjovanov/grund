@@ -480,7 +480,7 @@ impl NearMissGrammar {
         // line that opens with an ID-shaped token and *no* colon is prose far
         // more often than it is a declaration attempt — a wrapped comment whose
         // continuation happens to begin with one is the case that found this.
-        // §FS-check.4.7 therefore reads what §RM-declaration-near-miss describes,
+        // §FS-check.4.7 therefore reads only the shape it names,
         // `<KIND>-…: <title>`, and says nothing about the rest.
         //
         // The token stops at whitespace, at the colon, and at a backtick, so an
