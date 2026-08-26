@@ -33,7 +33,7 @@ grund/
 └── tests/
 ```
 
-All four frontend crates depend on `grund-core` and only on `grund-core` for engine logic. None depend on each other. This is the property that lets [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary) hold: `grund-cli`'s dependency tree contains no JSON-RPC machinery and no LSP types, because none of those reach `grund-core`.
+All four frontend crates depend on `grund-core` and only on `grund-core` for engine logic. None depend on each other. `tests/integration/test_frontend_isolation.py` holds this on the resolved dependency graph `cargo metadata` reports rather than on the manifests' intent: the CLI's tree carries no LSP transport, the server's carries no CLI, and the engine's carries no frontend. This is the property that lets [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary) hold: `grund-cli`'s dependency tree contains no JSON-RPC machinery and no LSP types, because none of those reach `grund-core`.
 
 ## 2. grund-core: the only place logic lives
 

@@ -8,6 +8,7 @@ Goals say what matters and requirements say what must never break; this page nam
 - Functional specs own observable behavior.
 - Architecture and CI specs own harness shape.
 - E2E cases and benchmark reports own examples, baselines, and regression gates.
+- Integration tests (`tests/integration/`) own the proofs that span more than one part: that the server publishes what the CLI prints ([AR-lsp.5](AR-lsp.md#5-determinism-and-parity-tests)), that the frontends stay isolated ([AR-bindings.1](AR-bindings.md#1-target-workspace-layout)), that CI runs what pre-commit runs ([AR-ci.1](AR-ci.md#1-pre-commit-is-the-source-of-truth)), and that the embedded assets match the tree.
 
 ## 2. Goal meters
 

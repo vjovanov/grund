@@ -343,4 +343,4 @@ That rule plus a clean `grund check` is the whole contract: every reference reso
 - [`docs/functional-spec/`](docs/functional-spec/) — external behavior
 - [`docs/architecture/`](docs/architecture/) — internals: [§AR-scanner](docs/architecture/AR-scanner.md#ar-scanner-how-grund-discovers-declarations-and-citations) for discovery, [§AR-checker](crates/grund-core/src/checker.rs) for validation, and [§AR-core-module-layout](docs/architecture/AR-core-module-layout.md#ar-core-module-layout-core-implementation-is-split-by-category) for the core source layout
 - [`docs/decisions/`](docs/decisions/) — how we got here
-- [`tests/e2e/`](tests/e2e/) — executable proof that the spec holds
+- [`tests/e2e/`](tests/e2e/) — executable proof that the spec holds; [`tests/integration/`](tests/integration/) — proof that the parts fit as designed

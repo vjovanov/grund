@@ -134,7 +134,7 @@ Editor-side LSP configuration (server arguments, workspace folders) is the user'
 
 ## 4. Determinism and parity with the CLI
 
-Same input + same config → same diagnostics, same hover body, same definition target, byte-for-byte ([§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)). The implementation enforces this by routing LSP state through `grund-core` snapshot, check, show, refs, and formatting APIs, plus focused LSP tests for linkification, configured trigger handling, workspace member marker resolution, UTF-16 ranges, and document-link targets. A full child-process sweep over `tests/e2e/cases/*` is future hardening, not a current shipped harness.
+Same input + same config → same diagnostics, same hover body, same definition target, byte-for-byte ([§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)). The implementation enforces this by routing LSP state through `grund-core` snapshot, check, show, refs, and formatting APIs, plus focused LSP tests for linkification, configured trigger handling, workspace member marker resolution, UTF-16 ranges, and document-link targets. The full child-process sweep over `tests/e2e/cases/*` ships as `tests/integration/lsp_cli_parity.rs`: for every plain-`check` case, the diagnostics the server publishes are the located findings the CLI prints, or the build is red.
 
 The LSP server does not have an "interactive" mode, a confirmation prompt, or any user-visible state that the CLI lacks ([§FS-non-goals.10](FS-non-goals.md#10-interactive-mode)). It is the same engine with a different transport.
 
