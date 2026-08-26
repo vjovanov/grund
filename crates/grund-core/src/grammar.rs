@@ -470,7 +470,7 @@ struct NearMissGrammar {
     /// Measured on the 10k-file fixture, base against branch in one worktree:
     /// without the gate this rule cost +0.65% of `check` on the mean and +1.69%
     /// at worst; with it, +0.07% and +0.66% (§GOAL-fast-feedback,
-    /// §AR-benchmarks.5, which records how the numbers were taken).
+    /// §AR-benchmarks.5, whose rule the two numbers were taken under).
     first_bytes: Vec<u8>,
 }
 
