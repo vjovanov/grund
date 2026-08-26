@@ -11,6 +11,13 @@ mod tests_unwalked_kinds {
     /// Markdown file and one with a dangling citation, so "not walked" and
     /// "walked and clean" are told apart by what the run reports.
     fn templates_repo(name: &str, extra: &str) -> PathBuf {
+        templates_repo_at(name, "templates", "[\"docs\"]", extra)
+    }
+
+    /// The same repository with the home and the `[scan] include` list spelled
+    /// by the caller, so a case can put the unwalked home *under* a walk root —
+    /// the arrangement in which leaving it out of the roots is not enough.
+    fn templates_repo_at(name: &str, home: &str, include: &str, extra: &str) -> PathBuf {
         let root = test_root(name);
         write(
             &root.join("grund.toml"),
@@ -18,9 +25,9 @@ mod tests_unwalked_kinds {
                 "grund_config_version = 1\n\n\
                  [reference]\nrequire_grounding = true\n\n\
                  [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n\n\
-                 [[kinds]]\nkind = \"template\"\nfolder = \"templates\"\ncitable = false\n\
+                 [[kinds]]\nkind = \"template\"\nfolder = \"{home}\"\ncitable = false\n\
                  scan = false\ntitle = \"Scaffold templates\"\n\n\
-                 [scan]\ninclude = [\"docs\"]\n\n{extra}"
+                 [scan]\ninclude = {include}\n\n{extra}"
             ),
         );
         write(
@@ -28,11 +35,11 @@ mod tests_unwalked_kinds {
             "# FS-001-login: A user logs in\n\nBody.\n",
         );
         write(
-            &root.join("templates/README.md"),
+            &root.join(home).join("README.md"),
             "# Scaffold\n\nNo citation here, on purpose.\n",
         );
         write(
-            &root.join("templates/agents.md"),
+            &root.join(home).join("agents.md"),
             "# Agents\n\nSee §FS-999-ghost.\n",
         );
         root
@@ -92,6 +99,74 @@ mod tests_unwalked_kinds {
         assert!(
             !block.contains("**templates/**"),
             "no directions bullet: {block}"
+        );
+    }
+
+    /// §FS-config.3.4.7: the home is not walked wherever the walk would meet it.
+    /// Left out of the roots and nothing more, `docs/templates` is still read as
+    /// a descendant of the `docs` root above it, and the key is a silent no-op
+    /// for every repository that keeps its scaffolds under a scanned directory.
+    #[test]
+    fn an_unwalked_home_under_a_walk_root_is_not_walked() {
+        let run = check_run(
+            &templates_repo_at(
+                "an_unwalked_home_under_a_walk_root_is_not_walked",
+                "docs/templates",
+                "[\"docs\"]",
+                "",
+            ),
+            false,
+        );
+        let codes = codes(&run);
+        assert!(
+            !codes
+                .iter()
+                .any(|code| code.contains("ungrounded") || code.contains("dangling")),
+            "a root above it does not walk it: {codes:?}"
+        );
+    }
+
+    /// §FS-config.3.4.7: `[scan] include` naming the home is the one way it is
+    /// still a *root* — where a walk cannot prune it, because a root is what is
+    /// never filtered. The key written on the kind is the narrower one and wins.
+    #[test]
+    fn an_include_entry_does_not_walk_an_unwalked_home() {
+        let run = check_run(
+            &templates_repo_at(
+                "an_include_entry_does_not_walk_an_unwalked_home",
+                "templates",
+                "[\"docs\", \"templates\"]",
+                "",
+            ),
+            false,
+        );
+        let codes = codes(&run);
+        assert!(
+            !codes
+                .iter()
+                .any(|code| code.contains("ungrounded") || code.contains("dangling")),
+            "listed, not walked, however it is named: {codes:?}"
+        );
+    }
+
+    /// §FS-check.3.14: `--full` reaches a home under a walk root like any other
+    /// unconfigured directory, and the finding lands in the out-of-scope tier —
+    /// the enclosing `docs` root does not make it part of the configured scope.
+    #[test]
+    fn full_tiers_a_home_under_a_walk_root_as_out_of_scope() {
+        let run = check_run(
+            &templates_repo_at(
+                "full_tiers_a_home_under_a_walk_root_as_out_of_scope",
+                "docs/templates",
+                "[\"docs\"]",
+                "",
+            ),
+            true,
+        );
+        let codes = codes(&run);
+        assert!(
+            codes.iter().any(|code| code == "out-of-scope-dangling"),
+            "reached, and reached from outside the scope: {codes:?}"
         );
     }
 
