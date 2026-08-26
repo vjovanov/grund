@@ -462,6 +462,14 @@ struct NearMissGrammar {
     docstring_pattern: String,
     decl_re: once_cell::sync::OnceCell<Regex>,
     docstring_re: once_cell::sync::OnceCell<Regex>,
+    /// The bytes a line in declaration position can start with — `#`, and the
+    /// first byte of every configured comment prefix. The gate below rejects on
+    /// this and on the absence of the declaration colon before the regex is
+    /// asked anything, because the regex is asked of *every* line the scan did
+    /// not take as a declaration, which is very nearly every line in the tree.
+    /// Measured on the 10k-file fixture: without the gate this rule cost 3–7% of
+    /// `check`; with it, under 1% (§GOAL-fast-feedback, §AR-benchmarks).
+    first_bytes: Vec<u8>,
 }
 
 impl NearMissGrammar {
@@ -485,7 +493,26 @@ impl NearMissGrammar {
             docstring_pattern: format!(r"^\s*{near}"),
             decl_re: once_cell::sync::OnceCell::new(),
             docstring_re: once_cell::sync::OnceCell::new(),
+            first_bytes: first_declaration_bytes(comment_prefix),
         }
+    }
+
+    /// Whether this line is worth asking the regex about — a cheap conservative
+    /// over-approximation of the pattern, never narrower than it. Both tests are
+    /// implied by the pattern itself: it requires the declaration colon, and it
+    /// anchors at `#` or a comment prefix unless the line is inside a Python
+    /// docstring, where a declaration carries no prefix at all (§AR-scanner.4).
+    fn could_match(&self, line: &str, in_py_docstring: bool) -> bool {
+        if !line.as_bytes().contains(&b':') {
+            return false;
+        }
+        if in_py_docstring {
+            return true;
+        }
+        line.trim_start()
+            .as_bytes()
+            .first()
+            .is_some_and(|byte| self.first_bytes.contains(byte))
     }
 
     /// The ID-shaped token of a heading, or `None` where no heading is. Same
@@ -499,6 +526,9 @@ impl NearMissGrammar {
         in_py_docstring: bool,
         is_md: bool,
     ) -> Option<&'a str> {
+        if !self.could_match(line, in_py_docstring) {
+            return None;
+        }
         let caps = if in_py_docstring {
             self.docstring_re
                 .get_or_init(|| {
@@ -515,6 +545,26 @@ impl NearMissGrammar {
         }?;
         Some(caps.name("near")?.as_str())
     }
+}
+
+/// The bytes a declaration-position line can begin with: `#` for the Markdown
+/// form, plus the first byte of every alternative in the comment-prefix group.
+/// Read off the compiled alternation rather than the raw `[scan] comment_prefixes`
+/// so it cannot drift from what the pattern actually accepts — `//` is widened to
+/// `//[/!]?` there, and both still begin with `/`.
+fn first_declaration_bytes(comment_prefix: &str) -> Vec<u8> {
+    let mut bytes = vec![b'#'];
+    for alternative in comment_prefix.trim_matches(['(', ')']).split('|') {
+        // Every alternative is `regex::escape`d, so a leading `\` is the escape
+        // of the byte that follows it.
+        let literal = alternative.strip_prefix('\\').unwrap_or(alternative);
+        if let Some(&byte) = literal.as_bytes().first() {
+            bytes.push(byte);
+        }
+    }
+    bytes.sort_unstable();
+    bytes.dedup();
+    bytes
 }
 
 /// The heading token §FS-check.4.7 reports, or `None` when this line is not one.
