@@ -56,5 +56,5 @@ Then drop a dangling cross-project citation into any file (e.g. change
 `path:line:` shape it uses for single-project checks.
 
 The neighboring-repo form `<§>payments/FS-refunds` resolving to another
-repository is **not** implemented yet — see [§FS-workspace.7]
+repository is **not** implemented yet — see [[§FS-workspace.7](../../docs/functional-spec/FS-workspace.md#7-neighboring-repos)]
 (../../docs/functional-spec/FS-workspace.md#7-neighboring-repos).

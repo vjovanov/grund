@@ -100,19 +100,49 @@ folder = "skills"
 citable = false
 title = "Agent review and automation skills"
 
+# Four more places (FS-config.3.4.1), each named by its path in the Project map.
+# `examples/` holds the user-facing walkthroughs FS-examples asks for, each
+# shaped like an e2e case — `repo/` is the fixture, kept out of the scan by
+# `[scan] exclude` below, and the README beside it is what gets checked.
+[[kinds]]
+kind = "example"
+folder = "examples"
+citable = false
+title = "Worked examples: user-facing walkthroughs that double as fixtures"
+
+# The GitHub Actions workflows. Being a home is what scans them now, so
+# `[scan] include` no longer names the directory.
+[[kinds]]
+kind = "workflow"
+folder = ".github/workflows"
+citable = false
+title = "CI and release workflows: the gate on GitHub, and how a release ships"
+
+# The hook checks, the release script, the benchmark tooling, and the PGO
+# build. `sh` is in `[scan] extensions` below so the shell scripts here are
+# checked beside the Python ones.
+[[kinds]]
+kind = "script"
+folder = "scripts"
+citable = false
+title = "Repository scripts: hook checks, release preparation, benchmarks, PGO build"
+
 [scan]
-# README.md, AGENTS.md, and the workflow YAML are cited surfaces too — scanned
-# so their citations are checked, not decorative (REQ-readme.3, REQ-agents-md.4).
-# Every `[[kinds]]` home is walked by construction (FS-config.3.5), so `tests/e2e`
-# and `tests/integration` are not repeated here.
-include = ["docs", "src", "crates", ".github/workflows", "README.md", "AGENTS.md"]
+# README.md and AGENTS.md are cited surfaces too — scanned so their citations
+# are checked, not decorative (REQ-readme.3, REQ-agents-md.4). Every `[[kinds]]`
+# home is walked by construction (FS-config.3.5), so the test homes, `examples`,
+# `.github/workflows`, and `scripts` are not repeated here.
+include = ["docs", "src", "crates", "README.md", "AGENTS.md"]
 # `repo` / `expected.repo`: the e2e fixture trees under `tests/e2e/cases/*/` are
 # test inputs, not this project's code — keep them out of the host scan so strict
 # mode and `require_grounding` (above) apply to grund's own sources, not the
 # fixtures. With `e2e` a plain home rather than the `E2E` case kind, this exclude
 # is the only thing between the walk and the fixtures.
 exclude = ["target", "node_modules", ".git", "dist", "build", ".venv", "repo", "expected.repo", "assets"]
-extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs", "lisp", "scm", "clj", "sql", "hs", "lhs", "lua", "ada", "adb", "ads", "yml", "yaml"]
+# The allowlist of what the walk reads — the opposite sense of `exclude` above: a
+# file is scanned only when its extension is listed (FS-config.3.5). `sh` is here
+# for the shell scripts under `scripts/`.
+extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs", "lisp", "scm", "clj", "sql", "hs", "lhs", "lua", "ada", "adb", "ads", "yml", "yaml", "sh"]
 comment_prefixes = ["//", "#", ";", "--", "*", "/*"]
 docstring_python = true
 respect_gitignore = true
@@ -171,6 +201,19 @@ should = ["AR"]
 [citations.skill]
 must = ["FS"]
 must-not = ["AR"]
+
+# An example is a user-facing walkthrough of the What, so it names the FS point
+# it teaches and never the design.
+[citations.example]
+must = ["FS"]
+must-not = ["AR"]
+
+# Workflows and scripts are implementation: the same rule as `code`.
+[citations.workflow]
+should = ["FS|AR"]
+
+[citations.script]
+should = ["FS|AR"]
 
 [citations.code]
 should = ["FS|AR"]

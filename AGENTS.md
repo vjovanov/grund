@@ -30,6 +30,9 @@ A `§<ID>` is a pointer to a fact, not a file path. Resolve it with `grund` and 
 - [RM](docs/roadmap.md): Planned milestones and sequencing
 - [DISC](docs/discussions): Design discussions and proposals
 - [skills/](skills): Agent review and automation skills
+- [examples/](examples): Worked examples: user-facing walkthroughs that double as fixtures
+- [.github/workflows/](.github/workflows): CI and release workflows: the gate on GitHub, and how a release ships
+- [scripts/](scripts): Repository scripts: hook checks, release preparation, benchmarks, PGO build
 
 ### Project namespaces
 
@@ -62,6 +65,9 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 - **tests/e2e/** must cite FS; avoid citing AR.
 - **tests/integration/** should cite AR.
 - **skills/** must cite FS; never cite AR.
+- **examples/** must cite FS; never cite AR.
+- **.github/workflows/** should cite FS or AR.
+- **scripts/** should cite FS or AR.
 - **code** (any file outside a kind home) should cite FS or AR.
 Unlisted kinds and pairs are fine.
 
@@ -73,7 +79,7 @@ On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the rev
 ## Repository workflow
 
 - Every PR for this repository needs a `docs/changelog.md` `## Unreleased` bullet that mentions its PR number (`PR #N`); the pre-push hook checks this once the branch has a PR ([§FS-distribution.4](docs/functional-spec/FS-distribution.md#4-release-process)).
-- Hard requirements — what `grund` must never break — live in `docs/requirements`: [§REQ-backwards-compatibility](docs/requirements/REQ-backwards-compatibility.md#req-backwards-compatibility-an-upgrade-never-changes-a-verdict-quietly), [§REQ-no-missed-citation](docs/requirements/REQ-no-missed-citation.md#req-no-missed-citation-every-citation-the-run-reads-is-checked), [§REQ-no-wrong-citation](docs/requirements/REQ-no-wrong-citation.md#req-no-wrong-citation-a-citation-never-resolves-to-a-guess), [§REQ-no-data-loss](docs/requirements/REQ-no-data-loss.md#req-no-data-loss-grund-never-eats-user-content), [§REQ-deterministic-output](docs/requirements/REQ-deterministic-output.md#req-deterministic-output-same-input-same-bytes), [§REQ-never-crashes](docs/requirements/REQ-never-crashes.md#req-never-crashes-garbage-in-diagnostic-out). This entrypoint's contract is [§REQ-agents-md](docs/requirements/REQ-agents-md.md#req-agents-md-the-agent-entrypoint-stays-managed-and-grounded) (edit `AGENTS.md`, never the `CLAUDE.md` symlink); the README's is [§REQ-readme](docs/requirements/REQ-readme.md#req-readme-the-readme-is-the-grounded-shop-window).
+- Edit `AGENTS.md`, never the `CLAUDE.md` symlink ([§REQ-agents-md.1](docs/requirements/REQ-agents-md.md#1-one-source-symlinked-companions)); this entrypoint's contract is [§REQ-agents-md](docs/requirements/REQ-agents-md.md#req-agents-md-the-agent-entrypoint-stays-managed-and-grounded), the README's is [§REQ-readme](docs/requirements/REQ-readme.md#req-readme-the-readme-is-the-grounded-shop-window).
 
 <!-- BEGIN FISSILE MANAGED BLOCK -->
 ## Keeping Files Small With fissile (v3)
