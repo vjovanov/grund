@@ -6,14 +6,14 @@ An architectural spec may live inline in the class- or module-level doc-comment 
 
 | ID | Subject |
 |---|---|
-| [§AR-scanner](AR-scanner.md#ar-scanner-how-grund-discovers-declarations-and-citations) | how `grund` discovers declarations and citations |
-| [§AR-checker](../../crates/grund-core/src/checker.rs) | how `grund` validates the scanner's findings — declared and enrolled directly from `crates/grund-core/src/checker.rs` |
+| [§AR-scanner](AR-scanner.md#ar-scanner-how-grund-discovers-declarations-and-citations) | how grund discovers declarations and citations |
+| [§AR-checker](../../crates/grund-core/src/checker.rs) | how grund validates the scanner's findings — declared and enrolled directly from `crates/grund-core/src/checker.rs` |
 | [§AR-workspace](AR-workspace.md#ar-workspace-how-the-resolver-config-loader-and-scanner-compose-across-projects) | how the resolver, config loader, and scanner compose across projects |
-| [§AR-core-module-layout](AR-core-module-layout.md#ar-core-module-layout-core-implementation-is-split-by-category) | how the current Rust implementation is split into category files |
-| [§AR-bindings](AR-bindings.md#ar-bindings-target-shape-for-exposing-the-rust-engine-on-three-platforms) | how the same Rust engine is exposed on three platforms |
-| [§AR-lsp](AR-lsp.md#ar-lsp-how-the-lsp-server-is-built) | how the optional LSP server is built |
-| [§AR-ci](AR-ci.md#ar-ci-ci-mirrors-the-local-pre-commit-gate) | how CI mirrors the local pre-commit gate |
-| [§AR-goal-measurement](AR-goal-measurement.md#ar-goal-measurement-goal-and-requirement-meters-live-outside-goals) | where goal measurement lives outside `docs/goals.md` |
-| [§AR-benchmarks](AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands) | the instruction-counting benchmark harness for the [§GOAL-fast-feedback](../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) budgets |
+| [§AR-core-module-layout](AR-core-module-layout.md#ar-core-module-layout-core-implementation-is-split-by-category) | core implementation is split by category |
+| [§AR-bindings](AR-bindings.md#ar-bindings-target-shape-for-exposing-the-rust-engine-on-three-platforms) | target shape for exposing the Rust engine on three platforms |
+| [§AR-lsp](AR-lsp.md#ar-lsp-how-the-lsp-server-is-built) | how the LSP server is built |
+| [§AR-ci](AR-ci.md#ar-ci-ci-mirrors-the-local-pre-commit-gate) | CI mirrors the local pre-commit gate |
+| [§AR-goal-measurement](AR-goal-measurement.md#ar-goal-measurement-goal-and-requirement-meters-live-outside-goals) | goal and requirement meters live outside goals |
+| [§AR-benchmarks](AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands) | instruction-counting benchmarks for the hot CLI commands |
 
 This index is navigational — citations should target the spec ID directly, never this file.
