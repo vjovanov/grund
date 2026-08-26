@@ -10,6 +10,8 @@ When a new pre-commit hook is added, the same change must ensure CI can run it. 
 
 `pre-commit run --all-files` reproduces only the stages whose input is a file list. A hook bound to a stage with different input — `commit-msg`, whose argument is a message file — is silently absent from that run, so "CI runs the config" is not by itself parity. Every such hook needs an explicit CI counterpart that feeds it the input the stage would have supplied; §8 is the first.
 
+All of this is checked rather than remembered: `tests/integration/test_ci_precommit_parity.py` reads the two files and fails when CI stops invoking the hook list, a hook's binary has no pinned install step before that gate, a `commit-msg` hook has no range-scanning counterpart, the Rust hooks and the workflow's own steps spell different commands, warnings are denied on one side only, or the Python tests are discovered from different directories.
+
 ## 2. Platform scope
 
 The full Rust build and test matrix still runs on every configured operating system. The pre-commit gate may run on one representative CI platform when the hooks are platform-independent, because its job is policy parity with local commits, not cross-platform behavior coverage. Platform-specific behavior belongs in the build and test jobs.

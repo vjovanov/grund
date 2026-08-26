@@ -363,7 +363,10 @@ cannot come to mean two things.
 ## 9. Test contracts
 
 The architecture is observable. Each invariant above has a fixture or unit
-test that fails if the invariant is broken:
+test that fails if the invariant is broken — and
+`tests/integration/test_architecture_coverage_table.py` fails when a row names a
+case directory or a test function that does not exist, so the table cannot
+outlive what it cites:
 
 | Invariant                                        | Test or fixture |
 |--------------------------------------------------|---|

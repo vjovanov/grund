@@ -63,8 +63,11 @@ title = "Architecture decisions and tradeoffs"
 # cited back. The e2e corpus is `tests/e2e/cases/<case>/`, one fixture repository
 # plus goldens per case; the harness in crates/grund-cli/tests/e2e.rs runs it and
 # carries the per-case form of `must cite FS`, because `spec.refs` is a manifest
-# the scanner never reads. Cargo keeps the Rust integration tests beside their
-# crates under crates/*/tests — tests/integration/README.md says where.
+# the scanner never reads. The integration home holds the proofs that span more
+# than one part — LSP/CLI parity, frontend isolation, CI/pre-commit parity — as
+# a workspace member of its own, so Cargo builds them without a `[[test]] path`
+# that would reach out of a published crate; tests/integration/README.md lists
+# them.
 [[kinds]]
 kind = "e2e"
 folder = "tests/e2e"
