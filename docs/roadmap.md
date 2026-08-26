@@ -88,22 +88,6 @@ A documented pre-commit hook / CI step (a recipe alongside the `grund check` hoo
 
 The recipe, run in this repo's CI on a synthetic branch, fails a commit that edits a `src/` file without touching its spec or a test, passes the same commit once a `Grund-Cochange:` trailer is added, and passes a commit that edits the spec and a test together. The `examples/` worked example carries golden output the e2e harness can diff.
 
-## RM-declaration-near-miss: warn on a heading that looks like a declaration but does not match `[id] format`
-
-A non-heuristic onboarding aid: a heading shaped like `# <KIND>-…: <title>` whose ID does not match the configured `[id] format` ([§FS-config.3.2](functional-spec/FS-config.md#32-id--id-grammar)) is silently *not* a declaration today — it does not appear in `grund list`, `grund check` says nothing, and `§…` citations of that shape go unrecognised. The classic stumble is writing `# FS-login: …` under the default `{kind}-{number}-{slug}` (forgetting the `-NNN-`). Serves [§GOAL-zero-config](goals.md#goal-zero-config-works-on-any-conformant-tree) and [§GOAL-friendliness-first](goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible) — a fresh adopter should not have to discover the grammar by its silence.
-
-### 1. What
-
-`grund check` emits one **warning** (not an error — exit code unchanged, [§FS-check.4](functional-spec/FS-check.md#4-warnings)) at `path:line:` for a heading whose first token after `# ` is `<KIND>-…` for a configured `[[kinds]]` prefix but whose remainder fails the `[id] format` regex — message names the heading, the configured format, and the nearest valid shape. This is a fact about the tree, not a guess at intent: it does not propose the corrected ID ([§FS-non-goals.3](functional-spec/FS-non-goals.md#3-code-ast-parsing) / no heuristics, [§GOAL-agent-grounding.3](goals.md#3-what-this-rules-out)), it only points out that something heading-shaped is being ignored. A line-oriented opt-out (a `grund:not-a-declaration` pragma, or a config glob) for files that legitimately use `# <KIND>-…:` headings as prose is in scope if the warning proves noisy.
-
-### 2. Why now
-
-Caught in the 0.1.0 product review as a real sharp edge: the strict-grammar design is correct, but its failure mode is invisible. The warning is the smallest fix that stays inside the no-guessing rule — it surfaces the mismatch and lets the contributor decide.
-
-### 3. Measurable
-
-An e2e fixture with a numbered-format config and a `# FS-login: …` heading gets exactly one warning naming the heading and the format, `grund check` still exits `0`, and a sibling fixture whose heading *does* match the format gets none. `grund list` is unchanged in both (a near-miss heading is still not a declaration).
-
 ## RM-doc-comment-declarations: declarations only in class/method doc-comments
 
 Per [§DISC-doc-comment-declarations](discussions/proposals/2026-05-21-doc-comment-declarations.md#disc-doc-comment-declarations-declarations-live-only-in-classmethod-doc-comments-never-inline). Tightens the [§AR-scanner.4](architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) recognizer so a code-resident declaration is seen only inside a doc-comment that documents the immediately-following definition (class, method, module, …), never a plain inline or trailing comment — with a default-on `[scan]` switch that restores today's any-comment behavior. Composes with [§RM-declaration-near-miss](roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format): the gate drops the phantom declaration, the near-miss optionally surfaces "this looks like a declaration but is ignored."
@@ -243,6 +227,10 @@ A `grund.toml` whose `[[kinds]]` entry spells `prefix` fails to load with the un
 ## Shipped milestones
 
 Done milestones leave their full record in `docs/changelog.md` (the `Implemented` block of the latest release). They keep a one-line declaration here so existing `§RM-…` citations still resolve — the changelog has the detail.
+
+## RM-declaration-near-miss: warn on a heading that looks like a declaration but does not match `[id] format`
+
+Shipped. `grund check` emits one warning per heading that opens with a configured kind and the literal `[id] format` puts after `{kind}` and then fails the ID grammar, at the line it sits on, naming the token, the template and the shape that template reads — and never the corrected ID ([§FS-check.4.7](functional-spec/FS-check.md#47-declaration-near-miss)). The exit code and `grund list` are unchanged: a near-miss heading is still not a declaration. The line-oriented opt-out this milestone held in reserve was not needed and is not implemented; the position rules are the declaration rules, so the rule only reads lines where a declaration would have been.
 
 ## RM-core-cli-split: split grund-core from grund-cli
 

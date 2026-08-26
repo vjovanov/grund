@@ -20,6 +20,11 @@ mod tests_nothing_recognized {
     /// §FS-check.4.5, the defect: a docs tree written slug-only under the default
     /// `{kind}-{number}-{slug}` declares nothing, cites nothing, and used to print
     /// the same word as a tree that checked clean.
+    ///
+    /// §FS-check.4.7 now answers this tree per heading, so the caution is
+    /// withheld under its own "any other finding" rule — the specific fact
+    /// displaces the general one. What the test pins is unchanged: the run stops
+    /// saying `success`, and the exit code is untouched either way.
     #[test]
     fn a_tree_written_for_another_id_format_stops_reporting_success() {
         let root = test_root("a_tree_written_for_another_id_format_stops_reporting_success");
@@ -28,11 +33,36 @@ mod tests_nothing_recognized {
         write(&root.join("docs/FS-beta.md"), "# FS-beta: The beta spec\n\nBody.\n");
 
         let run = check_run(&root, false);
-        let caution = caution(&run).expect("a tree that recognized nothing earns the caution");
+        assert!(
+            caution(&run).is_none(),
+            "§FS-check.4.7 named the headings, so the caution has nothing left to add: {:?}",
+            findings(&run)
+        );
+        let named = run
+            .report
+            .warnings
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "declaration-near-miss")
+            .count();
+        assert_eq!(named, 2, "one per heading that came close: {:?}", findings(&run));
         assert!(
             run.report.errors.is_empty(),
-            "§DF-nothing-recognized.2.2: the exit code is untouched — what the caution takes away is the `success` marker"
+            "§DF-nothing-recognized.2.2: the exit code is untouched — what is taken away is the `success` marker"
         );
+    }
+
+    /// §FS-check.4.5: the caution's own remaining ground — a tree whose headings
+    /// are not kind-shaped at all, where §FS-check.4.7 has nothing to say and the
+    /// run still has to stop printing `success`.
+    #[test]
+    fn a_tree_with_no_near_miss_still_earns_the_caution() {
+        let root = test_root("a_tree_with_no_near_miss_still_earns_the_caution");
+        write(&root.join("grund.toml"), DEFAULT_CONFIG);
+        write(&root.join("docs/alpha.md"), "# The alpha spec\n\nBody.\n");
+        write(&root.join("docs/beta.md"), "# The beta spec\n\nBody.\n");
+
+        let run = check_run(&root, false);
+        let caution = caution(&run).expect("a tree that recognized nothing earns the caution");
         assert_eq!(caution.path, None, "§FS-check.2.1.1: a CLI-level message names no site");
         assert_eq!(caution.line, None);
         assert!(
@@ -80,7 +110,8 @@ mod tests_nothing_recognized {
     fn the_caution_proposes_no_id() {
         let root = test_root("the_caution_proposes_no_id");
         write(&root.join("grund.toml"), DEFAULT_CONFIG);
-        write(&root.join("docs/FS-alpha.md"), "# FS-alpha: The alpha spec\n");
+        // Not kind-shaped, so §FS-check.4.7 stays silent and the caution speaks.
+        write(&root.join("docs/alpha.md"), "# The alpha spec\n");
 
         let message = caution(&check_run(&root, false))
             .expect("caution")
@@ -91,7 +122,7 @@ mod tests_nothing_recognized {
             "an ID built from the patterns would be a guess at what they accept: {message}"
         );
         assert!(
-            !message.contains("FS-alpha"),
+            !message.contains("alpha"),
             "the caution is a fact about the run, not a proposal for a line: {message}"
         );
     }

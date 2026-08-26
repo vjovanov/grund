@@ -24,6 +24,9 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Added
+
+- [§FS-check.4.7](functional-spec/FS-check.md#47-declaration-near-miss): `grund check` warns on a heading that opens like a declaration and parses as none — `# FS-login: …` under the default `{kind}-{number}-{slug}`, the `-NNN-` left out. One warning per heading, at its own line, naming the token as written, the configured template, and the shape that template reads; never the corrected ID, which would be a guess at what the author meant. The exit code is unchanged and `grund list` is unchanged with it: a near-miss heading is still not a declaration, and this reports that rather than repairing it. Ships [§RM-declaration-near-miss](roadmap.md#rm-declaration-near-miss-warn-on-a-heading-that-looks-like-a-declaration-but-does-not-match-id-format), whose held-in-reserve opt-out was not needed.
 ### Changed
 
 - [§FS-config.3.4.4](functional-spec/FS-config.md#344-the-default-kinds): this repository adopts the default test homes it ships. The `E2E` kind over `e2e/cases` gives way to the two non-citable kinds — `e2e` at `tests/e2e` (must cite `FS`, should-not cite `AR`) and `integration` at `tests/integration` (should cite `AR`) — so the corpus moves to `tests/e2e/cases/*`, `[scan] exclude` rather than the `E2E` case pass keeps the fixture repositories out of the host scan ([§FS-config.3.5](functional-spec/FS-config.md#35-scan--what-gets-walked)), and the per-case `must cite FS` obligation moves into the harness's `spec.refs` gate (`crates/grund-cli/tests/e2e.rs`), since a manifest is not a scanned file. `E2E` itself is untouched: the cases that declare it still exercise the case machinery of [§AR-scanner.6](architecture/AR-scanner.md#6-e2e-case-declarations). The generated agent block loses its `E2E` map row and gains the two test homes, rendered by place. (PR #139)

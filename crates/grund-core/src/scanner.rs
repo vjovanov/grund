@@ -166,6 +166,21 @@ fn scan_file_text(
             continue;
         }
 
+        // §FS-check.4.7: the line was not a declaration. Ask the near-miss
+        // pattern whether it looked like one, here rather than in a second read
+        // of the tree — the scan has the line, the position rules and the
+        // fence/docstring state already, and re-deriving them later costs a
+        // whole extra pass over every file for a list most runs find empty.
+        if let Some(text) =
+            near_miss_heading(&config.grammar, scan_line, scan.in_py_docstring, is_md)
+        {
+            findings.near_miss_headings.push(NearMissHeading {
+                file: path.to_path_buf(),
+                line: lineno,
+                text: text.to_string(),
+            });
+        }
+
         if let Some(caps) = config.grammar.section_re.captures(scan_line)
             && let Some(decl) = current.as_mut()
             && let Some(sec) = caps.name("sec")
@@ -1262,6 +1277,9 @@ fn merge_findings(target: &mut Findings, mut source: Findings) {
     }
     target.citations.append(&mut source.citations);
     target.escaped_citations.append(&mut source.escaped_citations);
+    target
+        .near_miss_headings
+        .append(&mut source.near_miss_headings);
     target.scanned_files.append(&mut source.scanned_files);
 }
 

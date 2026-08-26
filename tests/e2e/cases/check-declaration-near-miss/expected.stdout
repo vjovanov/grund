@@ -1,0 +1,1 @@
+docs/FS-billing.md:1: `FS-billing` is heading-shaped and declares nothing — [id] format = "{kind}-{number}-{slug}" reads `# <KIND>-<NNN>-<slug>: <title>`
