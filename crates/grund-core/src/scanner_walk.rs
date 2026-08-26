@@ -131,6 +131,7 @@ fn walk_scannable_files_reporting(
                 .and_then(|kind| kind.folder.as_deref())
                 .map(|folder| config.root.join(folder)),
             physical_root: physical_root.clone(),
+            unwalked_homes: walk_pruned_home_keys(config),
             config: config.clone(),
             link_roots: std::sync::Arc::clone(&link_roots),
             looping_links: std::sync::Arc::clone(&looping_links),
@@ -272,6 +273,11 @@ struct WalkDirFilter {
     boundary_suffixes: Vec<PathBuf>,
     boundary_roots: Vec<PathBuf>,
     excluded: Vec<String>,
+    /// The `scan = false` homes this walk prunes, as home path keys
+    /// (§FS-config.3.4.7). Empty under `--full`, and empty in the tree that
+    /// configures no such kind — which is every tree that never pays for the
+    /// test below (§GOAL-fast-feedback).
+    unwalked_homes: Vec<PathBuf>,
     e2e_cases_root: Option<PathBuf>,
     config: Config,
     link_roots: std::sync::Arc<std::sync::Mutex<Vec<PathBuf>>>,
@@ -304,6 +310,23 @@ impl WalkDirFilter {
             return true;
         };
         if self.excluded.iter().any(|item| item == name) {
+            return false;
+        }
+        // §FS-config.3.4.7: a home the config lists without walking is pruned
+        // here as well as left out of `kind_home_roots`. Keeping it out of the
+        // roots is only half the rule — the walk meets the same directory again
+        // as a descendant of any root above it, the config root or an `include`
+        // entry it sits under, and read there it would be walked after all. The
+        // test is on the in-tree path rather than the name, so it prunes *this*
+        // home and not every directory that happens to share its last component.
+        if !self.unwalked_homes.is_empty()
+            && let Some(relative) =
+                scanned_decl_relative_path(path, &self.config.root, &self.physical_root)
+            && self
+                .unwalked_homes
+                .iter()
+                .any(|home| relative.starts_with(home))
+        {
             return false;
         }
         // §FS-config.3.5.5: a directory link whose target is at or above the walk
@@ -543,11 +566,24 @@ fn canonical_config_root(config: &Config) -> PathBuf {
 /// `include` first makes the first-seen winner the spelling `grund check` prints
 /// without the flag, which is what keeps `--full` purely additive.
 fn root_scope_roots(config: &Config, full: bool) -> Vec<PathBuf> {
+    // §FS-config.3.4.7: an `include` entry at or inside an unwalked home is the
+    // one way such a home is still a *root*, where the walk's own prune cannot
+    // reach it — a root is never filtered, that is what makes it a root. The
+    // config says both "listed, not walked" and "walk this"; the narrower key,
+    // the one written on the kind itself, wins.
+    let unwalked = if full {
+        Vec::new()
+    } else {
+        unwalked_home_roots(config)
+    };
     let include = config
         .include
         .iter()
         .flatten()
-        .map(|entry| config.root.join(entry).components().collect::<PathBuf>());
+        .map(|entry| config.root.join(entry).components().collect::<PathBuf>())
+        .filter(move |root| !unwalked.iter().any(|home| root.starts_with(home)))
+        .collect::<Vec<_>>()
+        .into_iter();
     // §FS-config.3.5: every configured kind home is walked whether or not
     // `include` names it. A home is the repository saying "declarations and
     // citations live here"; leaving it out of the scan made its citations
@@ -577,6 +613,38 @@ fn root_scope_roots(config: &Config, full: bool) -> Vec<PathBuf> {
 /// whose default homes are not scaffolded yet stays silent. An unwalked home
 /// (`scan = false`, §FS-config.3.4.7) is not a root: it is a place the Project
 /// map names, and nothing in it is read short of `--full`'s root walk.
+/// Every home the config lists without walking (`scan = false`,
+/// §FS-config.3.4.7), as an absolute path under the config root — the
+/// complement of `kind_home_roots` over the kinds that have a home.
+fn unwalked_home_roots(config: &Config) -> Vec<PathBuf> {
+    unwalked_homes(config)
+        .map(|home| config.root.join(home).components().collect::<PathBuf>())
+        .collect()
+}
+
+/// The same homes as home *path keys*, for the walk's per-directory test: it
+/// compares an in-tree path stripped to the config root, the way the scanner
+/// decides which home a file is in (§AR-scanner.2.4), so a root reached through
+/// a symlink still recognizes them.
+fn walk_pruned_home_keys(config: &Config) -> Vec<PathBuf> {
+    // §FS-check.1.3: `--full` walks the whole config root and reaches an
+    // unwalked home like any directory nobody configured, so it prunes nothing.
+    if config.scan_full {
+        return Vec::new();
+    }
+    unwalked_homes(config)
+        .map(configured_home_path_key)
+        .collect()
+}
+
+fn unwalked_homes(config: &Config) -> impl Iterator<Item = &str> + '_ {
+    config
+        .kinds
+        .iter()
+        .filter(|kind| !kind.scan)
+        .filter_map(|kind| kind.file.as_deref().or(kind.folder.as_deref()))
+}
+
 fn kind_home_roots(config: &Config) -> impl Iterator<Item = PathBuf> + '_ {
     config.kinds.iter().filter_map(|kind| {
         if !kind.scan {

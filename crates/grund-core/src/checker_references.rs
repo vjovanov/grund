@@ -30,10 +30,20 @@ enum ReferenceTier {
 /// same for both.
 struct ScanScope {
     roots: Vec<PathBuf>,
+    /// The `scan = false` homes under those roots (§FS-config.3.4.7): listed by
+    /// the config, and read by this run only because `--full` widened the walk.
+    unwalked: Vec<PathBuf>,
 }
 
 impl ScanScope {
     fn contains(&self, path: &Path) -> bool {
+        // §FS-config.3.4.7: a file in a home the config lists without walking is
+        // outside the configured scope even when a root above it is inside — the
+        // scope is a set of roots, and this is the one directory under them the
+        // run without `--full` does not read.
+        if self.unwalked.iter().any(|home| path.starts_with(home)) {
+            return false;
+        }
         self.roots
             .iter()
             .any(|root| path == root || path.starts_with(root))
@@ -60,7 +70,17 @@ fn configured_scope(
     roots.extend(canonical);
     roots.sort_by_key(|root| sort_path_key(root));
     roots.dedup();
-    Ok(Some(ScanScope { roots }))
+    // Both spellings again, for the same reason the roots carry both: a finding
+    // is recorded under the path the walk reached it by (§FS-config.3.5.2).
+    let mut unwalked = unwalked_home_roots(config);
+    let canonical = unwalked
+        .iter()
+        .filter_map(|home| fs::canonicalize(home).ok())
+        .collect::<Vec<_>>();
+    unwalked.extend(canonical);
+    unwalked.sort_by_key(|home| sort_path_key(home));
+    unwalked.dedup();
+    Ok(Some(ScanScope { roots, unwalked }))
 }
 
 /// §FS-check.1.3: drop everything the wider `--full` walk read from outside the
