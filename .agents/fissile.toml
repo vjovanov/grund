@@ -191,7 +191,7 @@ hard_message = "split-core-hard"
 # saves. Higher priority so it wins over `core-source` for in-tree test files.
 [[rules]]
 id = "tests"
-include = ["crates/*/src/tests*.rs", "crates/*/tests/**/*.rs"]
+include = ["crates/*/src/tests*.rs", "crates/*/tests/**/*.rs", "tests/integration/**/*.rs"]
 unit = "lines"
 soft = 450
 hard = 700

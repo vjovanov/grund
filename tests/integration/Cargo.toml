@@ -1,0 +1,29 @@
+# The repository's `integration` home (grund.toml, FS-config.3.4.4) is also a
+# workspace member, so the Rust tests in it are built and run by
+# `cargo test --workspace` without a `[[test]] path` reaching out of a published
+# crate — `cargo package` verifies a crate against its own tree, and a target
+# outside it would not be there.
+[package]
+name = "grund-integration-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "Integration tests: proof that the parts of grund fit as designed."
+
+# The tests are the files of this directory: it is the home, not a crate with a
+# `tests/` subtree of its own.
+autotests = false
+
+[[test]]
+name = "lsp_cli_parity"
+path = "lsp_cli_parity.rs"
+
+[[test]]
+name = "integrations_resolve"
+path = "integrations_resolve.rs"
+
+[dev-dependencies]
+serde_json = "1"
+url = "2"
