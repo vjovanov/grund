@@ -22,6 +22,35 @@ The categories are:
 - **init** — scaffold/template rendering, agent-entrypoint selection ([§FS-init.2.1](../functional-spec/FS-init.md#21-files-written-updated-or-left-in-place): which entrypoints a repository has, and which of them one run writes, appends to, or updates), and managed agent-entrypoint updates.
 - **completions** — shell completion scripts and dynamic completion helpers.
 - **api** — public embedding API that runs the engine without CLI argument parsing or stdout/stderr rendering.
+- **grammar** — the ID grammar and the lexical helpers the scanner, checker and formatter share: fenced-block and comment-line recognition, number-only shorthand, and the inline-note layout rules.
+- **workspace** — `[workspace]` expansion, member claims, scope narrowing, and the multi-project scan context.
+- **integrations** — the clickable-citation client artifacts and their managed writes.
+- **lsp** — the snapshot-backed hover and on-type helpers `grund-lsp` calls, kept here so the server stays a transport.
+- **compat** — the deprecated `main_entry()` command adapters kept for 0.4 consumers ([§AR-bindings.2](AR-bindings.md#2-grund-core-the-only-place-logic-lives)); the `*_cmd` files beside `checker`, `config` and `fmt` are the same path's per-command halves.
+
+A file belongs to the category whose prefix its name carries — `scanner_walk.rs` to **scanner**, `init_block.rs` to **init** — and `lib.rs` is the one file outside them, as the crate entrypoint. The prefixes each category owns:
+
+| Category | File-name prefixes |
+|---|---|
+| **model** | `model` |
+| **config** | `config` |
+| **scanner** | `scanner` |
+| **checker** | `checker` |
+| **output** | `output` |
+| **show** | `show` |
+| **refs** | `refs` |
+| **cover** | `cover` |
+| **list** | `list` |
+| **fmt** | `fmt` |
+| **id** | `id` |
+| **init** | `init` |
+| **completions** | `completions` |
+| **api** | `api` |
+| **grammar** | `grammar`, `markdown_fence`, `comment_line`, `shorthand`, `inline_note_layout` |
+| **workspace** | `workspace` |
+| **integrations** | `integrations` |
+| **lsp** | `lsp`, `on_type` |
+| **compat** | `compat` |
 
 ## 2. Refactor boundary
 
