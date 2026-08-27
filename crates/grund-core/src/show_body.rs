@@ -14,6 +14,23 @@
 /// paragraph (§FS-show.2.1.1). For an inline declaration in a code/`"""` doc-comment
 /// this walks the comment block (§FS-show.2.3.1) and strips comment markers
 /// (§FS-show.2.3.2) before returning the text.
+///
+/// Why `--brief` always keeps a heading: the slice has to be self-labeled whatever
+/// the output format, `text` or `md`, so it carries the H1 for a whole declaration
+/// and the section heading for a selected section. When a section is selected the
+/// H1 is suppressed — only the most specific heading is kept.
+///
+/// Why a fence suspends structure: inside a Markdown fence nothing is structure —
+/// not a section heading, not a declaration heading. Fences are tracked exactly as
+/// §AR-scanner.2.2's scan tracks them, Markdown only, so the section map `check`
+/// reads and the body this returns are bounded by the same lines.
+///
+/// Why a repeated section path terminates the section: a *second* heading claiming
+/// the requested path does not continue the section, it ends it the way a sibling
+/// heading does, so two bodies are never merged into a slice no heading spans. Such
+/// a query does not reach here at all — it is refused from the scanner's record
+/// before the body is read (`ambiguous_section_refusal`). Before the target section
+/// is found, unrelated headings are scanned past rather than ending anything.
 fn extract_declaration_body(
     path: &Path,
     id: &Id,
@@ -50,11 +67,8 @@ fn extract_declaration_body(
         return Ok(default_output);
     }
 
-    // `--brief` = heading + first paragraph (§FS-show.2.1.1). The heading is
-    // always included (H1 for a whole declaration, section heading for a
-    // selected section) so the slice is self-labeled regardless of `text` vs
-    // `md`. When a section is selected we suppress the H1 — only the most
-    // specific heading is kept.
+    // `--brief` = heading + first paragraph (§FS-show.2.1.1); the H1 is
+    // suppressed when a section is selected.
     if mode == ShowRenderMode::Brief {
         let want_h1_for_default = section.is_none();
         let mut output = extract_declaration_body(
@@ -90,11 +104,9 @@ fn extract_declaration_body(
         if in_decl && scan.in_py_docstring && scan.closed_py_docstring && scan_line.trim().is_empty() {
             break;
         }
-        // §FS-show.2.5: inside a Markdown fence nothing is structure — not a
-        // section heading, not a declaration heading. The delimiters and their
-        // contents are body text and still reach `lines` below. Tracked exactly
-        // as §AR-scanner.2.2's scan tracks it, Markdown only, so the section map
-        // `check` reads and the body this returns are bounded by the same lines.
+        // §FS-show.2.5: inside a Markdown fence nothing is structure. The
+        // delimiters and their contents are body text and still reach `lines`
+        // below.
         let was_fenced = markdown_fence.is_some();
         let fence_delimiter = is_md && markdown_fence_delimiter(&mut markdown_fence, line);
         let fenced = was_fenced || fence_delimiter;
@@ -166,12 +178,8 @@ fn extract_declaration_body(
                 }
                 Some(target) => {
                     // `!found_section`: a *second* heading claiming the requested
-                    // path does not continue the section — it terminates it, the
-                    // way the sibling test below terminates it, so the two bodies
-                    // are never merged into a slice no heading spans
-                    // (§DF-duplicate-section-path.1). Such a query does not reach
-                    // here at all: §FS-show.2.2.2 refuses it from the scanner's
-                    // record before the body is read (`ambiguous_section_refusal`).
+                    // path terminates the section rather than continuing it
+                    // (§DF-duplicate-section-path.1, §FS-show.2.2.2).
                     if sec == target && !found_section {
                         found_section = true;
                         target_depth = depth;
@@ -181,11 +189,9 @@ fn extract_declaration_body(
                         }
                         continue;
                     }
-                    // Inside the target section: a sibling-or-shallower heading
-                    // ends it (§FS-show.2.2); in default mode any further numbered
-                    // heading — including a child — ends the section's lead prose
-                    // (§FS-show.2.2). Before the target section is found, keep
-                    // scanning past unrelated headings.
+                    // Inside the target section: a sibling-or-shallower heading ends
+                    // it, and in default mode any further numbered heading — including
+                    // a child — ends the section's lead prose (§FS-show.2.2).
                     if found_section && (mode == ShowRenderMode::Default || depth <= target_depth) {
                         break;
                     }

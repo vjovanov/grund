@@ -53,6 +53,12 @@ fn parse_compat_cover_args(args: &[String]) -> Result<(CoverOpts, Option<String>
     ))
 }
 
+/// The compat `grund cover` entry point: parse argv, run the scan, render.
+///
+/// Why an unreadable file still exits 2: under partial-scan semantics the emitted
+/// records are real but incomplete, so a caller must treat the whole result as
+/// untrusted. That holds in a workspace that includes a member's unreadable file
+/// too, since the index the run just printed is incomplete for the tree it claimed.
 fn command_cover(args: &[String]) -> ExitCode {
     let (opts, format_override) = match parse_compat_cover_args(args) {
         Ok(parsed) => parsed,
@@ -110,11 +116,9 @@ fn command_cover(args: &[String]) -> ExitCode {
     if output.scan_errors.is_empty() {
         ExitCode::SUCCESS
     } else {
-        // Partial-scan semantics (§FS-cover.4 / §FS-check.2): the emitted records
-        // are real but incomplete, so callers must treat the result as untrusted.
-        // In a workspace that includes a member's unreadable file, since the
-        // index the run just printed is incomplete for the tree it claimed
-        // (§FS-workspace.8.7).
+        // Partial-scan semantics (§FS-cover.4 / §FS-check.2, §FS-workspace.8.7):
+        // the emitted records are real but incomplete, so callers must treat the
+        // result as untrusted.
         for error in &output.scan_errors {
             eprintln!("error: {}: {}", error.path, error.message);
         }

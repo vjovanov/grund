@@ -99,10 +99,10 @@ mod tests_config_discovery {
         }
     }
 
-    // §DF-config-file-location.2.1: both names are probed at *every* level before
-    // the walk climbs, so a bare member config shadows an ancestor's `.agents/`
-    // one exactly as a nested `.agents/grund.toml` always did. Getting this wrong
-    // is the failure that would make the two forms non-interchangeable.
+    /// §DF-config-file-location.2.1: both names are probed at *every* level before
+    /// the walk climbs, so a bare member config shadows an ancestor's `.agents/`
+    /// one exactly as a nested `.agents/grund.toml` always did. Getting this wrong
+    /// is the failure that would make the two forms non-interchangeable.
     #[test]
     fn a_bare_member_config_shadows_an_ancestor_agents_config() {
         let root = test_root("a_bare_member_config_shadows_an_ancestor_agents_config");

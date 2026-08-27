@@ -39,8 +39,7 @@ impl ScanScope {
     fn contains(&self, path: &Path) -> bool {
         // §FS-config.3.4.7: a file in a home the config lists without walking is
         // outside the configured scope even when a root above it is inside — the
-        // scope is a set of roots, and this is the one directory under them the
-        // run without `--full` does not read.
+        // scope is a set of roots, less the homes a run without `--full` never reads.
         if self.unwalked.iter().any(|home| path.starts_with(home)) {
             return false;
         }
@@ -88,6 +87,12 @@ fn configured_scope(
 /// tree a run without the flag sees and reports exactly what it reports. A no-op
 /// without `--full`. Nothing is cloned — the walk's findings are narrowed in
 /// place, after the tier has been read off the whole of them.
+///
+/// Why there is no undo pass for the shorthand resolutions §AR-scanner.2.6 made
+/// against the whole walk: the narrowed declarations yield the candidate set
+/// `report_shorthand_citation` judges a site against — one predicate covering the
+/// unqualified and the cross-member qualified form alike, where an undo pass here
+/// could only reach the unqualified one.
 fn retain_findings_in_scope(findings: &mut Findings, scope: Option<&ScanScope>) {
     let Some(scope) = scope else { return };
     findings
@@ -108,11 +113,8 @@ fn retain_findings_in_scope(findings: &mut Findings, scope: Option<&ScanScope>) 
         .retain(|heading| scope.contains(&heading.file));
     findings.scanned_files.retain(|file| scope.contains(file));
     // The shorthand resolutions §AR-scanner.2.6 performed against the whole walk
-    // are deliberately left standing. A site whose declaration the retains above
-    // just dropped is judged by the candidate set the *narrowed* declarations
-    // yield, in `report_shorthand_citation` — one predicate covering the
-    // unqualified and the cross-member qualified form alike, rather than an undo
-    // pass here that could only reach the unqualified one (§FS-check.3.13).
+    // are deliberately left standing: a site whose declaration the retains above
+    // just dropped is re-judged in `report_shorthand_citation` (§FS-check.3.13).
 }
 
 /// §FS-check.3.14: the out-of-scope tier — the reference-resolution family run
@@ -243,10 +245,9 @@ fn check_citation_resolution(
             });
             continue;
         };
-        // §FS-check.3.13 / §AR-checker.2.12: the shorthand pass, and the one rule
-        // that can end this citation early — an unresolved shorthand skips the
-        // dangling check below rather than adding `unknown reference FS-042` for a
-        // token that is not a full ID.
+        // §FS-check.3.13 / §AR-checker.2.12: the shorthand pass, and the one rule that
+        // can end this citation early — an unresolved shorthand skips the dangling check
+        // below rather than adding `unknown reference FS-042` for a token that is not an ID.
         if cite.shorthand
             && report_shorthand_citation(
                 cite,

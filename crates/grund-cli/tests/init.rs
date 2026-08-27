@@ -288,12 +288,12 @@ fn init_generated_config_comments_list_constrained_values() {
     );
 }
 
+/// §FS-inline-citation-style.5: the rendered house style closes with the
+/// doc-comment sentence at every `inline_style`, so the agent reading the
+/// block knows the budgets stop where documentation starts
+/// (§FS-inline-citation-style.1.1).
 #[test]
 fn init_agents_block_closes_the_house_style_with_the_doc_comment_sentence() {
-    // §FS-inline-citation-style.5: the rendered house style closes with the
-    // doc-comment sentence at every `inline_style`, so the agent reading the
-    // block knows the budgets stop where documentation starts
-    // (§FS-inline-citation-style.1.1).
     let target = workdir("init_agents_block_closes_the_house_style_with_the_doc_comment_sentence");
     let output = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
     assert!(
@@ -485,12 +485,12 @@ fn init_rerun_on_current_repo_writes_nothing_and_reports_exists() {
     );
 }
 
+/// §FS-init.2.4 / §FS-init.3: `.agents/grund.toml` is the repo's config, not a
+/// scaffold artifact — `grund init --force` regenerates AGENTS.md but leaves an
+/// existing config byte-for-byte intact and reports it with `exists `, never
+/// `wrote `. (Overwriting it with the canonical template was a footgun.)
 #[test]
 fn init_force_never_overwrites_an_existing_config() {
-    // §FS-init.2.4 / §FS-init.3: `.agents/grund.toml` is the repo's config, not a
-    // scaffold artifact — `grund init --force` regenerates AGENTS.md but leaves an
-    // existing config byte-for-byte intact and reports it with `exists `, never
-    // `wrote `. (Overwriting it with the canonical template was a footgun.)
     let target = workdir("init_force_never_overwrites_an_existing_config");
     fs::create_dir_all(target.join(".agents")).expect("create .agents");
     let custom_config = "grund_config_version = 1\n\
@@ -544,12 +544,12 @@ fn init_is_byte_deterministic() {
     assert_eq!(toml_a, toml_b, "grund.toml must be byte-identical");
 }
 
+/// §FS-init.1 / §FS-init.2.2: --dry-run reports what a real run would do
+/// (would-write / would-append / would-update) and leaves the working tree
+/// untouched. Re-running without --dry-run then produces the same on-disk
+/// outcome as a single non-dry-run would.
 #[test]
 fn init_dry_run_writes_no_files_and_reports_would_prefixes() {
-    // §FS-init.1 / §FS-init.2.2: --dry-run reports what a real run would do
-    // (would-write / would-append / would-update) and leaves the working tree
-    // untouched. Re-running without --dry-run then produces the same on-disk
-    // outcome as a single non-dry-run would.
     let target = workdir("init_dry_run_writes_no_files_and_reports_would_prefixes");
     let dry = run_grund(
         &["init", target.to_str().unwrap(), "--dry-run"],
@@ -581,12 +581,12 @@ fn init_dry_run_writes_no_files_and_reports_would_prefixes() {
     assert!(target.join("grund.toml").is_file());
 }
 
+/// §FS-init.2.2: when every reported path is `exists ` (and no would-… lines
+/// were emitted), the `next:` guidance block is suppressed — the user has
+/// a complete setup, so there is nothing to teach. This holds for both
+/// real runs and dry-runs.
 #[test]
 fn init_dry_run_on_current_repo_suppresses_next_block() {
-    // §FS-init.2.2: when every reported path is `exists ` (and no would-… lines
-    // were emitted), the `next:` guidance block is suppressed — the user has
-    // a complete setup, so there is nothing to teach. This holds for both
-    // real runs and dry-runs.
     let target = workdir("init_dry_run_on_current_repo_suppresses_next_block");
     let first = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
     assert!(first.status.success());
@@ -659,12 +659,12 @@ fn init_dry_run_with_docs_previews_scaffold_without_writing() {
     );
 }
 
+/// §FS-init.1 / §FS-init.2.2: --force --dry-run takes the rewrite path
+/// (instead of update-in-place) and previews `would-write AGENTS.md`
+/// without changing the file's bytes on disk. The config is the exception:
+/// --force never overwrites it, so dry-run reports `exists`.
 #[test]
 fn init_force_dry_run_previews_canonical_rewrite() {
-    // §FS-init.1 / §FS-init.2.2: --force --dry-run takes the rewrite path
-    // (instead of update-in-place) and previews `would-write AGENTS.md`
-    // without changing the file's bytes on disk. The config is the exception:
-    // --force never overwrites it, so dry-run reports `exists`.
     let target = workdir("init_force_dry_run_previews_canonical_rewrite");
     let first = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
     assert!(first.status.success());
@@ -706,13 +706,13 @@ fn init_force_dry_run_previews_canonical_rewrite() {
     );
 }
 
+/// §FS-init.2.3: generated output must pass `grund check` unmodified, even
+/// when the entrypoint itself is inside the scan scope of a strict repo —
+/// the worked citation example is `<§>`-escaped, not a live dangling
+/// reference (the grund init → grund check → grund init wedge of the
+/// pre-v4 template).
 #[test]
 fn init_output_passes_check_when_agents_md_is_scanned() {
-    // §FS-init.2.3: generated output must pass `grund check` unmodified, even
-    // when the entrypoint itself is inside the scan scope of a strict repo —
-    // the worked citation example is `<§>`-escaped, not a live dangling
-    // reference (the grund init → grund check → grund init wedge of the
-    // pre-v4 template).
     let target = workdir("init_output_passes_check_when_agents_md_is_scanned");
     fs::create_dir_all(target.join(".agents")).expect("create .agents");
     fs::write(

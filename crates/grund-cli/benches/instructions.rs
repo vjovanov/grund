@@ -1,17 +1,17 @@
-// Instruction-counting benches for the hot CLI commands. Each runs the freshly
-// built `grund` binary under Callgrind (`iai-callgrind`) for a deterministic,
-// CI-stable instruction count.
-//
-// §AR-benchmarks: every benchmark scans a *generated fixture*, never this repo —
-// a fixed input isolates a genuine code slowdown (what the gate must fail on)
-// from the repo merely doing more work as its own docs/config evolve. See the
-// spec for the full rationale, the fixture set, and why one fixture enables
-// `[citations]` while the rest omit it.
-//
-// The command list also drives the PGO training run in `scripts/pgo-build.sh`;
-// keep them in sync. Run with
-// `cargo bench -p grund --features bench --bench instructions` (needs Valgrind and
-// `iai-callgrind-runner` on `PATH`).
+//! Instruction-counting benches for the hot CLI commands. Each runs the freshly
+//! built `grund` binary under Callgrind (`iai-callgrind`) for a deterministic,
+//! CI-stable instruction count.
+//!
+//! §AR-benchmarks: every benchmark scans a *generated fixture*, never this repo —
+//! a fixed input isolates a genuine code slowdown (what the gate must fail on)
+//! from the repo merely doing more work as its own docs/config evolve. See the
+//! spec for the full rationale, the fixture set, and why one fixture enables
+//! `[citations]` while the rest omit it.
+//!
+//! The command list also drives the PGO training run in `scripts/pgo-build.sh`;
+//! keep them in sync. Run with
+//! `cargo bench -p grund --features bench --bench instructions` (needs Valgrind and
+//! `iai-callgrind-runner` on `PATH`).
 
 #[cfg(feature = "bench")]
 use iai_callgrind::{Command, binary_benchmark, binary_benchmark_group, main};

@@ -74,7 +74,8 @@ fn restore_default_sigpipe() {}
 /// (§FS-cli.1); `grund` with no arguments keeps the historical `check .`
 /// behavior with a deprecation warning; `--version`/`--help` short-circuits to
 /// stdout, exit 0 (§FS-cli.2); help on an unknown command exits 2 and lists the
-/// known ones (§FS-cli.4). The exit-code mapping (0/1/2) is fixed (§FS-cli.5).
+/// known ones rather than hiding a typo behind generic help (§FS-cli.4). The
+/// exit-code mapping (0/1/2) is fixed (§FS-cli.5).
 pub fn main_entry() -> ExitCode {
     restore_default_sigpipe();
     let args = std::env::args().skip(1).collect::<Vec<_>>();
@@ -102,10 +103,9 @@ pub fn main_entry() -> ExitCode {
             }
         };
     }
-    // `--help` / `-h` short-circuits before any work; with a known subcommand
-    // first it prints that subcommand's page, with no command it prints the
-    // top-level one, and with an unknown first word it remains an unknown-command
-    // error rather than hiding a typo behind generic help (§FS-cli.2, §FS-cli.4).
+    // `--help` / `-h` short-circuits before any work: a known subcommand first
+    // prints that subcommand's page, no command prints the top-level one, and an
+    // unknown first word stays an unknown-command error (§FS-cli.2, §FS-cli.4).
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
         match first {
             Some(cmd) if SUBCOMMANDS.contains(&cmd) => print_subcommand_help(cmd),

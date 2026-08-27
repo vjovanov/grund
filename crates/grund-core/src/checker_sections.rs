@@ -21,6 +21,16 @@
 /// separator); `path_config` is the one the printed report renders paths
 /// against, so in a workspace a path named *inside* a message points where the
 /// finding's own anchor points (§FS-config.3.6, §FS-workspace.8.1).
+///
+/// Why a later item's doc comment and a stub's prose stay out of the duplicate-path
+/// rule: `duplicate_sections` is already scoped to the declaration's own body
+/// (§AR-scanner.2.2).
+///
+/// Why the anchor does not hang on the section map: the same insert that starts a
+/// collision list fills that map, so the lookup always hits — but the finding is
+/// written not to depend on it (§REQ-no-missed-citation). `lines` is non-empty
+/// either way, since a path is in `colliding` only because a heading claimed it
+/// twice.
 fn check_section_headings(
     findings: &Findings,
     config: &Config,
@@ -63,12 +73,9 @@ fn check_section_headings(
             }
         }
     }
-    // §FS-check.3.16: two headings inside one declaration claiming one dotted
-    // section path give `§<ID>.<path>` two destinations — §3.3's ambiguity one
-    // level down, reported in §3.3's shape rather than ranked
-    // (§DF-duplicate-section-path.2.1). What the list holds is already scoped to
-    // the declaration's own body, which is what keeps a later item's doc-comment
-    // and a stub's prose out of the rule (§AR-scanner.2.2).
+    // §FS-check.3.16: two headings inside one declaration claiming one dotted section
+    // path give `§<ID>.<path>` two destinations — §3.3's ambiguity one level down,
+    // reported in §3.3's shape rather than ranked (§DF-duplicate-section-path.2.1).
     for (id, decls) in &findings.declarations {
         for decl in decls {
             let mut colliding: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
@@ -76,14 +83,9 @@ fn check_section_headings(
                 colliding.entry(path.as_str()).or_default().push(info.line);
             }
             for (path, mut lines) in colliding {
-                // The map holds the first heading (§AR-scanner.2.2), which is
-                // where the finding anchors; the rest are named in the message.
-                // The same insert that starts the list fills the map, so the
-                // lookup always hits — but the finding does not hang on that
-                // being true (§REQ-no-missed-citation): with no map entry the
-                // earliest recorded claimant anchors it instead. `lines` is
-                // non-empty either way, since a path is in `colliding` only
-                // because a heading claimed it twice.
+                // The map holds the first heading (§AR-scanner.2.2), which is where
+                // the finding anchors; the rest are named in the message. With no map
+                // entry the earliest recorded claimant anchors it instead.
                 lines.extend(decl.sections.get(path).map(|first| first.line));
                 lines.sort_unstable();
                 let sites: Vec<Site> = lines

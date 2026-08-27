@@ -1,20 +1,19 @@
-// Which project a path belongs to, and how that project is named in a message.
-//
-// Split out of `checker_cmd.rs` the way `workspace_members.rs` was: that file is
-// the `check` command's argument adapter, and resolving a scope to a config —
-// upward discovery, the member-scope rewrite, the boundary-root population, and
-// the alias a diagnostic spells the result with — is config work every walking
-// command shares, not something `check` owns (§AR-workspace.5.1,
-// §AR-workspace.6, §AR-workspace.8).
-//
-// File-level prose, so `//` rather than `///`: the crate is assembled by
-// `include!` (§AR-core-module-layout.2).
-
 /// Whether the requested scope *is* the config root — the scope `[scan] include`
 /// governs, and therefore the only one `grund check --full` can widen
 /// (§FS-check.1.3). It is also what decides a workspace-wide run
 /// (§FS-workspace.5): both questions are "did the caller ask for the whole
 /// project, however they spelled it?".
+///
+/// This file answers which project a path belongs to, and how that project is named
+/// in a message. The file-level prose rides on this first item rather than a `//!`
+/// module doc because the crate is assembled by `include!` (§AR-core-module-layout.2).
+///
+/// Split out of `checker_cmd.rs` the way `workspace_members.rs` was: that file is
+/// the `check` command's argument adapter, and resolving a scope to a config —
+/// upward discovery, the member-scope rewrite, the boundary-root population, and
+/// the alias a diagnostic spells the result with — is config work every walking
+/// command shares, not something `check` owns (§AR-workspace.5.1,
+/// §AR-workspace.6, §AR-workspace.8).
 fn scope_is_config_root(config: &Config, path: &Path, path_provided: bool) -> bool {
     !path_provided
         || fs::canonicalize(path)

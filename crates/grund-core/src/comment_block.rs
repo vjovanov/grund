@@ -1,15 +1,14 @@
-// One comment block, classified: what opens it, where a docstring closes it,
-// whether it declares an ID, and whether the language it is written in calls it
-// documentation (§AR-scanner.4, §FS-inline-citation-style.1.1).
-//
-// These are the block-level classifiers the scanner's single pass used to carry
-// (§AR-scanner.2): pure functions over a line or over one block's lines, holding
-// no state of their own and coupled to the walk only by call. They live here for
-// the reason `comment_line.rs` holds the per-line reductions — the walk is a
-// state machine and these are not — and because two walks now ask them the same
-// questions about the same block: the one that bounds a declaration body, and
-// the one that decides whether a block is an inline citation site.
-
+/// One comment block, classified: what opens it, where a docstring closes it,
+/// whether it declares an ID, and whether the language it is written in calls it
+/// documentation (§AR-scanner.4, §FS-inline-citation-style.1.1).
+///
+/// These are the block-level classifiers the scanner's single pass used to carry
+/// (§AR-scanner.2): pure functions over a line or over one block's lines, holding
+/// no state of their own and coupled to the walk only by call. They live here for
+/// the reason `comment_line.rs` holds the per-line reductions — the walk is a
+/// state machine and these are not — and because two walks now ask them the same
+/// questions about the same block: the one that bounds a declaration body, and
+/// the one that decides whether a block is an inline citation site.
 #[derive(Clone)]
 enum CommentBlockKind {
     Line(String),

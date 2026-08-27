@@ -122,10 +122,9 @@ fn print_effective_config(config: &Config) {
         if let Some(index) = kind.index_toml_value() {
             println!("index = {index}");
         }
-        // §FS-config.3.4: printed only where it is set, because absence
-        // *is* `citable = true` — the shown config has to load back as
-        // itself, and a `citable` line on every kind would be noise on
-        // the nine repositories out of ten that have no place kind.
+        // §FS-config.3.4: printed only where it is set, because absence *is* `citable = true` — the
+        // shown config has to load back as itself, and a `citable` line on every kind would be
+        // noise on the nine repositories out of ten that have no place kind.
         if !kind.citable {
             println!("citable = false");
         }

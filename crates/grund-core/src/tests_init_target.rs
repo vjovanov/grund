@@ -28,11 +28,11 @@ mod tests_init_target {
             .expect("these cases assert against the real home directory; it is unset")
     }
 
-    // The user-global table is `~`-rooted and resolved through `$HOME`
-    // (§FS-integrations.4), so on a platform that does not set that variable the
-    // rule has no path to compare against and there is nothing to assert. The
-    // home-directory rule below resolves the platform home directory instead and
-    // runs everywhere, which is what keeps the reported accident refused.
+    /// The user-global table is `~`-rooted and resolved through `$HOME`
+    /// (§FS-integrations.4), so on a platform that does not set that variable the
+    /// rule has no path to compare against and there is nothing to assert. The
+    /// home-directory rule below resolves the platform home directory instead and
+    /// runs everywhere, which is what keeps the reported accident refused.
     #[cfg(unix)]
     #[test]
     fn user_global_instruction_files_are_refused() {
@@ -71,11 +71,11 @@ mod tests_init_target {
         );
     }
 
-    // The user-global table is `~`-rooted and resolved through `$HOME`
-    // (§FS-integrations.4), so on a platform that does not set that variable the
-    // rule has no path to compare against and there is nothing to assert. The
-    // home-directory rule below resolves the platform home directory instead and
-    // runs everywhere, which is what keeps the reported accident refused.
+    /// The user-global table is `~`-rooted and resolved through `$HOME`
+    /// (§FS-integrations.4), so on a platform that does not set that variable the
+    /// rule has no path to compare against and there is nothing to assert. The
+    /// home-directory rule below resolves the platform home directory instead and
+    /// runs everywhere, which is what keeps the reported accident refused.
     #[cfg(unix)]
     #[test]
     fn the_rule_holds_for_a_path_that_does_not_exist_yet() {

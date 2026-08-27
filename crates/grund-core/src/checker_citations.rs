@@ -1,10 +1,10 @@
-// The citation-direction half of the checker (§FS-config.3.9), in a file of its
-// own beside `checker_references.rs` and `checker_sections.rs`
-// (§AR-core-module-layout.1): the obligation pass (§FS-check.3.11), the
-// prohibition pass (§FS-check.3.12), and the two questions both of them ask —
-// what kind of place a citation sits in, and whether it matches a rule's
-// target. `checker.rs` keeps the declaration-shape rules and the diagnostic
-// helpers they share.
+/// The citation-direction half of the checker (§FS-config.3.9), in a file of its
+/// own beside `checker_references.rs` and `checker_sections.rs`
+/// (§AR-core-module-layout.1): the obligation pass (§FS-check.3.11), the
+/// prohibition pass (§FS-check.3.12), and the two questions both of them ask —
+/// what kind of place a citation sits in, and whether it matches a rule's
+/// target. `checker.rs` keeps the declaration-shape rules and the diagnostic
+/// helpers they share.
 
 /// How a citing kind is named in a finding (§FS-check.3.11, §FS-check.3.12): a
 /// citable kind by its name, which is the prefix of every ID in it; a
@@ -24,11 +24,14 @@ fn citing_side_label(config: &Config, kind: &str) -> String {
 /// kind with a `must` / `should` obligation must carry, in its body, a citation
 /// satisfying each obligation entry. `must` misses are `missing-citation`
 /// errors; `should` misses are `suggested-citation` suggestions.
+///
+/// Why the citation indexes are built up front: the per-declaration and per-case
+/// rescans they replace were O(kinds × declarations × citations) and dominated
+/// `grund check` on a large tree.
 fn check_citation_obligations(findings: &Findings, config: &Config, report: &mut CheckReport) {
     // Index every citation once, up front, so each citing kind's obligation pass
-    // is a map lookup rather than a fresh O(citations) scan per declaration —
-    // the per-declaration / per-case rescans were O(kinds × declarations ×
-    // citations) and dominated `grund check` on a large tree (§AR-benchmarks).
+    // is a map lookup rather than a fresh O(citations) scan per declaration
+    // (§AR-benchmarks).
     let mut by_decl: BTreeMap<&Id, Vec<&Citation>> = BTreeMap::new();
     let mut by_file: BTreeMap<(&str, &Path), Vec<&Citation>> = BTreeMap::new();
     // Resolved once, not per citation: the per-file question below is asked of
@@ -181,6 +184,10 @@ fn non_citable_kind_names(config: &Config) -> BTreeSet<&str> {
 /// scanned-file citations) for `E2E`, per non-stub declaration otherwise. Reads
 /// the citation indexes built once in [`check_citation_obligations`] rather than
 /// rescanning.
+///
+/// Why an E2E case with no matching evidence is still a unit: normal root scans
+/// skip fixture trees, so dropping the empty cases would quietly stop `must` from
+/// being a hard gate on exactly the cases that carry no evidence yet.
 fn obligation_units<'a>(
     citing_kind: &str,
     config: &Config,
@@ -223,9 +230,7 @@ fn obligation_units<'a>(
             if let Some(case) = &decl.e2e_case {
                 // §FS-config.3.9: an E2E obligation evaluates over the case's
                 // manifest refs and scanned files when explicit scope includes
-                // them. Normal root scans skip fixture trees, but a case with no
-                // matching evidence is still an obligation unit, so `must`
-                // remains a hard gate.
+                // them; a case with no matching evidence is still a unit.
                 let citations = e2e_by_case
                     .get(decl.file.as_path())
                     .cloned()

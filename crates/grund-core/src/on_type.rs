@@ -1,16 +1,15 @@
-// The LSP live on-type transform (§FS-lsp.1.4) — the keystroke-time counterpart
-// to `grund fmt`'s bulk passes (§FS-fmt.2.1, §FS-fmt.2.4).
-//
-// Split out of `api.rs`, which §AR-core-module-layout.2 keeps as the published
-// embedding contract: the public types below are part of that contract, but the
-// rule deciding *which* keystroke produces *which* edit is a behavior with its
-// own invariant — the trigger converts eagerly and the shorthand expands only at
-// a token boundary — and that invariant is what a reader comes here for.
-//
-// File-level prose, so `//` rather than `///` — see the note in `shorthand.rs`.
-
 /// Check the same context exclusions as `grund fmt` before an LSP on-type
 /// `$$` rewrite (§FS-fmt.2.3, §FS-lsp.1.4).
+///
+/// The LSP live on-type transform (§FS-lsp.1.4) — the keystroke-time counterpart
+/// to `grund fmt`'s bulk passes (§FS-fmt.2.1, §FS-fmt.2.4).
+///
+/// Split out of `api.rs`, which §AR-core-module-layout.2 keeps as the published
+/// embedding contract: the public items in this file are part of that contract,
+/// but the rule deciding *which* keystroke produces *which* edit is a behavior
+/// with its own invariant — the trigger converts eagerly and the shorthand
+/// expands only at a token boundary — and that invariant is what a reader comes
+/// here for.
 pub fn can_replace_trigger_at(
     path: &Path,
     line: &str,
@@ -203,6 +202,10 @@ fn trigger_marker_edit(
 /// a shorthand naming zero or several declarations, or a keystroke that could
 /// still be extending the token. The resulting `§FS-042` then earns the
 /// §FS-check.3.13 diagnostic, which names the problem in the editor instead.
+///
+/// Why a *fresh* numeric run still expands: the author has not written the second
+/// number yet when this keystroke fires, so that expansion is visible and
+/// undoable — the loud failure, not the silent one.
 #[allow(clippy::too_many_arguments)]
 fn shorthand_expansion_edit(
     config: &Config,
@@ -233,13 +236,8 @@ fn shorthand_expansion_edit(
     {
         return None;
     }
-    // Scoped to the edited file's own project — see `DeclaredId`. Collected only
-    // now, after every cheap gate above has passed, so an ordinary keystroke never
-    // walks the declaration list at all (§GOAL-fast-feedback).
-    // §FS-fmt.2.4.1: a run already on the line is refused here exactly as it is in
-    // the bulk pass. An author typing a *fresh* run has not written the second
-    // number yet when this keystroke fires, so that one expands and is then
-    // visible and undoable — the loud failure, not the silent one
+    // §FS-fmt.2.4.1: a run already on the line is refused here exactly as it is
+    // in the bulk pass; a fresh run expands and is then visible and undoable
     // (§DF-shorthand-numeric-run.5).
     if config
         .grammar
@@ -247,6 +245,9 @@ fn shorthand_expansion_edit(
     {
         return None;
     }
+    // Scoped to the edited file's own project — see `DeclaredId`. Collected only
+    // now, after every cheap gate above has passed, so an ordinary keystroke never
+    // walks the declaration list at all (§GOAL-fast-feedback).
     let in_project = declarations_under_root(declarations, &config.root);
     let text = shorthand_token_expansion(config, &line[token_start..token_end], &in_project)?;
     Some(LineEdit {

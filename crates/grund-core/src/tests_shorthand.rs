@@ -22,11 +22,11 @@ mod tests_shorthand {
         (findings, report)
     }
 
-    // §FS-check.3.13: a shorthand that names exactly one declaration is reported
-    // once, with the canonical form to write — and, per §FS-check.1.2, it still
-    // counts as a citation everywhere else. The uncited warning firing here was
-    // the original defect: `check` said "declared but never cited" about a
-    // declaration this file cites twice.
+    /// §FS-check.3.13: a shorthand that names exactly one declaration is reported
+    /// once, with the canonical form to write — and, per §FS-check.1.2, it still
+    /// counts as a citation everywhere else. The uncited warning firing here was
+    /// the original defect: `check` said "declared but never cited" about a
+    /// declaration this file cites twice.
     #[test]
     fn resolvable_shorthand_reports_once_and_counts_as_a_citation() {
         let root = test_root("resolvable_shorthand_reports_once_and_counts_as_a_citation");
@@ -201,11 +201,11 @@ mod tests_shorthand {
         assert!(!slug_less.grammar.has_shorthand());
     }
 
-    // §FS-config.3.2: the shorthand pattern is the ID pattern with one capture
-    // group cut out, which is only sound when each component pattern is a valid
-    // regex on its own. Two that balance only against each other compile as one ID
-    // pattern and then fail the moment a group is removed — a config `grund` had
-    // accepted turning into a panic on the first citation scanned.
+    /// §FS-config.3.2: the shorthand pattern is the ID pattern with one capture
+    /// group cut out, which is only sound when each component pattern is a valid
+    /// regex on its own. Two that balance only against each other compile as one ID
+    /// pattern and then fail the moment a group is removed — a config `grund` had
+    /// accepted turning into a panic on the first citation scanned.
     #[test]
     fn component_patterns_must_be_valid_regexes_on_their_own() {
         let root = test_root("component_patterns_must_be_valid_regexes_on_their_own");
@@ -219,11 +219,11 @@ mod tests_shorthand {
         );
     }
 
-    // §FS-check.3.13 / §FS-fmt.2.3: a shorthand `fmt` is forbidden to rewrite —
-    // inline code, a link destination, a runtime string — is still a citation that
-    // resolves and counts, but earns no "write the canonical form" error. An error
-    // whose only named fix is one the formatter refuses to apply is an error the
-    // repository can never clear.
+    /// §FS-check.3.13 / §FS-fmt.2.3: a shorthand `fmt` is forbidden to rewrite —
+    /// inline code, a link destination, a runtime string — is still a citation that
+    /// resolves and counts, but earns no "write the canonical form" error. An error
+    /// whose only named fix is one the formatter refuses to apply is an error the
+    /// repository can never clear.
     #[test]
     fn a_shorthand_fmt_cannot_rewrite_is_counted_but_not_reported() {
         let root = test_root("a_shorthand_fmt_cannot_rewrite_is_counted_but_not_reported");
@@ -263,11 +263,11 @@ mod tests_shorthand {
         );
     }
 
-    // §FS-check.3.13 / §FS-fmt.2.3: the "may `fmt` rewrite this?" question has to
-    // be asked of the text `fmt` will see. A Python docstring's opening line is
-    // where the two texts differ — the scanner works on the interior with the
-    // quotes stripped, `fmt` on the raw line where `"""` opens a string literal —
-    // so asking the scanner's view reports an error `fmt --write` never clears.
+    /// §FS-check.3.13 / §FS-fmt.2.3: the "may `fmt` rewrite this?" question has to
+    /// be asked of the text `fmt` will see. A Python docstring's opening line is
+    /// where the two texts differ — the scanner works on the interior with the
+    /// quotes stripped, `fmt` on the raw line where `"""` opens a string literal —
+    /// so asking the scanner's view reports an error `fmt --write` never clears.
     #[test]
     fn rewritability_is_judged_on_the_raw_line_not_the_scanned_one() {
         let root = test_root("rewritability_is_judged_on_the_raw_line_not_the_scanned_one");
@@ -314,10 +314,10 @@ mod tests_shorthand {
         );
     }
 
-    // §FS-check.2.3.1: an escape only earns its "this resolves" suggestion by
-    // carrying an `Id` that is declared, so the shorthand form has to be resolved
-    // like any other — otherwise `<§>FS-042` is silently exempt from a check that
-    // catches `<§>FS-042-user-login`.
+    /// §FS-check.2.3.1: an escape only earns its "this resolves" suggestion by
+    /// carrying an `Id` that is declared, so the shorthand form has to be resolved
+    /// like any other — otherwise `<§>FS-042` is silently exempt from a check that
+    /// catches `<§>FS-042-user-login`.
     #[test]
     fn an_escaped_shorthand_that_resolves_is_suggested() {
         let root = test_root("an_escaped_shorthand_that_resolves_is_suggested");

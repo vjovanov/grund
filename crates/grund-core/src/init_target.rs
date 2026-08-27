@@ -1,14 +1,14 @@
-// What `init`'s `<path>` argument *is*, and whether it may be scaffolded at
-// all. `init` is the only subcommand that creates adoption scaffolding, and
-// every path it writes is `<path>`-relative — which makes that one argument
-// load-bearing in a way no other command's is, and worth interpreting in one
-// place (§FS-init.1, §FS-init.1.2).
-
 /// §FS-init.1.2: the version-control markers whose presence in the target or
 /// any ancestor says it is inside a working tree. Presence is what is tested,
 /// not type — a linked worktree and a submodule both write `.git` as a file.
 /// Nothing here reads any of them, so §FS-non-goals.6 is untouched: the
 /// marker's existence is a fact about the tree in the way a `grund.toml`'s is.
+///
+/// What this file holds: what `init`'s `<path>` argument *is*, and whether it
+/// may be scaffolded at all. `init` is the only subcommand that creates
+/// adoption scaffolding, and every path it writes is `<path>`-relative — which
+/// makes that one argument load-bearing in a way no other command's is, and
+/// worth interpreting in one place (§FS-init.1, §FS-init.1.2).
 const INIT_VCS_MARKERS: [&str; 4] = [".git", ".hg", ".jj", ".svn"];
 
 /// Everything that can disqualify a target before `init` writes anything: it
@@ -20,6 +20,15 @@ const INIT_VCS_MARKERS: [&str; 4] = [".git", ".hg", ".jj", ".svn"];
 /// A refusal is total: `init` writes nothing at all, not even the files that
 /// would have been unobjectionable, so this answers for the whole run rather
 /// than per path.
+///
+/// Why the home directory is refused with no flag to lift it: every agent
+/// session in every project loads `~/.claude/CLAUDE.md`, and `.claude/` existing
+/// is the same signal automatic mode reads as "this project uses Claude". Both
+/// readings are right in their own scope; in `$HOME` they name one file. Nobody
+/// targets `$HOME` on purpose, so there is no case to keep working. The test
+/// uses `std::env::home_dir` rather than `$HOME` directly: the variable is the
+/// Unix spelling, and a Windows runner that never sets it would silently lose
+/// the rule that stops the accident this exists for.
 fn refuse_init_target(target: &Path, no_vcs: bool) -> Option<String> {
     if !target.exists() {
         return Some(format!(
@@ -31,16 +40,9 @@ fn refuse_init_target(target: &Path, no_vcs: bool) -> Option<String> {
         return Some(format!("target is not a directory: {}", target.display()));
     }
     let resolved = resolve_for_target_compare(target);
-    // The home directory, unconditionally. `<path>/.claude/CLAUDE.md` with
+    // The home directory, unconditionally: `<path>/.claude/CLAUDE.md` with
     // `<path>` at `$HOME` *is* `~/.claude/CLAUDE.md`, the machine-global file
-    // every agent session in every project loads (§FS-integrations.4.3) — and
-    // `.claude/` existing is the same signal automatic mode reads as "this
-    // project uses Claude" (§FS-init.2.1). Both readings are right in their own
-    // scope; in `$HOME` they name one file. No flag lifts this: nobody targets
-    // `$HOME` on purpose, so there is no case to keep working.
-    // `std::env::home_dir` rather than `$HOME` directly: the variable is the
-    // Unix spelling, and a Windows runner that never sets it would silently
-    // lose the rule that stops the accident this exists for.
+    // (§FS-integrations.4.3, §FS-init.2.1). No flag lifts this.
     if let Some(home) = std::env::home_dir()
         && resolve_for_target_compare(&home) == resolved
     {

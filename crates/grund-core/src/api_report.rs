@@ -49,10 +49,9 @@ fn public_finding(
 ) -> Finding {
     let render_path = |path: &Path| {
         if absolute_paths {
-            // This is private LSP transport data, not user-facing report text.
-            // Keep the platform-native spelling so parsing it back into a
-            // `Path` preserves Windows verbatim-prefix absolute paths
-            // (§FS-lsp.1.1).
+            // Private LSP transport data, not user-facing report text: keep the
+            // platform-native spelling so parsing it back into a `Path` preserves
+            // Windows verbatim-prefix absolute paths (§FS-lsp.1.1).
             absolutize_path(path).to_string_lossy().into_owned()
         } else {
             public_path(config, path)

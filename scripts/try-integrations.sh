@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+
 
 # try-integrations.sh — a manual testbed for the clickable-citation clients
 # (§FS-integrations). It installs the integrations built from *this* working
@@ -26,6 +26,8 @@ set -euo pipefail
 # an agent TUI does.
 #
 # Clients: wezterm, kitty, tmux, vscode, codium, iterm2 (macOS, manual).
+
+set -euo pipefail
 
 usage() {
     awk 'NR > 3 && /^#/ { sub(/^# ?/, ""); print; next } NR > 3 { exit }' "$0"
@@ -72,12 +74,9 @@ die() { printf 'try-integrations: %s\n' "$1" >&2; exit 1; }
 say() { printf '%s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
 
-# Either discovery form makes a directory a grund config root (§FS-config.1), so
-# the harness probes both in the same order grund does — bare `grund.toml`
-# first, then `.agents/grund.toml` (§FS-config.1.1). The order is load-bearing,
-# not cosmetic: `CONFIG_REL` is the file `read_marker` parses and the path the
-# location-token checks click on, so probing the losing name on a repository
-# carrying both would test a marker grund never reads.
+# Probe both config-root names in the order grund does (§FS-config.1 / §FS-config.1.1):
+# `CONFIG_REL` is the file `read_marker` parses and the path the location-token checks
+# click on, so the losing name would test a marker grund never reads.
 CONFIG_REL=
 for candidate in grund.toml .agents/grund.toml; do
     [ -f "$FIXTURE/$candidate" ] && { CONFIG_REL=$candidate; break; }
@@ -139,10 +138,9 @@ prepare_sandbox() {
     : >"$SANDBOX/$MARKER_FILE"
     : >>"$SANDBOX/opens.log"
 
-    # `grund-open` and the WezTerm spawn both look for `grund` on PATH, and the
-    # WezTerm spawn rebuilds PATH from $HOME/.local/bin and $HOME/.cargo/bin
-    # (§FS-integrations.3.1) — which is the sandbox HOME here, so the binary
-    # under test has to be reachable through both.
+    # `grund-open` and the WezTerm spawn both look for `grund` on PATH, and the spawn
+    # rebuilds PATH from $HOME/.local/bin and $HOME/.cargo/bin (§FS-integrations.3.1) —
+    # the sandbox HOME here, so the binary under test has to be reachable through both.
     ln -sf "$GRUND_BIN" "$SANDBOX/.local/bin/grund"
     ln -sf "$GRUND_BIN" "$SANDBOX/.cargo/bin/grund"
 
@@ -182,10 +180,9 @@ EOF
 printf '%s\n' "$1"
 EOF
 
-    # A program that has captured the mouse. WezTerm drops user mouse bindings
-    # while one is in the foreground, which is why the gestures are registered
-    # twice (§FS-integrations.3.1) — and every program that prints citations in
-    # anger (agent TUIs, full-screen editors) is one of these.
+    # A program that has captured the mouse. WezTerm drops user mouse bindings while one
+    # is in the foreground, so the gestures are registered twice (§FS-integrations.3.1) —
+    # and every program printing citations in anger (agent TUIs, full-screen editors) is one.
     cat >"$SANDBOX/bin/tui" <<'EOF'
 #!/bin/sh
 printf '\033[?1000h\033[?1002h\033[?1006h'

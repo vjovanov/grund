@@ -15,12 +15,12 @@ mod init_fixture;
 
 use init_fixture::{manifest_dir, run_grund, workdir};
 
+/// §FS-init.1 / §FS-init.2.1: explicit agent flags create exactly the requested
+/// entrypoint families and do not add the automatic AGENTS.md fallback.
+/// §FS-init.2.1.1: one entrypoint per agent — Claude reads two files and gets
+/// the root-visible one, not both.
 #[test]
 fn init_agent_flags_create_requested_entrypoints() {
-    // §FS-init.1 / §FS-init.2.1: explicit agent flags create exactly the requested
-    // entrypoint families and do not add the automatic AGENTS.md fallback.
-    // §FS-init.2.1.1: one entrypoint per agent — Claude reads two files and gets
-    // the root-visible one, not both.
     let target = workdir("init_agent_flags_create_requested_entrypoints");
 
     let output = run_grund(
@@ -135,12 +135,12 @@ fn init_claude_flag_reports_a_repo_that_carries_both_entrypoints() {
     );
 }
 
+/// §FS-init.2.1 / §FS-init.2.3: explicit --cursor updates legacy .cursorrules
+/// when it already exists, and never creates the legacy file for new adopters.
+/// §FS-init.2.1.1: Cursor reads both rule surfaces, so the repo's existing one
+/// is updated rather than a second one added beside it.
 #[test]
 fn init_cursor_flag_updates_existing_legacy_cursorrules() {
-    // §FS-init.2.1 / §FS-init.2.3: explicit --cursor updates legacy .cursorrules
-    // when it already exists, and never creates the legacy file for new adopters.
-    // §FS-init.2.1.1: Cursor reads both rule surfaces, so the repo's existing one
-    // is updated rather than a second one added beside it.
     let target = workdir("init_cursor_flag_updates_existing_legacy_cursorrules");
     fs::write(target.join(".cursorrules"), "# Legacy Cursor notes\n").expect("write .cursorrules");
 
@@ -189,13 +189,13 @@ fn init_cursor_flag_updates_existing_legacy_cursorrules() {
     );
 }
 
+/// §FS-init.2.1 / §FS-init.2.3: a requested companion symlink to AGENTS.md is
+/// covered by updating the canonical target, even when --agents-md was not
+/// passed explicitly — and §FS-init.2.1.1: covered means covered, so nothing
+/// is created beside it while the block both files would carry is the same.
 #[cfg(unix)]
 #[test]
 fn init_agent_flag_updates_canonical_target_for_symlinked_entrypoint() {
-    // §FS-init.2.1 / §FS-init.2.3: a requested companion symlink to AGENTS.md is
-    // covered by updating the canonical target, even when --agents-md was not
-    // passed explicitly — and §FS-init.2.1.1: covered means covered, so nothing
-    // is created beside it while the block both files would carry is the same.
     let target = workdir("init_agent_flag_updates_canonical_target_for_symlinked_entrypoint");
     std::os::unix::fs::symlink("AGENTS.md", target.join("CLAUDE.md"))
         .expect("create CLAUDE.md symlink");
@@ -229,14 +229,14 @@ fn init_agent_flag_updates_canonical_target_for_symlinked_entrypoint() {
     );
 }
 
+/// §FS-init.2.1.1 / §FS-init.2.3.4.17: the one case where a symlinked
+/// companion leaves its agent uncovered. With `conversation = "link"` the
+/// canonical file carries the plain form — the one Claude is not meant to
+/// read — so `--claude` writes the Claude entrypoint the symlink left free,
+/// and that file is the only one carrying the linked sentence.
 #[cfg(unix)]
 #[test]
 fn init_claude_flag_writes_the_real_entrypoint_a_link_repo_symlinked_away() {
-    // §FS-init.2.1.1 / §FS-init.2.3.4.17: the one case where a symlinked
-    // companion leaves its agent uncovered. With `conversation = "link"` the
-    // canonical file carries the plain form — the one Claude is not meant to
-    // read — so `--claude` writes the Claude entrypoint the symlink left free,
-    // and that file is the only one carrying the linked sentence.
     let target = workdir("init_claude_flag_writes_the_real_entrypoint_a_link_repo_symlinked_away");
     fs::write(
         target.join("grund.toml"),
@@ -280,13 +280,13 @@ fn init_claude_flag_writes_the_real_entrypoint_a_link_repo_symlinked_away() {
     );
 }
 
+/// §FS-init.2.1.1 / §FS-init.2.3.4.17: both of Claude's paths symlinked to
+/// AGENTS.md under the `link` opinion. There is no free path, so `--claude`
+/// writes nothing for Claude — and the note has to name the fix that is
+/// actually left rather than the command the user just ran.
 #[cfg(unix)]
 #[test]
 fn init_reports_a_symlink_pair_that_leaves_claude_nowhere_to_write() {
-    // §FS-init.2.1.1 / §FS-init.2.3.4.17: both of Claude's paths symlinked to
-    // AGENTS.md under the `link` opinion. There is no free path, so `--claude`
-    // writes nothing for Claude — and the note has to name the fix that is
-    // actually left rather than the command the user just ran.
     let target = workdir("init_reports_a_symlink_pair_that_leaves_claude_nowhere_to_write");
     fs::write(
         target.join("grund.toml"),
@@ -349,14 +349,14 @@ fn init_dry_run_reports_a_duplicated_entrypoint_in_the_conditional() {
     );
 }
 
+/// §FS-init.2.1.1 / §FS-init.2.3.4.17: whether Claude has an entrypoint of
+/// its own is a fact about the tree, not about which flag this run carries.
+/// A run that selected some other agent has not changed it, so it must reach
+/// the same diagnosis a flagless run does — naming the real entrypoint and
+/// the symlink to delete, never claiming there is nowhere left to write.
 #[cfg(unix)]
 #[test]
 fn init_symlink_note_names_the_entrypoint_claude_already_has() {
-    // §FS-init.2.1.1 / §FS-init.2.3.4.17: whether Claude has an entrypoint of
-    // its own is a fact about the tree, not about which flag this run carries.
-    // A run that selected some other agent has not changed it, so it must reach
-    // the same diagnosis a flagless run does — naming the real entrypoint and
-    // the symlink to delete, never claiming there is nowhere left to write.
     let target = workdir("init_symlink_note_names_the_entrypoint_claude_already_has");
     fs::write(
         target.join("grund.toml"),
@@ -394,14 +394,14 @@ fn init_symlink_note_names_the_entrypoint_claude_already_has() {
     }
 }
 
+/// §FS-init.2.2: a preview writes nothing, so the symlink may only go once
+/// the entrypoint *carries the block*. Keying the conditional on the file
+/// existing is the same sentence with a precondition the reader can already
+/// satisfy — they check, see the file, delete their only Claude entrypoint,
+/// and are left with one that says nothing.
 #[cfg(unix)]
 #[test]
 fn init_dry_run_symlink_note_waits_for_the_block_not_the_file() {
-    // §FS-init.2.2: a preview writes nothing, so the symlink may only go once
-    // the entrypoint *carries the block*. Keying the conditional on the file
-    // existing is the same sentence with a precondition the reader can already
-    // satisfy — they check, see the file, delete their only Claude entrypoint,
-    // and are left with one that says nothing.
     let target = workdir("init_dry_run_symlink_note_waits_for_the_block_not_the_file");
     fs::write(
         target.join("grund.toml"),

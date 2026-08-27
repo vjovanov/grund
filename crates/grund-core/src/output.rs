@@ -30,10 +30,9 @@ fn print_report(config: &Config, report: &CheckReport, include_suggestions: bool
     diagnostics.sort_by(|(_, a), (_, b)| diagnostic_cmp(a, b));
     for (severity, diagnostic) in diagnostics {
         let line = render_diagnostic_text(config, severity, diagnostic);
-        // §FS-errors.1 / §FS-check.2.1: a located finding (`<path>:<line>: …`) is
-        // `check`'s output → stdout. A `line`-less diagnostic — a mid-walk read
-        // failure (§FS-check.2) or the empty-scan caution (§FS-check.2.2) — is a
-        // CLI-level message about the run, not a finding → stderr.
+        // §FS-errors.1 / §FS-check.2.1: a located finding is `check`'s output →
+        // stdout. A `line`-less diagnostic — a mid-walk read failure (§FS-check.2)
+        // or the empty-scan caution (§FS-check.2.2) — is about the run → stderr.
         if diagnostic.line.is_some() {
             println!("{line}");
         } else {

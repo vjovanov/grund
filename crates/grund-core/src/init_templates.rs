@@ -14,25 +14,25 @@ const DA_README_TEMPLATE: &str =
     include_str!("../assets/templates/decisions-architectural-README.md");
 const GITKEEP_TEMPLATE: &str = include_str!("../assets/templates/gitkeep.md");
 pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-init/SKILL.md");
-// v5 (§FS-init.2.3.6, §DF-integrations-command, §DF-repo-conversation-opinion):
-// the block gains the `### Clickable citations` section — the fixed
-// repository-web convention, plus a config-derived local-conversation sentence
-// when `[reference] conversation = "link"` is set. v4 (§FS-init.2.3,
-// §DF-managed-block-delimiters): explicit `<!-- BEGIN/END GRUND MANAGED BLOCK -->`
-// delimiters replace the implicit H2-to-next-heading region, and the worked
-// citation example is `<§>`-escaped so generated output passes `grund check`
-// unmodified. v3 (§FS-init.2.3.5, §DF-citation-directions) replaced the
-// hand-written climbing-rule bullet with a generated `### Citation directions`
-// section derived from `[citations]`.
-// v6 (§FS-init.2.3.6, §DF-conversation-link-target): the local-conversation
-// sentence became the gated link form — a Markdown link over the `file` target
-// on the Claude entrypoints, the plain location everywhere else.
-// v7 (§FS-config.1, §DF-config-file-location.2.3): the namespace rule tells an
-// agent to give a new subproject a bare `grund.toml` rather than
-// `.agents/grund.toml`. That is the taught workflow changing — an agent
-// following a v6 block creates a config in the form `init` no longer
-// generates — so it carries a version bump rather than a silent rewrite
-// (§FS-init.2.3).
+/// v5 (§FS-init.2.3.6, §DF-integrations-command, §DF-repo-conversation-opinion):
+/// the block gains the `### Clickable citations` section — the fixed
+/// repository-web convention, plus a config-derived local-conversation sentence
+/// when `[reference] conversation = "link"` is set. v4 (§FS-init.2.3,
+/// §DF-managed-block-delimiters): explicit `<!-- BEGIN/END GRUND MANAGED BLOCK -->`
+/// delimiters replace the implicit H2-to-next-heading region, and the worked
+/// citation example is `<§>`-escaped so generated output passes `grund check`
+/// unmodified. v3 (§FS-init.2.3.5, §DF-citation-directions) replaced the
+/// hand-written climbing-rule bullet with a generated `### Citation directions`
+/// section derived from `[citations]`.
+/// v6 (§FS-init.2.3.6, §DF-conversation-link-target): the local-conversation
+/// sentence became the gated link form — a Markdown link over the `file` target
+/// on the Claude entrypoints, the plain location everywhere else.
+/// v7 (§FS-config.1, §DF-config-file-location.2.3): the namespace rule tells an
+/// agent to give a new subproject a bare `grund.toml` rather than
+/// `.agents/grund.toml`. That is the taught workflow changing — an agent
+/// following a v6 block creates a config in the form `init` no longer
+/// generates — so it carries a version bump rather than a silent rewrite
+/// (§FS-init.2.3).
 const AGENTS_BLOCK_VERSION: u32 = 7;
 
 pub fn canonical_template_text(template: &str) -> String {
@@ -51,6 +51,10 @@ pub fn canonical_template_text(template: &str) -> String {
 /// section (§FS-init.2.3.4.15). `canonical_agent_entrypoint_selected` records
 /// whether this run is writing/updating `target/AGENTS.md`; companion-only init
 /// must not pretend that missing file exists.
+///
+/// Why the worked citation example is escaped: a live marker would make the
+/// generated block fail the host repo's own `grund check` as a dangling
+/// reference.
 fn agents_template_substitutions(
     name: &str,
     config: &Config,
@@ -66,10 +70,8 @@ fn agents_template_substitutions(
         .replace("{kind}", "FS")
         .replace("{number}", "042")
         .replace("{slug}", "user-login");
-    // §FS-init.2.3: the worked example is an illustration of a non-existent ID,
-    // so it is rendered in the `<marker>`-escaped form (§FS-workspace.1) — a
-    // live marker would make the generated block fail the host repo's own
-    // `grund check` as a dangling reference.
+    // §FS-init.2.3: the worked example illustrates a non-existent ID, so it is
+    // rendered in the `<marker>`-escaped form (§FS-workspace.1).
     let cite_example = format!("<{marker}>{id_example}{sep}3{sep}1");
     let kinds_set = format!("{{{}}}", kind_prefixes(&config.kinds).join(", "));
     let bare_note = if config.strict {
@@ -108,8 +110,7 @@ fn agents_template_substitutions(
                 Some(name),
                 // The pending effective config carries the `--description`
                 // value when `init` is about to write a fresh config; with an
-                // existing config the walk-up reloads it anyway
-                // (§FS-init.2.3.4.15).
+                // existing config the walk-up reloads it (§FS-init.2.3.4.15).
                 config.project_description.as_deref(),
                 marker,
                 canonical_agent_entrypoint_selected,
@@ -200,6 +201,12 @@ fn markdown_link_destination(raw: &str) -> String {
 /// `grund check` can re-render and byte-compare it for drift (§FS-check.3.5).
 /// When no `[citations]` section is declared, the static climbing-rule sentence
 /// stands in, so a config that predates the feature keeps a stable block.
+///
+/// Why a homed non-citable kind is named by its place: naming the kind would
+/// name something an agent can never write, while the place reads as the
+/// instruction the row is. The homeless kind has no place, so it keeps its name
+/// and says what it covers — its `title` where the project wrote one, the fixed
+/// phrase otherwise.
 fn citation_directions_section(config: &Config) -> String {
     // Built as lines joined with `\n` and returned without a trailing newline:
     // the `{CITATION_DIRECTIONS}` placeholder in the template supplies the single
@@ -239,11 +246,9 @@ fn citation_directions_section(config: &Config) -> String {
         let Some(clauses) = citation_direction_clauses(rules) else {
             continue;
         };
-        // §FS-init.2.3.5: a homed non-citable kind is named by its place, so the
-        // row reads as the instruction it is — "files in this directory cite X"
-        // — rather than naming a kind an agent can never write. The homeless
-        // kind has no place, so it keeps its name and says what it covers: its
-        // `title` where the project wrote one, the fixed phrase otherwise.
+        // §FS-init.2.3.5: a homed non-citable kind is named by its place, so
+        // the row reads as the instruction it is — "files in this directory
+        // cite X". The homeless kind keeps its name.
         let label = if kind == homeless {
             let scope = config
                 .kinds
@@ -273,28 +278,35 @@ fn citation_directions_section(config: &Config) -> String {
 /// §DF-repo-conversation-opinion). Without the opinion, local conversation
 /// rendering belongs to user-level instructions installed by
 /// `grund integrations --write` (§FS-integrations.4.3).
+///
+/// Why the marker is interpolated rather than left as a `{MARKER}` placeholder:
+/// this section is spliced into the template *after* that placeholder is
+/// expanded, so a placeholder in this string would survive into the written
+/// block.
+///
+/// Why the committed local-conversation form is always the `file` target: it is
+/// composed at write time from the repository root the agent already holds, and
+/// embeds nothing about any machine, so two installs render byte-identical
+/// files. The per-agent gate is what picks between the two forms — instructing
+/// the link form to a renderer that shows the destination in place of the label
+/// would erase the citation itself.
+///
+/// Why the deference clause is there: it is the §DF-repo-conversation-opinion.2.3
+/// precedence. This committed opinion is the no-knowledge fallback, and a
+/// machine whose user-level block states a rendering knows something about its
+/// own surface that the repository cannot — its choice wins.
 pub(crate) fn clickable_citations_section(config: &Config, surface: ConversationSurface) -> String {
-    // The wording is fixed; the marker is the repository's own (§FS-init.2.3.6).
-    // Interpolated here rather than left as a `{MARKER}` placeholder because this
-    // section is spliced into the template *after* that placeholder is expanded,
-    // so a placeholder in this string would survive into the written block.
+    // The wording is fixed; the marker is the repository's own
+    // (§FS-init.2.3.6), interpolated here rather than left as a `{MARKER}`
+    // placeholder.
     let marker = config.marker.as_str();
     let mut section = format!(
         "### Clickable citations\n\nOn repository web surfaces, link `{marker}<ID>` to the PR branch in PR bodies, the reviewed commit in reviews, an exact commit for permalinks, and the default branch otherwise; fall back to plain when unsure."
     );
     if config.conversation.as_deref() == Some("link") {
         // §DF-conversation-link-target: the committed form is always the `file`
-        // target, composed at write time from the repository root the agent
-        // already holds — it embeds nothing about any machine, so two installs
-        // render byte-identical files (§FS-non-goals.13). Which of the two forms
-        // is rendered is the per-agent gate (§DF-conversation-link-target.2.4):
-        // instructing the link form to a renderer that shows the destination in
-        // place of the label would erase the citation itself.
-        //
-        // The deference clause is the §DF-repo-conversation-opinion.2.3
-        // precedence: this committed opinion is the no-knowledge fallback, and a
-        // machine whose user-level block states a rendering knows something
-        // about its own surface that the repository cannot — its choice wins.
+        // target (§FS-non-goals.13); which of the two forms is rendered is the
+        // per-agent gate (§DF-conversation-link-target.2.4).
         let local = match surface {
             ConversationSurface::Linked => format!(
                 " In local conversations, render `{marker}<ID>` as a Markdown link whose visible text is the citation itself and whose target is `file://<absolute path>#L<line>` for its declaration; fall back to the bare citation when unsure."
@@ -425,6 +437,9 @@ fn citation_rule_targets(disjunctions: &[CitationDisjunction]) -> String {
 /// will type in a citation. A **non-citable** kind is named by its *place*: it
 /// has no ID namespace, so its name is a config handle and the only useful thing
 /// to show an agent is the directory to go and read.
+///
+/// Either way, every kind with a home links to it, and an unwalked kind is one
+/// of them: its row is why it is configured.
 fn declaration_map(config: &Config) -> String {
     // §FS-init.2.3.4.4: the homeless kind gets no row. Every row is a link to a
     // place, and it is the one kind that is not a place — the complement of all
@@ -433,9 +448,8 @@ fn declaration_map(config: &Config) -> String {
     let rows = config.kinds.iter().filter(|kind| kind.kind != homeless).map(|kind| {
         let title = kind.title.as_deref().unwrap_or("Declaration");
         // A non-citable kind is labelled by its home, which `place_label`
-        // already renders; every kind with a home links to it either way. An
-        // unwalked kind (§FS-config.3.4.7) is one of them: the row is why it
-        // is configured, and its missing directions bullet is §2.3.5's.
+        // already renders. An unwalked kind (§FS-config.3.4.7) is one of them;
+        // its missing directions bullet is §2.3.5's.
         match (kind.file.as_deref().or(kind.folder.as_deref()), kind.citable) {
             (Some(home), true) => row(&kind.kind, home, title),
             (Some(home), false) => row(&kind.place_label().unwrap_or_default(), home, title),

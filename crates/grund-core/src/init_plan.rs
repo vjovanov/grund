@@ -1,10 +1,10 @@
-// The plan one `grund init` run makes: which entrypoint files *this* invocation
-// writes, appends to, or updates (§FS-init.2.1, §FS-init.2.1.1). Its input is
-// what the repository has — `init_entrypoints.rs` answers that — plus the flags
-// the user passed; its output is the one value the writing half in `init.rs` and
-// the `note:` builders in `init_notes.rs` both read, so neither has to ask the
-// tree a question the selection already answered (§AR-core-module-layout.1).
-
+/// The plan one `grund init` run makes: which entrypoint files *this*
+/// invocation writes, appends to, or updates (§FS-init.2.1, §FS-init.2.1.1).
+/// Its input is what the repository has — `init_entrypoints.rs` answers that —
+/// plus the flags the user passed; its output is the one value the writing half
+/// in `init.rs` and the `note:` builders in `init_notes.rs` both read, so
+/// neither has to ask the tree a question the selection already answered
+/// (§AR-core-module-layout.1).
 #[derive(Clone, Default)]
 pub struct InitAgentEntrypointSelection {
     pub canonical: bool,

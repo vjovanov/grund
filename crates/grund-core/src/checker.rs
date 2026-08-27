@@ -248,6 +248,21 @@ struct WorkspaceCheckTarget<'a> {
 /// would be spelled from the member's root while the finding's own anchor is
 /// spelled from the workspace's, and neither the reader nor an editor could
 /// follow it (§FS-config.3.6).
+///
+/// Why the escaped-citation finding is only a suggestion: illustrating a real ID
+/// in prose is legitimate, so a resolving escape is never an error — it is
+/// withheld unless the caller passes `--suggestions`.
+///
+/// Why an index entry is not counted as an inbound citation: an index names every
+/// declaration in its folder by construction, so counting its entries would leave
+/// every ID in an indexed folder permanently "cited" and empty the `unused`
+/// warning of everything it exists to find.
+///
+/// Why grounding needs no tooling: it is a pure function of (tree, config) — no
+/// git, no AST. Markdown is exempt from it because a document is not
+/// implementation; a non-citable home is not, because it is a directory the
+/// maintainer declared matters and is usually all Markdown, so the exemption
+/// would make the rule inert exactly where it was asked for.
 fn check_with_workspace(
     findings: &Findings,
     config: &Config,
@@ -362,9 +377,8 @@ fn check_with_workspace(
     }
 
     // §FS-check.3.1 / §FS-check.3.2 / §FS-check.3.8 / §FS-check.3.13: the
-    // reference-resolution family, in `checker_references.rs` because
-    // `check --full` runs it a second time over the tree outside `[scan]
-    // include` (§AR-checker.2.13, §FS-check.3.14).
+    // reference-resolution family, in `checker_references.rs` (§AR-checker.2.13,
+    // §FS-check.3.14) because `check --full` reruns it outside `[scan] include`.
     check_citation_resolution(
         findings,
         config,
@@ -376,9 +390,7 @@ fn check_with_workspace(
 
     // §FS-check.2.3.1 / §AR-checker.2.11: a `<§>`-escaped illustration whose ID
     // resolves to a real declaration is likely a live citation someone bracketed
-    // by mistake — the escape silently makes it inert. Surface it as a suggestion
-    // (never an error: illustrating a real ID is legitimate), so it is withheld
-    // unless the caller passes `--suggestions`.
+    // by mistake — the escape silently makes it inert.
     for esc in &findings.escaped_citations {
         if citation_resolves(esc, findings, config, workspace) {
             report.suggestions.push(Diagnostic {
@@ -397,10 +409,9 @@ fn check_with_workspace(
         }
     }
 
-    // §FS-check.3.9 and §FS-check.3.16: the two rules about a declaration's own
-    // section headings — the depth each writes and whether two claim one path.
-    // They live in `checker_sections.rs`, one file per invariant family
-    // (§AR-checker.2.15, §AR-core-module-layout.1).
+    // §FS-check.3.9 / §FS-check.3.16: the depth a declaration's own section
+    // headings write, and whether two claim one path. One file per invariant
+    // family in `checker_sections.rs` (§AR-checker.2.15, §AR-core-module-layout.1).
     check_section_headings(findings, config, path_config, &mut report);
 
     // §FS-inline-citation-style.4: inline source-comment citation sites are
@@ -458,12 +469,8 @@ fn check_with_workspace(
     check_kind_indexes(findings, config, path_config, &mut report);
 
     // §FS-check.4.1: a declaration nothing cites is a warning, not an error —
-    // except E2E cases, which are proof artifacts, not citation targets.
-    //
-    // An index entry is not an inbound citation (§DF-index-not-an-inbound-citation):
-    // an index names every declaration in its folder by construction, so counting
-    // its entries would leave every ID in an indexed folder permanently "cited"
-    // and empty this warning of everything it exists to find.
+    // except E2E cases, which are proof artifacts, not citation targets. An
+    // index entry is not an inbound citation (§DF-index-not-an-inbound-citation).
     let index_entries = KindIndexEntries::new(findings, config);
     let mut cited: BTreeSet<&Id> = findings
         .citations
@@ -504,15 +511,13 @@ fn check_with_workspace(
         }
     }
 
-    // §FS-check.3.6 / §DF-require-grounding: under `[reference] require_grounding`,
-    // every scanned source (non-Markdown) file must carry at least one citation to
-    // a declared ID — or itself declare one inline (a spec home is grounded in the
-    // spec it *is*). Pure function of (tree, config): no git, no AST.
+    // §FS-check.3.6 / §DF-require-grounding: under `[reference] require_grounding`
+    // every scanned non-Markdown file must carry a citation to a declared ID — or
+    // itself declare one inline (a spec home is grounded in the spec it *is*).
     if config.require_grounding {
         // Collect the files that ground themselves in two linear passes — one over
         // citations, one over declarations — so the per-file test below is a set
-        // lookup, not a re-scan of every citation and declaration for each file
-        // (§GOAL-fast-feedback: speed is the ordering principle).
+        // lookup, not a re-scan per file (§GOAL-fast-feedback: speed is the ordering principle).
         let mut grounded_files: BTreeSet<&Path> = findings
             .citations
             .iter()
@@ -529,10 +534,8 @@ fn check_with_workspace(
         );
         for file in &findings.scanned_files {
             // §FS-check.3.6: Markdown is exempt because a document is not
-            // implementation — except inside a non-citable home, which is a
-            // directory the maintainer declared matters and which is usually all
-            // Markdown. There the exemption would make the rule inert exactly
-            // where it was asked for.
+            // implementation — except inside a non-citable home, where the
+            // exemption would make the rule inert exactly where it was asked for.
             let non_citable_home = kind_homes
                 .unique_decl_home_for_file(file)
                 .filter(|home| !home.citable)
@@ -767,6 +770,18 @@ fn check_agents_block_version(config: &Config, report: &mut CheckReport) {
     }
 }
 
+/// Checks one agent-entrypoint file's managed `grund init` block: present when
+/// required, version supported, and its generated sections still matching config.
+///
+/// Why the generated sections are compared by re-rendering: rendering is
+/// deterministic, so a fresh render is the hash. `\r` is stripped from the block
+/// first, because the managed `AGENTS.md` is not pinned to LF in `.gitattributes`,
+/// so a Windows checkout has CRLF and would read as drift against the LF render.
+///
+/// Why the local-conversation sentence is re-rendered per file: flipping
+/// `[reference] conversation` without re-running `grund init` must surface as
+/// drift, and the sentence also varies by entrypoint — so the comparison derives
+/// the surface from the path, the same way `init` chose it.
 fn check_agent_block_path(
     config: &Config,
     path: &Path,
@@ -838,13 +853,7 @@ fn check_agent_block_path(
         } else {
             // §FS-check.3.5 / §FS-init.2.3.5: citation directions are generated
             // from `[citations]`, so the version marker alone cannot catch a
-            // config edit that left the block stale. Re-render the section and
-            // byte-compare — rendering is deterministic, so the render is the hash.
-            //
-            // Strip `\r` so a CRLF checkout (the managed `AGENTS.md` is not
-            // pinned to LF in `.gitattributes`, so Windows checks it out with
-            // CRLF) compares equal to the LF-rendered section rather than
-            // reading as drift.
+            // config edit that left the block stale. Re-render and byte-compare.
             let block_text = text[block.start..block.end].replace('\r', "");
             let generated_sections = [
                 (
@@ -853,12 +862,8 @@ fn check_agent_block_path(
                     "citation directions",
                 ),
                 // §FS-init.2.3.6: the local-conversation sentence derives from
-                // `[reference] conversation`, so flipping the key without
-                // re-running `grund init` must surface as drift.
-                // The local-conversation sentence also varies by entrypoint
-                // (§FS-init.2.3.4.17), so the drift comparison re-renders for
-                // *this* file's surface — deriving it from the path, the same
-                // way `init` chose it.
+                // `[reference] conversation` and varies by entrypoint
+                // (§FS-init.2.3.4.17), so drift re-renders for *this* file's surface.
                 (
                     "### Clickable citations",
                     clickable_citations_section(config, ConversationSurface::for_entrypoint(path)),
@@ -1022,10 +1027,9 @@ impl<'a> KindHomeIndex<'a> {
 
         for kind in &config.kinds {
             if let Some(file) = kind.file.as_deref() {
-                // §FS-check.3.7: only a citable kind has declarations to keep in
-                // one document, so the single-file rule has nothing to say about
-                // a non-citable `file` home — the home-kind rule below reports
-                // anything declared there, once.
+                // §FS-check.3.7: only a citable kind has declarations to keep in one
+                // document, so the single-file rule says nothing about a non-citable
+                // `file` home — the home-kind rule below reports what is there, once.
                 if kind.citable {
                     single_files.push(SingleFileHome {
                         kind: kind.kind.as_str(),

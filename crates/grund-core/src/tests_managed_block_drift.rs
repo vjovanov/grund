@@ -192,10 +192,10 @@ mod tests_managed_block_drift {
         );
     }
 
-    // §FS-check.3.5: the section extractor is position-independent — trailing
-    // blank lines and a following H1/H2 inside the block are not drift, but a
-    // changed bullet is. Guards the latent case the renderer cannot yet produce
-    // (the section is always block-final today).
+    /// §FS-check.3.5: the section extractor is position-independent — trailing
+    /// blank lines and a following H1/H2 inside the block are not drift, but a
+    /// changed bullet is. Guards the latent case the renderer cannot yet produce
+    /// (the section is always block-final today).
     #[test]
     fn citation_directions_section_extraction_is_position_independent() {
         let section = "### Citation directions\n\n- **E2E** must cite FS.\nUnlisted kinds and pairs are fine.";

@@ -52,15 +52,15 @@ fn init_updates_existing_agent_entrypoint_without_creating_agents_md() {
     );
 }
 
+/// §FS-init.2.1 / §FS-init.2.3: a workspace-selected companion symlink to
+/// AGENTS.md is covered by updating the canonical target, even before the
+/// target exists, rather than writing a companion-only block through it.
+/// §FS-init.2.1.1: the dangling symlink is still Claude's copy of that block,
+/// so `.claude/` does not also earn an alias — the run would be writing the
+/// same bytes to two files one agent reads.
 #[cfg(unix)]
 #[test]
 fn init_workspace_symlinked_alias_writes_canonical_target() {
-    // §FS-init.2.1 / §FS-init.2.3: a workspace-selected companion symlink to
-    // AGENTS.md is covered by updating the canonical target, even before the
-    // target exists, rather than writing a companion-only block through it.
-    // §FS-init.2.1.1: the dangling symlink is still Claude's copy of that block,
-    // so `.claude/` does not also earn an alias — the run would be writing the
-    // same bytes to two files one agent reads.
     let target = workdir("init_workspace_symlinked_alias_writes_canonical_target");
     fs::create_dir_all(target.join(".claude")).expect("create .claude");
     std::os::unix::fs::symlink("AGENTS.md", target.join("CLAUDE.md"))
@@ -163,12 +163,12 @@ fn init_creates_agent_aliases_when_agent_workspaces_exist() {
     );
 }
 
+/// §FS-init.2.1 / §FS-init.2.3: a present `.cursor/` workspace triggers
+/// creation of `.cursor/rules/grund.mdc` in automatic mode — the same
+/// pattern that `.claude/` and `.gemini/` use. The legacy `.cursorrules`
+/// is never auto-created.
 #[test]
 fn init_cursor_workspace_creates_cursor_rules_alias() {
-    // §FS-init.2.1 / §FS-init.2.3: a present `.cursor/` workspace triggers
-    // creation of `.cursor/rules/grund.mdc` in automatic mode — the same
-    // pattern that `.claude/` and `.gemini/` use. The legacy `.cursorrules`
-    // is never auto-created.
     let target = workdir("init_cursor_workspace_creates_cursor_rules_alias");
     fs::create_dir_all(target.join(".cursor")).expect("create .cursor");
 
@@ -197,12 +197,12 @@ fn init_cursor_workspace_creates_cursor_rules_alias() {
     );
 }
 
+/// §FS-init.2.1 / §FS-init.2.3: `.rules` is too generic a filename to
+/// attribute to Zed by existence alone — automatic mode must NOT pick it
+/// up. Only an explicit `--zed` flag, or a `.zed/` workspace directory,
+/// creates or updates `.rules`.
 #[test]
 fn init_zed_rules_is_only_workspace_or_flag_gated() {
-    // §FS-init.2.1 / §FS-init.2.3: `.rules` is too generic a filename to
-    // attribute to Zed by existence alone — automatic mode must NOT pick it
-    // up. Only an explicit `--zed` flag, or a `.zed/` workspace directory,
-    // creates or updates `.rules`.
     let target = workdir("init_zed_rules_is_only_workspace_or_flag_gated");
     // Pre-existing `.rules` with no `.zed/` workspace: must be left strictly
     // alone, and the AGENTS.md fallback kicks in instead.
@@ -276,16 +276,16 @@ fn init_zed_rules_is_only_workspace_or_flag_gated() {
     );
 }
 
+/// §FS-init.2.1 / §FS-init.2.3: AGENTS.override.md is the "automatic
+/// existing-file-only" override channel. When it is the only known agent
+/// entrypoint present, automatic mode treats it as the existing repo's
+/// choice — its managed block is appended/updated and no canonical
+/// AGENTS.md is created. This locks in the behavior of the
+/// existing-companion branch in `selected_init_agent_entrypoints` so a
+/// future refactor cannot silently regress an adopter who is running
+/// `init` against a Codex-style override-only layout.
 #[test]
 fn init_preserves_lone_override_entrypoint_without_creating_agents_md() {
-    // §FS-init.2.1 / §FS-init.2.3: AGENTS.override.md is the "automatic
-    // existing-file-only" override channel. When it is the only known agent
-    // entrypoint present, automatic mode treats it as the existing repo's
-    // choice — its managed block is appended/updated and no canonical
-    // AGENTS.md is created. This locks in the behavior of the
-    // existing-companion branch in `selected_init_agent_entrypoints` so a
-    // future refactor cannot silently regress an adopter who is running
-    // `init` against a Codex-style override-only layout.
     let target = workdir("init_preserves_lone_override_entrypoint_without_creating_agents_md");
     fs::write(target.join("AGENTS.override.md"), "# Local override\n")
         .expect("write AGENTS.override.md");
@@ -323,13 +323,13 @@ fn init_preserves_lone_override_entrypoint_without_creating_agents_md() {
         "AGENTS.override.md should keep existing notes and append the managed block:\n{override_contents}"
     );
 }
+/// §FS-init.2.1.1 / §FS-init.3: `init` created neither file, but the symlink
+/// resolves to the canonical entrypoint this run also writes, so Claude reads
+/// the same block twice — the state §FS-init.3 promises is never left
+/// invisible, reached without a `conversation` key in sight.
 #[cfg(unix)]
 #[test]
 fn init_reports_a_symlink_that_duplicates_a_real_entrypoint() {
-    // §FS-init.2.1.1 / §FS-init.3: `init` created neither file, but the symlink
-    // resolves to the canonical entrypoint this run also writes, so Claude reads
-    // the same block twice — the state §FS-init.3 promises is never left
-    // invisible, reached without a `conversation` key in sight.
     let target = workdir("init_reports_a_symlink_that_duplicates_a_real_entrypoint");
     fs::write(target.join("AGENTS.md"), "# notes\n").expect("write AGENTS.md");
     fs::create_dir_all(target.join(".claude")).expect("create .claude");

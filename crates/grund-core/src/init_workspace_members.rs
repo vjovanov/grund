@@ -1,12 +1,13 @@
-// The workspace half of the `init` renderer (§FS-init.2.3.4.15), in a file of
-// its own beside `init_entrypoints.rs` (§AR-core-module-layout.1): finding the
-// workspace a target sits in, and rendering the member list the managed block
-// carries. `init_templates.rs` keeps the block itself and the generated config.
-
 /// One resolved workspace project — the alias, canonical root, and optional
 /// one-line description — collected by [`find_init_workspace_context`] so the
 /// workspace-members renderer never has to talk to the config layer directly
 /// (§FS-init.2.3.4.15, §DF-workspace-member-descriptions).
+///
+/// What this file holds: the workspace half of the `init` renderer
+/// (§FS-init.2.3.4.15), in a file of its own beside `init_entrypoints.rs`
+/// (§AR-core-module-layout.1) — finding the workspace a target sits in, and
+/// rendering the member list the managed block carries. `init_templates.rs`
+/// keeps the block itself and the generated config.
 struct InitWorkspaceProject {
     alias: String,
     project_root: PathBuf,
@@ -23,6 +24,14 @@ struct InitWorkspaceProject {
 /// workspace configuration problem (missing member, duplicate alias, member
 /// cycle, …) — init must not fail because a sibling member is misconfigured;
 /// the next `grund check` will surface the issue (§FS-init.2.3.4.15).
+///
+/// Why a `target` that will not canonicalize suppresses the section: rendering a
+/// wrong self row is worse than rendering none.
+///
+/// Why `--name` and `--description` reach the self row: self is rendered against
+/// the config `init` is about to write, so `grund init member --name service
+/// --description "…"` teaches the future `service/...` workspace alias and its
+/// description immediately.
 fn find_init_workspace_context(
     target: &Path,
     pending_project_name: Option<&str>,
@@ -31,18 +40,16 @@ fn find_init_workspace_context(
     let mut root_config = find_init_workspace_root(target)?;
     // `expand_workspace_tree` returns canonical project roots, so a
     // non-canonical `target` would never match the self project on path
-    // equality and the self-exception in §FS-init.2.3.4.15 would silently
-    // misfire. Suppress the section rather than render a wrong self row.
+    // equality and §FS-init.2.3.4.15's self-exception would silently misfire.
     let target_canonical = fs::canonicalize(target).ok()?;
     let mut projects = Vec::new();
     for entry in expand_workspace_tree(&mut root_config).ok()? {
         let mut alias = entry.alias;
         let mut description = entry.config.project_description.clone();
         if entry.config.root == target_canonical && config_file_in(&entry.config.root).is_none() {
-            // §FS-init.2.3.4.15: self is rendered against the config `init`
-            // is about to write, so `grund init member --name service
-            // --description "…"` teaches the future `service/...` workspace
-            // alias and its description immediately.
+            // §FS-init.2.3.4.15: self is rendered against the config `init` is
+            // about to write, so `--name` and `--description` teach the future
+            // alias and description immediately.
             if let Some(name) = pending_project_name {
                 if !is_valid_project_alias(name) {
                     return None;
@@ -124,6 +131,9 @@ fn find_init_workspace_root(target: &Path) -> Option<Config> {
 /// when `target` is not inside a workspace. The leading `\n\n` is the
 /// separator from the preceding namespace guidance block, so an empty value
 /// leaves the surrounding spacing unchanged.
+///
+/// Why the self row's link is gated on `canonical_agent_entrypoint_selected`:
+/// companion-only init must not link to a missing `AGENTS.md`.
 fn render_workspace_members_section(
     target: &Path,
     pending_project_name: Option<&str>,
@@ -149,10 +159,9 @@ fn render_workspace_members_section(
     for project in &projects {
         let is_self = project.project_root == target_canonical;
         let agents_md_path = project.project_root.join("AGENTS.md");
-        // §FS-init.2.3.4.15 self exception: the self project counts as initialized
-        // before the write completes only when this init run is actually writing
-        // the canonical AGENTS.md. Companion-only init must not link to a missing
-        // AGENTS.md.
+        // §FS-init.2.3.4.15 self exception: the self project counts as
+        // initialized before the write completes only when this init run is
+        // actually writing the canonical AGENTS.md.
         let initialized =
             agents_md_path.exists() || (is_self && canonical_agent_entrypoint_selected);
         let link = if initialized {

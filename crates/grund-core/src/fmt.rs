@@ -1,18 +1,13 @@
-// Citation normalization: one pass over a document that rewrites triggers to
-// markers, marks bare citations, expands shorthands, and keeps cross-reference
-// links current (§FS-fmt.2). The modes share the traversal — each line is asked
-// every question once — so what lives here is the walk and the per-line
-// decisions inside it. The command surface around it is `fmt_cmd.rs`, and the
-// link construction §FS-fmt.6 needs is `fmt_links.rs`.
-
-/// Walk the tree and rewrite each scannable file line by line — never touching a
-/// declaration heading or anything inside a fenced code block (§FS-fmt.2.3) — and
-/// either write the changes back (`--write`) or just collect `(path, line, label)`
-/// for `--check`/dry-run (§FS-fmt.3). `--cross-refs` needs the full `Findings` first
-/// so a link is only emitted when its target resolves (§FS-fmt.6.3).
 /// What one `fmt` walk produced (§FS-fmt.3). Every path here is already rendered
 /// against the run's config, because that is where the config naming it is at
 /// hand; the command surface prints them and maps the exit code.
+///
+/// Citation normalization: one pass over a document that rewrites triggers to
+/// markers, marks bare citations, expands shorthands, and keeps cross-reference
+/// links current (§FS-fmt.2). The modes share the traversal — each line is asked
+/// every question once — so what lives here is the walk and the per-line
+/// decisions inside it. The command surface around it is `fmt_cmd.rs`, and the
+/// link construction §FS-fmt.6 needs is `fmt_links.rs`.
 struct FmtTreeOutcome {
     /// The lines it rewrote — or, in a dry run, would have.
     changes: Vec<(PathBuf, usize, String)>,
@@ -50,6 +45,37 @@ struct FmtRunOpts<'a> {
     index_cross_refs: bool,
 }
 
+/// Walk the tree and rewrite each scannable file line by line — never touching a
+/// declaration heading or anything inside a fenced code block (§FS-fmt.2.3) — and
+/// either write the changes back (`--write`) or just collect `(path, line, label)`
+/// for `--check`/dry-run (§FS-fmt.3). `--cross-refs` needs the full `Findings` first
+/// so a link is only emitted when its target resolves (§FS-fmt.6.3).
+///
+/// Why the link pass takes the whole project's declarations and the shorthand
+/// pass does not: a wrap's URL is computed from the declaration's home file,
+/// which may live anywhere in the project tree, so workspace mode reuses the
+/// caller's whole-project findings — the `WorkspaceContext` scan, no second disk
+/// pass per project — and falls back to a strict project scan otherwise. That
+/// fallback preserves §FS-fmt.6.2 for `grund fmt --cross-refs path/to/file.md`,
+/// where the caller's findings are scope-narrow and a cross-file home would
+/// otherwise be invisible. A shorthand needs the same declaration set, but only
+/// where the tree actually contains one, and paying for a scan on every run of
+/// every numbered repo to serve a rewrite most of them never need is the wrong
+/// trade (§GOAL-fast-feedback): the walk starts without findings and scans on the
+/// first candidate it meets.
+///
+/// Why the unreadable paths are collected here: they are rendered while the
+/// config that names them is at hand, and `fmt` walks the tree `check` walks —
+/// the alternative is the one command that edits files in place also being the
+/// one that will not say which files it never saw.
+///
+/// Why a file reached from outside the config root is refused: editing it would
+/// put this project's bytes into a file the project does not own. The refusal is
+/// named once, on stderr, with the exit code untouched — it is intended behavior
+/// and not a failure of the run. The dry run refuses it too and reports no
+/// rewrite for it: a dry run predicts what `--write` does, and a pending rewrite
+/// `--write` will never perform is one no edit can clear, so `fmt --check` would
+/// exit `1` on this tree forever and a gate built on it could never pass.
 fn fmt_tree(
     config: &Config,
     scope: Option<&Path>,
@@ -63,24 +89,9 @@ fn fmt_tree(
     let write = opts.write;
     let workspace = opts.workspace;
     let precomputed_findings = opts.precomputed_findings;
-    // §FS-fmt.6.3: a wrap's URL is computed from the declaration's home file,
-    // which may live anywhere in the project tree — not necessarily inside the
-    // scope being rewritten. Reuse the caller's whole-project findings when
-    // they have them (workspace mode shares the `WorkspaceContext` scan
-    // across `fmt`'s rewrite walk — no second disk pass per project), and
-    // fall back to a strict project scan otherwise. The fallback preserves
-    // §FS-fmt.6.2 for `grund fmt --cross-refs path/to/file.md`, where the
-    // caller's findings are scope-narrow and a cross-file home would
-    // otherwise be invisible.
-    //
-    // §FS-fmt.6.3 needs the whole-project findings up front, because a wrap's
-    // URL depends on a declaration that may live outside the rewrite scope.
-    // §FS-fmt.2.4 needs the same declaration set, but only if the tree actually
-    // contains a shorthand — so it is *not* scheduled here. `fmt --check` has no
-    // other reason to scan, and paying for one on every run of every numbered
-    // repo to serve a rewrite most of them never need is the wrong trade
-    // (§GOAL-fast-feedback). Instead the walk below starts without findings and
-    // scans on the first candidate it meets.
+    // §FS-fmt.6.3: the link pass needs the whole project's declarations, because
+    // a wrap's URL comes from a home file that may sit outside the rewrite scope.
+    // §FS-fmt.2.4's scan is deferred instead, to the first shorthand candidate.
     let walked = walk_scannable_files_reporting(config, scope, explicit_scope)?;
     // §FS-fmt.6.1: the index files this walk reached. Empty unless the run would
     // otherwise skip the cross-reference pass on them, so a repository on the
@@ -117,26 +128,17 @@ fn fmt_tree(
     // `ShorthandTargets`. Rebuilt at most once, when the deferred scan lands.
     let mut shorthand_targets = ShorthandTargets::new(findings, workspace);
     // §FS-fmt.3: the paths this walk could not read, rendered here while the
-    // config that names them is at hand. `fmt` walks the tree `check` walks and
-    // owes the same account of it (§FS-check.2) — the alternative is the one
-    // command that edits files in place also being the one that will not say
-    // which files it never saw.
+    // config that names them is at hand — the same account `check` owes of the
+    // tree it walks (§FS-check.2).
     let scan_errors: Vec<ApiScanError> = walked
         .errors
         .iter()
         .map(|(file, message)| api_scan_error(opts.render, file, message))
         .collect();
     for path in walked.files {
-        // §FS-fmt.2.3.2: the walk reads a file reached through a link that leaves
-        // the config root, and the rewrite stops there — editing it would put this
-        // project's bytes into a file the project does not own
-        // (§REQ-no-data-loss.2). Named once, on stderr, exit code untouched: the
-        // refusal is the intended behavior and not a failure of the run.
-        //
-        // The dry run refuses it too, and reports no rewrite for it. A dry run
-        // predicts what `--write` does, and a pending rewrite `--write` will never
-        // perform is one no edit can clear: `fmt --check` would exit `1` on this
-        // tree forever, so a gate built on it could never pass (§FS-fmt.3).
+        // §FS-fmt.2.3.2: this file was reached through a link that leaves the
+        // config root, so the rewrite stops here (§REQ-no-data-loss.2). The dry
+        // run refuses it too, and reports no rewrite for it (§FS-fmt.3).
         if walked.outside_root.contains(&path) {
             refused_writes.push(display_path(opts.render, &path));
             continue;
@@ -145,9 +147,8 @@ fn fmt_tree(
             fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
         let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
         // §FS-fmt.6.1: an index's own entries are linkified whatever the toggle
-        // says — the entries, not the page. A citation of a foreign ID in the
-        // prose around them is an ordinary citation in an ordinary file, and a
-        // repository that set `enabled = false` asked for it to stay bare.
+        // says — the entries, not the page; a foreign ID cited in the prose around
+        // them stays bare, which is what `enabled = false` asked for.
         let index_entry_ids = index_entries.as_ref().and_then(|it| it.entries_in(&path));
         let cross_refs = cross_refs || index_entry_ids.is_some();
         let file_changes_start = changes.len();
@@ -159,10 +160,9 @@ fn fmt_tree(
             workspace,
             shorthand_targets: &shorthand_targets,
         }, &mut changes);
-        // §FS-fmt.2.4: this file wants a shorthand expanded and we have no
-        // declarations yet. Scan once, then redo *this* file — every file
-        // already walked is final, because having no candidate is exactly why
-        // the scan had not happened by then.
+        // §FS-fmt.2.4: a shorthand to expand and no declarations yet. Scan once,
+        // then redo *this* file — every file already walked is final, because
+        // having no candidate is exactly why the scan had not happened by then.
         if rewritten.saw_shorthand_candidate && findings.is_none() {
             shorthand_findings = Some(fmt_findings_or_abort(config, opts.render)?);
             findings = shorthand_findings.as_ref();
@@ -293,6 +293,15 @@ struct FmtLineOpts<'a> {
 /// typed `$$FS-042` is marked and then expanded within the one call — which is
 /// how §FS-fmt.2.4's "in one step" holds without the trigger pass needing to
 /// know about declarations.
+///
+/// Why each stage takes ownership of the previous stage's line:
+/// `expand_shorthand_citations` returns `None` for "unchanged" exactly so the
+/// common line can be moved through untouched.
+///
+/// Why a shorthand expansion names the text it wrote in the label: the other
+/// three rewrites move markup around an unchanged ID token, so `grund check` can
+/// still see a mistake in them; this one writes the slug *into* the token, and a
+/// wrong one is a well-formed citation of the wrong declaration.
 fn fmt_line(
     line: &str,
     path: &Path,
@@ -312,8 +321,6 @@ fn fmt_line(
     // Each stage below takes ownership of the previous stage's line rather than
     // cloning it: `fmt` touches every line of every scanned file, so one avoidable
     // allocation per line is a measurable share of the command (§GOAL-fast-feedback).
-    // `expand_shorthand_citations` returns `None` for "unchanged" exactly so the
-    // common line can be moved through untouched.
     let mut expansions = Vec::new();
     let expansion = expand_shorthand_citations(
         &marked,
@@ -346,11 +353,8 @@ fn fmt_line(
     } else {
         ""
     };
-    // §FS-fmt.3: whichever label won, a line that expanded a shorthand names the
-    // text it will write. The other three rewrites move markup around an
-    // unchanged ID token, so `grund check` can still see a mistake in them;
-    // this one writes the slug *into* the token, and a wrong one is a well-formed
-    // citation of the wrong declaration that no later pass can question
+    // §FS-fmt.3: whichever label won, a line that expanded a shorthand also names
+    // the text it will write — the one rewrite no later pass can question
     // (§DF-shorthand-numeric-run.2.7).
     let label = if expansions.is_empty() {
         label.to_string()

@@ -111,6 +111,17 @@ fn load_workspace_context_with_overlays(
 /// walks the member globs to apply the workspace boundary (§AR-workspace.6), so a
 /// caller that had to resolve the config to make a routing decision must not pay
 /// for it twice (§GOAL-fast-feedback).
+///
+/// Who asks for citing-side classification: the LSP snapshot passes `true` so
+/// `grund check`'s citation-direction errors (`missing-citation` /
+/// `forbidden-citation`, §FS-lsp.1.1) surface in the editor; `grund check` itself
+/// uses `load_workspace_projects` directly and keeps the default (on).
+///
+/// Why `workspace_declared` is the canonical "is this a workspace run?": a path that
+/// resolves member-local has already been rewritten by `config_for_member_scope` to
+/// drop the flag, so the answer does not depend on where in the workspace the user
+/// invoked the command — `grund alias/FS-x docs/`, `grund refs FS-y .`, and
+/// `grund fmt --cross-refs subdir/` all see the same workspace.
 fn load_resolved_workspace_context(
     mut config: Config,
     path: &Path,
@@ -119,21 +130,12 @@ fn load_resolved_workspace_context(
     classify_citation_sources: bool,
 ) -> Result<WorkspaceContext> {
     // §AR-scanner.2.4 / §AR-benchmarks: the read-only commands (`list`, `show`,
-    // `refs`, `fmt`) never read citing-side classification, so they pass
-    // `classify_citation_sources = false` to skip the scan post-pass. The LSP
-    // snapshot passes `true` so `grund check`'s citation-direction errors
-    // (`missing-citation` / `forbidden-citation`, §FS-lsp.1.1) surface in the
-    // editor; `grund check` itself uses `load_workspace_projects` directly and
-    // keeps the default (on). Workspace members inherit this below.
+    // `refs`, `fmt`) never read citing-side classification, so they pass `false` to
+    // skip the scan post-pass. Workspace members inherit this below.
     config.classify_citation_sources = classify_citation_sources;
-    // §FS-workspace.5 / §AR-workspace.6: workspace mode applies whenever
-    // the discovered config carries `[workspace]` after member-scope
-    // rewriting. A path that resolves member-local has already been
-    // rewritten by `config_for_member_scope` to drop `workspace_declared`,
-    // so this flag is the single canonical "is this a workspace run?"
-    // — independent of where in the workspace the user invoked the
-    // command, so `grund alias/FS-x docs/`, `grund refs FS-y .`, and
-    // `grund fmt --cross-refs subdir/` all see the same workspace.
+    // §FS-workspace.5 / §AR-workspace.6: workspace mode applies whenever the
+    // discovered config carries `[workspace]` after member-scope rewriting, so this
+    // flag is the single canonical "is this a workspace run?".
     if !config.workspace_declared {
         return single_project_context(config, path, path_provided, overlays);
     }
@@ -241,10 +243,8 @@ fn load_workspace_projects_with_overlays(
     let mut entries = expand_workspace_tree(root_config)?;
 
     // §AR-scanner.2.4: members inherit the root's classification intent, so a
-    // read-only command (root off) skips the post-pass for every member and
-    // `grund check` (root on) classifies the whole workspace.
-    // §FS-check.1.3: `grund check --full` is a property of the run, not of one
-    // project's config, so every member walks past its own `[scan] include` too.
+    // read-only run skips the post-pass workspace-wide. §FS-check.1.3: `--full` is a
+    // property of the run, so every member walks past its own `[scan] include` too.
     for entry in &mut entries {
         entry.config.classify_citation_sources = root_config.classify_citation_sources;
         entry.config.scan_full = root_config.scan_full;

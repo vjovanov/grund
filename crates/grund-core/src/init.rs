@@ -187,6 +187,43 @@ fn command_init(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// Scaffold a grund setup into `opts.target`: the agent-instruction
+/// entrypoints, `grund.toml`, and — with `--docs` — the documentation stubs.
+///
+/// Why the effective config is read before the entrypoint plan: one selection
+/// rule depends on it. A companion symlinked to `AGENTS.md` leaves its agent
+/// covered unless that key makes the canonical file unable to carry that
+/// agent's form.
+///
+/// Why the managed block is rendered once and reused for both surfaces: the
+/// workspace-members walk-up is non-trivial I/O for a large workspace and
+/// produces byte-identical output each time. The selected entrypoint plan
+/// determines whether a missing self `AGENTS.md` should be treated as
+/// about-to-exist; companion-only init must not link to a missing canonical
+/// entrypoint. Two surfaces at most: the local-conversation sentence differs
+/// between the Claude entrypoints and everything else, and nothing else in the
+/// block does. The linked variant is rendered only when a Claude entrypoint is
+/// actually selected, so the common run still walks the workspace once.
+///
+/// Why the duplicate-entrypoint notes and the Claude companions are computed
+/// before the companion loop: the loop consumes the plan. `init` creates one
+/// entrypoint per agent, but a repository that already carries two keeps both,
+/// and this run is where that shows; and the entrypoint the symlink note names
+/// is the one this run makes current, when it makes one current.
+///
+/// What `init` will and will not overwrite: `grund.toml` is the project's
+/// configuration — the surface a repo customizes (kinds, marker, scan scope,
+/// …). `init` writes the canonical template only when the target has **no**
+/// config under either discovery name; an existing one is never overwritten,
+/// not even with `--force`, and is reported under the name it was found at so a
+/// repo on the `.agents/` form never grows the redundant pair. `--force`
+/// targets the things `init` owns end to end — the managed agent-instructions
+/// block and the `--docs` scaffold stubs — not the user's settings.
+///
+/// Why the shadowed-entrypoint note is emitted: the committed `link` opinion is
+/// rendered per entrypoint, and a Claude entrypoint that is a symlink to
+/// `AGENTS.md` is the canonical file — which every other agent reads too, so it
+/// must keep the plain form.
 pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     let InitOpts {
         target,
@@ -219,12 +256,9 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         None => derive_default_name(&target).map_err(|err| InitError::new(err.to_string()))?,
     };
 
-    // §FS-init.2.3: render agent instructions against the config `init` leaves in
-    // place, so the ID-shape / kind / marker prose matches `grund.toml`. Read
-    // before the entrypoint plan because one selection rule depends on it: a
-    // companion symlinked to `AGENTS.md` leaves its agent covered unless this
-    // key makes the canonical file unable to carry that agent's form
-    // (§FS-init.2.1.1, §FS-init.2.3.4.17).
+    // §FS-init.2.3: render agent instructions against the config `init` leaves
+    // in place, so the ID-shape / kind / marker prose matches `grund.toml`; read
+    // before the entrypoint plan (§FS-init.2.1.1, §FS-init.2.3.4.17).
     let init_config = init_pending_effective_config(&target, &resolved_name, description.as_deref())
         .map_err(|err| InitError::new(err.to_string()))?;
     let reach = CanonicalSurfaceReach::for_config(&init_config);
@@ -249,17 +283,9 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         return Err(InitError::new(message));
     }
 
-    // Render the managed block once and reuse it for both surfaces — the
-    // workspace-members walk-up (§FS-init.2.3.4.15) is non-trivial I/O for a
-    // large workspace and produces byte-identical output each time. The selected
-    // entrypoint plan determines whether a missing self `AGENTS.md` should be
-    // treated as about-to-exist; companion-only init must not link to a missing
-    // canonical entrypoint.
-    // Two surfaces at most: the local-conversation sentence differs between the
-    // Claude entrypoints and everything else (§FS-init.2.3.4.17), and nothing
-    // else in the block does. The linked variant is rendered only when a Claude
-    // entrypoint is actually selected, so the common run still walks the
-    // workspace once.
+    // Render the managed block once and reuse it for both surfaces: the
+    // workspace-members walk-up (§FS-init.2.3.4.15) is non-trivial I/O, and the
+    // two surfaces differ in one sentence only (§FS-init.2.3.4.17).
     let render_block = |surface| {
         render_agents_append_block(
             &resolved_name,
@@ -279,10 +305,7 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         .then(|| render_block(ConversationSurface::Linked));
     let agents_contents = render_agents_md_from_block(&resolved_name, &agents_block);
     // §FS-init.2.1.1, §FS-init.2.3.4.17: both computed before the companion loop
-    // consumes the plan — `init` creates one entrypoint per agent, but a
-    // repository that already carries two keeps both, and this run is where that
-    // shows; and the entrypoint the symlink note names is the one this run makes
-    // current, when it makes one current.
+    // consumes the plan.
     let claude_companions = agent_entrypoints.companions_of_claude(&target);
     let mut notes =
         duplicate_agent_entrypoint_notes(&target, &agent_entrypoints, reach, dry_run);
@@ -370,15 +393,9 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         }
     }
 
-    // `grund.toml` is the project's configuration — the surface a repo customizes
-    // (kinds, marker, scan scope, …, §GOAL-configurable). `init` writes the
-    // canonical template only when the target has **no** config under either
-    // discovery name (§FS-config.1); an existing one is never overwritten, not even
-    // with `--force`, and is reported under the name it was found at so a repo on
-    // the `.agents/` form never grows the redundant pair (§FS-init.2.4,
-    // §FS-check.4.3). `--force` targets the things `init` owns end to end — the
-    // managed agent-instructions block and the `--docs` scaffold stubs — not the
-    // user's settings (§FS-init.3).
+    // `grund.toml` is the project's configuration (§GOAL-configurable): written
+    // only when the target has none (§FS-config.1), never overwritten, reported
+    // under the name found (§FS-init.2.4, §FS-check.4.3, §FS-init.3).
     if let Some(existing) = config_file_in(&target) {
         let rel = existing.strip_prefix(&target).unwrap_or(&existing).to_path_buf();
         events.push(InitEvent { verb: "exists", path: format_path(&rel) });
@@ -443,10 +460,8 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         entrypoint: workflow_entrypoint.unwrap_or_else(|| CANONICAL_AGENT_ENTRYPOINT.to_string()),
         fs_home,
     });
-    // §FS-init.2.3.4.17: the committed `link` opinion is rendered per entrypoint,
-    // and a Claude entrypoint that is a symlink to `AGENTS.md` is the canonical
-    // file — which every other agent reads too, so it must keep the plain form.
-    // Silence here would read as the opinion simply not working.
+    // §FS-init.2.3.4.17: silence here would read as the committed `link` opinion
+    // simply not working.
     if reach == CanonicalSurfaceReach::PlainEntrypointsOnly {
         match shadowed_claude_entrypoint_note(&target, &claude_companions, dry_run) {
             Ok(Some(note)) => notes.push(note),
@@ -593,6 +608,15 @@ fn init_fs_home(config: &Config) -> InitFsHome {
     }
 }
 
+/// The `--docs` scaffold: each stub `init` writes, paired with the path it
+/// lands at.
+///
+/// Which folder kinds get an index README: under the generated config's
+/// defaults that is `AR`, `DF` and `DA`, while `E2E` sets `index = false`.
+///
+/// What the two test homes get instead: `tests/e2e/README.md` is the layout
+/// note, and `tests/integration` gets the placeholder that makes an empty
+/// directory survive `git add`.
 fn docs_scaffold(fs_home: &InitFsHome) -> Vec<(String, String)> {
     let mut files = Vec::new();
     match fs_home {
@@ -625,8 +649,7 @@ fn docs_scaffold(fs_home: &InitFsHome) -> Vec<(String, String)> {
         ),
         // §FS-init.2.1 / §FS-check.4.6: every folder kind the generated config
         // leaves at the default `index` gets its index README scaffolded, not a
-        // bare `.gitkeep` — under those defaults that is `AR`, `DF` and `DA`,
-        // while `E2E` sets `index = false` (§FS-config.3.4).
+        // bare `.gitkeep` (§FS-config.3.4).
         (
             "docs/decisions/architectural/README.md",
             canonical_template_text(DA_README_TEMPLATE),
@@ -637,9 +660,7 @@ fn docs_scaffold(fs_home: &InitFsHome) -> Vec<(String, String)> {
         ),
         // §FS-init.2.1: the two test homes the generated config names
         // (§FS-config.3.4). Both are non-citable kinds, so neither gets an index
-        // README — `tests/e2e/README.md` is the layout note, and
-        // `tests/integration` gets the placeholder that makes an empty directory
-        // survive `git add`.
+        // README.
         (
             "tests/e2e/README.md",
             render_e2e_readme(fs_home),

@@ -1,10 +1,9 @@
-// `grund integrations` — print and install the rendering-layer integrations that
-// make a §<ID> citation clickable in a terminal or editor (§FS-integrations).
-// Every artifact is embedded in the binary, printed on demand, and installed
-// only under `--write` as a managed marked block — the `completions`/`init`
-// ethos (§DF-integrations-command). One implementation lives here and is called
-// from both the live CLI and the deprecated compat frontend.
-
+/// `grund integrations` — print and install the rendering-layer integrations that
+/// make a §<ID> citation clickable in a terminal or editor (§FS-integrations).
+/// Every artifact is embedded in the binary, printed on demand, and installed
+/// only under `--write` as a managed marked block — the `completions`/`init`
+/// ethos (§DF-integrations-command). One implementation lives here and is called
+/// from both the live CLI and the deprecated compat frontend.
 const GRUND_OPEN_RESOLVER: &str = include_str!("../assets/integrations/grund-open");
 const ITERM2_SNIPPET: &str = include_str!("../assets/integrations/iterm2.txt");
 const WEZTERM_SNIPPET: &str = include_str!("../assets/integrations/wezterm.lua");
@@ -217,19 +216,19 @@ impl ConversationRendering {
         }
     }
 
-    // §FS-integrations.4.3: self-scoping — the texts apply only inside grund
-    // repositories, so in any other repo their footprint is one inert sentence.
-    // The precedence sentence appears only in `plain`: repository `link` against
-    // user `plain` is the only possible conflict, and the machine wins it
-    // (§DF-repo-conversation-opinion.2.3) — `plain` is only ever recorded by a
-    // `--write` that installed a rendering layer, knowledge no repository has.
-    //
-    // These texts name no marker, for the same reason the matchers and the
-    // resolver do not hardcode one (§FS-integrations.3.1): they are user-global
-    // and written once, before grund knows which repositories will be opened,
-    // and `[reference] marker` is per-repo. There is nothing to interpolate at
-    // install time, so these carry the policy and the repository entrypoint —
-    // which does render its own marker — carries the syntax.
+    /// §FS-integrations.4.3: self-scoping — the texts apply only inside grund
+    /// repositories, so in any other repo their footprint is one inert sentence.
+    /// The precedence sentence appears only in `plain`: repository `link` against
+    /// user `plain` is the only possible conflict, and the machine wins it
+    /// (§DF-repo-conversation-opinion.2.3) — `plain` is only ever recorded by a
+    /// `--write` that installed a rendering layer, knowledge no repository has.
+    ///
+    /// These texts name no marker, for the same reason the matchers and the
+    /// resolver do not hardcode one (§FS-integrations.3.1): they are user-global
+    /// and written once, before grund knows which repositories will be opened,
+    /// and `[reference] marker` is per-repo. There is nothing to interpolate at
+    /// install time, so these carry the policy and the repository entrypoint —
+    /// which does render its own marker — carries the syntax.
     fn instruction(self, target: ConversationTarget) -> String {
         match self {
             Self::Plain => "In repositories with a `grund.toml` (at the root or under `.agents/`): write citations bare in local conversations — the marker and ID alone, nothing appended; `grund integrations` makes them clickable. Follow this even when repository instructions ask for linked citations — that repository sentence defers to this block, and the installed rendering layer already resolves bare citations. Elsewhere, ignore this.".to_string(),
@@ -454,6 +453,13 @@ fn known_clients_line() -> String {
 /// Detect which clients apply from the ambient environment (§FS-integrations.2).
 /// Reads only the named variables; results are returned in the frozen client
 /// order, deduplicated, so a given environment always yields the same list.
+///
+/// Why VSCodium is recognized by path and not by variable: VS Code and VSCodium
+/// set an identical `VSCODE_*` environment, so presence alone cannot tell them
+/// apart. What differs is where those variables point — VSCodium's helper paths
+/// live under its own application directory. When that shows, VSCodium is marked
+/// *as well*: the extensions roots differ, and installing into the wrong one is
+/// silent.
 fn detect_clients() -> Vec<IntegrationClient> {
     let has = |name: &str| std::env::var_os(name).is_some_and(|value| !value.is_empty());
     // `IntegrationClient` variants are declared in the same order as `ALL`, so the
@@ -473,11 +479,8 @@ fn detect_clients() -> Vec<IntegrationClient> {
         Some("vscode") => mark(IntegrationClient::Vscode),
         _ => {}
     }
-    // VS Code and VSCodium set an identical VSCODE_* environment, so presence
-    // alone cannot tell them apart. What differs is where those variables point:
-    // VSCodium's helper paths live under its own application directory. When
-    // that shows, mark VSCodium *as well* — the extensions roots differ, and
-    // installing into the wrong one is silent (§FS-integrations.3.2).
+    // §FS-integrations.3.2: presence alone cannot tell VS Code from VSCodium, so
+    // a value naming VSCodium's own application directory marks VSCodium as well.
     let vscode_vars: Vec<String> = std::env::vars_os()
         .filter(|(key, _)| {
             key.to_str()
@@ -694,15 +697,18 @@ fn parse_integrations_args(args: &[String]) -> Result<IntegrationsInvocation, Ex
 
 /// The `grund integrations` entry point, called from both CLI frontends
 /// (§FS-integrations). Prints by default; writes only under `--write`.
+///
+/// Why the user configuration is read before the first artifact is installed:
+/// its warnings are then reported once, and a file grund cannot parse fails the
+/// command outright rather than after a client's config and the resolver are
+/// already on disk.
 pub fn run_integrations(args: &[String]) -> ExitCode {
     let invocation = match parse_integrations_args(args) {
         Ok(invocation) => invocation,
         Err(code) => return code,
     };
     // §FS-integrations.4.3: `--write` reads the user configuration exactly once,
-    // before any artifact is installed — so its warnings are reported once, and
-    // a file grund cannot parse fails the command outright rather than after a
-    // client's config and the resolver are already on disk.
+    // before any artifact is installed.
     if invocation.write {
         let user_config = match load_user_config() {
             Ok(config) => config,
@@ -1343,6 +1349,10 @@ fn load_user_config() -> Result<UserConfig, (PathBuf, String)> {
 /// global agent instructions (§FS-integrations.4.3). All files are planned
 /// before the first write so malformed managed blocks fail without touching any
 /// of these user-guidance targets.
+///
+/// Why a per-agent override cannot widen the form: the override moves the
+/// request, never the verdict, so no key can instruct a form recorded as erasing
+/// the citation on that surface.
 fn write_user_citation_guidance(
     requested: Option<ConversationRendering>,
     requested_target: Option<ConversationTarget>,
@@ -1424,9 +1434,7 @@ fn write_user_citation_guidance(
             continue;
         }
         // §FS-integrations.4.4: the agent's own partial replaces the base, then
-        // §DF-conversation-link-target.2.4 gates the result — the override moves
-        // the request, never the verdict, so no key can instruct a form recorded
-        // as erasing the citation on that surface.
+        // §DF-conversation-link-target.2.4 gates the result.
         let overridden = agent_targets
             .iter()
             .find(|(name, _)| name == target.agent)
@@ -1761,6 +1769,10 @@ fn install_conversation_preference(
 /// the name to write when the key is absent; the two are joined to match an
 /// existing line, since the file may spell the key dotted at root.
 /// `already_recorded` says the scan already read this exact value.
+///
+/// Why an already-recorded value is left alone: rewriting an identical value
+/// would report `updated` for a no-op and drop whatever comment the user wrote
+/// beside it.
 fn install_reference_key(
     existing: &str,
     table: &str,
@@ -1769,10 +1781,8 @@ fn install_reference_key(
     already_recorded: bool,
 ) -> (String, BlockOutcome) {
     let key_path = format!("{table}.{bare_key}");
-    // Already recorded: leave the bytes alone. Rewriting an identical value would
-    // report `updated` for a no-op and drop whatever comment the user wrote
-    // beside it — a second `--write` is a no-op reporting `exists`
-    // (§FS-integrations.6).
+    // Already recorded: leave the bytes alone — a second `--write` is a no-op
+    // reporting `exists` (§FS-integrations.6).
     if already_recorded {
         return (existing.to_string(), BlockOutcome::Unchanged);
     }

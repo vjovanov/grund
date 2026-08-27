@@ -1,12 +1,12 @@
-// The declaration near-miss rule (§FS-check.4.7), in a file of its own beside
-// the other rule families (§AR-core-module-layout.1): a heading that opens like
-// a declaration and does not parse as one, reported per heading at the line a
-// contributor has to edit.
-//
-// The rule is one function because it is one question asked of a list the
-// scanner already built. What it must not become is a guess: it names the token,
-// the format it missed, and the shape that format reads — never a corrected ID,
-// which would be an opinion about what the author meant (§FS-non-goals.3).
+/// The declaration near-miss rule (§FS-check.4.7), in a file of its own beside
+/// the other rule families (§AR-core-module-layout.1): a heading that opens like
+/// a declaration and does not parse as one, reported per heading at the line a
+/// contributor has to edit.
+///
+/// The rule is one function because it is one question asked of a list the
+/// scanner already built. What it must not become is a guess: it names the token,
+/// the format it missed, and the shape that format reads — never a corrected ID,
+/// which would be an opinion about what the author meant (§FS-non-goals.3).
 
 /// §FS-check.4.7: one warning per heading that came close. Sorted with the rest
 /// of the report by the shared comparator, so a run over one tree prints them in

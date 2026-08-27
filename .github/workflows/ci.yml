@@ -78,18 +78,13 @@ jobs:
       - name: grund self-check
         shell: bash
         run: |
-          # `--full` (§FS-check.1.3) walks past `[scan] include` as well, so a citation
-          # this repository's own config forgot to cover — examples/ is deliberately
-          # outside it — fails CI instead of accumulating unseen. The flag is
-          # purely additive, so this step still asserts exactly what it did before plus
-          # the wider reference search.
-          #
-          # `timeout 30` is the catastrophic-regression guard (§AR-ci.4 / §GOAL-fast-feedback):
-          # `grund .` on this repo runs in tens of milliseconds, so a 30s ceiling never
-          # flakes but still trips on a quadratic walk or a second read pass. The precise
-          # per-commit meter is the `bench` job (§AR-benchmarks / §AR-ci.5); this timeout
-          # is its backstop. Use Python rather than GNU `timeout` so the same step runs
-          # on Linux, macOS, and Windows.
+          # `--full` (§FS-check.1.3) walks past `[scan] include` as well, so a citation this
+          # repository's own config forgot to cover — examples/ is deliberately outside it —
+          # fails CI instead of accumulating unseen.
+
+          # The 30s ceiling is the catastrophic-regression guard (§AR-ci.4 /
+          # §GOAL-fast-feedback); the `bench` job (§AR-benchmarks / §AR-ci.5) is the precise
+          # meter. Python, not GNU `timeout`, so the same step runs on all three platforms.
           python - <<'PY'
           import subprocess
           import sys
@@ -119,12 +114,9 @@ jobs:
       - name: cargo test
         run: cargo test --workspace --all-targets --locked
 
-  # The commit-msg pre-commit stage cannot be reproduced by `pre-commit run
-  # --all-files` — it takes a message file, not a file list — so the `test` job's
-  # pre-commit step never sees it and a trailer that lives only in a commit
-  # message rides in unchecked. This job closes that gap by scanning the messages
-  # the push or pull request actually adds (§AR-ci.8). No Rust toolchain: it is a
-  # Python scan over `git log`, so it stays seconds-fast and fails early.
+  # `pre-commit run --all-files` cannot reproduce the `commit-msg` stage — it takes a
+  # message file, not a file list — so a trailer that lives only in a commit message
+  # rides in unchecked. This job scans what the push or pull request adds (§AR-ci.8).
   commit-messages:
     name: commit message attribution gate
     runs-on: ubuntu-latest
@@ -153,12 +145,8 @@ jobs:
         run: python scripts/check_no_claude_attribution.py --range "$RANGE"
 
   # Instruction-counting benchmarks for the hot CLI commands (§AR-benchmarks /
-  # §AR-ci.5). Kept out of the `test` matrix because the harness runs `grund` under
-  # Callgrind — only this job needs Valgrind, and the `bench` Cargo feature gate
-  # keeps the matrix above from building or running it. One platform: it measures
-  # instruction counts, not cross-platform behavior. Pull requests save a
-  # base-branch baseline first, then fail when the PR crosses the §AR-benchmarks
-  # instruction-count threshold.
+  # §AR-ci.5): kept out of the `test` matrix because only this job needs Valgrind, and
+  # pull requests gate on a base-branch baseline (§AR-benchmarks).
   bench:
     name: cargo bench (instruction counts)
     runs-on: ubuntu-latest

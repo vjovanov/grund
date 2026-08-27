@@ -9,8 +9,8 @@ require_grounding = true
 conversation = "link"
 inline_style = "citation-with-note"
 inline_note_suggested_lines = 1
-inline_note_max_lines = 25
-inline_note_max_columns = 180
+inline_note_max_lines = 3
+inline_note_max_columns = 100
 warn_on_suggested = false
 
 [id]

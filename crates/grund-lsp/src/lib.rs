@@ -115,16 +115,19 @@ fn client_supports_definition_links(params: &InitializeParams) -> bool {
         .unwrap_or(true)
 }
 
+/// The workspace roots this session serves, as named by `initialize`.
+///
+/// Why a virtual-only folder list still wins: falling back to `rootUri` or the
+/// working directory would attach an unrelated local project to a virtual-only
+/// window.
 fn initialize_folders(params: &InitializeParams) -> Result<BTreeMap<Url, PathBuf>> {
     if let Some(folders) = params
         .workspace_folders
         .as_ref()
         .filter(|folders| !folders.is_empty())
     {
-        // A present, non-empty workspace-folder list is authoritative even
-        // when every entry is virtual. Falling back to `rootUri` or cwd in that
-        // case would attach an unrelated local project to a virtual-only
-        // window (§FS-lsp.2.2).
+        // §FS-lsp.2.2: a present, non-empty workspace-folder list is
+        // authoritative even when every entry is virtual.
         return Ok(workspace_folder_paths(folders));
     }
     #[allow(deprecated)]
@@ -183,10 +186,10 @@ struct Server {
     open_docs: BTreeMap<Url, String>,
     diagnostic_uris: BTreeSet<Url>,
     definition_link_support: bool,
-    // Per-snapshot line cache so a file is read and split at most once between
-    // refreshes, rather than once per token: `document_links` and `references`
-    // walk every citation on a file and each used to re-read the whole file
-    // (§AR-lsp.5). Cleared in `refresh` whenever the snapshot is rebuilt.
+    /// Per-snapshot line cache so a file is read and split at most once between
+    /// refreshes, rather than once per token: `document_links` and `references`
+    /// walk every citation on a file and each used to re-read the whole file
+    /// (§AR-lsp.5). Cleared in `refresh` whenever the snapshot is rebuilt.
     line_cache: RefCell<BTreeMap<PathBuf, Vec<String>>>,
 }
 
@@ -231,10 +234,9 @@ impl Server {
                 }
                 Message::Notification(notification) => {
                     let method = notification.method.clone();
-                    // A malformed or failing notification — e.g. params that do
-                    // not deserialize — is logged to stderr and skipped, so one
-                    // bad message cannot tear the server down mid-session
-                    // (§FS-lsp.1).
+                    // A malformed notification (params that do not deserialize,
+                    // say) or a failing one goes to stderr and is skipped: one
+                    // bad message cannot tear the session down (§FS-lsp.1).
                     if let Err(err) = self.handle_notification(notification) {
                         eprintln!("grund-lsp: notification `{method}` failed: {err:#}");
                     }
@@ -462,6 +464,12 @@ impl Server {
         Ok(())
     }
 
+    /// Answer `textDocument/hover` for the token under the cursor.
+    ///
+    /// Why an unresolved citation returns no body: the nearest-ID hint already
+    /// travels with the diagnostic through `publishDiagnostics`, and returning
+    /// that text from hover too would double it in editors that render
+    /// diagnostics inside the hover popup.
     fn hover(&self, params: Value) -> Result<Option<Hover>> {
         let params: TextDocumentPositionParams = serde_json::from_value(params)?;
         let Some((snapshot, token)) = self.token_at(&params.text_document.uri, params.position)
@@ -486,10 +494,8 @@ impl Server {
                 return Ok(Some(title_hover(stub_range(stub, self), &stub.text, usage)));
             }
         };
-        // A citation that does not resolve has no preview body. Its diagnostic
-        // already carries the nearest-ID hint through publishDiagnostics;
-        // returning that text from hover too would double it
-        // in editors that render diagnostics inside the hover popup (§FS-lsp.1.2).
+        // A citation that does not resolve has no preview body; its diagnostic
+        // already carries the nearest-ID hint (§FS-lsp.1.2).
         let body = match show_with_overlays(
             &citation.query_id,
             ShowOpts {
@@ -730,6 +736,13 @@ impl Server {
         ))
     }
 
+    /// Answer `textDocument/documentLink` for one file.
+    ///
+    /// Why an ordinary declaration title is not a document link: a self-pointing
+    /// link would shadow the editor's Ctrl-click and navigate the title onto its
+    /// own line, hiding the declaration's usages. The title stays navigable
+    /// through go-to-definition, which returns the citation sites. A stub title
+    /// does link, because it points at the source declaration, not at itself.
     fn document_links(&self, params: Value) -> Result<Option<Vec<DocumentLink>>> {
         let params: lsp_types::DocumentLinkParams = serde_json::from_value(params)?;
         let Some(path) = params
@@ -759,11 +772,7 @@ impl Server {
             })
             .collect::<Vec<_>>();
         // Ordinary Markdown declaration titles are deliberately not document
-        // links: a self-pointing link would shadow the editor's Ctrl-click and
-        // navigate the title onto its own line, hiding the declaration's usages.
-        // The title stays navigable through go-to-definition, which returns the
-        // citation sites (§FS-lsp.1.3.2). Stub titles below still link, because
-        // they point at the source declaration, not at themselves.
+        // links; the stub titles below still are (§FS-lsp.1.3.2).
         links.extend(
             snapshot
                 .stubs
@@ -878,6 +887,14 @@ impl Server {
         Ok(())
     }
 
+    /// Turn one finding into the diagnostic the editor shows, or `None` when
+    /// this project is not the one that answers for the file.
+    ///
+    /// Why exactly one project may state a verdict: overlapping editor folders —
+    /// an enclosing workspace and a member opened as its own folder, say — both
+    /// scan the shared file, and without an owner the editor would show two
+    /// merged diagnostic sets, with the two projects' differing views of the
+    /// same citation side by side.
     fn diagnostic_for_finding(
         &self,
         project: &ProjectSnapshot,
@@ -886,12 +903,9 @@ impl Server {
     ) -> Option<(Url, Diagnostic)> {
         let snapshot = &project.snapshot;
         let path = absolute_finding_path(snapshot, &finding)?;
-        // Overlapping editor folders mean two projects can scan one file — an
-        // enclosing workspace and a member opened as its own folder, say. Only
-        // the project that answers requests for the file states its verdict, so
-        // the editor shows one diagnostic set rather than two merged ones, and
-        // the two projects' differing views of the same citation cannot appear
-        // side by side (§FS-lsp.2.2).
+        // Overlapping editor folders mean two projects can scan one file; only
+        // the project that answers requests for it states its verdict
+        // (§FS-lsp.2.2).
         let owner = self.project_for_diagnostic_path(&path)?;
         if owner.root != project.root {
             return None;
@@ -917,6 +931,13 @@ impl Server {
         ))
     }
 
+    /// The range a finding's diagnostic is anchored on.
+    ///
+    /// Why a line-anchored finding does not reuse a citation's range: in VSCode
+    /// a diagnostic hover includes every diagnostic whose range overlaps the
+    /// cursor, so mapping an ungrounded-file error onto a dangling citation
+    /// would make the citation hover show two messages even though only one
+    /// diagnostic belongs to that token.
     fn range_for_finding(
         &self,
         snapshot: &LspSnapshot,
@@ -937,10 +958,7 @@ impl Server {
             return Some(citation_range(citation, self));
         }
         // Line-anchored diagnostics must not borrow the first citation on their
-        // line. In VSCode, diagnostic hovers include every diagnostic whose
-        // range overlaps the cursor; mapping an ungrounded-file error to a
-        // dangling citation would make the citation hover show two messages
-        // even though only one diagnostic belongs to that token (§FS-lsp.1.1).
+        // line (§FS-lsp.1.1).
         snapshot
             .declarations
             .iter()
@@ -1397,6 +1415,11 @@ fn replace_unlinked_token(body: &str, token: &str, uri: &str) -> String {
     out
 }
 
+/// The on-type edits for one line, in the order the client applies them.
+///
+/// Why nothing is reconciled on this side: the core helper returns the whole
+/// edit set already ordered, so the two rewrites it can produce —
+/// trigger→marker and shorthand→canonical — need no further work here.
 fn on_type_replacement_for_line(
     path: &Path,
     text: &str,
@@ -1409,9 +1432,8 @@ fn on_type_replacement_for_line(
     };
     let cursor = utf16_to_byte(line, position.character);
     // One config resolution per keystroke: the core helper resolves the edited
-    // file's marker/trigger and the fmt-context exclusions together (§FS-lsp.1.4).
-    // It returns the whole edit set already ordered, so the two rewrites it can
-    // produce — trigger→marker and shorthand→canonical — need no reconciling here.
+    // file's marker/trigger and the fmt-context exclusions together
+    // (§FS-lsp.1.4).
     let at = |offset| Position {
         line: position.line,
         character: byte_to_utf16(line, offset),
