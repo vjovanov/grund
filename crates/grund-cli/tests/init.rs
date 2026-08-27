@@ -289,6 +289,28 @@ fn init_generated_config_comments_list_constrained_values() {
 }
 
 #[test]
+fn init_agents_block_closes_the_house_style_with_the_doc_comment_sentence() {
+    // §FS-inline-citation-style.5: the rendered house style closes with the
+    // doc-comment sentence at every `inline_style`, so the agent reading the
+    // block knows the budgets stop where documentation starts
+    // (§FS-inline-citation-style.1.1).
+    let target = workdir("init_agents_block_closes_the_house_style_with_the_doc_comment_sentence");
+    let output = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
+    assert!(
+        output.status.success(),
+        "init failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let agents = fs::read_to_string(target.join("AGENTS.md")).expect("read AGENTS.md");
+    let expected = "- **Inline citation style.** Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there.";
+    assert!(
+        agents.contains(expected),
+        "AGENTS.md should carry the rendered house style `{expected}`, got:\n{agents}"
+    );
+}
+
+#[test]
 fn init_agents_guidance_uses_existing_configured_artifact_homes() {
     let target = workdir("init_agents_guidance_uses_existing_configured_artifact_homes");
     fs::create_dir_all(target.join(".agents")).expect("create .agents");

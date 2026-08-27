@@ -37,7 +37,7 @@ mod tests_check_full {
         let root = drifted_include_repo("full_scope_withholds_style_and_grounding_outside_include");
         write(
             &root.join("sim/world.py"),
-            "\"\"\"Simulation world.\n\nA module docstring citing §FS-001-login that runs well past the\nthree-line inline-note budget, because it was never written to that\nconvention in the first place.\n\"\"\"\n",
+            "# Simulation world.\n#\n# A module comment citing §FS-001-login that runs well past the\n# three-line inline-note budget, because it was never written to that\n# convention in the first place.\n",
         );
         write(&root.join("sim/plain.py"), "def run():\n    pass\n");
         // `require_grounding` on, so the out-of-scope tier is also declining to

@@ -21,9 +21,9 @@ mod tests_inline_note_layout_check {
                 "// §FS-001-login reject an expired credential\n",
                 "pub fn relogin() {}\n",
                 "\n",
-                "/// Walks the credential store.\n",
-                "/// §FS-001-login: one error per expired credential.\n",
-                "/// §FS-001-login — and one more, laid out wrong.\n",
+                "// Walks the credential store.\n",
+                "// §FS-001-login: one error per expired credential.\n",
+                "// §FS-001-login — and one more, laid out wrong.\n",
                 "pub fn sweep() {}\n",
             ),
         );
@@ -158,21 +158,22 @@ mod tests_inline_note_layout_check {
 
     // §FS-inline-citation-style.5: the layout sentence appends to the budget
     // sentence, is written with the project's marker, and is absent under `any` so
-    // no existing managed block drifts.
+    // no existing managed block drifts. The doc-comment sentence closes the copy
+    // at every `inline_style`, after whatever the other keys produced.
     #[test]
     fn agents_sentence_teaches_the_configured_layout() {
         let root = test_root("agents_sentence_teaches_the_configured_layout");
         let any = layout_config(root.clone(), "any");
         assert_eq!(
             inline_citation_style_sentence(&any),
-            "Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns."
+            "Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there."
         );
 
         let mut colon = layout_config(root.clone(), "citation-first-colon");
         colon.inline_note_layout_check = "error".into();
         assert_eq!(
             inline_citation_style_sentence(&colon),
-            "Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. Lay each note out citation-first: `// §<ID>: <note>` (several citations: `// §<ID>, §<ID>: <note>`)."
+            "Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. Lay each note out citation-first: `// §<ID>: <note>` (several citations: `// §<ID>, §<ID>: <note>`). Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there."
         );
 
         // The enforcement level is not an instruction: `off` renders the same
@@ -181,12 +182,18 @@ mod tests_inline_note_layout_check {
         off.marker = "@".into();
         assert!(inline_citation_style_sentence(&off).contains("`// @<ID>: <note>`"));
 
-        // A style that permits no note at all has no layout to teach.
+        // A style that permits no note at all has no layout to teach — but the
+        // doc-comment sentence closes this style too (§FS-inline-citation-style.5).
         let mut citation_only = layout_config(root, "citation-first-colon");
         citation_only.inline_style = "citation-only".into();
         assert_eq!(
             inline_citation_style_sentence(&citation_only),
-            "Inline citations carry no prose — put rationale in the spec."
+            "Inline citations carry no prose — put rationale in the spec. Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there."
+        );
+        assert!(
+            inline_citation_style_sentence(&citation_only)
+                .contains("are documentation, not notes"),
+            "the doc-comment sentence must close `citation-only` too"
         );
     }
 }

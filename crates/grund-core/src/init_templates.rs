@@ -133,9 +133,20 @@ fn section_heading_note(config: &Config, marker: &str) -> String {
     }
 }
 
+/// §FS-inline-citation-style.5: the sentence that closes the rendered copy at
+/// every `inline_style`, after whatever the other keys produced, so the author
+/// and the linter agree on where the shape rules stop
+/// (§FS-inline-citation-style.1.1). It moves no managed-block version: it only
+/// widens what an author may write, so a block that predates it teaches a
+/// narrower rule than the gate enforces — an over-careful comment, never a
+/// finding.
+const DOC_COMMENT_SENTENCE: &str = " Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there.";
+
 fn inline_citation_style_sentence(config: &Config) -> String {
     if config.inline_style == "citation-only" {
-        return "Inline citations carry no prose — put rationale in the spec.".to_string();
+        return format!(
+            "Inline citations carry no prose — put rationale in the spec.{DOC_COMMENT_SENTENCE}"
+        );
     }
     let budgets = if config.inline_note_suggested_lines == config.inline_note_max_lines {
         format!(
@@ -156,7 +167,10 @@ fn inline_citation_style_sentence(config: &Config) -> String {
     // §FS-inline-citation-style.5: the layout sentence appends to the budgets and
     // is empty under `any`, so a project that configures no layout renders the
     // byte-identical block it rendered before this key existed.
-    format!("{budgets}{}", inline_note_layout_sentence(config))
+    format!(
+        "{budgets}{}{DOC_COMMENT_SENTENCE}",
+        inline_note_layout_sentence(config)
+    )
 }
 
 fn plural(value: usize) -> &'static str {
