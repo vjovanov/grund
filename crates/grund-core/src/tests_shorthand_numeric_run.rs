@@ -29,12 +29,12 @@ mod tests_shorthand_numeric_run {
             .collect()
     }
 
-    // §FS-fmt.2.4.1: the token ends cleanly and still is not a citation. A
-    // renumbering table writes the old numbers as a glued run, and expanding the
-    // left one attaches today's slug to a number that named something else —
-    // producing a well-formed citation of the wrong declaration that `check` can
-    // never question. The discriminator is the second number, so no delimiter is
-    // enumerated and every glue character behaves alike.
+    /// §FS-fmt.2.4.1: the token ends cleanly and still is not a citation. A
+    /// renumbering table writes the old numbers as a glued run, and expanding the
+    /// left one attaches today's slug to a number that named something else —
+    /// producing a well-formed citation of the wrong declaration that `check` can
+    /// never question. The discriminator is the second number, so no delimiter is
+    /// enumerated and every glue character behaves alike.
     #[test]
     fn a_shorthand_glued_to_a_second_number_is_never_rewritten() {
         let root = test_root("a_shorthand_glued_to_a_second_number_is_never_rewritten");
@@ -113,14 +113,14 @@ mod tests_shorthand_numeric_run {
         );
     }
 
-    // §FS-fmt.2.4.1 clause 1: a bracket or a quote bounds a construct, so the walk
-    // for delimiters stops at one. Without that the characters closing the
-    // citation's own construct join the ones opening the next, and whatever number
-    // the next construct carries reads as the second number of a run — which turns
-    // a Markdown link and a footnote reference, two shapes this project writes
-    // constantly, into sites `fmt` refuses and `check` reports an unfixable error
-    // on. Clause 2 is the other half: the neighbour is matched unqualified, so a
-    // path that ends in an ID-shaped segment is not a second number either.
+    /// §FS-fmt.2.4.1 clause 1: a bracket or a quote bounds a construct, so the walk
+    /// for delimiters stops at one. Without that the characters closing the
+    /// citation's own construct join the ones opening the next, and whatever number
+    /// the next construct carries reads as the second number of a run — which turns
+    /// a Markdown link and a footnote reference, two shapes this project writes
+    /// constantly, into sites `fmt` refuses and `check` reports an unfixable error
+    /// on. Clause 2 is the other half: the neighbour is matched unqualified, so a
+    /// path that ends in an ID-shaped segment is not a second number either.
     #[test]
     fn a_construct_boundary_does_not_open_a_run() {
         let root = test_root("a_construct_boundary_does_not_open_a_run");
@@ -204,10 +204,14 @@ mod tests_shorthand_numeric_run {
         );
     }
 
-    // §FS-check.3.15: a shorthand glued to a second number is a numeral in a run,
-    // so `fmt` will not rewrite it and the report says so — naming the canonical
-    // form *and* the escape, because only the author knows which was meant. This
-    // is §3.13's site with a different verdict, not a second finding on top of it.
+    /// §FS-check.3.15: a shorthand glued to a second number is a numeral in a run,
+    /// so `fmt` will not rewrite it and the report says so — naming the canonical
+    /// form *and* the escape, because only the author knows which was meant. This
+    /// is §3.13's site with a different verdict, not a second finding on top of it.
+    ///
+    /// Why the recognition assertions ride along with the message ones: dropping
+    /// the edge would reintroduce exactly the false negative the shorthand rule
+    /// was added to end.
     #[test]
     fn a_shorthand_in_a_numeric_run_names_both_exits() {
         let root = test_root("a_shorthand_in_a_numeric_run_names_both_exits");
@@ -236,9 +240,7 @@ mod tests_shorthand_numeric_run {
         assert_eq!(report.errors[2].code, "shorthand-citation");
 
         // §DF-shorthand-numeric-run.2.6: recognition is untouched. All three sites
-        // are still edges, so the declaration is not reported uncited — dropping
-        // the edge would reintroduce exactly the false negative the shorthand rule
-        // was added to end.
+        // are still edges, so the declaration is not reported uncited.
         assert!(report.warnings.is_empty(), "{:?}", messages(&report));
         assert_eq!(findings.citations.len(), 3);
         assert!(findings.citations.iter().all(|cite| cite.id.slug.is_some()));
@@ -252,12 +254,12 @@ mod tests_shorthand_numeric_run {
         );
     }
 
-    // §FS-check.3.15: the run verdict replaces only the *mechanical* message. A
-    // shorthand in a run that resolves to nothing or to several declarations is a
-    // resolution failure, reported on its own terms — a run is no reason to say
-    // less about it. And where §FS-fmt.2.3 already forbids every rewrite, the run
-    // finding is withheld like §3.13's: an illustration in inline code wants no
-    // edit at all.
+    /// §FS-check.3.15: the run verdict replaces only the *mechanical* message. A
+    /// shorthand in a run that resolves to nothing or to several declarations is a
+    /// resolution failure, reported on its own terms — a run is no reason to say
+    /// less about it. And where §FS-fmt.2.3 already forbids every rewrite, the run
+    /// finding is withheld like §3.13's: an illustration in inline code wants no
+    /// edit at all.
     #[test]
     fn a_numeric_run_changes_only_the_message_that_names_the_rewrite() {
         let root = test_root("a_numeric_run_changes_only_the_message_that_names_the_rewrite");
@@ -306,17 +308,17 @@ mod tests_shorthand_numeric_run {
         );
     }
 
-    // §FS-fmt.2.4.1: the run rule is the bulk pass's, so the editor honours it —
-    // a rule that held in CI and not at the keystroke is the drift this whole
-    // module exists to prevent.
-    //
-    // Editing into a line that already carries the run is the case that matters,
-    // and it is the case the reported defect came from: a paste or a hand edit,
-    // not a fresh sentence. Typing a run left to right is not covered and cannot
-    // be — the second number does not exist yet when the keystroke that ends the
-    // token fires — but that expansion happens under the author's eyes and undoes
-    // with one keystroke, which is the loud failure, not the silent one
-    // (§DF-shorthand-numeric-run.5).
+    /// §FS-fmt.2.4.1: the run rule is the bulk pass's, so the editor honours it —
+    /// a rule that held in CI and not at the keystroke is the drift this whole
+    /// module exists to prevent.
+    ///
+    /// Editing into a line that already carries the run is the case that matters,
+    /// and it is the case the reported defect came from: a paste or a hand edit,
+    /// not a fresh sentence. Typing a run left to right is not covered and cannot
+    /// be — the second number does not exist yet when the keystroke that ends the
+    /// token fires — but that expansion happens under the author's eyes and undoes
+    /// with one keystroke, which is the loud failure, not the silent one
+    /// (§DF-shorthand-numeric-run.5).
     #[test]
     fn on_type_refuses_a_run_already_on_the_line() {
         let root = test_root("on_type_refuses_a_run_already_on_the_line");

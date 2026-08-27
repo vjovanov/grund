@@ -1,19 +1,19 @@
-// One comment line, reduced: where its citation tokens sit, and what it still
-// says once those tokens and its comment punctuation are taken out
-// (§FS-inline-citation-style.1, §FS-inline-citation-style.2.3).
-//
-// These are the pure per-line functions the scanner's walk used to carry
-// (§AR-scanner.2.3): they hold no state, read no block, and are coupled to their
-// callers only by call. They live here because two rules now share them — note
-// presence and inline note layout (`inline_note_layout.rs`) both need the same
-// answer about the same line, and a second copy of "what does this line say?"
-// is how two rules come to disagree about one comment.
-
 /// Every recognized citation token on one line, as byte ranges into it
 /// (§FS-check.1.1): the configured marker, `[reference] strict`, the
 /// string-literal exclusion, and workspace-qualified `§<alias>/<ID>` tokens
 /// (§FS-workspace.1). Ranges may repeat and may arrive in either pass's order —
 /// `line_citation_ranges` is what makes them a set.
+///
+/// One comment line, reduced: where its citation tokens sit, and what it still
+/// says once those tokens and its comment punctuation are taken out
+/// (§FS-inline-citation-style.1, §FS-inline-citation-style.2.3).
+///
+/// These are the pure per-line functions the scanner's walk used to carry
+/// (§AR-scanner.2.3): they hold no state, read no block, and are coupled to their
+/// callers only by call. They live here because two rules now share them — note
+/// presence and inline note layout (`inline_note_layout.rs`) both need the same
+/// answer about the same line, and a second copy of "what does this line say?"
+/// is how two rules come to disagree about one comment.
 fn citation_token_ranges(
     line: &str,
     config: &Config,
@@ -174,9 +174,8 @@ fn comment_content_range(line: &str, prefixes: &[&str]) -> (usize, usize) {
     for prefix in prefixes {
         if let Some(stripped) = rest.strip_prefix(*prefix) {
             // §FS-inline-citation-style.3.3: whatever indents the content past the
-            // prefix goes with the prefix. A wrapped Rustdoc continuation, an
-            // aligned ` * ` filler, and a tab after `#` are comment formatting;
-            // the layout starts at the first byte that says something.
+            // prefix goes with it: a wrapped Rustdoc continuation, an aligned ` * `
+            // filler, a tab after `#`. Content starts at the first byte that says something.
             let after = stripped.trim_start_matches([' ', '\t']);
             offset += rest.len() - after.len();
             rest = after;

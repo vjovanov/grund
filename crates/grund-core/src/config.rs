@@ -193,12 +193,9 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             ("reference", "warn_on_suggested") => {
                 config.warn_on_suggested = parse_bool(path, line_no, value)?
             }
-            // §FS-config.3.2: the keys an ID is built from share one rule — no `/`
-            // — and differ only in which shape of it applies, so they share one arm
-            // and `id_grammar_rules.rs` answers per key. The grammar backstop in
-            // `Grammar::build` catches the same thing unlocated; the check runs here
-            // to keep the config-error style (§FS-errors.2.1) the other `[id]`
-            // validators use.
+            // §FS-config.3.2: the keys an ID is built from share one rule — no `/` —
+            // so they share one arm and `id_grammar_rules.rs` answers per key; checked
+            // here in the config-error style (§FS-errors.2.1), `Grammar::build` backstops.
             ("id", key @ ("format" | "section_separator" | "number_pattern" | "slug_pattern")) => {
                 let parsed = parse_string(path, line_no, value)?;
                 if let Some(message) = id_grammar_key_slash_error(key, &parsed) {
@@ -254,10 +251,8 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             }
             ("output", "color") => {
                 // Reserved — colored output is not yet implemented (§FS-config.6,
-                // §FS-errors.3): the value is inert today, but it is still validated
-                // against the documented `auto | always | never` set so a typo here
-                // fails on load like any other enum knob, rather than being silently
-                // accepted and then ignored when the feature lands.
+                // §FS-errors.3): the value is inert today but still validated against
+                // the documented set, so a typo fails on load instead of being ignored.
                 let color = parse_string(path, line_no, value)?;
                 if !matches!(color.as_str(), "auto" | "always" | "never") {
                     bail_config(
@@ -330,13 +325,9 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             .rebuild_grammar()
             .with_context(|| format!("{}: invalid [id] grammar", format_path(path)))?;
     }
-    // §AR-workspace.5.2: every post-parse invariant runs on every config
-    // load, not gated on which section happened to appear. `project_name` is
-    // free-form metadata (§FS-config.3); the slug check against the alias
-    // grammar happens once, where it matters, at workspace-project loading
-    // (§AR-workspace.5.3). The workspace member
-    // list, by contrast, is shape-checked here — an entry like
-    // `members = ["/abs/path"]` is wrong before we even look at it.
+    // §AR-workspace.5.2: post-parse invariants run on every load, not gated on which
+    // section appeared. Free-form `project_name` (§FS-config.3) is slug-checked against
+    // the alias grammar later (§AR-workspace.5.3); members are shape-checked here.
     if let Some(source) = &config.workspace_members_source {
         for member in &config.workspace_members {
             validate_workspace_member(&source.path, source.line, member)?;
@@ -588,11 +579,9 @@ fn parse_citation_target(path: &Path, line_no: usize, token: &str) -> Result<Cit
             let namespace = if qualifier == "*" {
                 NamespaceMatch::Any
             } else {
-                // §FS-config.3.9.3: a rule entry's qualifier is the alias path a
-                // citation writes, so a bad one is named the way the CLI names a bad
-                // `<alias>/<ID>` argument — the failing *segment*, not the whole
-                // path, which in a nested tree is usually mostly right
-                // (§FS-workspace.8, §GOAL-friendliness-first).
+                // §FS-config.3.9.3: a qualifier is the alias path a citation writes, so
+                // a bad one names the failing *segment*, not the whole path (mostly right
+                // in a nested tree), like the CLI (§FS-workspace.8, §GOAL-friendliness-first).
                 if let Some(message) = invalid_alias_path_message(qualifier) {
                     bail_config(
                         path,
@@ -682,10 +671,9 @@ fn validate_citation_rules(path: &Path, config: &Config) -> Result<()> {
                 }
             }
         }
-        // Two targets of the same kind whose namespace matchers can match the
-        // same citation (e.g. bare `AR` and `*/AR`) must not sit at different
-        // levels — a matching citation would otherwise have no single level
-        // (§FS-config.3.9.5). Identical entries (same level) are harmless.
+        // Two targets of one kind whose matchers can match the same citation (e.g.
+        // bare `AR` and `*/AR`) must not sit at different levels — such a citation
+        // would have no single level (§FS-config.3.9.5). Identical entries are fine.
         for (index, (level_a, a)) in targets.iter().enumerate() {
             for (level_b, b) in targets.iter().skip(index + 1) {
                 if level_a != level_b

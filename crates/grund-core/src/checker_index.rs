@@ -1,11 +1,11 @@
-// The kind-index invariant, in a file of its own beside the section and
-// reference families (§AR-checker.2.16, §AR-core-module-layout.1): a kind with a
-// `folder` and an `index` (§FS-config.3.4) promises that the index names every
-// declaration in that folder, and may enroll an external inline declaration by
-// canonical source link, as full Markdown links. §FS-check.4.6 is the coverage
-// half and §FS-check.3.17 the link half; this module owns both, plus
-// the set of citations they make navigational rather than referential
-// (§FS-check.4.1, §DF-index-not-an-inbound-citation).
+/// The kind-index invariant, in a file of its own beside the section and
+/// reference families (§AR-checker.2.16, §AR-core-module-layout.1): a kind with a
+/// `folder` and an `index` (§FS-config.3.4) promises that the index names every
+/// declaration in that folder, and may enroll an external inline declaration by
+/// canonical source link, as full Markdown links. §FS-check.4.6 is the coverage
+/// half and §FS-check.3.17 the link half; this module owns both, plus
+/// the set of citations they make navigational rather than referential
+/// (§FS-check.4.1, §DF-index-not-an-inbound-citation).
 
 /// One kind's index obligation, resolved against the config root
 /// (§FS-config.3.4). `folder_key` and `index_key` are config-root-relative and
@@ -21,6 +21,12 @@ struct KindIndexTarget<'a> {
 /// Every `[[kinds]]` entry that carries both a `folder` and an enabled `index`
 /// (§FS-config.3.4). A kind with no folder, or with `index = false`, is absent
 /// from this list and is therefore invisible to every rule below.
+///
+/// Why a non-`.md` `index` is dropped rather than reported: every rule below is
+/// stated in terms of what `grund fmt --cross-refs` would write, and that pass
+/// runs on `.md` files only (§FS-fmt.6.1). A non-Markdown index is a file the
+/// formatter can never repair, and the honest report about one is no report at
+/// all rather than a finding with no fix.
 fn kind_index_targets(config: &Config) -> Vec<KindIndexTarget<'_>> {
     config
         .kinds
@@ -29,12 +35,8 @@ fn kind_index_targets(config: &Config) -> Vec<KindIndexTarget<'_>> {
             let folder = kind.folder.as_deref()?;
             let index = kind.index_path()?;
             // §FS-config.3.4 rejects an `index` that does not name a `.md` file,
-            // so this filter never fires on a config that loaded. It is here
-            // because every rule below is stated in terms of what
-            // `grund fmt --cross-refs` would write, and that pass runs on `.md`
-            // files only (§FS-fmt.6.1): a non-Markdown index is a file the
-            // formatter can never repair, and the honest report about one is no
-            // report at all rather than a finding with no fix.
+            // so this filter never fires on a config that loaded; it states the
+            // Markdown assumption every rule below rests on.
             if index.extension().and_then(|ext| ext.to_str()) != Some("md") {
                 return None;
             }
@@ -85,6 +87,11 @@ enum IndexCitationForm {
 /// `line` is Markdown: §FS-config.3.4 requires `index` to name a `.md` file and
 /// `kind_index_targets` drops anything else, which is what lets the never-rewrite
 /// test below be asked in its Markdown form.
+///
+/// Where the marker is looked for: it may be part of the recorded citation text or
+/// sit just before this occurrence of it, which is the same token either way. An
+/// empty marker (permitted outside strict mode) matches both tests, exactly as it
+/// makes the formatter's own test vacuous.
 fn index_citation_form(line: &str, text: &str, marker: &str) -> IndexCitationForm {
     let mut form = IndexCitationForm::Ignored;
     let mut cursor = 0;
@@ -112,10 +119,7 @@ fn index_citation_form(line: &str, text: &str, marker: &str) -> IndexCitationFor
         }
         // §FS-fmt.6.5: `--cross-refs` wraps marker-prefixed citations only, and
         // without `--marker` a bare token stays bare — so a bare token is not an
-        // entry `fmt` can repair. The marker may be part of the recorded text or
-        // sit just before this occurrence of it, which is the same token either
-        // way; an empty marker (permitted outside strict mode) matches both
-        // tests, exactly as it makes the formatter's own test vacuous.
+        // entry `fmt` can repair.
         let marked = text.starts_with(marker) || line[..start].ends_with(marker);
         // §FS-fmt.2.3, through the one predicate the scanner and the rewrite
         // already share: an inline-code illustration and a Markdown link
@@ -193,14 +197,14 @@ fn declarations_under_folder(
     })
 }
 
-// The three releases the kind-index ramp is stated in
-// (§DF-index-compatibility-ramp.2.3). All three are named in message text, so
-// all three are part of the release process: bumping the workspace version is
-// also the moment to ask whether these still say what they mean
-// (§FS-distribution.4). `index_entry_ramp_releases_are_ordered` below is the
-// guard — it fails the build once the tree reaches `INDEX_ENTRY_ERROR_RELEASE`,
-// which is the release §RM-index-entry-error has to land in, so the ramp cannot
-// expire quietly.
+/// The three releases the kind-index ramp is stated in
+/// (§DF-index-compatibility-ramp.2.3). All three are named in message text, so
+/// all three are part of the release process: bumping the workspace version is
+/// also the moment to ask whether these still say what they mean
+/// (§FS-distribution.4). `index_entry_ramp_releases_are_ordered` below is the
+/// guard — it fails the build once the tree reaches `INDEX_ENTRY_ERROR_RELEASE`,
+/// which is the release §RM-index-entry-error has to land in, so the ramp cannot
+/// expire quietly.
 
 /// The last release before `check` knew anything about a kind's index — the
 /// "from" half of the pair §REQ-backwards-compatibility.3 requires a
@@ -222,6 +226,26 @@ const INDEX_ENTRY_ERROR_RELEASE: &str = "0.13.0";
 /// scanner already recorded in it, then judge each declaration the index owns.
 /// The index file is the only thing re-read here, the way §AR-checker.2.5
 /// re-reads a stub's target.
+///
+/// Why the run's own scan decides which indexes are judged: a run that cannot see
+/// the index does not get to judge it — a narrowed `grund check <one-file>`, or an
+/// index the `[scan]` set excludes, is not evidence about that index. An index file
+/// that does not exist is a different fact, and is still reported.
+///
+/// Why the three ways an index fails to read are named apart: "does not exist",
+/// said about a directory that plainly does, is a diagnosis a reader has to argue
+/// with.
+///
+/// Why only the bare form is gated on the cited section resolving: §FS-check.3.17
+/// is the finding that names `grund fmt --write`, so it may only reach an
+/// occurrence the pass would in fact rewrite, while a link already written stands
+/// whatever `fmt` would do with it (§DF-index-entry-form.2.4). The tree is already
+/// red for the unresolved section itself (§FS-check.3.2); the ID falls to
+/// §FS-check.4.6's warning, whose fix is an edit.
+///
+/// Why the unlinked-entry message names `grund fmt --write`: that command is only
+/// ever named on a site the pass will in fact rewrite, which is what
+/// `IndexCitationForm::Bare` is narrowed to mean.
 fn check_kind_indexes(
     findings: &Findings,
     config: &Config,
@@ -261,11 +285,8 @@ fn check_kind_indexes(
         }
     }
     // §FS-check.4.6: which index files *this run* read. The entries come from the
-    // scan and the form from disk, so an index the run never scanned — a narrowed
-    // `grund check <one-file>`, or an index the `[scan]` set excludes — would
-    // otherwise look empty and report every declaration in the folder as
-    // unlisted. A run that cannot see the index does not get to judge it; an
-    // index file that does not exist is a different fact and still reported.
+    // scan and the form from disk, so an index the run never scanned would
+    // otherwise look empty and report every declaration in the folder as unlisted.
     let index_scanned: BTreeSet<&Path> = findings
         .scanned_files
         .iter()
@@ -274,10 +295,9 @@ fn check_kind_indexes(
         .collect();
 
     for target in &targets {
-        // `is_file`, not `exists`: a path that is not a readable file is not an
-        // index this run failed to read, it is an index that is not there — a
-        // missing one, or a directory wearing the name — and that is §FS-check.4.6's
-        // finding, not a reason to stay quiet.
+        // `is_file`, not `exists`: a path that is not a readable file is not an index
+        // this run failed to read, it is an index that is not there — a missing one or
+        // a directory wearing the name — which is §FS-check.4.6's finding, not silence.
         if !index_scanned.contains(target.index_key.as_path()) && target.index_file.is_file() {
             continue;
         }
@@ -296,10 +316,8 @@ fn check_kind_indexes(
         }
         let index_display = display_path(path_config, &target.index_file);
         // §FS-check.4.6: a folder whose index file does not exist is the same
-        // finding, once per declaration — the strongest form of the same fact,
-        // not a different one. The three ways it can fail to read are named
-        // apart, because "does not exist" said about a directory that plainly
-        // does is a diagnosis a reader has to argue with.
+        // finding, once per declaration — the strongest form of the same fact, not
+        // a different one. The three ways it can fail to read are named apart.
         let text = fs::read_to_string(&target.index_file).ok();
         let absent = match &text {
             Some(_) => "",
@@ -317,10 +335,9 @@ fn check_kind_indexes(
             let Some(line) = lines.get(citation.line.saturating_sub(1)) else {
                 continue;
             };
-            // §FS-fmt.6.4: `fmt` leaves a declaration heading alone, so a
-            // citation riding on one is no more repairable than one in an
-            // inline-code span. Fenced blocks need no test here — the scanner
-            // records no citation inside one.
+            // §FS-fmt.6.4: `fmt` leaves a declaration heading alone, so a citation
+            // riding on one is no more repairable than one in inline code. Fenced
+            // blocks need no test here — the scanner records no citation inside one.
             if declaration_captures(&config.grammar, line, false, true).is_some() {
                 continue;
             }
@@ -329,14 +346,8 @@ fn check_kind_indexes(
             // (§DF-index-entry-form.2.3), so the ID is reported as unlisted.
             let form = index_citation_form(line, &citation.text, &config.marker);
             // §FS-fmt.6.2: the pass has to compute a link target, and a citation
-            // naming a section no declaration declares has none — `fmt` skips
-            // the line and answers `rewrote 0 references`. Only the bare form is
-            // gated: §FS-check.3.17 is the finding that names `grund fmt
-            // --write`, so it may only reach an occurrence the pass would
-            // rewrite, while a link already written stands whatever `fmt` would
-            // do with it (§DF-index-entry-form.2.4). The tree is already red for
-            // the section itself (§FS-check.3.2); the ID falls to
-            // §FS-check.4.6's warning, whose fix is an edit.
+            // naming a section no declaration declares has none — `fmt` skips the
+            // line and answers `rewrote 0 references`. Only the bare form is gated.
             let form = if form == IndexCitationForm::Bare
                 && !index_section_resolves(findings, citation)
             {
@@ -366,10 +377,7 @@ fn check_kind_indexes(
                         column: Some(column),
                         // §REQ-backwards-compatibility.3 wants all three: the
                         // versions the verdict moved between, one command the
-                        // tool ships, and a release note. The first two are
-                        // here — and the command is only ever named on a site
-                        // `fmt --write` will in fact rewrite, which is what
-                        // `IndexCitationForm::Bare` is narrowed to mean.
+                        // tool ships, and a release note. The first two are here.
                         message: format!(
                             "index entry {}{} is not a link; unchecked in grund {INDEX_RULE_PRIOR_RELEASE}, an error in {INDEX_RULE_RELEASE} — run `grund fmt --write`",
                             config.marker,

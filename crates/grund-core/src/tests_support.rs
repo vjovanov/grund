@@ -39,6 +39,13 @@ mod tests_support {
         std::fs::write(path, text).expect("write fixture");
     }
 
+    /// A `Config` whose `FS` kind is the legacy `docs/functional-spec` folder.
+    ///
+    /// Why every folder kind here opts out of its index: the suites built on this
+    /// helper are about the scanner, the shorthand, and the walk — not about the
+    /// index a folder kind keeps — so opting out keeps their fixtures from carrying
+    /// a README they never assert on. The rule's own cases live in
+    /// `tests_kind_index.rs`.
     pub(crate) fn legacy_fs_folder_config(root: PathBuf) -> Config {
         let mut config = Config::default_for(root);
         for kind in &mut config.kinds {
@@ -46,11 +53,8 @@ mod tests_support {
                 kind.folder = Some("docs/functional-spec".to_string());
                 kind.file = None;
             }
-            // §FS-config.3.4: the suites built on this helper are about the
-            // scanner, the shorthand, and the walk — not about the index a folder
-            // kind keeps. Opting every folder kind out keeps their fixtures from
-            // carrying a README they never assert on (the rule's own cases live in
-            // `tests_kind_index.rs`).
+            // §FS-config.3.4: opt every folder kind out of the index the suites
+            // built on this helper are not about.
             if kind.folder.is_some() {
                 kind.index = KindIndex::Disabled;
             }
@@ -351,16 +355,18 @@ mod tests_support {
 
     /// A repo scoped to `docs`, with one declaration inside it. Every symlink
     /// case adds the link it is about.
+    ///
+    /// Both folder kinds disable their index: an index README in the fixture would
+    /// only add findings none of these cases assert on. The `E2E` kind is restated
+    /// because `[[kinds]]` replaces the defaults entirely, and one case here is
+    /// about an e2e case directory.
     #[cfg(unix)]
     pub(crate) fn linked_repo(name: &str) -> PathBuf {
         let root = test_root(name);
         write(
             &root.join("grund.toml"),
             // §FS-config.3.4: `index = false` on both folder kinds — these cases
-            // are about which *files* the walk reads under a link, and an index
-            // README in the fixture would only add findings none of them assert on.
-            // The `E2E` kind is restated because `[[kinds]]` replaces the defaults
-            // entirely, and one case here is about an e2e case directory.
+            // are about which *files* the walk reads under a link.
             "grund_config_version = 1\n\n\
              [[kinds]]\nkind = \"FS\"\nfolder = \"docs/functional-spec\"\nindex = false\n\n\
              [[kinds]]\nkind = \"E2E\"\nfolder = \"e2e/cases\"\nindex = false\n\n\

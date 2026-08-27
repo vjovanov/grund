@@ -105,10 +105,9 @@ fn run_init(args: &[&str], home: Option<&Path>) -> Output {
     command.arg("init").args(args);
     if let Some(home) = home {
         command.env("HOME", home).env("USERPROFILE", home);
-        // `~/.config/zed/AGENTS.md` in the user-global table resolves through
-        // `$XDG_CONFIG_HOME` when it is set (§FS-integrations.4), so a machine
-        // that sets it would send that one row somewhere the fixture home is
-        // not. Clearing it puts every row back under the home just set.
+        // `~/.config/zed/AGENTS.md` in the user-global table resolves through `$XDG_CONFIG_HOME`
+        // when it is set (§FS-integrations.4), so a machine that sets it would send that row
+        // somewhere the fixture home is not; clearing it restores every row to the home just set.
         command.env_remove("XDG_CONFIG_HOME");
     }
     command.output().expect("spawn grund")
@@ -262,16 +261,18 @@ fn each_supported_marker_satisfies_the_rule() {
 ///
 /// Unix only: that table is `~`-rooted and resolved through `$HOME`
 /// (§FS-integrations.4), the spelling a Windows runner may not set.
+///
+/// Why one row of that table is missing below:
+/// `~/.copilot/copilot-instructions.md` is absent because `init` writes that
+/// basename under `.github/` only, so no `<path>` names it.
 #[cfg(unix)]
 #[test]
 fn a_user_global_instruction_file_is_refused_though_the_target_is_not_home() {
     let home = outside_repo_dir("global_files");
     fs::create_dir_all(home.join(".git")).expect("create the dotfiles marker");
-    // Every row of §FS-integrations.4.3 that an `init` target can produce. Four
-    // of the five are the canonical `AGENTS.md`, which is the entrypoint `init`
-    // reaches for by default and carries no agent's name to warn anyone off.
-    // `~/.copilot/copilot-instructions.md` is absent because `init` writes that
-    // basename under `.github/` only, so no `<path>` names it.
+    // Every row of §FS-integrations.4.3 that an `init` target can produce. Four of
+    // the five are the canonical `AGENTS.md`, the entrypoint `init` reaches for by
+    // default, which carries no agent's name to warn anyone off.
     for (dir, file) in [
         (".codex", "AGENTS.md"),
         (".config/zed", "AGENTS.md"),

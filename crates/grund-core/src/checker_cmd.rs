@@ -114,10 +114,9 @@ fn scan_scope_caution(
     if findings.scanned_files.is_empty() {
         return Some(empty_scan_warning(config, path, path_provided));
     }
-    // §FS-check.4.5: only a run over the whole project makes the claim. A
-    // narrowed `grund check <dir>` is a slice the caller chose, and a slice with
-    // no declarations and no citations in it is an answer, not a
-    // misconfiguration to warn about.
+    // §FS-check.4.5: only a run over the whole project makes the claim. A narrowed
+    // `grund check <dir>` is a slice the caller chose, and a slice with no
+    // declarations and no citations is an answer, not a misconfiguration.
     (nothing_recognized(findings) && scope_is_config_root(config, path, path_provided))
         .then(|| nothing_recognized_warning(config, findings.scanned_files.len()))
 }
@@ -128,6 +127,13 @@ struct CheckRun {
     had_scan_errors: bool,
 }
 
+/// One `grund check` run over `path`: resolve the config, scan, check, and fold in
+/// the cautions and warnings the run earns for its scope and its config files.
+///
+/// Why the scope caution is only a warning: it never changes the exit code. The
+/// agent-entrypoint check (§FS-check.3.5) runs even when no source file is scanned,
+/// so a missing or stale `AGENTS.md` block still reports normally and suppresses
+/// both cautions.
 fn run_check(
     path: &Path,
     path_provided: bool,
@@ -159,11 +165,7 @@ fn run_check(
     let had_scan_errors = append_scan_errors(&mut report, scan_errors);
     // §FS-check.2.2 / §FS-check.4.5: a walk that read no files, or read them and
     // recognized nothing in them, is almost always a misconfigured scope rather
-    // than a clean repo — say so on stderr instead of printing nothing and
-    // exiting 0. A warning either way: it never changes the exit code. (The
-    // agent-entrypoint check, §FS-check.3.5, runs even when no source file is
-    // scanned, so a missing/stale `AGENTS.md` block still reports normally and
-    // suppresses both.)
+    // than a clean repo — say so on stderr instead of exiting 0 in silence.
     let report_is_silent = report.errors.is_empty() && report.warnings.is_empty();
     report.warnings.extend(scan_scope_caution(
         &config,
@@ -182,17 +184,15 @@ fn run_check(
     report
         .warnings
         .extend(deprecated_kind_prefix_warning(&config));
-    // §FS-check.1.3, also after the scope caution: `--full` cancels
-    // `[scan] include`, and an explicit path other than the config root already
-    // bypasses that key — so the flag changed nothing and the caller who typed it
-    // wanted a wider search. Say so instead of accepting it silently.
+    // §FS-check.1.3, also after the scope caution: `--full` cancels `[scan] include`,
+    // and an explicit path other than the config root already bypasses that key — so
+    // the flag changed nothing, and the caller who typed it wanted a wider search.
     report
         .warnings
         .extend(full_scope_ignored_warning(&config, path, path_provided, full));
-    // §FS-check.3.14, after the scope caution above: a `--full` run whose
-    // *configured* scope read nothing, or recognized nothing in what it read,
-    // still earns that caution — the tier says where the citations are, the
-    // caution says the config has not been told (§FS-check.2.2, §FS-check.4.5).
+    // §FS-check.3.14, after the scope caution above (§FS-check.2.2, §FS-check.4.5):
+    // a `--full` run whose *configured* scope read or recognized nothing still earns
+    // that caution — the tier says where the citations are, the config was not told.
     report.errors.extend(out_of_scope);
     sort_diagnostics(&mut report.errors);
 
@@ -203,6 +203,13 @@ fn run_check(
     })
 }
 
+/// The workspace arm of `grund check`: every member checked in turn, its findings
+/// anchored on the workspace root's config, with the per-project cautions and the
+/// per-config warnings folded into one report.
+///
+/// Why the root is skipped in the per-project warning loop at the end: with
+/// `include_root = true` the root is itself a `projects` entry, so warning once per
+/// project would name the root's directory twice.
 fn run_workspace_check(
     mut root_config: Config,
     force_require_grounding: bool,
@@ -258,10 +265,9 @@ fn run_workspace_check(
         report.warnings.append(&mut project_report.warnings);
         report.suggestions.append(&mut project_report.suggestions);
         had_scan_errors |= append_scan_errors(&mut report, project.scan_errors.iter().cloned());
-        // §FS-check.2.2 / §FS-check.4.5: the same two cautions as the
-        // single-project path, asked per project — one member's empty scope or
-        // grammar mismatch says nothing about another's, and the scope and
-        // shapes a caution names are that member's own (§FS-workspace.5).
+        // §FS-check.2.2 / §FS-check.4.5 / §FS-workspace.5: the same two cautions as
+        // the single-project path, asked per project — one member's empty scope or
+        // grammar mismatch says nothing about another's, and each names its own.
         report.warnings.extend(scan_scope_caution(
             &project.config,
             &project.findings,
@@ -271,9 +277,8 @@ fn run_workspace_check(
         ));
     }
     // §FS-check.4.3: the root's pair plus every member's, each named at the path
-    // that project's config was loaded under. The root project is skipped in the
-    // loop — with `include_root = true` it is also a `projects` entry, and the
-    // warning is about one directory, not one scope.
+    // that project's config was loaded under. The root is skipped in the loop
+    // below, because the warning is about one directory, not one scope.
     report.warnings.extend(redundant_config_warning(&root_config));
     report
         .warnings

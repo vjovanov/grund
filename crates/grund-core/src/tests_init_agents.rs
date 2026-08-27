@@ -329,14 +329,14 @@ mod tests_init_agents {
         assert_eq!(rels, vec!["CLAUDE.md", "GEMINI.md", ".pi/AGENTS.md"]);
     }
 
+    /// Answering *does this agent have an entrypoint* on looser evidence than
+    /// the update set and `grund check` use is how the two come to disagree
+    /// about what an entrypoint is.
     #[test]
     fn an_unclaimed_generic_file_is_not_its_agent_s_entrypoint() {
         // §FS-init.2.1.1 / §FS-init.2.1: `.rules` is too generic to attribute to
         // Zed by filename alone, so a build-rules file that no `.zed/` and no
-        // managed block claims is somebody else's. Answering *does this agent
-        // have an entrypoint* on looser evidence than the update set and
-        // `grund check` use is how the two come to disagree about what an
-        // entrypoint is (§FS-check.3.5).
+        // managed block claims is somebody else's (§FS-check.3.5).
         let root = test_root("an_unclaimed_generic_file_is_not_its_agent_s_entrypoint");
         write(&root.join(".rules"), "# somebody else's build rules\n");
 

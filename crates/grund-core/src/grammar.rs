@@ -168,6 +168,19 @@ impl Grammar {
     /// citation is §FS-config.3.1 / §DF-reference-marker; the comment-prefix wrapper
     /// on declaration/section regexes is §AR-scanner.4 (declarations live in code
     /// doc-comments too).
+    ///
+    /// The `/` rejections repeat `config.rs` because the whole namespace grammar
+    /// rests on "an ID never contains `/`". Each component pattern is compiled on
+    /// its own because two patterns whose parentheses balance only against each
+    /// other — `number_pattern = "("` with `slug_pattern = "a)"` — compile fine as
+    /// one ID pattern and fall apart the moment a pass builds one from a subset of
+    /// the elements, as `shorthand_elements` does; rejecting them here lets every
+    /// derived pattern be built by string surgery and still be sure to compile.
+    ///
+    /// A comment prefix stands in for the `#`, so `/// AR-foo: title` matches while
+    /// a bare prose line `AR-foo: title` in markdown does not. And a namespace only
+    /// ever precedes a citation, never being the second number of a run, which is
+    /// why the shorthand's unqualified pattern is a separate string, not a reuse.
     fn build(
         format: &str,
         kinds: &[String],
@@ -187,8 +200,7 @@ impl Grammar {
         };
         // §FS-config.3.2: the "an ID never contains `/`" invariant, enforced over
         // every component an ID is built from. `config.rs` rejects each key at its
-        // own line first; this is the backstop that keeps the invariant true for a
-        // `Config` assembled in code, since the whole namespace grammar rests on it.
+        // own line first; this is the backstop for a `Config` assembled in code.
         if let Some(message) = id_grammar_literal_slash_error("[id].format", format) {
             return Err(anyhow!("{message}"));
         }
@@ -238,14 +250,8 @@ impl Grammar {
             ));
         }
         // §FS-config.3.2: each component pattern must be a valid regex *on its
-        // own*, not merely valid once spliced into `id_pat`. Two patterns whose
-        // parentheses balance only against each other — `number_pattern = "("`
-        // with `slug_pattern = "a)"` — compile fine as one ID pattern and then
-        // fall apart the moment a pass builds a pattern from a subset of the
-        // elements, which is exactly what the number-only shorthand does
-        // (§FS-check.1.2, `shorthand_elements`). Rejecting them here is what
-        // lets every derived pattern be built by string surgery and still be
-        // guaranteed to compile.
+        // own*, not merely valid once spliced into `id_pat` — the number-only
+        // shorthand builds one from a subset of the elements (§FS-check.1.2).
         let slug_re = Regex::new(slug_pattern)
             .map_err(|err| anyhow!("[id].slug_pattern is not a valid regex: {err}"))?;
         if slug_re.is_match(section_separator) {
@@ -267,11 +273,9 @@ impl Grammar {
         let sec_suffix = format!(r"(?:{}{})?", sep_quoted, SEC_GROUP);
 
         let comment_prefix = comment_prefix_regex(comment_prefixes);
-        // Declaration grammar (§AR-scanner.2.1):
-        //   1. Markdown-form: `#+`, then ID. The `#` is mandatory in `.md`.
-        //   2. Code-form (§DF-code-declarations-drop-hash): comment prefix required,
-        //      then ID directly. So `/// AR-foo: title` matches, but a bare prose
-        //      line `AR-foo: title` in markdown does not.
+        // Declaration grammar (§AR-scanner.2.1): Markdown-form is `#+` then ID,
+        // with the `#` mandatory in `.md`; code-form requires a comment prefix and
+        // then the ID directly (§DF-code-declarations-drop-hash).
         let decl_re = Regex::new(&format!(
             r"^\s*(?:{prefix}\s+|(?P<mdhashes>#+)\s+){id}\b",
             prefix = comment_prefix,
@@ -282,11 +286,9 @@ impl Grammar {
             r"^\s*(?:{})?\s*(?P<hashes>#+)\s+{}\.?\s+\S",
             comment_prefix, SEC_GROUP
         ))?;
-        // §FS-workspace.1: the optional `<alias>/` namespace prefix is part of
-        // the citation grammar, not a separate parser pass. The scanner gates
-        // it on the marker (§AR-workspace.3.1) — without `§`, a `slug/ID`
-        // token is treated as text, not a citation. One segment per workspace
-        // level (§FS-workspace.6.1), so nesting needs no second grammar.
+        // §FS-workspace.1: the optional `<alias>/` namespace prefix is part of the
+        // citation grammar, not a separate parser pass, and the scanner gates it on
+        // the marker (§AR-workspace.3.1, §FS-workspace.6.1).
         let namespace_prefix = format!(r"(?:(?P<namespace>{})/)?", *PROJECT_PATH_PATTERN);
         let citation_re =
             Regex::new(&format!(r"\b{}{}{}", namespace_prefix, id_pat, sec_suffix))?;
@@ -301,9 +303,8 @@ impl Grammar {
                 full_prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, id_pat, sec_suffix),
                 prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, short_pat, sec_suffix),
                 // §FS-fmt.2.4.1 clause 2: the same shorthand shape with no
-                // `<alias>/` in front of it. A namespace precedes a citation and
-                // is never the second number of a run, so reusing `prefix_pattern`
-                // here would count every path ending in an ID-shaped segment.
+                // `<alias>/` in front of it — reusing `prefix_pattern` here would
+                // count every path ending in an ID-shaped segment.
                 unqualified_prefix_pattern: format!(r"\A{}{}", short_pat, sec_suffix),
                 // Non-capturing: this one is only ever asked `is_match`, and a
                 // second `(?P<num>…)` beside the one in `short_pat` would be a
@@ -475,17 +476,16 @@ struct NearMissGrammar {
 }
 
 impl NearMissGrammar {
+    /// Why the trailing `:` is the discriminator: a line that opens with an
+    /// ID-shaped token and *no* colon is prose far more often than a declaration
+    /// attempt — a wrapped comment whose continuation begins with one is the case
+    /// that found this, and the rule says nothing about the rest. The token
+    /// stopping at a backtick likewise keeps an inline-code mention
+    /// (`` `FS-login`: ``) from being one, and keeps the quoted token as written.
     fn build(kind_alt: &str, comment_prefix: &str, after_kind: &str) -> Self {
-        // The trailing `:` is the discriminator, and it is doing real work: a
-        // line that opens with an ID-shaped token and *no* colon is prose far
-        // more often than it is a declaration attempt — a wrapped comment whose
-        // continuation happens to begin with one is the case that found this.
-        // §FS-check.4.7 therefore reads only the shape it names,
-        // `<KIND>-…: <title>`, and says nothing about the rest.
-        //
-        // The token stops at whitespace, at the colon, and at a backtick, so an
-        // inline-code mention (`` `FS-login`: ``) is not one either and the
-        // quoted token is the token as written.
+        // §FS-check.4.7 reads only the shape it names, `<KIND>-…: <title>`: the
+        // trailing `:` is the discriminator, and the token stops at whitespace, at
+        // the colon, and at a backtick.
         let near = format!(
             r"(?P<near>(?:{kind_alt}){after}[^\s:`]*):",
             after = regex::escape(after_kind)

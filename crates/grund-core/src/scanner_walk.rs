@@ -1,9 +1,3 @@
-// The tree walk: which roots a scan starts from, which files it yields, and what
-// it does with a path it cannot read (§AR-scanner.1). It sits beside `scanner.rs`
-// rather than inside it because the two are different machines — that one is a
-// line-by-line pass over a file's text, this one is a directory traversal — and
-// they meet only at the file list one hands the other.
-
 /// The tree walk for the callers that ask a yes/no question about the tree and
 /// nothing else — today the `--cross-refs` auto-enable probe, which wants to know
 /// whether the scope holds any Markdown (§FS-fmt.6.6). Every caller that *reports*
@@ -11,6 +5,12 @@
 /// report rather than being dropped here (§FS-config.3.5.5, §FS-check.2): this one
 /// is walking a tree that the reporting walk is about to walk again and account
 /// for, so repeating its errors would print each of them twice.
+///
+/// The tree walk: which roots a scan starts from, which files it yields, and what
+/// it does with a path it cannot read (§AR-scanner.1). It sits beside `scanner.rs`
+/// rather than inside it because the two are different machines — that one is a
+/// line-by-line pass over a file's text, this one is a directory traversal — and
+/// they meet only at the file list one hands the other.
 fn walk_scannable_files(
     config: &Config,
     scope: Option<&Path>,
@@ -38,6 +38,30 @@ struct WalkedTree {
 /// symlinks, keeping only scannable files, in a sorted order so findings are
 /// deterministic (§FS-errors.4). Returns the paths it could not read beside the
 /// files, for the caller to report (§FS-check.2).
+///
+/// Why `aliasable` is a list and not a flag: the identity pass resolves what is in
+/// it and compares everything else by path, so one link in a repository costs one
+/// `realpath` and not one per file.
+///
+/// Paths stay in-tree. Following a symlink does not change the entry's path, and
+/// that spelling is what the directory filter below and every finding are expressed
+/// in. The boundary filter can therefore compare precomputed suffixes: `strip_prefix`
+/// only removes the root, so the descendant suffix is invariant under symlink
+/// resolution — the compare works even if `scan_root` itself is a symlink.
+///
+/// Why the other-project test after resolution is cheap: the alias resolution is
+/// already paid for, so the boundary costs a prefix test over the files that can
+/// wear a second name, and nothing at all for a run that loaded no workspace.
+///
+/// Why the error list is sorted and deduplicated here: the text report sorts before
+/// printing while the API surface hands the list over as it stands, so one sort
+/// serves both; and overlapping roots — plus `--full`, which walks every `include`
+/// root beside the config root that contains it — meet the same broken link once per
+/// root, so an undeduplicated list prints every such error twice.
+///
+/// Why `outside_root` compares physical paths on both sides: a config root reached
+/// through a link contains none of the paths its own files resolve to, and
+/// `fmt --write` would then refuse to rewrite the whole repository.
 fn walk_scannable_files_reporting(
     config: &Config,
     scope: Option<&Path>,
@@ -47,10 +71,6 @@ fn walk_scannable_files_reporting(
     // §FS-config.3.5.4: an aliased root, or a symlink met on the way down, is what
     // hands the same file to the walk under two spellings — nothing else does, so
     // a tree with neither never pays for the identity pass (§GOAL-fast-feedback).
-    // This is the *list* of those files rather than a flag saying one exists: the
-    // pass resolves what is in it and compares everything else by path, so one
-    // link in a repository costs one `realpath` and not one per file
-    // (§AR-scanner.1).
     let mut aliasable = BTreeSet::new();
     let mut files = Vec::new();
     let mut errors = Vec::new();
@@ -64,10 +84,9 @@ fn walk_scannable_files_reporting(
         }
         let canonical_scan_root =
             fs::canonicalize(&scan_root).unwrap_or_else(|_| scan_root.to_path_buf());
-        // §AR-workspace.6: a root scan starts outside member namespaces; an
-        // included path at or below a member boundary belongs to the member scan,
-        // and one inside any *other* project of the run belongs to that project
-        // (§FS-workspace.6).
+        // §AR-workspace.6: a root scan starts outside member namespaces; an included
+        // path at or below a member boundary belongs to the member scan, and one inside
+        // any *other* project of the run belongs to that project (§FS-workspace.6).
         if config
             .workspace_boundary_roots
             .iter()
@@ -85,9 +104,8 @@ fn walk_scannable_files_reporting(
         let mut builder = WalkBuilder::new(&scan_root);
         builder.hidden(false);
         // §FS-config.3.5.1: a symlink is part of the tree at the path it occupies, so
-        // the walk reads through it — a linked file as the file, a linked directory
-        // by descending. The entry keeps its in-tree path either way, which is what
-        // the directory filter below and every finding are then expressed in.
+        // the walk reads through it — a linked file as the file, a linked directory by
+        // descending; the entry keeps its in-tree path either way.
         builder.follow_links(true);
         if !config.respect_gitignore {
             builder
@@ -97,13 +115,9 @@ fn walk_scannable_files_reporting(
                 .git_exclude(false)
                 .parents(false);
         }
-        // §AR-workspace.6: precompute the boundary path components once,
-        // expressed relative to the canonical scan root. The walker filter is
-        // then a single component-suffix compare — no per-entry `canonicalize`
-        // syscall, no allocation in the hot path. `strip_prefix` only removes
-        // the root, so the descendant suffix is invariant under symlink
-        // resolution — comparing against the filter's `scan_root` works even if
-        // `scan_root` itself is a symlink.
+        // §AR-workspace.6: precompute the boundary path components once, expressed
+        // relative to the canonical scan root, so the walker filter is a single
+        // component-suffix compare — no per-entry `canonicalize`, no allocation.
         let boundary_suffixes: Vec<PathBuf> = config
             .workspace_boundary_roots
             .iter()
@@ -146,9 +160,8 @@ fn walk_scannable_files_reporting(
             let entry = match entry {
                 Ok(entry) => entry,
                 // §FS-config.3.5.5: a link the walk cannot resolve is a file the scan
-                // cannot read — reported at its own path, the walk continuing past
-                // it (§FS-check.2). Failing the whole scan here would let one broken
-                // link take the entire report with it.
+                // cannot read — reported at its own path, the walk continuing past it
+                // (§FS-check.2). Failing the scan would let it take the whole report.
                 Err(err) => {
                     errors.extend(walk_error_report(&err, config, &scan_root));
                     continue;
@@ -183,9 +196,8 @@ fn walk_scannable_files_reporting(
             errors.extend(symlink_loop_report(&link, ancestor.as_deref(), config));
         }
         // §FS-errors.4: within one root the order is the filesystem's, and the
-        // first-seen rule below turns that order into a choice of *spelling*. Sort
-        // each root's own list before it joins the others, so the choice is ours:
-        // the earlier root wins, and within a root the lexicographically first path.
+        // first-seen rule below turns that into a choice of *spelling*. Sorting each
+        // root's list first makes the choice ours: earlier root wins, then lexicographic.
         root_files.sort_by_key(|path| sort_path_key(path));
         files.append(&mut root_files);
     }
@@ -195,9 +207,7 @@ fn walk_scannable_files_reporting(
     let resolved = resolve_aliasable(&aliasable);
     // §FS-workspace.6: the directory filter stops a *directory* link at another
     // project's root, and a link straight onto one of its files is the same
-    // crossing one entry lower down. The resolution is already paid for, so the
-    // boundary costs a prefix test over the files that can wear a second name and
-    // nothing at all for a run that loaded no workspace.
+    // crossing one entry lower down.
     if !config.workspace_project_roots.is_empty() {
         files.retain(|file| {
             !resolved
@@ -210,26 +220,17 @@ fn walk_scannable_files_reporting(
     }
     files.sort_by_key(|path| sort_path_key(path));
     // The roots may overlap — `include = ["docs", "docs/api"]` names one subtree
-    // twice, and under `--full` every `include` root is walked beside the config
-    // root that already contains it (§FS-check.1.3). Scanning a file twice would
-    // report its declaration as a duplicate of itself.
+    // twice, and under `--full` every `include` root is walked beside the config root
+    // containing it (§FS-check.1.3). A file read twice duplicates its own declaration.
     files.dedup();
-    // §FS-errors.4: the walk meets its unreadable paths in readdir order, which is
-    // the filesystem's; the text report sorts before printing, the API surface
-    // hands the list over as it stands, so it is sorted once here for both. Then
-    // deduplicated for the same reason the file list is: overlapping roots meet
-    // the same broken link once per root, and under `--full` every `include` root
-    // is walked beside the config root that contains it, so every scan error
-    // would be printed twice — which the additivity rule of §FS-check.1.3 forbids
-    // as much for an `error:` line as for a finding.
+    // §FS-errors.4: the walk meets its unreadable paths in readdir order, so they
+    // are sorted once here for both surfaces, then deduplicated — printing a scan
+    // error twice is what the additivity rule of §FS-check.1.3 forbids.
     errors.sort_by_key(|(path, message)| (sort_path_key(path), message.clone()));
     errors.dedup();
     // §FS-fmt.2.3.2: a file whose physical path is not under the config root is in
     // this tree only by the link that reaches it. The resolution is already paid
     // for above, so this is a prefix test over the links and nothing more.
-    // The comparison is physical on both sides: a config root reached through a
-    // link would otherwise contain none of the paths its own files resolve to,
-    // and `--write` would refuse to rewrite the whole repository.
     let outside_root = files
         .iter()
         .filter(|file| {
@@ -288,25 +289,32 @@ impl WalkDirFilter {
     /// Whether the walk keeps this entry — and, for a directory, descends into
     /// it. Files are otherwise not filtered here; the extension test is the
     /// caller's.
+    ///
+    /// Why the unwalked-home prune runs first, and on files too: keeping such a home
+    /// out of the roots is only half the rule — the walk meets the same home again as
+    /// a descendant of any root above it, the config root or an `include` entry it
+    /// sits under, and read there it would be walked after all. It is the one rule
+    /// asked of files as well as directories, which is why it is asked before the
+    /// directory gate: a single-file home (`file = "docs/template.md"`) is never a
+    /// directory to prune, and pruning its parent is not on offer — the parent is
+    /// `docs`. Testing the in-tree path rather than the name prunes *this* home and
+    /// nothing that merely shares its last component. The list is empty under `--full`
+    /// and in every tree that configures no such kind, which is where the cost of
+    /// asking per entry would otherwise fall.
+    ///
+    /// Why the walk stops at a link whose target is at or above the walk root: the
+    /// walker compares a target against the directories it is *inside*, and this one
+    /// is not one of them, so `docs/up -> ..` sends it down a complete second copy of
+    /// the tree before it notices at `docs/up/docs/up`. That descent reports findings
+    /// from a tree the run has just called unreadable and reads past `[scan] include`,
+    /// so the link is pruned here and the report raised afterwards.
     fn keep(&self, entry: &ignore::DirEntry) -> bool {
         if entry.depth() == 0 {
             return true;
         }
-        // §FS-config.3.4.7: a home the config lists without walking is pruned
-        // here as well as left out of `kind_home_roots`. Keeping it out of the
-        // roots is only half the rule — the walk meets the same home again as a
-        // descendant of any root above it, the config root or an `include` entry
-        // it sits under, and read there it would be walked after all.
-        //
-        // This is the one rule asked of files as well as directories, and it is
-        // asked before the directory gate below for that reason: a single-file
-        // home (`file = "docs/template.md"`) is never a directory to prune, and
-        // pruning its parent is not on offer — the parent is `docs`. The test is
-        // on the in-tree path rather than the name, the way §AR-scanner.2.4
-        // decides which home a file is in, so it prunes *this* home and nothing
-        // that merely shares its last component. Empty under `--full` and in
-        // every tree that configures no such kind, which is where the cost of
-        // asking it per entry would otherwise fall (§GOAL-fast-feedback).
+        // §FS-config.3.4.7: a home the config lists without walking is pruned here as
+        // well as left out of `kind_home_roots`, on the in-tree path the way
+        // §AR-scanner.2.4 decides which home a file is in (§GOAL-fast-feedback).
         if !self.unwalked_homes.is_empty()
             && let Some(relative) = scanned_decl_relative_path(
                 entry.path(),
@@ -341,14 +349,9 @@ impl WalkDirFilter {
         if self.excluded.iter().any(|item| item == name) {
             return false;
         }
-        // §FS-config.3.5.5: a directory link whose target is at or above the walk
-        // root is a loop, and the one kind the walker cannot see: it compares a
-        // target against the directories it is *inside*, and this one is not one
-        // of them, so `docs/up -> ..` sends it down a complete second copy of the
-        // tree before it notices at `docs/up/docs/up`. That descent reports
-        // findings from a tree the run has just called unreadable and reads past
-        // `[scan] include`, so the link is pruned here and the report raised
-        // afterwards from `looping_links` (§AR-scanner.1).
+        // §FS-config.3.5.5: a directory link whose target is at or above the walk root
+        // is a loop, and the one kind the walker cannot see, so it is pruned here and
+        // the report raised afterwards from `looping_links` (§AR-scanner.1).
         if entry.path_is_symlink()
             && let Some(resolved) = resolved
             && self.canonical_scan_root.starts_with(resolved)
@@ -577,12 +580,22 @@ fn canonical_config_root(config: &Config) -> PathBuf {
 /// reproduce, so the dedup has to choose between two names for one file; walking
 /// `include` first makes the first-seen winner the spelling `grund check` prints
 /// without the flag, which is what keeps `--full` purely additive.
+///
+/// Why `include` beats `scan = false` here: a root is never filtered — that is what
+/// makes it a root — so a config that says both "listed, not walked" and "walk this"
+/// has to be settled before the walk starts rather than by the walk's own prune.
+///
+/// Why every kind home is a root: a home is the repository saying "declarations and
+/// citations live here", and leaving it out of the scan made its citations *invisible*
+/// rather than dangling — the trap a non-citable kind, whose whole content is "this
+/// directory matters", would otherwise fall into on its first line of config. The
+/// homes are ordered after `include` so the first-seen spelling of a file reached two
+/// ways is still `include`'s, which keeps the dedup and `--full`'s additivity
+/// unchanged.
 fn root_scope_roots(config: &Config, full: bool) -> Vec<PathBuf> {
-    // §FS-config.3.4.7: an `include` entry at or inside an unwalked home is the
-    // one way such a home is still a *root*, where the walk's own prune cannot
-    // reach it — a root is never filtered, that is what makes it a root. The
-    // config says both "listed, not walked" and "walk this"; the narrower key,
-    // the one written on the kind itself, wins.
+    // §FS-config.3.4.7: an `include` entry at or inside an unwalked home is the one
+    // way such a home is still a *root*, where the walk's own prune cannot reach it.
+    // The narrower key, the one written on the kind itself, wins.
     let unwalked = if full {
         Vec::new()
     } else {
@@ -596,16 +609,9 @@ fn root_scope_roots(config: &Config, full: bool) -> Vec<PathBuf> {
         .filter(move |root| !unwalked.iter().any(|home| root.starts_with(home)))
         .collect::<Vec<_>>()
         .into_iter();
-    // §FS-config.3.5: every configured kind home is walked whether or not
-    // `include` names it. A home is the repository saying "declarations and
-    // citations live here"; leaving it out of the scan made its citations
-    // *invisible* rather than dangling — the trap a non-citable kind, whose
-    // whole content is "this directory matters", would otherwise fall into on
-    // its first line of config. `include` keeps its job: the extra roots.
-    //
-    // Ordered after `include` so the first-seen spelling of a file reached two
-    // ways is still the one `include` gives it, which is what keeps the dedup
-    // and `--full`'s additivity unchanged.
+    // §FS-config.3.5: every configured kind home is walked whether or not `include`
+    // names it; `include` keeps its job, the extra roots. Ordered after `include` so
+    // the first-seen spelling of a file reached two ways is still the one it gives.
     let homes = kind_home_roots(config);
     match (full, config.include.is_some()) {
         (true, _) => include

@@ -85,11 +85,11 @@ mod tests_integrations {
         assert!(install_managed_block("#", false, &format!("{block}{block}"), "NEW").is_err());
     }
 
-    // §FS-integrations.3.3: `--peek` renders the declaration instead of opening
-    // an editor, through the *same* resolution path — a peek and a click must
-    // never disagree about where a citation points. The output leads with the
-    // resolved `path:line` so the peek is actionable, and never launches an
-    // editor even when one is configured.
+    /// §FS-integrations.3.3: `--peek` renders the declaration instead of opening
+    /// an editor, through the *same* resolution path — a peek and a click must
+    /// never disagree about where a citation points. The output leads with the
+    /// resolved `path:line` so the peek is actionable, and never launches an
+    /// editor even when one is configured.
     #[cfg(unix)]
     #[test]
     fn resolver_peek_prints_the_declaration_without_opening_an_editor() {
@@ -148,10 +148,10 @@ mod tests_integrations {
         );
     }
 
-    // §FS-integrations.3.2: VSCodium is a separate application with a separate
-    // extensions root. Installing the extension into `~/.vscode` for a VSCodium
-    // user fails *silently* — the write reports success and no link ever appears
-    // — so the two clients must never share a target.
+    /// §FS-integrations.3.2: VSCodium is a separate application with a separate
+    /// extensions root. Installing the extension into `~/.vscode` for a VSCodium
+    /// user fails *silently* — the write reports success and no link ever appears
+    /// — so the two clients must never share a target.
     #[test]
     fn codium_installs_into_its_own_extensions_root() {
         let vscode = IntegrationClient::Vscode.config_target();
@@ -168,10 +168,10 @@ mod tests_integrations {
         assert!(IntegrationClient::Codium.snippet().is_none());
     }
 
-    // §FS-integrations.3.4: iTerm2 keeps its rules in a binary plist, so there is
-    // nothing to splice and nothing to read back. It must never claim installed —
-    // a guess there is worse than reporting nothing — and the detection plan has
-    // to say *why*, so a caller can tell "not installed" from "not knowable".
+    /// §FS-integrations.3.4: iTerm2 keeps its rules in a binary plist, so there is
+    /// nothing to splice and nothing to read back. It must never claim installed —
+    /// a guess there is worse than reporting nothing — and the detection plan has
+    /// to say *why*, so a caller can tell "not installed" from "not knowable".
     #[test]
     fn iterm2_is_a_manual_client_that_never_claims_installed() {
         assert!(matches!(
@@ -191,11 +191,11 @@ mod tests_integrations {
         assert!(snippet.contains("grund-open \\0"));
     }
 
-    // §FS-integrations.4.1: the markers are comments *in the host file's
-    // language*. `#` is a comment in kitty.conf and .tmux.conf but the length
-    // operator in Lua, so a `#` marker in wezterm.lua is a syntax error that
-    // costs the user their entire WezTerm config — the block loads, and nothing
-    // else in the file does.
+    /// §FS-integrations.4.1: the markers are comments *in the host file's
+    /// language*. `#` is a comment in kitty.conf and .tmux.conf but the length
+    /// operator in Lua, so a `#` marker in wezterm.lua is a syntax error that
+    /// costs the user their entire WezTerm config — the block loads, and nothing
+    /// else in the file does.
     #[test]
     fn integrations_block_markers_match_the_host_language() {
         assert_eq!(IntegrationClient::Kitty.comment_prefix(), "#");
@@ -221,10 +221,10 @@ mod tests_integrations {
         assert!(find_managed_block("#", &lua).unwrap().is_none());
     }
 
-    // §FS-integrations.4.1: WezTerm applies hyperlink rules only from the config
-    // object the file returns, so a from-scratch install that stopped at the
-    // block would parse and register nothing. The scaffold is what makes a fresh
-    // install work without hand-editing.
+    /// §FS-integrations.4.1: WezTerm applies hyperlink rules only from the config
+    /// object the file returns, so a from-scratch install that stopped at the
+    /// block would parse and register nothing. The scaffold is what makes a fresh
+    /// install work without hand-editing.
     #[test]
     fn wezterm_fresh_install_is_a_working_config() {
         let scaffold = IntegrationClient::Wezterm
@@ -363,10 +363,10 @@ mod tests_integrations {
         }
     }
 
-    // §DF-conversation-link-target.2.4: an agent is instructed only in the form
-    // its renderer is verified to honor. The gate can hold a target where it
-    // was, never make one worse — every downgrade lands on `path`, the form
-    // that surface already had.
+    /// §DF-conversation-link-target.2.4: an agent is instructed only in the form
+    /// its renderer is verified to honor. The gate can hold a target where it
+    /// was, never make one worse — every downgrade lands on `path`, the form
+    /// that surface already had.
     #[test]
     fn link_support_gates_unverified_targets_to_path() {
         for target in ConversationTarget::ALL {
@@ -506,10 +506,10 @@ mod tests_integrations {
         );
     }
 
-    // §FS-init.2.3.4.17: a Claude entrypoint that is a symlink to the canonical
-    // `AGENTS.md` resolves to that one file, which every other agent reads too,
-    // so the linked form cannot reach Claude through it. `init` must say so.
-    // Unix-only: the fixture needs a real symlink (§FS-init.2.3.4.17).
+    /// §FS-init.2.3.4.17: a Claude entrypoint that is a symlink to the canonical
+    /// `AGENTS.md` resolves to that one file, which every other agent reads too,
+    /// so the linked form cannot reach Claude through it. `init` must say so.
+    /// Unix-only: the fixture needs a real symlink (§FS-init.2.3.4.17).
     #[cfg(unix)]
     #[test]
     fn claude_symlink_to_agents_md_is_detected() {
@@ -534,10 +534,10 @@ mod tests_integrations {
         );
     }
 
-    // §FS-init.2.3.4.17: the note is emitted only when the repository actually
-    // commits the opinion — without it there is no linked form to be shadowed,
-    // and a note would be noise on every run in a repo that never opted in.
-    // Unix-only: the fixture needs a real symlink (§FS-init.2.3.4.17).
+    /// §FS-init.2.3.4.17: the note is emitted only when the repository actually
+    /// commits the opinion — without it there is no linked form to be shadowed,
+    /// and a note would be noise on every run in a repo that never opted in.
+    /// Unix-only: the fixture needs a real symlink (§FS-init.2.3.4.17).
     #[cfg(unix)]
     #[test]
     fn symlinked_claude_entrypoint_is_reported_only_under_the_link_opinion() {

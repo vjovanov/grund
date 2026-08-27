@@ -1,18 +1,16 @@
-// The declaration-side title hover (§FS-lsp.1.2): which citations belong to a
-// title, how many sites and files that is, and the exact Markdown body the LSP
-// hands the editor.
-//
-// Split out of `api.rs` for the reason `on_type.rs` was: the public items below
-// are part of the embedding contract §AR-core-module-layout.2 keeps there, but
-// what they carry is a behavior with its own invariant — one definition of "is
-// cited by this title", shared by the hover count and the reference list so the
-// two can never disagree (§FS-lsp.1.3.1) — and that invariant is what a reader
-// comes here for.
-//
-// File-level prose, so `//` rather than `///` — see the note in `shorthand.rs`.
-
 /// How much of the tree leans on one declaration-side title: citation sites and
 /// the distinct files those sites live in (§FS-lsp.1.2).
+///
+/// The declaration-side title hover (§FS-lsp.1.2): which citations belong to a
+/// title, how many sites and files that is, and the exact Markdown body the LSP
+/// hands the editor.
+///
+/// Split out of `api.rs` for the reason `on_type.rs` was: the public items in
+/// this file are part of the embedding contract §AR-core-module-layout.2 keeps
+/// there, but what they carry is a behavior with its own invariant — one
+/// definition of "is cited by this title", shared by the hover count and the
+/// reference list so the two can never disagree (§FS-lsp.1.3.1) — and that
+/// invariant is what a reader comes here for.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct LspUsage {
     pub sites: usize,

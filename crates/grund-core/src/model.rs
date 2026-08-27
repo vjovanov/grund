@@ -1,16 +1,16 @@
 /// A parsed ID: its kind plus whichever of `{number}` / `{slug}` the configured
 /// `[id] format` carries (§FS-config.3.2).
+///
+/// `Id` is rendered for output via `render_id` / `format_id`, which honour the
+/// repo's `[id] format` and `--width` (§FS-config.3.2). There is deliberately no
+/// `Display` impl — a bare `{}` would have to guess the format and would be wrong
+/// on any repo that configured a non-default one.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Id {
     pub kind: String,
     pub num: Option<u32>,
     pub slug: Option<String>,
 }
-
-// `Id` is rendered for output via `render_id` / `format_id`, which honour the
-// repo's `[id] format` and `--width` (§FS-config.3.2). There is deliberately no
-// `Display` impl — a bare `{}` would have to guess the format and would be wrong
-// on any repo that configured a non-default one.
 
 /// One declaration site discovered by the scanner: a `# <ID>: …` heading in a
 /// Markdown file or an inline declaration in a code doc-comment

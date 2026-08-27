@@ -25,6 +25,16 @@ fn looks_like_subcommand_typo(arg: &str) -> bool {
     !arg.is_empty() && !arg.contains('-') && !arg.contains('/') && !arg.contains('.')
 }
 
+/// The body behind both `grund show <ID>` and the default `grund <ID>` dispatch:
+/// parse the flags, resolve the argument to a project and an ID, then render.
+///
+/// Why the alias is split off before the ID is parsed: the alias picks the project
+/// whose grammar parses the ID tail, and mixed-format workspaces rely on that order
+/// — the root may use `{kind}-{slug}` while `api/FS-001-session` belongs to a
+/// numbered member namespace. With no alias the resolution runs against the current
+/// project instead, and an unknown alias is a CLI-shaped error (exit 2) rather than
+/// a query failure, matching the `unknown project alias` shape `check` emits at the
+/// citation site.
 fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
     if args.is_empty() {
         eprintln!("error: show requires an ID");
@@ -147,9 +157,7 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
     };
     // §FS-workspace.8.1: route to the qualified project's config + findings
     // when an `<alias>/<ID>` form is given; otherwise resolve against the
-    // current project. An unknown alias is a CLI-shaped error (exit 2), not
-    // a query failure — matches the `unknown project alias` shape `check`
-    // emits at the citation site.
+    // current project.
     let project = match alias.as_deref() {
         Some(name) => match context.project_by_alias(name) {
             Some(project) => project,
@@ -196,10 +204,8 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
         },
     };
     let config = &project.config;
-    // §FS-workspace.1: split the alias first, then parse the ID tail with the
-    // target project's grammar. Mixed-format workspaces rely on this; the root
-    // may use `{kind}-{slug}` while `api/FS-001-session` belongs to a numbered
-    // member namespace.
+    // §FS-workspace.1: the alias was split first; parse the ID tail with the
+    // target project's grammar.
     let (id, inline_section) = match resolve_id_arg(raw_id, config, &project.findings) {
         Ok(parsed) => parsed,
         Err(err) => {

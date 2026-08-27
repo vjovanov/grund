@@ -52,10 +52,10 @@ mod tests_clickable_citations {
         assert!(!linked.ends_with('\n'));
     }
 
-    // §FS-init.2.3.6: the wording is fixed, the marker is the repository's. A
-    // hardcoded `§` in a repo configured with another marker would teach agents
-    // a token that repo does not treat as a citation — `grund check` ignores it
-    // under strict, so the grounded claim is silently never verified.
+    /// §FS-init.2.3.6: the wording is fixed, the marker is the repository's. A
+    /// hardcoded `§` in a repo configured with another marker would teach agents
+    /// a token that repo does not treat as a citation — `grund check` ignores it
+    /// under strict, so the grounded claim is silently never verified.
     #[test]
     fn clickable_citations_section_renders_the_configured_marker() {
         let root = test_root("clickable_citations_section_renders_the_configured_marker");

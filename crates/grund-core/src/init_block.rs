@@ -1,18 +1,19 @@
-// Reading and rewriting the managed agent-instructions block inside a document
-// that is otherwise the user's (§FS-init.2.3). Locating it, versioning it,
-// migrating the legacy heading-bounded form to the delimited one, and splicing
-// the current render over exactly its bytes are one job with one failure mode —
-// eating content it does not own — which is why it lives apart from the
-// scaffold writing in `init.rs` (§AR-core-module-layout.1). `grund check` reads
-// the same block through `find_agents_block` (§FS-check.3.5), so the locator
-// the checker trusts and the one the writer splices with are the same function.
-
 /// What `init` did to an existing `AGENTS.md`'s managed block — `appended ` (no
 /// block before), `updated ` (a supported block whose bytes changed: an older
 /// block upgraded, or a same-version block re-rendered against a changed
 /// template or config), or `unchanged` (a supported block already byte-identical
 /// to the current render — `init` rewrites nothing, §FS-init.2.2/§FS-init.2.3,
 /// and reports it with the `exists ` prefix like any other untouched file).
+///
+/// What this file holds: reading and rewriting the managed agent-instructions
+/// block inside a document that is otherwise the user's (§FS-init.2.3).
+/// Locating it, versioning it, migrating the legacy heading-bounded form to the
+/// delimited one, and splicing the current render over exactly its bytes are one
+/// job with one failure mode — eating content it does not own — which is why it
+/// lives apart from the scaffold writing in `init.rs`
+/// (§AR-core-module-layout.1). `grund check` reads the same block through
+/// `find_agents_block` (§FS-check.3.5), so the locator the checker trusts and
+/// the one the writer splices with are the same function.
 #[derive(Debug, Eq, PartialEq)]
 enum AgentsUpdateResult {
     Appended,

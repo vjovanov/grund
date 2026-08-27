@@ -100,13 +100,13 @@ mod tests_inline_note_layout {
         }
     }
 
-    // §FS-inline-citation-style.3.3: the line is read after the comment prefix and
-    // any block closer are stripped, so every recognized comment shape is judged on
-    // the same content the author sees. The prefix set is the project's, not one
-    // language's: `//!` and `/**` open a doc comment in the C family and so are
-    // never judged there (§FS-inline-citation-style.1.1), but `[scan]
-    // comment_prefixes` applies to every extension, so the reader still has to
-    // strip them.
+    /// §FS-inline-citation-style.3.3: the line is read after the comment prefix and
+    /// any block closer are stripped, so every recognized comment shape is judged on
+    /// the same content the author sees. The prefix set is the project's, not one
+    /// language's: `//!` and `/**` open a doc comment in the C family and so are
+    /// never judged there (§FS-inline-citation-style.1.1), but `[scan]
+    /// comment_prefixes` applies to every extension, so the reader still has to
+    /// strip them.
     #[test]
     fn citation_first_colon_reads_every_comment_prefix() {
         let config = layout_config(
@@ -191,10 +191,10 @@ mod tests_inline_note_layout {
         assert!(has_note(&config, &["// - §FS-001-login"]));
     }
 
-    // §FS-inline-citation-style.3.3, rule 1: the line that opens the note is
-    // judged, and so is any later line that opens with a citation — but a
-    // continuation line that opens with prose is note text, so a note may wrap
-    // and still name a second point on the way (rule 3, and the line budget).
+    /// §FS-inline-citation-style.3.3, rule 1: the line that opens the note is
+    /// judged, and so is any later line that opens with a citation — but a
+    /// continuation line that opens with prose is note text, so a note may wrap
+    /// and still name a second point on the way (rule 3, and the line budget).
     #[test]
     fn a_wrapped_note_may_name_a_point_on_its_continuation() {
         let config = checked_layout_config(
@@ -328,11 +328,11 @@ mod tests_inline_note_layout {
         assert_eq!(lines, vec![4], "only the line that says something is prose");
     }
 
-    // §FS-inline-citation-style.3.3, §FS-inline-citation-style.4.4: no layout, no
-    // note style, or no channel for the verdict to reach — no classification. Each
-    // short-circuit stands on its own, so neither the default nor a
-    // documented-only layout ever asks the classifier a question
-    // (§GOAL-fast-feedback).
+    /// §FS-inline-citation-style.3.3, §FS-inline-citation-style.4.4: no layout, no
+    /// note style, or no channel for the verdict to reach — no classification. Each
+    /// short-circuit stands on its own, so neither the default nor a
+    /// documented-only layout ever asks the classifier a question
+    /// (§GOAL-fast-feedback).
     #[test]
     fn no_layout_records_no_violations() {
         let root = test_root("no_layout_records_no_violations");
@@ -353,11 +353,11 @@ mod tests_inline_note_layout {
         }
     }
 
-    // §FS-inline-citation-style.4.4: the scanner classifies a line only where the
-    // checker has somewhere to report it, and both read one predicate — so a
-    // `Config` built in memory with a level the load-time enum would have rejected
-    // (§FS-inline-citation-style.2.2) classifies nothing rather than paying for
-    // verdicts the checker then drops.
+    /// §FS-inline-citation-style.4.4: the scanner classifies a line only where the
+    /// checker has somewhere to report it, and both read one predicate — so a
+    /// `Config` built in memory with a level the load-time enum would have rejected
+    /// (§FS-inline-citation-style.2.2) classifies nothing rather than paying for
+    /// verdicts the checker then drops.
     #[test]
     fn an_unknown_check_level_classifies_nothing() {
         let root = test_root("an_unknown_check_level_classifies_nothing");
@@ -377,11 +377,11 @@ mod tests_inline_note_layout {
         block.ranges.iter().filter(|slot| slot.is_some()).count()
     }
 
-    // §GOAL-fast-feedback: the sharing between the two note verdicts is a memo
-    // filled as a pass reaches a line, never up front — the property the rest of
-    // this module cannot see, since an eager tokenization answers every question
-    // above identically and only costs more. Pinned here because it has already
-    // been regressed once and caught by hand.
+    /// §GOAL-fast-feedback: the sharing between the two note verdicts is a memo
+    /// filled as a pass reaches a line, never up front — the property the rest of
+    /// this module cannot see, since an eager tokenization answers every question
+    /// above identically and only costs more. Pinned here because it has already
+    /// been regressed once and caught by hand.
     #[test]
     fn note_walk_tokenizes_only_the_lines_it_reads() {
         let root = test_root("note_walk_tokenizes_only_the_lines_it_reads");

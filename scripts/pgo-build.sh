@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # Profile-guided-optimization build of the `grund` release binary (§DA-pgo-release).
 # This is a release/benchmarking tool, not part of the normal development build
 # or push/PR CI loop.
@@ -23,6 +21,8 @@ set -euo pipefail
 # this script to produce the distributed binary; benchmarking can also run it
 # when comparing the optimized release artifact. The napi-rs / PyO3 builds get
 # the same treatment when they land.
+
+set -euo pipefail
 
 cd "$(dirname "$0")/.."
 repo="$PWD"

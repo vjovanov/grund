@@ -1,14 +1,17 @@
-// Member-list expansion: turning one `[workspace] members` list into the
-// canonical project roots it names, and enforcing the invariants that list has
-// to satisfy (§FS-workspace.2, §FS-workspace.6.1).
-//
-// Split out of `checker_cmd.rs`, which is the `check` command's argument
-// adapter: carrying each entry's *written* spelling so a diagnostic can name it
-// (§FS-errors.4) turned expansion into a small rule set of its own, and rules
-// are not what that file is for. Every `[workspace]` block — outermost root or
-// nested member — expands through here, so the invariants hold at every depth
-// (§AR-workspace.5.1, §AR-workspace.6.1).
-
+/// The canonical form of `path` — the root a project is identified by — or the path
+/// unchanged when it does not resolve.
+///
+/// This file is member-list expansion: turning one `[workspace] members` list into
+/// the canonical project roots it names, and enforcing the invariants that list has
+/// to satisfy (§FS-workspace.2, §FS-workspace.6.1). It rides on this first item
+/// rather than a `//!` module doc because the crate is assembled by `include!`.
+///
+/// Split out of `checker_cmd.rs`, which is the `check` command's argument
+/// adapter: carrying each entry's *written* spelling so a diagnostic can name it
+/// (§FS-errors.4) turned expansion into a small rule set of its own, and rules
+/// are not what that file is for. Every `[workspace]` block — outermost root or
+/// nested member — expands through here, so the invariants hold at every depth
+/// (§AR-workspace.5.1, §AR-workspace.6.1).
 fn canonical_workspace_path(path: &Path) -> PathBuf {
     fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
@@ -38,10 +41,9 @@ fn expand_workspace_member_list(config: &Config) -> Result<Vec<WorkspaceMember>>
         if let Some(glob_parent) = member.strip_suffix("/*") {
             let parent = config.root.join(glob_parent);
             if !parent.is_dir() {
-                // Named as written, like every other member error: a rendered
-                // path here is relative to *this block's* root, which is not the
-                // base the report uses, and under `relative_paths = false` it
-                // could not be made relative at all (§FS-errors.4).
+                // Named as written, like every other member error: a rendered path is
+                // relative to *this block's* root, not the base the report uses, and
+                // under `relative_paths = false` could not be relative at all (§FS-errors.4).
                 return Err(workspace_members_error(
                     config,
                     format!("workspace member glob parent does not exist: {glob_parent}"),
@@ -297,10 +299,9 @@ impl AncestorWorkspaces {
         {
             return Ok(None);
         }
-        // A claim is an obligation, and a config that will not load is the
-        // sharpest way of failing it — the file that would answer the claim is
-        // the one that is broken — so the carried load error is raised here, the
-        // same way an expansion failure is (§FS-workspace.6.1).
+        // A claim is an obligation and the file that would answer it is the one that
+        // is broken, so the carried load error is raised here — the sharpest way of
+        // failing the claim — the same way an expansion failure is (§FS-workspace.6.1).
         let config = match &block.config {
             Ok(config) => config,
             Err(message) => return Err(anyhow!("{message}")),

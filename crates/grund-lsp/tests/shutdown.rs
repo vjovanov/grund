@@ -38,12 +38,12 @@ fn shutdown_exit_terminates_stdio_server() {
     let _ = fs::remove_dir_all(root);
 }
 
+/// Stub-title definition follows the inline source home (§FS-lsp.1.3);
+/// declaration-side titles expose the citation sites through definition and
+/// references, section headings the section-scoped set (§FS-lsp.1.3.1),
+/// while citations expose document links (§FS-lsp.1.3.2).
 #[test]
 fn navigation_covers_source_comment_citations_and_stub_titles() {
-    // Stub-title definition follows the inline source home (§FS-lsp.1.3);
-    // declaration-side titles expose the citation sites through definition and
-    // references, section headings the section-scoped set (§FS-lsp.1.3.1),
-    // while citations expose document links (§FS-lsp.1.3.2).
     let root = test_root("navigation");
     fs::write(
         root.join(".agents/grund.toml"),
@@ -416,13 +416,13 @@ fn diagnostic_anchors_on_offending_citation_token() {
     let _ = fs::remove_dir_all(root);
 }
 
+/// A dangling citation in an ungrounded source file gets two diagnostics from
+/// the checker (§FS-check.3.6), but only the dangling diagnostic belongs to
+/// the citation token. The line-level ungrounded diagnostic must not borrow
+/// the citation range, because VSCode renders overlapping diagnostics in the
+/// same hover popup (§FS-lsp.1.1).
 #[test]
 fn line_anchored_diagnostic_does_not_overlap_dangling_citation() {
-    // A dangling citation in an ungrounded source file gets two diagnostics from
-    // the checker (§FS-check.3.6), but only the dangling diagnostic belongs to
-    // the citation token. The line-level ungrounded diagnostic must not borrow
-    // the citation range, because VSCode renders overlapping diagnostics in the
-    // same hover popup (§FS-lsp.1.1).
     let root = test_root("diagnostic-line-anchor-no-citation-overlap");
     fs::write(
         root.join(".agents/grund.toml"),
@@ -563,12 +563,12 @@ fn document_links_cover_python_docstring_citation_columns() {
     let _ = fs::remove_dir_all(root);
 }
 
+/// Clients that advertise `textDocument.definition.linkSupport` get
+/// `LocationLink`s whose `originSelectionRange` is the whole citation or
+/// declaration-title span, so editors underline one navigable unit instead
+/// of the bare word at the cursor (§FS-lsp.1.3).
 #[test]
 fn definition_links_carry_whole_token_origin_span() {
-    // Clients that advertise `textDocument.definition.linkSupport` get
-    // `LocationLink`s whose `originSelectionRange` is the whole citation or
-    // declaration-title span, so editors underline one navigable unit instead
-    // of the bare word at the cursor (§FS-lsp.1.3).
     let root = test_root("definition-links");
     fs::create_dir_all(root.join("docs/functional-spec")).expect("create specs");
     fs::create_dir_all(root.join("docs/architecture")).expect("create architecture");
@@ -667,12 +667,12 @@ fn definition_links_carry_whole_token_origin_span() {
     let _ = fs::remove_dir_all(root);
 }
 
+/// With no highlight provider an editor falls back to its word pattern and
+/// boxes only one sub-word of `§FS-001-alpha`. The server marks the whole
+/// token under the cursor as one span, plus the sibling citation of the same
+/// ID in the same file (§FS-lsp.1.3.3).
 #[test]
 fn document_highlight_marks_whole_citation_token() {
-    // With no highlight provider an editor falls back to its word pattern and
-    // boxes only one sub-word of `§FS-001-alpha`. The server marks the whole
-    // token under the cursor as one span, plus the sibling citation of the same
-    // ID in the same file (§FS-lsp.1.3.3).
     let root = test_root("document-highlight");
     fs::create_dir_all(root.join("docs/functional-spec")).expect("create specs");
     fs::create_dir_all(root.join("docs/architecture")).expect("create architecture");

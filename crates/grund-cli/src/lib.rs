@@ -1,3 +1,8 @@
+//! Top-level dispatch, shared output helpers, and `main_entry`. One file per
+//! command follows, in `SUBCOMMANDS` order — the frontend crate is assembled by
+//! `include!` just as `grund-core` is, so a command's file is a flat slice of
+//! the same crate and needs no `mod`/`use` wiring (§AR-core-module-layout.3).
+
 // §AR-bindings.3: the `grund` frontend crate owns top-level CLI dispatch.
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -29,10 +34,6 @@ const SUBCOMMANDS: &[&str] = &[
 ];
 
 include!("cli_help.rs");
-// Top-level dispatch, shared output helpers, and `main_entry`. One file per
-// command follows, in `SUBCOMMANDS` order — the frontend crate is assembled by
-// `include!` just as `grund-core` is, so a command's file is a flat slice of
-// the same crate and needs no `mod`/`use` wiring (§AR-core-module-layout.3).
 include!("cli.rs");
 include!("cli_check.rs");
 include!("cli_show.rs");

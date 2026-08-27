@@ -156,10 +156,10 @@ mod tests_inline_note_layout_check {
         }
     }
 
-    // §FS-inline-citation-style.5: the layout sentence appends to the budget
-    // sentence, is written with the project's marker, and is absent under `any` so
-    // no existing managed block drifts. The doc-comment sentence closes the copy
-    // at every `inline_style`, after whatever the other keys produced.
+    /// §FS-inline-citation-style.5: the layout sentence appends to the budget
+    /// sentence, is written with the project's marker, and is absent under `any` so
+    /// no existing managed block drifts. The doc-comment sentence closes the copy
+    /// at every `inline_style`, after whatever the other keys produced.
     #[test]
     fn agents_sentence_teaches_the_configured_layout() {
         let root = test_root("agents_sentence_teaches_the_configured_layout");

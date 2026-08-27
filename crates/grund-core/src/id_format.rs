@@ -1,19 +1,17 @@
-// The `[id] format` template, parsed once into elements (§FS-config.3.2).
-//
-// Split out of `shorthand.rs`: the shorthand's *shape* is derived from this
-// template by dropping a placeholder, but the template itself is grammar, not
-// shorthand. `Grammar::build` compiles every pattern from these elements and
-// `render_id` prints every ID back through them, so the parsed form is what
-// keeps the pattern and the rendering two readings of one template rather than
-// two rules that can disagree (§AR-scanner.2.6).
-//
-// File-level prose, so `//` rather than `///` — see the note in `shorthand.rs`.
-
 /// One component of a parsed `[id] format` template (§FS-config.3.2). Parsing the
 /// template into elements once gives the regexes and `render_id` a single shared
 /// reading of it, which is what lets the shorthand pattern and the shorthand
 /// *rendering* be derived by the same reduction instead of two rules that could
 /// disagree (§AR-scanner.2.6).
+///
+/// The `[id] format` template, parsed once into elements (§FS-config.3.2).
+///
+/// Split out of `shorthand.rs`: the shorthand's *shape* is derived from this
+/// template by dropping a placeholder, but the template itself is grammar, not
+/// shorthand. `Grammar::build` compiles every pattern from these elements and
+/// `render_id` prints every ID back through them, so the parsed form is what
+/// keeps the pattern and the rendering two readings of one template rather than
+/// two rules that can disagree (§AR-scanner.2.6).
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum IdElement {
     Literal(String),
@@ -117,13 +115,15 @@ impl Grammar {
     /// carries before it resolves — is dropped with its separator by
     /// `elements_without`, so a partial ID prints as `FS-042` rather than
     /// leaking the raw `{slug}` placeholder into a report (§AR-scanner.2.6).
+    ///
+    /// Why the reduction is conditional: a `{kind}-{slug}` repo's `num: None` is
+    /// not a missing component, it is a component the format never had. And
+    /// `render_id` is on the report and `list` paths, so the common case has to
+    /// borrow the parsed element list rather than clone it.
     fn render(&self, id: &Id, width: usize) -> String {
-        // Reduce only when a placeholder the format *carries* has no value —
-        // which is the shorthand `Id` and nothing else. A `{kind}-{slug}` repo's
-        // `num: None` is not a missing component, it is a component the format
-        // never had, so the common path borrows the parsed element list and
-        // allocates nothing extra (§GOAL-fast-feedback — `render_id` is on the
-        // report and `list` paths).
+        // Reduce only when a placeholder the format *carries* has no value — the
+        // shorthand `Id` and nothing else — so the common path borrows the parsed
+        // element list and allocates nothing extra (§GOAL-fast-feedback).
         let missing = |value_absent: bool, element| {
             value_absent && self.elements.contains(element)
         };
@@ -166,6 +166,13 @@ impl Grammar {
 /// each candidate length, so a qualified `§api/FS-042` is recognized with the
 /// *target* project's shorthand shape rather than the citing project's — the
 /// longest-first walk keeps a full ID winning over a shorthand prefix of it.
+///
+/// Why a shorthand prefix is tested again once it matches: the walk is
+/// longest-first, so a *full* ID has already been preferred by the time a
+/// shorthand parse succeeds, which makes every shorthand match a proper prefix of
+/// something longer. Without the token-end test `§api/FS-042-Session`, whose slug
+/// the target grammar rejects, would be read as `§api/FS-042` with `-Session` left
+/// dangling off the end of the citation.
 fn parse_longest_id_prefix(raw: &str, grammar: &Grammar) -> Option<ParsedIdPrefix> {
     let search_end = raw
         .char_indices()
@@ -183,13 +190,9 @@ fn parse_longest_id_prefix(raw: &str, grammar: &Grammar) -> Option<ParsedIdPrefi
         .collect::<Vec<_>>();
     for end in ends.into_iter().rev() {
         if let Ok(parsed) = parse_id_arg_with_shorthand(&raw[..end], grammar) {
-            // §DF-number-only-citation-shorthand.2.6: the walk is longest-first,
-            // so a *full* ID has already been preferred by the time a shorthand
-            // parse succeeds — which means a shorthand match here is always a
-            // proper prefix of something longer. It only counts if what follows
-            // cannot continue the token; otherwise `§api/FS-042-Session`, whose
-            // slug the target grammar rejects, would be read as `§api/FS-042`
-            // with `-Session` left dangling off the end of the citation.
+            // §DF-number-only-citation-shorthand.2.6: a shorthand match here is
+            // always a proper prefix of something longer, so it counts only if
+            // what follows cannot continue the token.
             if parsed.shorthand && !grammar.id_token_ends_cleanly(raw, end) {
                 continue;
             }

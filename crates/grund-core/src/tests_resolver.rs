@@ -70,10 +70,10 @@ mod tests_resolver {
         );
     }
 
-    // §FS-integrations.3.1: a clicked `§<ID>.<section>` must open the *section's*
-    // line, not the declaration heading. The resolver therefore forwards the whole
-    // citation to `grund` instead of truncating at the first `.`; truncating would
-    // send every click on a subsection to line 1.
+    /// §FS-integrations.3.1: a clicked `§<ID>.<section>` must open the *section's*
+    /// line, not the declaration heading. The resolver therefore forwards the whole
+    /// citation to `grund` instead of truncating at the first `.`; truncating would
+    /// send every click on a subsection to line 1.
     #[cfg(unix)]
     #[test]
     fn resolver_opens_the_cited_section_line() {
@@ -87,10 +87,10 @@ mod tests_resolver {
         assert_eq!(opened, "docs/target.md:12");
     }
 
-    // §FS-integrations.3.1: the click may arrive with the shell in a subdirectory.
-    // `grund` reports paths relative to the config root (§FS-config.3.6), so the
-    // resolver joins against the root it discovered — handing the editor a
-    // repo-relative path would open nothing from anywhere but the root.
+    /// §FS-integrations.3.1: the click may arrive with the shell in a subdirectory.
+    /// `grund` reports paths relative to the config root (§FS-config.3.6), so the
+    /// resolver joins against the root it discovered — handing the editor a
+    /// repo-relative path would open nothing from anywhere but the root.
     #[cfg(unix)]
     #[test]
     fn resolver_opens_absolute_path_from_a_subdirectory() {
@@ -106,10 +106,10 @@ mod tests_resolver {
         );
     }
 
-    // §FS-integrations.3.1: `[reference] marker` is per-repo while the resolver is
-    // user-global, so it strips any leading punctuation rather than a literal `§`.
-    // A workspace-qualified `<alias>/<ID>` survives that strip and is forwarded
-    // whole, because the alias begins with an alphanumeric.
+    /// §FS-integrations.3.1: `[reference] marker` is per-repo while the resolver is
+    /// user-global, so it strips any leading punctuation rather than a literal `§`.
+    /// A workspace-qualified `<alias>/<ID>` survives that strip and is forwarded
+    /// whole, because the alias begins with an alphanumeric.
     #[cfg(unix)]
     #[test]
     fn resolver_strips_any_marker_and_keeps_the_workspace_alias() {
@@ -123,13 +123,13 @@ mod tests_resolver {
         assert_eq!(opened, "apps/app/docs/target.md:12");
     }
 
-    // §FS-integrations.3.1: the *location* an agent prints beside a citation —
-    // `path:line[:col]` — opens too. The shapes are mechanically distinct (an
-    // ID's section suffix is dotted, never coloned); the printed path is
-    // config-root-relative while the click may land in a subdirectory, so the
-    // resolver climbs to the nearest ancestor holding the file — consulting no
-    // `grund` and no config, which is what lets a location click work in any
-    // repository. The fixture has neither, so success proves location mode.
+    /// §FS-integrations.3.1: the *location* an agent prints beside a citation —
+    /// `path:line[:col]` — opens too. The shapes are mechanically distinct (an
+    /// ID's section suffix is dotted, never coloned); the printed path is
+    /// config-root-relative while the click may land in a subdirectory, so the
+    /// resolver climbs to the nearest ancestor holding the file — consulting no
+    /// `grund` and no config, which is what lets a location click work in any
+    /// repository. The fixture has neither, so success proves location mode.
     #[cfg(unix)]
     #[test]
     fn resolver_opens_a_location_token_without_consulting_grund() {
@@ -187,11 +187,11 @@ mod tests_resolver {
         );
     }
 
-    // §FS-integrations.3.1: the location rule must be registered before the
-    // citation rule — ordered the other way, the citation matcher's recorded
-    // false positive claims an ID-shaped fragment *inside* a `:line`-suffixed
-    // path, and the location can never become one link. kitty encodes the same
-    // order as alternation inside a single regex.
+    /// §FS-integrations.3.1: the location rule must be registered before the
+    /// citation rule — ordered the other way, the citation matcher's recorded
+    /// false positive claims an ID-shaped fragment *inside* a `:line`-suffixed
+    /// path, and the location can never become one link. kitty encodes the same
+    /// order as alternation inside a single regex.
     #[test]
     fn location_matcher_precedes_citation_matcher() {
         let apply = WEZTERM_SNIPPET

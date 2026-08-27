@@ -144,8 +144,7 @@ fn command_config(args: &[String]) -> ExitCode {
                     }
                     // §FS-config.3.4: printed only where it is set, because absence
                     // *is* `citable = true` — the shown config has to load back as
-                    // itself, and a `citable` line on every kind would be noise on
-                    // the nine repositories out of ten that have no place kind.
+                    // itself, and a `citable` line on every kind would be noise.
                     if !kind.citable {
                         println!("citable = false");
                     }

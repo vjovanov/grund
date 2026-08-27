@@ -1,17 +1,3 @@
-// The rules an `[id]` table must satisfy before a grammar is built from it
-// (§FS-config.3.2). Today that is one rule — no ID the grammar can build may
-// contain a `/`, the character the citation namespace has already spent
-// (§FS-workspace.1) — asked once per key, because a `/` reaches an ID
-// differently through each: `format` and a `[[kinds]]` prefix contribute literal
-// text, `number_pattern` and `slug_pattern` contribute whatever they match.
-//
-// Split out of `grammar.rs`, which compiles the regexes: these functions answer
-// a question about a *config key* and are the same answer whether it is asked at
-// the line that wrote the key (`config.rs`, located) or of a `Config` assembled
-// in code (`Grammar::build`, the backstop). One rule, one place, two callers.
-//
-// File-level prose, so `//` rather than `///` — see the note in `shorthand.rs`.
-
 /// §FS-config.3.2: no ID the grammar can build may contain a `/`. The character
 /// belongs to the citation namespace (§FS-workspace.1) — a qualified citation and
 /// every `<alias>/<ID>` CLI argument split on the **last** one — so an ID that
@@ -23,6 +9,18 @@
 /// The literal half: `[id] format` and a `[[kinds]]` prefix contribute
 /// `regex::escape`d text, so a `/` in the key is a `/` in every ID built from it
 /// and a substring test is exact.
+///
+/// The rules an `[id]` table must satisfy before a grammar is built from it
+/// (§FS-config.3.2). Today that is one rule — no ID the grammar can build may
+/// contain a `/`, the character the citation namespace has already spent
+/// (§FS-workspace.1) — asked once per key, because a `/` reaches an ID
+/// differently through each: `format` and a `[[kinds]]` prefix contribute literal
+/// text, `number_pattern` and `slug_pattern` contribute whatever they match.
+///
+/// Split out of `grammar.rs`, which compiles the regexes: these functions answer
+/// a question about a *config key* and are the same answer whether it is asked at
+/// the line that wrote the key (`config.rs`, located) or of a `Config` assembled
+/// in code (`Grammar::build`, the backstop). One rule, one place, two callers.
 fn id_grammar_literal_slash_error(label: &str, value: &str) -> Option<String> {
     value.contains('/').then(|| id_grammar_slash_message(label, "contain"))
 }
@@ -50,11 +48,13 @@ fn section_separator_slash_error(separator: &str) -> Option<String> {
     })
 }
 
+/// Why the parenthetical is worded per verb: it carries what the key must satisfy,
+/// like the `(expected …)` clause the neighbouring `[id]` validators use. For a
+/// pattern that is a property of what it matches, not of its text, and saying so is
+/// what keeps `must not match` from being read as `must not contain`.
 fn id_grammar_slash_message(label: &str, verb: &str) -> String {
-    // The parenthetical carries what the key must satisfy, like the `(expected …)`
-    // clause the neighbouring `[id]` validators use (§FS-errors.3). For a pattern
-    // that is a property of what it matches, not of its text, and saying so is what
-    // keeps `must not match` from being read as `must not contain`.
+    // §FS-errors.3: the parenthetical carries what the key must satisfy, the way
+    // the neighbouring `[id]` validators' `(expected …)` clause does.
     let expected = match verb {
         "match" => "expected a pattern that cannot produce one",
         _ => "an ID never contains `/`",

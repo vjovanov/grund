@@ -271,10 +271,10 @@ mod tests_integrations_config {
         );
     }
 
-    // §FS-integrations.4.3: nothing in this file fails. A value grund cannot
-    // interpret leaves it with no preference — the state of a machine that never
-    // wrote one — and a duplicate resolves to the first, which is the occurrence
-    // a write rewrites, so a read and a write cannot disagree.
+    /// §FS-integrations.4.3: nothing in this file fails. A value grund cannot
+    /// interpret leaves it with no preference — the state of a machine that never
+    /// wrote one — and a duplicate resolves to the first, which is the occurrence
+    /// a write rewrites, so a read and a write cannot disagree.
     #[test]
     fn user_config_reports_bad_values_and_duplicates_without_failing() {
         let scan = scan_user_config("[reference]\nconversation = \"neither\"\n");
@@ -415,10 +415,10 @@ mod tests_integrations_config {
         assert!(!vscode_integration_is_current(&root));
     }
 
-    // §FS-integrations.5: the machine detection plan distinguishes ambient
-    // detection from actual installation state, and carries each client's
-    // `install_kind` so a manual client's permanent `installed: false` reads as
-    // "not knowable" rather than "not installed" (§FS-integrations.3.4).
+    /// §FS-integrations.5: the machine detection plan distinguishes ambient
+    /// detection from actual installation state, and carries each client's
+    /// `install_kind` so a manual client's permanent `installed: false` reads as
+    /// "not knowable" rather than "not installed" (§FS-integrations.3.4).
     #[test]
     fn integrations_detection_json_reports_installed_state() {
         let json = detection_plan_json(&[IntegrationClient::Wezterm]);

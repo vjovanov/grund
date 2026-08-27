@@ -193,12 +193,12 @@ fn citation_hover_still_previews_the_declaration_body() {
     let _ = fs::remove_dir_all(root);
 }
 
+/// A citation that cannot resolve has no hover body. Its diagnostic already
+/// carries the nearest-ID hint, so returning it from hover too would double
+/// the text in editors that render diagnostics in the hover popup; hover
+/// returns nothing and the diagnostic stands alone (§FS-lsp.1.2).
 #[test]
 fn hover_on_dangling_citation_defers_to_diagnostic() {
-    // A citation that cannot resolve has no hover body. Its diagnostic already
-    // carries the nearest-ID hint, so returning it from hover too would double
-    // the text in editors that render diagnostics in the hover popup; hover
-    // returns nothing and the diagnostic stands alone (§FS-lsp.1.2).
     let root = test_root("hover-dangling-defers");
     fs::write(
         root.join(".agents/grund.toml"),

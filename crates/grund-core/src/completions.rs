@@ -15,6 +15,17 @@ fn command_complete(args: &[String]) -> ExitCode {
 /// IDs (or `ID.section` candidates) matching the prefix, one per line. Scan/config
 /// failures exit `0` silently so a broken repo never smears diagnostics across the
 /// prompt; output is deterministic (§FS-completions.3).
+///
+/// Why the prefix splits on its *last* slash: an alias path may itself carry
+/// slashes, so a prefix mid-path completes two things at once — the deeper alias
+/// paths still to be typed, and the IDs of the project already named. A prefix
+/// without a slash completes the current project's IDs and, in workspace mode,
+/// one trailing-slash candidate per known alias path, so the shell can advance
+/// from `api` → `api/` and from `group/` → `group/alpha/`.
+///
+/// Why the current project's own alias is a candidate too: typing `root/` reaches
+/// the same IDs bare prefixes do, and a script that wants the qualified form gets
+/// it the same way every other alias is reached.
 fn command_complete_ids(args: &[String]) -> ExitCode {
     let mut path = PathBuf::from(".");
     let mut path_provided = false;
@@ -65,12 +76,7 @@ fn command_complete_ids(args: &[String]) -> ExitCode {
     };
     // §FS-workspace.8.4: split the prefix on the *last* `/` — the left is an
     // alias path, the right is that project's ID-prefix. An alias path may
-    // itself carry slashes (§FS-workspace.6.1), so a prefix mid-path completes
-    // two things at once: the deeper alias paths still to be typed, and the IDs
-    // of the project already named. A prefix without a slash completes the
-    // current project's IDs and, in workspace mode, one trailing-slash
-    // candidate per known alias path so the shell can advance from `api` →
-    // `api/` and from `group/` → `group/alpha/`.
+    // itself carry slashes (§FS-workspace.6.1).
     let current_config = context
         .current_project()
         .map(|project| &project.config)
@@ -136,11 +142,9 @@ fn command_complete_ids(args: &[String]) -> ExitCode {
         }
     }
     if context.workspace_loaded {
-        // §FS-workspace.8.4: alias-as-candidate, trailing slash signals the
-        // shell to keep going rather than insert a space. The current
-        // project's own alias is emitted too — typing `root/` reaches the
-        // same IDs as bare prefixes do, and a script that wants the
-        // qualified form gets it the same way every alias is reached.
+        // §FS-workspace.8.4: alias-as-candidate; the trailing slash signals the
+        // shell to keep going rather than insert a space. The current project's
+        // own alias is emitted too.
         for alias in context.aliases() {
             candidates.insert(format!("{alias}/"));
         }
@@ -239,12 +243,13 @@ complete -F _grund grund
 
 /// The zsh completion script — the zsh counterpart of `print_bash_completion`
 /// (§FS-completions.1, §FS-completions.2).
+///
+/// `_describe` is reserved for the bare-ID batch, because it appends the
+/// trailing space an alias continuation must not have.
 fn print_zsh_completion() {
-    // §FS-workspace.8.4: partition slash-suffixed candidates (workspace
-    // alias continuations) from bare-ID candidates so alias completions
-    // do not append a trailing space — `_describe` is reserved for the
-    // bare-ID batch; aliases land via `compadd -S ''` so `api` advances
-    // to `api/` on the next Tab.
+    // §FS-workspace.8.4: partition slash-suffixed candidates (workspace alias
+    // continuations) from bare-ID ones so alias completions do not append a
+    // trailing space — they land via `compadd -S ''`, so `api` advances to `api/`.
     println!(
         r#"#compdef grund
 
@@ -310,10 +315,9 @@ _grund "$@"
 /// The fish completion script — `complete -c grund …` lines, ID arguments wired to
 /// `grund complete ids` (§FS-completions.1, §FS-completions.2).
 fn print_fish_completion() {
-    // §FS-workspace.8.4: fish's `complete -k` keeps candidates verbatim
-    // and (with `-f` to skip file completion) does not auto-append a
-    // space after a `/`-terminated candidate — perfect for workspace
-    // alias continuations.
+    // §FS-workspace.8.4: fish's `complete -k` keeps candidates verbatim and,
+    // with `-f` to skip file completion, appends no space after a `/`-terminated
+    // candidate — perfect for workspace alias continuations.
     println!(
         r#"# fish completion for grund
 function __grund_complete_ids

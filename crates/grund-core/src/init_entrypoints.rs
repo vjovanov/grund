@@ -1,17 +1,22 @@
-// Which agent entrypoint files a repository *has* (§FS-init.2.1): the table of
-// paths each supported agent reads, and the rules that decide whether a file
-// standing at one of them is that agent's entrypoint or somebody else's. This is
-// the half that only ever asks the tree — `init_plan.rs` turns these answers
-// into the plan one run acts on, `init_templates.rs` answers what bytes go in
-// them, and `init.rs` performs the writes (§AR-core-module-layout.1).
-//
-// The table below is the one place the supported agent set is spelled out, and
-// the agent behind each row is what makes one entrypoint per agent decidable
-// (§FS-init.2.1.1). `grund check`'s companion scan resolves through the same
-// rules, so the checker and the writer cannot disagree about what an entrypoint
-// is (§FS-check.3.5).
-
+/// Which agent entrypoint files a repository *has* (§FS-init.2.1): the table of
+/// paths each supported agent reads, and the rules that decide whether a file
+/// standing at one of them is that agent's entrypoint or somebody else's. This
+/// is the half that only ever asks the tree — `init_plan.rs` turns these answers
+/// into the plan one run acts on, `init_templates.rs` answers what bytes go in
+/// them, and `init.rs` performs the writes (§AR-core-module-layout.1).
+///
+/// The table below is the one place the supported agent set is spelled out, and
+/// the agent behind each row is what makes one entrypoint per agent decidable
+/// (§FS-init.2.1.1). `grund check`'s companion scan resolves through the same
+/// rules, so the checker and the writer cannot disagree about what an entrypoint
+/// is (§FS-check.3.5).
 const CANONICAL_AGENT_ENTRYPOINT: &str = "AGENTS.md";
+/// Why Cursor has two rows: Cursor uses `.cursor/rules/*.mdc` files (the modern
+/// form) and a legacy `.cursorrules` single-file form. We create a
+/// grund-specific `.cursor/rules/grund.mdc` (won't collide with any other rule
+/// file) when `.cursor/` already exists or `--cursor` is passed; the legacy
+/// `.cursorrules` is only updated if it already exists, never created — the
+/// modern path is preferred for new adopters.
 const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
     CompanionAgentEntrypoint {
         rel: "AGENTS.override.md",
@@ -55,12 +60,9 @@ const COMPANION_AGENT_ENTRYPOINTS: &[CompanionAgentEntrypoint] = &[
         discovery: true,
         create_on_request: true,
     },
-    // §FS-init.2.1 / §FS-init.2.3: Cursor uses `.cursor/rules/*.mdc` files (the
-    // modern form) and a legacy `.cursorrules` single-file form. We create a
-    // grund-specific `.cursor/rules/grund.mdc` (won't collide with any other
-    // rule file) when `.cursor/` already exists or `--cursor` is passed; the
-    // legacy `.cursorrules` is only updated if it already exists, never
-    // created — the modern path is preferred for new adopters.
+    // §FS-init.2.1 / §FS-init.2.3: the modern `.cursor/rules/*.mdc` form is
+    // created for new adopters; the legacy `.cursorrules` row below is only
+    // updated when it already exists.
     CompanionAgentEntrypoint {
         rel: ".cursor/rules/grund.mdc",
         workspace: Some(".cursor"),

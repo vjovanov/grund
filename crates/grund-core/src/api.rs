@@ -257,6 +257,9 @@ impl Default for CompleteIdsOpts {
 /// Dynamic ID completion candidates for shell frontends. Config or scan errors
 /// are returned to the caller so command frontends can decide whether to hide
 /// them during tab completion.
+///
+/// A prefix that lands mid-path completes both: the deeper alias paths still to
+/// be typed, and the IDs of the project already named.
 pub fn complete_ids(opts: CompleteIdsOpts) -> Result<Vec<String>> {
     let context = load_workspace_context(&opts.path, opts.path_provided)?;
     let current_config = context
@@ -266,9 +269,7 @@ pub fn complete_ids(opts: CompleteIdsOpts) -> Result<Vec<String>> {
     let mut candidates = BTreeSet::new();
     // §FS-workspace.8.4: an alias path may itself carry slashes
     // (§FS-workspace.6.1), so the split is at the *last* `/` — the left names a
-    // project, the right is its ID-prefix. A prefix that lands mid-path
-    // completes both: the deeper alias paths still to be typed, and the IDs of
-    // the project already named.
+    // project, the right is its ID-prefix.
     if let Some((alias_prefix, id_prefix)) = opts.prefix.rsplit_once('/') {
         if !context.workspace_loaded {
             return Ok(Vec::new());
@@ -596,10 +597,9 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
     // (`missing-citation` / `forbidden-citation`) run and surface as editor
     // diagnostics, the same errors `grund check` reports.
     let mut config = resolve_workspace_config(&opts.path)?;
-    // An editor's explicit zero-config folder is the project anchor, even when
-    // the server process was started from another directory. CLI zero-config
-    // discovery intentionally roots defaults at cwd, so the LSP-specific API
-    // corrects that root before building its context (§FS-lsp.2.2).
+    // §FS-lsp.2.2: an editor's explicit zero-config folder is the project anchor
+    // even when the server process started elsewhere; CLI discovery deliberately
+    // roots defaults at cwd, so this API corrects that root before it builds.
     if opts.path_provided && opts.path.is_dir() && config.config_file.is_none() {
         config.root = canonical_snapshot_path(&opts.path);
     }
@@ -1163,11 +1163,15 @@ fn cover_context(opts: &CoverOpts) -> Result<WorkspaceContext> {
 /// Every loaded project's scan errors, in project order (§FS-workspace.8.7):
 /// a member's unreadable file fails the run at the workspace root, because the
 /// index the run just printed is incomplete for the tree it claimed.
+///
+/// Sorting by path lets a reader comparing `cover` and `check` on one tree read
+/// one list twice rather than two interleavings. `sort_path_key` on the
+/// unrendered path is how every other path ordering in the crate keys one; a
+/// second definition of "path order" here is a thing that drifts.
 fn cover_scan_errors(context: &WorkspaceContext) -> Vec<ApiScanError> {
-    // The same base the rows render against — the workspace root in workspace
-    // mode, the only project otherwise, which is what `render_config` already
-    // holds. A member's path spelled against the member names a file that does
-    // not exist from where the run was launched (§FS-errors.4).
+    // §FS-errors.4: the same base the rows render against — `render_config`, the
+    // workspace root in workspace mode and the only project otherwise. A path
+    // spelled against the member names no file from where the run was launched.
     let config = context.render_config();
     let mut errors = context
         .projects
@@ -1175,11 +1179,8 @@ fn cover_scan_errors(context: &WorkspaceContext) -> Vec<ApiScanError> {
         .flat_map(|project| project.scan_errors.iter())
         .collect::<Vec<_>>();
     // §FS-errors.4: by path, not by the order the projects were loaded — the
-    // same order `check` prints the same errors in, so a reader comparing the
-    // two commands on one tree reads one list twice and not two interleavings.
-    // Keyed with `sort_path_key` on the path itself, before rendering, which is
-    // how `check` and every other path ordering in the crate keys one — a second
-    // definition of "path order" here is a thing that drifts.
+    // same order `check` prints the same errors in, keyed with `sort_path_key`
+    // on the path itself, before rendering.
     errors.sort_by_key(|(path, message)| (sort_path_key(path), message.clone()));
     errors
         .into_iter()
@@ -1314,10 +1315,9 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 .map(|canonical| canonical == config.root)
                 .unwrap_or(false));
     if walk_all_projects {
-        // §FS-fmt.3: reuse a project's already-scanned findings only when that
-        // scan met no error (`usable_findings`) — the same completeness guard
-        // `fmt_findings_or_abort` applies to a fresh scan, so a caller that
-        // reuses one instead of running one inherits it too.
+        // §FS-fmt.3: reuse a project's findings only where its scan met no error
+        // (`usable_findings`), inheriting the completeness guard
+        // `fmt_findings_or_abort` applies to a fresh scan.
         for project in &context.projects {
             let auto_cross_refs = auto_cross_refs_for_scope(
                 &project.config,
@@ -1346,10 +1346,9 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             refused_writes.append(&mut walked.refused_writes);
         }
     } else {
-        // §FS-fmt.3: same guard as above — `--write` with no `<path>` and
-        // `--write .` name the same scope and must refuse alike, not one
-        // silently resolving cross-refs/shorthands against a set the other
-        // just reported incomplete.
+        // §FS-fmt.3: same guard as above — a bare `--write` and `--write .` name
+        // the same scope and must refuse alike, not one quietly resolving
+        // cross-refs/shorthands against a set the other just reported incomplete.
         let reusable_findings = (!opts.path_provided)
             .then(|| context.current_project())
             .flatten()

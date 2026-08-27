@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # Pre-release package-name guard for §FS-distribution.4.
 # Claimed future package names must be either available or already owned by this
 # repository. The bare "grund" name on npm — a dormant low-use squat
 # (§DA-rename-to-grund / §DA-pypi-uses-grund-as-the-package-name) — is reported
 # as a notice so the release manager can revisit FS-distribution if it changes.
+
+set -euo pipefail
 
 ua="grund-release-name-check/0.1"
 repo_pattern='github.com[/:]vjovanov/grund'

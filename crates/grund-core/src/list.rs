@@ -76,6 +76,20 @@ impl<'a> ListCitationCounts<'a> {
     }
 }
 
+/// `grund list` — the declaration catalog and its renderers.
+///
+/// Why `--kind` validation widens in workspace mode: kinds may differ across
+/// projects, each project carrying its own `[[kinds]]`, so a kind only has to
+/// exist somewhere in scope to be a real selector. A configured kind that declares
+/// no IDs is refused rather than accepted, because it would silently select
+/// nothing — exactly the empty-catalog-from-a-typo the check exists to prevent.
+///
+/// Ordering of the workspace summary: project order is `context.projects` order,
+/// which is the root first and then members in member-glob order.
+///
+/// Why the JSON is one compact object per line: the shipped `grund-open` resolver
+/// and the VS Code extension parse it by substring/regex (`"id":"…"`, `"path":"…"`,
+/// `"line":N`) rather than with a JSON parser, so the field shape is a contract.
 fn command_list(args: &[String]) -> ExitCode {
     let mut path = PathBuf::from(".");
     let mut path_provided = false;
@@ -171,15 +185,11 @@ fn command_list(args: &[String]) -> ExitCode {
         eprintln!("error: unsupported list format `{format}`");
         return ExitCode::from(2);
     }
-    // §FS-list.4: an unknown `--kind` is a CLI-level error. In workspace
-    // mode kinds may differ across projects (each project has its own
-    // `[[kinds]]`), so the validation widens — a kind only needs to exist
-    // in at least one project in scope.
+    // §FS-list.4: an unknown `--kind` is a CLI-level error; in workspace mode a
+    // kind only needs to exist in at least one project in scope.
     for kind in &kind_filter {
-        // §FS-list.1: the selector names a *citable* kind. A configured kind
-        // that declares no IDs would silently select nothing, which is exactly
-        // the empty-catalog-from-a-typo this check exists to prevent — so it is
-        // refused too, with the reason rather than "unknown".
+        // §FS-list.1: the selector names a *citable* kind; a configured kind that
+        // declares no IDs is refused too, with the reason rather than "unknown".
         let matched = context
             .projects
             .iter()
@@ -295,10 +305,9 @@ fn command_list(args: &[String]) -> ExitCode {
 
     if summary {
         if context.workspace_loaded {
-            // §FS-workspace.8.3: per-(project, kind) summary in workspace
-            // mode. Project order follows `context.projects` (root first,
-            // then members in member-glob order); kinds inside each project
-            // follow the project's configured `[[kinds]]` order.
+            // §FS-workspace.8.3: per-(project, kind) summary in workspace mode,
+            // in `context.projects` order, kinds inside each project in the
+            // project's configured `[[kinds]]` order.
             let mut counts: BTreeMap<(String, String), usize> = BTreeMap::new();
             for entry in &entries {
                 *counts
@@ -372,10 +381,8 @@ fn command_list(args: &[String]) -> ExitCode {
             }
         }
     } else if format == "json" {
-        // One compact object per line, no interior spaces. The shipped
-        // `grund-open` resolver and the VS Code extension parse this by
-        // substring/regex (`"id":"…"`, `"path":"…"`, `"line":N`), so keep the
-        // field shape stable (§FS-integrations.3).
+        // One compact object per line, no interior spaces; keep the field shape
+        // stable (§FS-integrations.3).
         for entry in &entries {
             let project_field = if context.workspace_loaded {
                 format!("\"project\":\"{}\",", json_escape(entry.project_alias))

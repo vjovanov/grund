@@ -3,6 +3,30 @@
 /// a grep cannot be. Shares the scanner with `check` so the two never disagree on
 /// what counts as a citation (§FS-refs.5). Empty results, including undeclared IDs
 /// with no citations, exit `0` (§FS-refs.4).
+///
+/// Why a bad ID argument still gets the `[id] format` hint: a format that differs
+/// from the `{kind}-{slug}` `grund` itself uses is the common surprise, so the
+/// stumble is worth naming. The hint is withheld for an ambiguous shorthand, which
+/// matched the format fine and already printed every candidate: repeating the
+/// format there would send the reader to `grund config show` for a config that is
+/// not wrong.
+///
+/// Why the target project is matched by alias string: workspace aliases are unique
+/// and that is enforced at load, so string equality is the canonical "is this the
+/// target project?" check — preferred over pointer identity so a future refactor
+/// that clones a project does not silently drop local hits.
+///
+/// Why an empty result still leaves a note: an ID that is neither cited nor
+/// declared was most likely fat-fingered. In workspace mode that hint points at
+/// `--project <alias>` so the reader sees the namespace.
+///
+/// Where the output goes: the citation list is text and JSON alike on stdout, like
+/// `grund list` / `grund cover` / ID queries, even though a line shares the
+/// `path:line: <text>` shape `check` uses for diagnostics on stderr. In workspace
+/// mode paths render relative to the workspace root so a `--summary` line points at
+/// the same file regardless of which member it lives in, and each citation's
+/// project alias is attached to the JSON object as `"project"` — the *citing*
+/// project, not the target, which is the query argument.
 fn command_refs(args: &[String]) -> ExitCode {
     if args.is_empty() {
         eprintln!("error: refs requires an ID");
@@ -73,9 +97,7 @@ fn command_refs(args: &[String]) -> ExitCode {
         Err(err) => {
             // §FS-refs.1: an ID arg that does not match `[id] format` is a CLI-level
             // error (exit 2 — `refs` has no exit-`1` query-failure class, §FS-refs.4),
-            // but the hint is the same one the ID query gives for the same stumble
-            // (§FS-show.3) — the common surprise in a repo whose format differs from
-            // the `{kind}-{slug}` `grund` itself uses.
+            // with the same hint the ID query gives for the same stumble (§FS-show.3).
             eprintln!("error: {err:#}");
             eprintln!(
                 "hint: this repo's [id] format is `{}` (run `grund config show`); `grund list` shows the IDs that exist",
@@ -127,9 +149,8 @@ fn command_refs(args: &[String]) -> ExitCode {
         Err(err) => {
             eprintln!("error: {err}");
             // §FS-refs.4: the format hint belongs to an argument that does not
-            // match `[id] format`. An ambiguous shorthand matched it fine and
-            // already printed every candidate — repeating the format there sends
-            // the reader to `grund config show` for a config that is not wrong.
+            // match `[id] format`; an ambiguous shorthand matched it fine and
+            // already printed every candidate.
             if err.wants_format_hint() {
                 eprintln!(
                     "hint: this repo's [id] format is `{}` (run `grund config show`); `grund list` shows the IDs that exist",
@@ -160,11 +181,9 @@ fn command_refs(args: &[String]) -> ExitCode {
     let mut had_scan_errors = false;
     for project in &context.projects {
         had_scan_errors |= !project.scan_errors.is_empty();
-        // Workspace aliases are unique (§FS-workspace.3, enforced at
-        // load), so equality on the alias string is the canonical "is
-        // this the target project?" check — preferred over pointer
-        // identity so a future refactor that clones a project does not
-        // silently drop local hits.
+        // Workspace aliases are unique (§FS-workspace.3, enforced at load), so
+        // equality on the alias string is the canonical "is this the target
+        // project?" check.
         let is_target = project.alias == target_alias;
         for citation in &project.findings.citations {
             // Same-project local citation: counts when this project IS the
@@ -200,9 +219,8 @@ fn command_refs(args: &[String]) -> ExitCode {
         ))
     });
     // §FS-refs.2: zero citations is a normal answer, not an error — but if the ID
-    // is *also* undeclared, the caller most likely fat-fingered it, so leave a
-    // breadcrumb on stderr without changing the exit code. In workspace mode the
-    // hint points at `--project <alias>` so the reader sees the namespace.
+    // is *also* undeclared, leave a breadcrumb on stderr without changing the
+    // exit code.
     if hits.is_empty() && !target_project.findings.declarations.contains_key(&id) {
         if context.workspace_loaded && alias.is_some() {
             eprintln!(
@@ -219,15 +237,9 @@ fn command_refs(args: &[String]) -> ExitCode {
             );
         }
     }
-    // §FS-refs.3: the citation list is the *result* of the query, so it goes to
-    // stdout (text and JSON alike), like `grund list` / `grund cover` / ID queries —
-    // even though a line shares the `path:line: <text>` shape `check` uses for
-    // diagnostics on stderr. Only the `note:` breadcrumb above stays on stderr.
-    // §FS-workspace.8.2: in workspace mode paths render relative to the
-    // workspace root so a `--summary` line points at the same file
-    // regardless of which member it lives in; each citation's project alias
-    // is attached to the JSON object as `"project"` (the citing project,
-    // not the target — the target is the query arg).
+    // §FS-refs.3: the citation list is the query's *result*, so it goes to stdout;
+    // only the `note:` breadcrumb above stays on stderr. §FS-workspace.8.2: in
+    // workspace mode paths render relative to the workspace root.
     let render_path = |project: &WorkspaceProject, path: &Path| -> String {
         if context.workspace_loaded {
             display_path(context.render_config(), path)

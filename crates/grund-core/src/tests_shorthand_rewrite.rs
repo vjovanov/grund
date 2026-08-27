@@ -52,11 +52,15 @@ mod tests_shorthand_rewrite {
         );
     }
 
-    // §DF-number-only-citation-shorthand.2.6: the shorthand pattern is anchored at
-    // the start only, so it matches the `FS-042` inside a longer ID-shaped token.
-    // Claiming that prefix and rewriting it splices the canonical slug into the
-    // middle of the author's text and leaves the tail glued on — the token has to
-    // end where the match ends or it is not a shorthand at all.
+    /// §DF-number-only-citation-shorthand.2.6: the shorthand pattern is anchored at
+    /// the start only, so it matches the `FS-042` inside a longer ID-shaped token.
+    /// Claiming that prefix and rewriting it splices the canonical slug into the
+    /// middle of the author's text and leaves the tail glued on — the token has to
+    /// end where the match ends or it is not a shorthand at all.
+    ///
+    /// Why `/` still expands rather than ending the token: treating it as a
+    /// continuation would make the shorthand and the canonical form disagree, and
+    /// the shorthand would be the half silently dropped.
     #[test]
     fn a_shorthand_prefix_of_a_longer_token_is_never_rewritten() {
         let root = test_root("a_shorthand_prefix_of_a_longer_token_is_never_rewritten");
@@ -90,9 +94,7 @@ mod tests_shorthand_rewrite {
 
         // `/` is *not* a continuation: it can only precede a kind, never follow a
         // number, and the full-ID pass already reads `§FS-042-user-login/x` as a
-        // citation. Treating it as one here would make the shorthand and the
-        // canonical form disagree, and the shorthand would be the half silently
-        // dropped (§DF-number-only-citation-shorthand.2.6).
+        // citation (§DF-number-only-citation-shorthand.2.6).
         assert_eq!(
             expand("E §FS-042/docs/x.md", true),
             "E §FS-042-user-login/docs/x.md"
@@ -106,11 +108,11 @@ mod tests_shorthand_rewrite {
         assert_eq!(expand("J (§FS-042)", true), "J (§FS-042-user-login)");
     }
 
-    // §FS-fmt.3: a line that expands a shorthand names the text it will write, so
-    // the invention can be reviewed *before* `--write` puts it on disk. The other
-    // rewrites leave the ID token byte-identical and `check` can still catch them;
-    // this one writes the slug into the token, and a wrong one is invisible
-    // afterwards (§DF-shorthand-numeric-run.2.7).
+    /// §FS-fmt.3: a line that expands a shorthand names the text it will write, so
+    /// the invention can be reviewed *before* `--write` puts it on disk. The other
+    /// rewrites leave the ID token byte-identical and `check` can still catch them;
+    /// this one writes the slug into the token, and a wrong one is invisible
+    /// afterwards (§DF-shorthand-numeric-run.2.7).
     #[test]
     fn the_report_names_the_text_every_expansion_writes() {
         let root = test_root("the_report_names_the_text_every_expansion_writes");
@@ -284,10 +286,10 @@ mod tests_shorthand_rewrite {
         line
     }
 
-    // §FS-lsp.1.4: typing `$$FS-042` lands on the canonical ID. The expansion
-    // fires on the keystroke that *ends* the token, not on the one that first
-    // makes it parse — under the default format that is the first digit, and
-    // expanding there rewrites a number the author has not finished typing.
+    /// §FS-lsp.1.4: typing `$$FS-042` lands on the canonical ID. The expansion
+    /// fires on the keystroke that *ends* the token, not on the one that first
+    /// makes it parse — under the default format that is the first digit, and
+    /// expanding there rewrites a number the author has not finished typing.
     #[test]
     fn on_type_expands_a_shorthand_when_the_token_ends() {
         let root = test_root("on_type_expands_a_shorthand_when_the_token_ends");
@@ -336,11 +338,11 @@ mod tests_shorthand_rewrite {
         assert_eq!(type_line(&path, "See ", "$$FS-777 x", &[]), "See §FS-777 x");
     }
 
-    // §FS-fmt.2.4 / §FS-workspace.1: a qualified citation's ID tail is parsed with
-    // the *target* project's grammar, never the citing project's. The scanner
-    // already routes it that way; a rewrite that used the citing grammar would
-    // edit tokens `check` never saw and skip the ones it reported — visible only
-    // in a workspace whose members disagree about `[id] format`.
+    /// §FS-fmt.2.4 / §FS-workspace.1: a qualified citation's ID tail is parsed with
+    /// the *target* project's grammar, never the citing project's. The scanner
+    /// already routes it that way; a rewrite that used the citing grammar would
+    /// edit tokens `check` never saw and skip the ones it reported — visible only
+    /// in a workspace whose members disagree about `[id] format`.
     #[test]
     fn a_qualified_shorthand_is_matched_with_the_targets_grammar() {
         let root = test_root("a_qualified_shorthand_is_matched_with_the_targets_grammar");
@@ -383,11 +385,11 @@ mod tests_shorthand_rewrite {
         );
     }
 
-    // §FS-lsp.1.4: the live transform refuses wherever the bulk pass refuses. A
-    // fenced block and a declaration heading are whole-*line* skips in `fmt`
-    // (§FS-fmt.2.3), which is why the on-type entry point takes the document
-    // rather than one line — without the lines above, the editor would silently
-    // rewrite an illustration inside a fence.
+    /// §FS-lsp.1.4: the live transform refuses wherever the bulk pass refuses. A
+    /// fenced block and a declaration heading are whole-*line* skips in `fmt`
+    /// (§FS-fmt.2.3), which is why the on-type entry point takes the document
+    /// rather than one line — without the lines above, the editor would silently
+    /// rewrite an illustration inside a fence.
     #[test]
     fn on_type_refuses_the_lines_fmt_refuses() {
         let root = test_root("on_type_refuses_the_lines_fmt_refuses");
@@ -422,12 +424,12 @@ mod tests_shorthand_rewrite {
         );
     }
 
-    // §FS-lsp.1.4: scoping the expansion to the edited file's project compares
-    // paths, and two spellings can name one directory — a symlinked root here,
-    // `/var` vs `/private/var` on macOS, a `\\?\` prefix on Windows. A raw prefix
-    // test silently filters every candidate out and the expansion just never
-    // fires, which is the shape this failed in on two platforms while Linux
-    // passed. Unix-only because it needs a symlink to build the mismatch.
+    /// §FS-lsp.1.4: scoping the expansion to the edited file's project compares
+    /// paths, and two spellings can name one directory — a symlinked root here,
+    /// `/var` vs `/private/var` on macOS, a `\\?\` prefix on Windows. A raw prefix
+    /// test silently filters every candidate out and the expansion just never
+    /// fires, which is the shape this failed in on two platforms while Linux
+    /// passed. Unix-only because it needs a symlink to build the mismatch.
     #[cfg(unix)]
     #[test]
     fn expansion_survives_a_root_reached_by_another_path() {

@@ -1,20 +1,3 @@
-// What one `grund init` run reports about the entrypoint layout it found
-// (§FS-init.2.2): the `note:` lines, which change nothing and never touch the
-// exit code. Both are things a caller would otherwise have to notice for
-// itself — an agent reading the same block twice, or reading the wrong form of
-// it — and both are only visible from the run that just wrote to those files.
-//
-// Both are also written in the conditional under `--dry-run` (§FS-init.2.2):
-// the run wrote nothing, so a note in the present tense describes a tree that
-// does not exist, and an instruction that assumes the write already happened —
-// "delete the symlink" — costs the reader the only entrypoint they have.
-//
-// The duplicate note is built from the run's plan and touches no disk; the
-// shadowed note asks the tree, because its subject is an agent the run may not
-// have selected at all. Neither guesses from the other's evidence: a note that
-// reads the plan for a fact only the tree has is how `--gemini` came to print a
-// diagnosis of Claude's files that a flagless run on the same tree contradicts.
-
 /// The `note:` for a repository whose committed `link` opinion cannot reach
 /// Claude, because a Claude entrypoint is a symlink to the canonical file
 /// (§FS-init.2.3.4.17). Silence here reads as the opinion not working, on the
@@ -30,6 +13,24 @@
 /// and — where symlinks have taken every path Claude reads — delete one first,
 /// because there is nowhere left for `--claude` to write. Advising a command
 /// that has just run and can do no more would be a note that never retires.
+///
+/// What this file holds: what one `grund init` run reports about the entrypoint
+/// layout it found (§FS-init.2.2) — the `note:` lines, which change nothing and
+/// never touch the exit code. Both are things a caller would otherwise have to
+/// notice for itself — an agent reading the same block twice, or reading the
+/// wrong form of it — and both are only visible from the run that just wrote to
+/// those files.
+///
+/// Both are also written in the conditional under `--dry-run` (§FS-init.2.2):
+/// the run wrote nothing, so a note in the present tense describes a tree that
+/// does not exist, and an instruction that assumes the write already happened —
+/// "delete the symlink" — costs the reader the only entrypoint they have.
+///
+/// The duplicate note is built from the run's plan and touches no disk; the
+/// shadowed note asks the tree, because its subject is an agent the run may not
+/// have selected at all. Neither guesses from the other's evidence: a note that
+/// reads the plan for a fact only the tree has is how `--gemini` came to print a
+/// diagnosis of Claude's files that a flagless run on the same tree contradicts.
 pub(crate) fn shadowed_claude_entrypoint_note(
     root: &Path,
     planned: &[String],

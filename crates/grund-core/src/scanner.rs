@@ -75,6 +75,28 @@ fn scan_file(
     scan_file_text(path, &text, config, findings, workspace_targets)
 }
 
+/// Scan one file's already-read text into `findings`: declarations, their section
+/// headings, citations, and the headings that came close to being declarations.
+///
+/// `classify` turns on citing-side classification — declaration body ranges and each
+/// citation's source kind. `grund check` asks for it; the read-only commands turn it
+/// off, and a project without direction rules pays nothing.
+///
+/// The near-miss test runs in this pass rather than in a second read of the tree
+/// because re-deriving the line, the position rules and the fence/docstring state
+/// later costs a whole extra pass over every file for a list most runs find empty.
+///
+/// A section path recorded twice lands in `duplicate_sections`, which is narrowed to
+/// the declaration's own body after the pass — see `retain_in_body_duplicate_sections`.
+///
+/// `claimed_markers` is what keeps the shorthand pattern from running at all on a
+/// line whose markers are already accounted for.
+///
+/// Two readers want the body spans the post-pass fixes: the citation classifier, which
+/// asks only when the project declares `[citations]`, and the duplicate-section prune,
+/// which asks whenever this file recorded a duplicate at all — an error condition, so
+/// the extra pass is off the hot path. `scan_one_file` gives this call a fresh
+/// `Findings`, so `findings` holds exactly this file's records.
 fn scan_file_text(
     path: &Path,
     text: &str,
@@ -90,11 +112,9 @@ fn scan_file_text(
     let mut markdown_fence = None;
     let mut py_docstring = PythonDocstringScanState::default();
     let mut current: Option<Declaration> = None;
-    // §AR-scanner.2.4: citing-side classification (declaration body ranges and
-    // each citation's source kind) is consumed only by the citation-direction
-    // checks, so it is computed only when the project declares `[citations]` and
-    // the caller asked for it. `grund check` asks; the read-only commands turn it
-    // off, and a project without direction rules pays nothing (§AR-benchmarks).
+    // §AR-scanner.2.4: citing-side classification is consumed only by the
+    // citation-direction checks, so it is computed only when the project declares
+    // `[citations]` and the caller asked for it (§AR-benchmarks).
     let classify = config.classify_citation_sources && config.citations.declared;
     // §AR-scanner.2.4: every Markdown heading (line, level) outside a fence — a
     // declaration body runs until the next heading at the same or higher level.
@@ -167,11 +187,9 @@ fn scan_file_text(
             continue;
         }
 
-        // §FS-check.4.7: the line was not a declaration. Ask the near-miss
-        // pattern whether it looked like one, here rather than in a second read
-        // of the tree — the scan has the line, the position rules and the
-        // fence/docstring state already, and re-deriving them later costs a
-        // whole extra pass over every file for a list most runs find empty.
+        // §FS-check.4.7: the line was not a declaration. Ask the near-miss pattern
+        // whether it looked like one, here rather than in a second read of the tree —
+        // the scan has the line, the position rules and the fence/docstring state.
         if let Some(text) =
             near_miss_heading(&config.grammar, scan_line, scan.in_py_docstring, is_md)
         {
@@ -196,9 +214,7 @@ fn scan_file_text(
                 };
                 // §AR-scanner.2.2: a path is recorded once, by the first heading
                 // that claims it; later claimants go to `duplicate_sections` so
-                // §FS-check.3.16 can name every colliding line. That list is
-                // narrowed to the declaration's own body after the pass — see
-                // `retain_in_body_duplicate_sections`.
+                // §FS-check.3.16 can name every colliding line.
                 match decl.sections.entry(path.clone()) {
                     std::collections::btree_map::Entry::Vacant(slot) => {
                         slot.insert(info);
@@ -212,11 +228,9 @@ fn scan_file_text(
 
         let workspace_mode = !workspace_targets.is_empty();
         let mut qualified_marker_starts = BTreeSet::new();
-        // §AR-scanner.2.6: every marker the full-ID pattern matched at, whether
-        // or not this pass went on to emit a citation there. The shorthand pass
-        // (§DF-number-only-citation-shorthand.2.6) skips these, so the full ID
-        // always wins and the shorthand pattern is never run on a line whose
-        // markers are all accounted for.
+        // §AR-scanner.2.6: every marker the full-ID pattern matched at, whether or
+        // not this pass emitted a citation there. The shorthand pass skips these
+        // (§DF-number-only-citation-shorthand.2.6), so the full ID always wins.
         let mut claimed_markers: Vec<usize> = Vec::new();
         for caps in config.grammar.citation_re.captures_iter(scan_line) {
             let Some(full) = caps.get(0) else { continue };
@@ -327,15 +341,9 @@ fn scan_file_text(
             .push(decl);
     }
 
-    // §AR-scanner.2.4: now that every declaration and (for Markdown) every
-    // heading on the file is known, fix each declaration's body span and
-    // classify each citation's citing side. `scan_one_file` gives this call a
-    // fresh `Findings`, so `findings` holds exactly this file's records.
-    //
-    // Two readers want the spans. The citation classifier asks only when the
-    // project declares `[citations]`. The duplicate-section prune below asks
-    // whenever this file recorded a duplicate at all — an error condition, so
-    // the extra pass is off the hot path (§AR-benchmarks).
+    // §AR-scanner.2.4: now that every declaration and (for Markdown) every heading
+    // on the file is known, fix each declaration's body span and classify each
+    // citation's citing side — off the hot path either way (§AR-benchmarks).
     let has_duplicate_sections = findings
         .declarations
         .values()
@@ -876,9 +884,8 @@ fn scan_workspace_qualified_pass(
             column: line.column_offset + marker_start + 1,
             has_marker: true,
             // §FS-fmt.2.3 / §FS-check.3.13: a qualified shorthand is rewritable
-            // wherever an unqualified one is — the workspace pass reaches the
-            // aliased project's declarations, so `fmt` can name the canonical
-            // form here too.
+            // wherever an unqualified one is — the workspace pass reaches the aliased
+            // project's declarations, so `fmt` can name the canonical form here too.
             shorthand_rewritable: !never_rewrite_context(
                 line.raw_line,
                 line.is_md,
@@ -1318,10 +1325,9 @@ fn scan_tree_with_workspace_threshold(
     if let Err(err) = scan_e2e_cases(config, scope, explicit_scope, &mut findings) {
         errors.push((config.root.join("e2e/cases"), format!("{err:#}")));
     }
-    // §FS-workspace.1: when the citing-grammar pass and the target-grammar
-    // pass both fire on the same line they emit in source order *per pass*;
-    // sort once at the end so a workspace scan's per-line citation order
-    // matches the single-project scan's left-to-right invariant.
+    // §FS-workspace.1: when the citing-grammar pass and the target-grammar pass both
+    // fire on the same line they emit in source order *per pass*; one sort at the end
+    // keeps a workspace scan's per-line order the single-project scan's left-to-right one.
     if !workspace_targets.is_empty() {
         findings.citations.sort_by(|a, b| {
             (sort_path_key(&a.file), a.line, a.column).cmp(&(

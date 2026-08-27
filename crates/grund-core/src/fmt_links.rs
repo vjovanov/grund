@@ -22,19 +22,17 @@ fn wrap_markdown_links(
         if citation.marker_start < cursor {
             continue;
         }
-        // §FS-fmt.6.1: the always-linkify carve-out reaches this file for the
-        // sake of its index entries (§FS-check.4.6) and writes nothing else —
-        // a qualified citation is never an entry, and an unqualified one of an
-        // ID the index does not owe is prose.
+        // §FS-fmt.6.1: the always-linkify carve-out reaches this file for its
+        // index entries (§FS-check.4.6) and writes nothing else — a qualified
+        // citation is never an entry, and an ID the index does not owe is prose.
         if let Some(only_ids) = only_ids
             && (citation.namespace.is_some() || !only_ids.contains(&citation.id))
         {
             continue;
         }
-        // §FS-workspace.8.5: a qualified `§<alias>/<ID>` resolves against
-        // the named project in workspace mode; member-local runs (no
-        // workspace context) leave the citation untouched per §FS-workspace.8.5
-        // — neither creating a wrap nor stripping an existing one.
+        // §FS-workspace.8.5: a qualified `§<alias>/<ID>` resolves against the
+        // named project in workspace mode; a member-local run has no workspace
+        // context and leaves it untouched — no wrap created, none stripped.
         let target = match citation.namespace.as_deref() {
             Some(namespace) => {
                 let Some(workspace) = workspace else { continue };

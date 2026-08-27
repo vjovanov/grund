@@ -1,32 +1,28 @@
-// The number-only citation shorthand (§FS-check.1.2, §FS-fmt.2.4,
-// §DF-number-only-citation-shorthand), gathered here rather than spread across
-// the seven passes it plugs into.
-//
-// The categories in §AR-core-module-layout.1 cut by *stage* — scanner, checker,
-// fmt, api. This rule is one contract that has to hold identically at every one
-// of them: the shape recognized in a file, the shape accepted as a CLI
-// argument, the shape reported, and the shape rewritten are the same shape, and
-// a divergence between any two of them is the defect the rule exists to fix.
-// Split by stage, the four halves of one invariant would sit in four files with
-// nothing naming the invariant — so it lives as a feature module and each stage
-// keeps a one-line call into it.
-//
-// What is *not* the rule sits in `id_format.rs`: the `[id] format` template and
-// the post-match tests for where a token of that grammar ends — questions about
-// the shape, which the rule here then serves.
-//
-// File-level prose, so `//` rather than `///`: the crate is assembled by
-// `include!` (§AR-core-module-layout.2), which makes an inner `//!` illegal
-// here, and a `///` block separated from the first item by a blank line would
-// silently become that item's documentation instead.
-//
-// Everything here is crate-private and reached through the flat `include!` in
-// `lib.rs`; the public embedding surface stays in `api.rs`
-// (§AR-core-module-layout.2).
-
 /// One parsed ID token: the `Id`, its optional section path, and whether it was
 /// written in the number-only shorthand (§FS-check.1.2). A shorthand `Id` carries
 /// `slug: None` until the resolution pass fills it in (§AR-scanner.2.6).
+///
+/// The number-only citation shorthand (§FS-check.1.2, §FS-fmt.2.4,
+/// §DF-number-only-citation-shorthand), gathered here rather than spread across
+/// the seven passes it plugs into.
+///
+/// The categories in §AR-core-module-layout.1 cut by *stage* — scanner, checker,
+/// fmt, api. This rule is one contract that has to hold identically at every one
+/// of them: the shape recognized in a file, the shape accepted as a CLI
+/// argument, the shape reported, and the shape rewritten are the same shape, and
+/// a divergence between any two of them is the defect the rule exists to fix.
+/// Split by stage, the four halves of one invariant would sit in four files with
+/// nothing naming the invariant — so it lives as a feature module and each stage
+/// keeps a one-line call into it.
+///
+/// What is *not* the rule sits in `id_format.rs`: the `[id] format` template and
+/// the post-match tests for where a token of that grammar ends — questions about
+/// the shape, which the rule here then serves.
+///
+/// The crate is assembled by a flat `include!` in `lib.rs`
+/// (§AR-core-module-layout.2), which makes an inner `//!` illegal here, so this
+/// file-level prose hangs off the first item. Everything here is crate-private and
+/// reached that way; the public embedding surface stays in `api.rs`.
 struct ParsedId {
     id: Id,
     section: Option<String>,
@@ -261,6 +257,20 @@ impl<'a> ShorthandTargets<'a> {
 /// match unlikely and occurs constantly as issue keys and part numbers
 /// (§DF-number-only-citation-shorthand.2.4).
 ///
+/// Testing `claimed_markers` before the regex is also what keeps the pass cheap on
+/// a well-formed tree, where every marker is claimed and no shorthand pattern is
+/// ever run.
+///
+/// A qualified marker belongs to the pass that claimed it — the workspace one,
+/// which claims every `§<alias>/...` on the line, or the loose fallback outside it,
+/// which records each token it parsed. Without the record the shorthand pattern
+/// matched the same token a second time and it became two identical citations: a
+/// duplicated row in `cover` and a diagnostic `check` printed twice. Skipping
+/// unconditionally instead would delete the citation wherever the loose parser
+/// declines a shape this project's `[id] format` accepts. The qualified form also
+/// collides with a path, so a marked qualified token inside inline code or a string
+/// literal is not a citation at all — the same carve-out the other passes apply.
+///
 /// Qualified `§<alias>/FS-042` is left to the workspace pass, which parses the ID
 /// tail with the *target* project's grammar — the citing project's shorthand
 /// shape would be the wrong one to apply across a namespace boundary. Outside
@@ -281,11 +291,9 @@ fn scan_shorthand_citations(
         return;
     }
     for (marker_start, _) in line.scan_line.match_indices(&line.config.marker) {
-        // §DF-number-only-citation-shorthand.2.6: the full-ID pass owns every
-        // token it can claim, and `claimed_markers` is the record of what it
-        // claimed on this line. Checking the set before the regex is also what
-        // keeps the pass cheap on a well-formed tree, where every marker is
-        // claimed and no shorthand pattern is ever run (§GOAL-fast-feedback).
+        // §DF-number-only-citation-shorthand.2.6: the full-ID pass owns every token
+        // it can claim, and `claimed_markers` is the record of what it claimed on
+        // this line — tested before the regex (§GOAL-fast-feedback).
         if claimed_markers.contains(&marker_start) {
             continue;
         }
@@ -298,9 +306,8 @@ fn scan_shorthand_citations(
         };
         let match_end = caps.get(0).map_or(0, |found| found.end());
         // §DF-number-only-citation-shorthand.2.6: the pattern is anchored only at
-        // the start, so without this the `FS-042` inside a rejected full ID like
-        // `§FS-042-User-Login` would be reported as a shorthand — naming a token
-        // the file does not contain.
+        // the start, so without this the `FS-042` inside the rejected full ID
+        // `§FS-042-User-Login` would be reported as a token the file does not hold.
         if !line.config.grammar.id_token_ends_cleanly(rest, match_end) {
             continue;
         }
@@ -310,18 +317,9 @@ fn scan_shorthand_citations(
             rest,
             match_end,
         );
-        // §AR-scanner.2.6: a qualified marker a qualified pass already claimed
-        // belongs to that pass alone — the workspace one, which claims every
-        // `§<alias>/...` on the line, or the loose fallback outside it
-        // (§FS-workspace.5), which records each token it parsed. Without the
-        // record the shorthand pattern matched the same token a second time and
-        // it became two identical citations: a duplicated row in `cover` and a
-        // diagnostic `check` printed twice. Skipping unconditionally instead
-        // would delete the citation wherever the loose parser declines a shape
-        // this project's `[id] format` accepts (§REQ-no-missed-citation.1).
-        // §AR-scanner.2.3: and the qualified form collides with a path, so a
-        // marked qualified token inside inline code or a string literal is not
-        // a citation at all — the same carve-out the other passes apply.
+        // §AR-scanner.2.6: a qualified marker a qualified pass already claimed —
+        // the workspace one, or the loose fallback (§FS-workspace.5) — belongs to
+        // that pass alone (§REQ-no-missed-citation.1, §AR-scanner.2.3).
         let namespace = caps.name("namespace").map(|m| m.as_str().to_string());
         if namespace.is_some()
             && (workspace_mode
@@ -342,9 +340,8 @@ fn scan_shorthand_citations(
             has_marker: true,
             shorthand: true,
             // §FS-check.3.13: still a citation here — it resolves, it counts, it
-            // grounds its file — but `fmt` may not rewrite it (§FS-fmt.2.3), so
-            // the checker withholds the "write the canonical form" error rather
-            // than naming a fix the tool declines to apply.
+            // grounds its file — but `fmt` may not rewrite it (§FS-fmt.2.3), so the
+            // checker withholds the "write the canonical form" error.
             shorthand_rewritable: !never_rewrite_context(
                 line.raw_line,
                 line.is_md,
@@ -368,6 +365,10 @@ fn scan_shorthand_citations(
 ///
 /// Zero or several matches leave `slug: None`, which is exactly the state
 /// §FS-check.3.13 reports as unknown or ambiguous.
+///
+/// The escaped citations are resolved too. Without that, `<§>FS-042` escaping a
+/// real declaration is silently exempt from a check that catches
+/// `<§>FS-042-user-login`.
 fn resolve_shorthand_citations(findings: &mut Findings) {
     let pending = |citations: &[Citation]| {
         citations
@@ -383,11 +384,9 @@ fn resolve_shorthand_citations(findings: &mut Findings) {
     // the workspace checker.
     let declared: Vec<Id> = findings.declarations.keys().cloned().collect();
     let index = ShorthandIndex::build(declared.iter());
-    // §FS-check.2.3.1 needs the escaped list resolved too: an escape only earns
-    // its "this resolves — did you mean it to be live?" suggestion by carrying an
-    // `Id` that is actually declared, and a shorthand's `Id` never is until it is
-    // rewritten here. Without this, `<§>FS-042` escaping a real declaration is
-    // silently exempt from a check that catches `<§>FS-042-user-login`.
+    // §FS-check.2.3.1: an escape earns its "this resolves — did you mean it to be
+    // live?" suggestion only by carrying an `Id` that is actually declared, and a
+    // shorthand's `Id` never is until it is rewritten here.
     for cite in findings
         .citations
         .iter_mut()
@@ -449,8 +448,7 @@ fn shorthand_diagnostic(
             );
             // §FS-check.3.15: the same site, a different verdict — `fmt` will not
             // rewrite a numeral in a run, so naming only the canonical form would
-            // advise the edit that corrupts the line. Both exits, and the author
-            // knows which.
+            // advise the edit that corrupts the line. Both exits; the author picks.
             if cite.numeric_run {
                 return Some(Diagnostic {
                     code: "shorthand-numeric-run",
@@ -543,6 +541,28 @@ fn report_shorthand_citation<'a>(
 /// A member-local run carries no workspace context and leaves the citation alone
 /// — there the alias resolves nowhere and `check` says so instead
 /// (§FS-workspace.8.5).
+///
+/// Whose grammar parses a token: the scanner routes qualified citations to the
+/// target project's grammar (`scan_workspace_qualified_pass`) and this pass has to
+/// agree with it byte for byte — matching the tail with the citing project's
+/// shorthand instead would rewrite tokens `check` never saw and skip the ones it
+/// reported, in a workspace that mixes `[id] format`s. A project alias is
+/// lower-case-initial and a kind is not, which is why one byte can skip the
+/// qualified pattern for essentially every citation in a real tree; `fmt` runs this
+/// per marker of every scanned line.
+///
+/// Why the gates are in this order: testing a claimable token with the *anchored*
+/// full-ID pattern rather than an unanchored search is what keeps `fmt --check`
+/// cheap — a canonical citation, nearly every marker in a real tree, never reaches
+/// the shorthand pattern at all. That pattern is anchored only at its start, so
+/// `§FS-042-User-Login`, a full ID whose slug this grammar rejects, matches on its
+/// `FS-042` prefix; rewriting it would splice the canonical slug into the middle of
+/// the author's token, leave the tail glued on, and silently corrupt the file. And
+/// declarations are reached for last because `fmt --check` has no other reason to
+/// scan: the walk starts without them, this pass reports the first candidate it
+/// actually meets, the caller scans then and re-runs the single file, and a repo
+/// that never writes a shorthand pays nothing at all. The expansion report is what
+/// makes a rewrite reviewable before it is written.
 fn expand_shorthand_citations(
     line: &str,
     config: &Config,
@@ -562,10 +582,9 @@ fn expand_shorthand_citations(
     }
     let mut output = String::new();
     let mut cursor = 0;
-    // Driven from marker positions, like the scan pass, and for the same reason:
-    // the shorthand is a prefix of every full ID under the default format, so a
-    // sweep of the line would produce a candidate per citation and reject each
-    // with a second search (§AR-scanner.2.6, §GOAL-fast-feedback).
+    // Driven from marker positions, like the scan pass and for the same reason: the
+    // shorthand prefixes every full ID under the default format, so a line sweep
+    // costs a candidate and a rejection per citation (§AR-scanner.2.6, §GOAL-fast-feedback).
     for (marker_start, _) in line.match_indices(&config.marker) {
         if marker_start < cursor {
             continue;
@@ -575,15 +594,8 @@ fn expand_shorthand_citations(
             continue;
         };
         // §FS-workspace.1: an `<alias>/` prefix decides *whose* grammar parses the
-        // rest of the token. The scanner routes qualified citations to the target
-        // project's grammar (`scan_workspace_qualified_pass`), and this pass has to
-        // agree with it byte for byte — matching the tail with the citing project's
-        // shorthand instead would rewrite tokens `check` never saw and skip the
-        // ones it reported, in a workspace that mixes `[id] format`s.
-        // A project alias is lower-case-initial and a kind is not, so this one
-        // byte skips the qualified pattern for essentially every citation in a
-        // real tree — `fmt` runs this per marker of every scanned line
-        // (§GOAL-fast-feedback).
+        // rest of the token, and a lower-case initial is the one byte that skips the
+        // qualified pattern for nearly every citation (§GOAL-fast-feedback).
         let alias = rest
             .starts_with(|ch: char| ch.is_ascii_lowercase())
             .then(|| {
@@ -606,11 +618,8 @@ fn expand_shorthand_citations(
             continue;
         };
         // §DF-number-only-citation-shorthand.2.6: a token the full-ID pattern can
-        // claim is already canonical and must not be touched. Testing that with
-        // the *anchored* full-ID pattern rather than an unanchored search is what
-        // keeps `fmt --check` cheap: a canonical citation — nearly every marker in
-        // a real tree — costs one match bounded by the token, and never reaches
-        // the shorthand pattern at all (§GOAL-fast-feedback).
+        // claim is already canonical and must not be touched; anchored, the test
+        // costs one match bounded by the token (§GOAL-fast-feedback).
         if shorthand.full_prefix_re().is_match(tail) {
             continue;
         }
@@ -619,17 +628,14 @@ fn expand_shorthand_citations(
         };
         let match_end = caps.get(0).map_or(0, |found| found.end());
         // §DF-number-only-citation-shorthand.2.6: the pattern is anchored only at
-        // the start, so `§FS-042-User-Login` — a full ID whose slug this grammar
-        // rejects — matches its `FS-042` prefix. Rewriting that would splice the
-        // canonical slug into the middle of the author's token and leave the tail
-        // glued on, silently corrupting the file.
+        // the start, so rewriting `§FS-042-User-Login` on its `FS-042` prefix would
+        // corrupt the file — see the gate order above.
         if !target_config.grammar.id_token_ends_cleanly(tail, match_end) {
             continue;
         }
-        // §FS-fmt.2.4.1: `§SPEC-001→SPEC-003` is a renumbering table, not a
-        // citation. The marker is the *citing* project's — it is what the author
-        // typed — while the number shape is the target's, the same split the
-        // rewrite below uses.
+        // §FS-fmt.2.4.1: `§SPEC-001→SPEC-003` is a renumbering table, not a citation.
+        // The marker is the *citing* project's — what the author typed — while the
+        // number shape is the target's, the same split the rewrite below uses.
         if target_config
             .grammar
             .shorthand_sits_in_numeric_run(&config.marker, tail, match_end)
@@ -642,16 +648,9 @@ fn expand_shorthand_citations(
             continue;
         }
         let Some(id) = parse_id(&caps) else { continue };
-        // Only *now* are declarations needed. Every gate above rejects on the line
-        // text alone, and reaching for the declaration set before them is what
-        // makes `fmt --check` scan the tree on the first canonical citation it
-        // meets — a measured 79% regression on the benchmark fixture, which holds
-        // 1500 citations and not one shorthand (§GOAL-fast-feedback, §AR-ci.5).
-        //
-        // §FS-fmt.2.4: `fmt --check` has no other reason to scan, so the walk
-        // starts without declarations and this pass reports the first candidate it
-        // actually meets; the caller scans then and re-runs the single file. A repo
-        // that never writes a shorthand therefore pays nothing at all.
+        // §FS-fmt.2.4: only *now* are declarations needed — every gate above rejects
+        // on the line text alone, and reaching for them earlier was a measured 79%
+        // regression on the benchmark fixture (§GOAL-fast-feedback, §AR-ci.5).
         let index = match target {
             Some(target) => &target.index,
             None => match targets.local.as_ref() {
@@ -669,9 +668,8 @@ fn expand_shorthand_citations(
         let match_end = alias_len + match_end;
         output.push_str(&line[cursor..token_start]);
         // §FS-fmt.3: the written and canonical forms are recorded as the line is
-        // built, because this is the only point that holds both. The report is
-        // what makes an expansion reviewable before it is written, and expanding
-        // is the one rewrite here whose mistakes no later pass can see.
+        // built, because this is the only point that holds both — and expanding is
+        // the one rewrite here whose mistakes no later pass can see.
         let written_start = output.len();
         if let Some(alias) = namespace {
             output.push_str(alias);

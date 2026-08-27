@@ -1,16 +1,16 @@
-// The `[[kinds]]` half of the config parser (§FS-config.3.4), in a file of its
-// own beside `config_discovery.rs` and `config_cmd.rs` (§AR-core-module-layout.1):
-// the built-in kind table and its per-name defaults, the per-key reader that
-// fills one `[[kinds]]` entry, and the whole-list validation that runs once the
-// file is read. The last two are pure functions over the parsed entries — the
-// discovery, the section walk, and every other section's keys stay in
-// `config.rs`. The defaults live here rather than in `model.rs` because they are
-// config defaults (§AR-core-module-layout.1) and because this is the file that
-// resolves them onto a declared block.
-
 /// The canonical kind set (§FS-config.3.4). `e2e` and `integration` are
 /// *non-citable*: a test proves a claim someone else wrote, so it cites and is
 /// never cited, and lowercase names them as places rather than ID prefixes.
+///
+/// This file is the `[[kinds]]` half of the config parser (§FS-config.3.4), beside
+/// `config_discovery.rs` and `config_cmd.rs` (§AR-core-module-layout.1): the built-in
+/// kind table and its per-name defaults, the per-key reader that fills one
+/// `[[kinds]]` entry, and the whole-list validation that runs once the file is read.
+/// The last two are pure functions over the parsed entries — the discovery, the
+/// section walk, and every other section's keys stay in `config.rs`. The defaults
+/// live here rather than in `model.rs` because they are config defaults
+/// (§AR-core-module-layout.1) and because this is the file that resolves them onto a
+/// declared block.
 const DEFAULT_KINDS: &[&str] = &[
     "GRUND",
     "GOAL",
@@ -140,9 +140,8 @@ fn parse_kinds_key(
 ) -> Result<bool> {
     match key {
         // §FS-config.3.4: `kind` is the name. `prefix` is the same key under the
-        // name it carried before non-citable kinds made "prefix" wrong for half
-        // the table, accepted through the deprecation window of
-        // §REQ-backwards-compatibility.2.
+        // name it carried before non-citable kinds made "prefix" wrong for half the
+        // table, accepted through §REQ-backwards-compatibility.2's deprecation window.
         "kind" | "prefix" => {
             let name = parse_string(path, line_no, value)?;
             // §FS-config.3.2: a citable kind's name is the leading component of
@@ -222,10 +221,9 @@ fn parse_kinds_key(
                 )?;
             }
         }
-        // §FS-config.3.4: `index` names the file under `folder` that must list
-        // the folder's declarations (§FS-check.4.6). A file name or `false`;
-        // `true` names no file, so it is rejected rather than read as "the
-        // default", which the key's own absence already spells.
+        // §FS-config.3.4: `index` names the file under `folder` that must list the
+        // folder's declarations (§FS-check.4.6). A file name or `false`; `true` names
+        // no file, so it is rejected — the key's own absence already spells "default".
         "index" => {
             let index = if value == "false" {
                 KindIndex::Disabled
@@ -318,6 +316,12 @@ fn kind_index_name_error(name: &str) -> Option<String> {
 /// built-in one of the same name agree about what `index` is when the key is
 /// absent (§FS-config.3.4), and records where the deprecated `prefix` spelling
 /// was used, so the run can say so (§FS-config.4.1).
+///
+/// Why the `index` default is resolved here: `[[kinds]]` replaces the built-in list
+/// rather than merging into it, so without that step the same block `grund init` writes
+/// would mean one thing when the file omits the key and another when the file spells
+/// it out — and every repository whose config predates the key would inherit an
+/// obligation the built-in default deliberately declines.
 fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config) -> Result<()> {
     // [[kinds]] replaces defaults entirely, per §FS-config.3.4.
     if let Some(nameless) = parsed.iter().find(|entry| entry.config.kind.is_empty()) {
@@ -335,10 +339,9 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
     }
     for entry in &parsed {
         let k = &entry.config;
-        // Reject kinds that set both `folder` and `file` — they're mutually
-        // exclusive (§FS-config.3.4). A kind is either multi-file (folder) or
-        // single-file (file); the schema models the "can always be broken up"
-        // transition as swapping one key for the other, not setting both.
+        // Reject kinds that set both `folder` and `file` — they're mutually exclusive
+        // (§FS-config.3.4): a kind is either multi-file (folder) or single-file
+        // (file), and "can always be broken up" swaps one key for the other.
         if k.folder.is_some() && k.file.is_some() {
             return Err(anyhow!(
                 "{}: kind `{}` sets both `folder` and `file` (use one)",
@@ -366,11 +369,9 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
                 k.kind
             ));
         }
-        // §FS-config.3.9.2: `code` is the *default* name of the homeless kind,
-        // and a name a project may take only by declaring that kind — the
-        // complement of every home, which is what "no `folder`, no `file`,
-        // `citable = false`" spells. Any other row wearing it would collide with
-        // the fallback every citation outside a home resolves to.
+        // §FS-config.3.9.2: `code` is the *default* name of the homeless kind, and a
+        // name a project may take only by declaring that kind — the complement of
+        // every home. Any other row wearing it would collide with that fallback.
         if k.kind == CODE_SOURCE_KIND && !(!k.citable && k.folder.is_none() && k.file.is_none()) {
             return Err(anyhow!(
                 "{}: `{CODE_SOURCE_KIND}` names the homeless kind — a [[kinds]] entry may take it only with `citable = false` and no `folder` or `file` (§FS-config.3.9.2)",
@@ -378,10 +379,9 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
             ));
         }
     }
-    // §FS-config.3.4.7: an unwalked kind is a place and nothing more. A citable
-    // one would have declarations nobody reads — the trap §FS-config.3.5 closes
-    // — and the homeless kind has no home to leave unwalked: what of the
-    // complement is read is `[scan] include`'s to say.
+    // §FS-config.3.4.7: an unwalked kind is a place and nothing more. A citable one
+    // would have declarations nobody reads — the trap §FS-config.3.5 closes — and the
+    // homeless kind has no home to leave unwalked (`[scan] include` says what is read).
     for entry in &parsed {
         let k = &entry.config;
         if k.scan {
@@ -402,13 +402,8 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
             ));
         }
     }
-    // §FS-config.3.4: the `index` default is keyed on the name, and this is
-    // where a *declared* kind picks it up. `[[kinds]]` replaces the built-in list
-    // rather than merging into it, so without this line the same block that
-    // `grund init` writes would mean one thing when the file omits it and
-    // another when the file spells it out — and every repository whose config
-    // predates this key would inherit an obligation the built-in default
-    // deliberately declines. Runs after the validation above, which reads
+    // §FS-config.3.4: the `index` default is keyed on the name, and this is where a
+    // *declared* kind picks it up. Runs after the validation above, which reads
     // `index` as the file wrote it.
     let mut kinds: Vec<KindConfig> = parsed.iter().map(|entry| entry.config.clone()).collect();
     for kind in &mut kinds {
@@ -416,10 +411,9 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
             kind.index = default_kind_index(&kind.kind);
         }
     }
-    // §FS-config.3.9.2: the homeless kind is the complement of every configured
-    // home, and a complement is one place. Two rows claiming it would leave the
-    // fallback with no single answer, so the second is refused where it is
-    // written rather than resolved by order.
+    // §FS-config.3.9.2: the homeless kind is the complement of every configured home,
+    // and a complement is one place. Two rows claiming it would leave the fallback
+    // with no single answer, so the second is refused rather than resolved by order.
     let homeless: Vec<&KindConfig> = kinds
         .iter()
         .filter(|kind| !kind.citable && kind.folder.is_none() && kind.file.is_none())
@@ -444,11 +438,9 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
             ));
         }
     }
-    // Reject kinds whose name is itself a prefix of another kind's name
-    // (§FS-config.3.4 — would make tokenization ambiguous). Scoped to *citable*
-    // kinds: the rule exists because `DAT-foo` parses as either `DA` or `DAT`,
-    // and a name that never appears in an ID never tokenizes, so it has no
-    // prefix to be ambiguous with.
+    // Reject kinds whose name is a prefix of another kind's name (§FS-config.3.4 —
+    // tokenization would be ambiguous). Scoped to *citable* kinds: `DAT-foo` parses as
+    // `DA` or `DAT`, and a name that never appears in an ID never tokenizes.
     for (i, a) in kinds.iter().enumerate() {
         for (j, b) in kinds.iter().enumerate() {
             if i != j

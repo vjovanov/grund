@@ -85,11 +85,11 @@ mod tests_shorthand_surfaces {
         );
     }
 
-    // §FS-lsp.1.4: a shorthand already in the document navigates like any other
-    // citation. The snapshot carries the canonical target while the range stays
-    // the written token, which is what makes hover, go-to-definition,
-    // references, document links, and highlight all work without any of them
-    // knowing the shorthand exists.
+    /// §FS-lsp.1.4: a shorthand already in the document navigates like any other
+    /// citation. The snapshot carries the canonical target while the range stays
+    /// the written token, which is what makes hover, go-to-definition,
+    /// references, document links, and highlight all work without any of them
+    /// knowing the shorthand exists.
     #[test]
     fn lsp_snapshot_navigates_a_shorthand_citation() {
         let root = test_root("lsp_snapshot_navigates_a_shorthand_citation");
@@ -137,10 +137,10 @@ mod tests_shorthand_surfaces {
         );
     }
 
-    // §FS-integrations.3.1: the clients need no shorthand matcher of their own —
-    // the shared citation shape already accepts one, in every form. This pins
-    // that, because the spec claims it and six hand-written regexes would
-    // otherwise be free to drift from the engine.
+    /// §FS-integrations.3.1: the clients need no shorthand matcher of their own —
+    /// the shared citation shape already accepts one, in every form. This pins
+    /// that, because the spec claims it and six hand-written regexes would
+    /// otherwise be free to drift from the engine.
     #[test]
     fn client_matchers_already_accept_the_shorthand() {
         let citation_shape = Regex::new(

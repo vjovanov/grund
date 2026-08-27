@@ -136,16 +136,22 @@ pub fn assert_case_is_deterministic(manifest_dir: &Path, case: &Path) -> CaseOut
     CaseOutcome::Ran
 }
 
+/// Run one e2e case: build its fixture, run the binary, and compare the exit
+/// code, stdout, stderr, and resulting tree against the recorded expectations.
+///
+/// Why a case with a `symlinks` manifest can be skipped: a committed symlink is
+/// checked out as a text file on Windows without developer mode, so the fixture is
+/// built at run time, and on a platform that cannot make one the case would compare
+/// a different tree's output. The skip is returned, so the pass counts and names it
+/// instead of exiting 0.
 pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) -> CaseOutcome {
     let name = case_name(case);
     if kind.requires_spec_refs() {
         assert_spec_refs(case, name);
     }
     // A case whose fixture needs a symlink cannot run where the platform cannot
-    // make one: a committed symlink is checked out as a text file on Windows
-    // without developer mode, so the fixture is built at run time and the case
-    // would otherwise compare a different tree's output (§FS-workspace.6.1). The
-    // skip is returned, so the pass counts and names it instead of exiting 0.
+    // make one, so the case is skipped rather than compared against a different
+    // tree's output (§FS-workspace.6.1).
     if !case_symlinks(case).is_empty() {
         // Links are created in the copy, and only the `{repo_copy}` branch of
         // `command_args` copies the fixture — so a manifest case written against

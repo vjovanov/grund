@@ -1,5 +1,9 @@
 /// `grund cover [PATH] [--format text|json]`: the citation graph grouped by
 /// scanned file, for finding what is under- or un-cited (§FS-cover).
+///
+/// Why `--format` is validated before the scan: a bad value is a usage error the
+/// caller can fix without touching the repository, while the scan itself can fail
+/// first, on a workspace whose members will not expand.
 fn command_cover(args: &[String]) -> ExitCode {
     let mut path = PathBuf::from(".");
     let mut path_provided = false;
@@ -33,11 +37,9 @@ fn command_cover(args: &[String]) -> ExitCode {
         }
         idx += 1;
     }
-    // §FS-cover.1: a bad `--format` value is a usage error the caller can fix
-    // without touching the repository, so it is answered before the scan — the
-    // scan can now fail first (a workspace whose members will not expand,
-    // §FS-cover.4), and which of two errors a caller sees must not depend on
-    // the tree they happened to point at.
+    // §FS-cover.1: a bad `--format` value is a usage error, answered before the scan
+    // so that which of two errors a caller sees does not depend on the tree they
+    // happened to point at — the scan can now fail first (§FS-cover.4).
     if let Some(format) = format_override.as_deref() {
         if !matches!(format, "text" | "json") {
             eprintln!("error: unsupported cover format `{format}`");

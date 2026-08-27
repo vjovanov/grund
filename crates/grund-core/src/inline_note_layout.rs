@@ -1,24 +1,24 @@
-// Inline note shape: what one comment line says, and whether it says it in the
-// project's configured layout (§FS-inline-citation-style.2.3,
-// §FS-inline-citation-style.3.3).
-//
-// One file for one invariant, the way `shorthand.rs` holds the number-only
-// shorthand's scanner pass and checker rule together: the scanner annotates each
-// inline citation site with the lines that deviate (§AR-scanner.3), the checker
-// turns that list into findings at the configured level (§AR-checker.2.14), and
-// both read the same classifier. Split across the two stages, the two halves of
-// "what is a well-laid-out note?" could drift.
-//
-// What is *not* that invariant sits in `comment_line.rs`: reducing one line to
-// its content and its citation tokens is the same question for note presence and
-// for layout, and for the scanner walk that asked it first.
-
 /// The layouts `[reference] inline_note_layout` selects, as the two dimensions a
 /// value picks: where the citation run sits on the line, and what separates it
 /// from the note (§FS-inline-citation-style.3.3). Only `citation-first-colon`
 /// ships; a further value — a dash delimiter, a note-first arrangement — is one
 /// more variant and one more predicate, never a second pass over the tree
 /// (§DF-inline-note-layout.2.4).
+///
+/// Inline note shape: what one comment line says, and whether it says it in the
+/// project's configured layout (§FS-inline-citation-style.2.3,
+/// §FS-inline-citation-style.3.3).
+///
+/// One file for one invariant, the way `shorthand.rs` holds the number-only
+/// shorthand's scanner pass and checker rule together: the scanner annotates each
+/// inline citation site with the lines that deviate (§AR-scanner.3), the checker
+/// turns that list into findings at the configured level (§AR-checker.2.14), and
+/// both read the same classifier. Split across the two stages, the two halves of
+/// "what is a well-laid-out note?" could drift.
+///
+/// What is *not* that invariant sits in `comment_line.rs`: reducing one line to
+/// its content and its citation tokens is the same question for note presence and
+/// for layout, and for the scanner walk that asked it first.
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum InlineNoteLayout {
     /// `any`: no constraint, and no line is ever classified.

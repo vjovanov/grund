@@ -35,10 +35,9 @@ struct WorkspaceProjectEntry {
 /// author to write the one spelling that fails in CI.
 fn enclosing_alias_prefix(config: &Config) -> Result<String> {
     let mut segments: Vec<String> = Vec::new();
-    // The first child is the caller's own config, already loaded; each later one
-    // is the claiming ancestor the previous step returned. Either way the config
-    // in hand is the one whose alias segment is being read, so the climb never
-    // reloads a level (§AR-workspace.5.1).
+    // The first child is the caller's own config, already loaded; each later one is
+    // the claiming ancestor the previous step returned — either way the config in
+    // hand is the one being read, so the climb never reloads a level (§AR-workspace.5.1).
     let mut climbed: Option<Config> = None;
     // One cache for the whole climb: every level walks the same ancestors, so
     // each ancestor's config is read once per run rather than once per level
@@ -144,10 +143,9 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
     // §FS-workspace.3: the root project and the top-level members share one
     // level of the namespace, so they are checked for collisions together.
     let mut siblings: BTreeMap<String, PathBuf> = BTreeMap::new();
-    // §FS-workspace.6.1: the alias path of *this* workspace's own root, read
-    // from the outermost workspace. Empty unless the run was narrowed to a
-    // subtree, and that is exactly what keeps a narrowed run resolving a subset
-    // of the same paths instead of a differently-spelled set of its own.
+    // §FS-workspace.6.1: the alias path of *this* workspace's own root, read from
+    // the outermost workspace. Empty unless the run was narrowed to a subtree — and
+    // that is what keeps a narrowed run resolving a subset of the same paths.
     let self_path = enclosing_alias_prefix(root_config)?;
     if root_config.workspace_include_root {
         let alias = if self_path.is_empty() {
@@ -183,10 +181,8 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
         return Err(empty_workspace_error(root_config));
     }
     // §AR-workspace.6: every project the run loaded learns where the others are.
-    // `workspace_boundary_roots` above points only downward, so a leaf member has
-    // no boundary at all and a symlink inside it carries its walk into a sibling's
-    // namespace — or back up into the root project's — which §FS-workspace.6
-    // forbids in every direction, not just from the root down.
+    // `workspace_boundary_roots` above points only downward, so a leaf member has none
+    // and a symlink could cross out of it; §FS-workspace.6 forbids that in every direction.
     let project_roots: Vec<PathBuf> = entries
         .iter()
         .map(|entry| entry.config.root.clone())
@@ -207,6 +203,15 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
 /// points at; `top_config` is the outermost workspace root — it owns path
 /// rendering, so every diagnostic names a project against the same base;
 /// `prefix` is the alias path of the enclosing workspace, empty at the top.
+///
+/// What bounds the recursion is containment: every member root resolves strictly
+/// inside the block that listed it (`workspace_member_root`) and no member of one
+/// block contains another (`reject_overlapping_workspace_members`), so the blocks form
+/// a strict containment tree — every step consumes a canonical root strictly deeper
+/// than the block that named it, and no two roots in the tree can be equal. Should a
+/// duplicate reach the visited check anyway it is a config error at the line that
+/// introduced it, named as the entry was written and beside the root it lands on,
+/// since those are two different strings and the author wrote only one of them.
 fn collect_workspace_members(
     members: &[WorkspaceMember],
     parent_config: &Config,
@@ -218,17 +223,9 @@ fn collect_workspace_members(
 ) -> Result<()> {
     for member in members {
         let member_root = &member.root;
-        // §FS-workspace.6.1: an **unreachable backstop**, kept because it is the
-        // one that would name the line if the rule above it ever stopped holding.
-        // What bounds this recursion is containment: every member root resolves
-        // strictly inside the block that listed it (`workspace_member_root`) and no
-        // member of one block contains another (`reject_overlapping_workspace_members`),
-        // so the blocks form a strict containment tree — every step consumes a
-        // canonical root strictly deeper than the block that named it, and no two
-        // roots in the tree can be equal. Should a duplicate reach here anyway it is
-        // a config error at the line that introduced it, named as the entry was
-        // written and beside the root it lands on, since those are two different
-        // strings and the author wrote only one of them.
+        // §FS-workspace.6.1: an **unreachable backstop**, kept because it is the one
+        // that would name the line if the containment rule that bounds this recursion
+        // (see the fn docs) ever stopped holding.
         if visited.iter().any(|seen| seen == member_root) {
             return Err(workspace_members_error(
                 parent_config,
