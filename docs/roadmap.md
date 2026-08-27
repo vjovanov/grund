@@ -190,6 +190,78 @@ A reader in the requirements-traceability community currently sees `grund` as "a
 
 The README (and landing page, if any) carries a "vs. traceability tools" section whose matrix names the six tools above with creation year, whose capability columns include the sectioned-citation row, and whose closing sentence is the "traceability tool / grounding tool" pair. The "we deliberately don't" footnote names the three rejected features with [§FS-non-goals](functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) pointers. `grund check` stays clean.
 
+## RM-obligation-no-unit: warn when a citation-direction obligation applies to nothing
+
+An obligation attaches to a unit — a declaration for a citable kind, a citation-carrying scanned file for a non-citable home ([§FS-config.3.9.1](functional-spec/FS-config.md#391-levels), [§FS-check.3.11](functional-spec/FS-check.md#311-missing-required-citation)) — so a kind that yields no unit yields no finding, and `must` passes vacuously while the entrypoint keeps advertising the rule. [§DF-non-citable-kinds.2.5](decisions/functional/DF-non-citable-kinds.md#25-obligations-get-a-per-file-unit-and-grounding-follows-the-home) closed this for non-citable kinds by giving them a per-file unit, and [§FS-config.3.4.7](functional-spec/FS-config.md#347-scan--a-place-that-is-listed-not-walked) refuses a rule on an unwalked citing kind at load time; the case between them — a citable kind with a walked home and nothing declared in it — is still open. Seen on a real adoption: a `skills/` kind declared citable, eleven files, no `SKILL` ID, six files citing nothing, `grund check` green.
+
+GitHub: [#149](https://github.com/vjovanov/grund/issues/149).
+
+### 1. What
+
+One CLI-level `warning:` on stderr ([§FS-check.2.1.1](functional-spec/FS-check.md#211-cli-level-messages)), exit code untouched — the class [§FS-check.2.2](functional-spec/FS-check.md#22-empty-scan) uses for a walk that read nothing — when a `[citations.<kind>]` table carries a `must` or `should` entry, the citing kind has a folder home holding at least one scanned file other than its entry file (the configured `index`, or `README.md` where there is none), and the scan produced zero units for it. Two message shapes: the citable kind that declares nothing, and the non-citable home in which no scanned file carries a citation while grounding is off. Single-file kinds and the homeless kind never warn.
+
+### 2. Why now
+
+It is the smallest change in this group and the only one that came from a verified failure rather than a preference: a green verdict over a rule the maintainer believed was enforced ([§GOAL-no-silent-breakage](goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path)). The entry-file cut is what makes it safe to ship without a flag — `grund init --docs` leaves every home holding exactly its entry file and zero declarations, and that tree must stay silent.
+
+### 3. Measurable
+
+Four e2e cases: a citable folder kind with files beside its index and no declaration warns and exits as before; the non-citable mirror warns; the scaffold tree with the canonical `[citations]` ruleset does not; a single-file kind stub does not.
+
+## RM-grounding-per-place: `require_grounding` and `grounding_level` on the `[[kinds]]` row
+
+`require_grounding` is one boolean in `[reference]` that reaches every scanned source file and every non-citable home at once ([§FS-check.3.6](functional-spec/FS-check.md#36-ungrounded-source-file-opt-in)), while *whether* a file must cite is already reasoned about per place — direction rules "constrain how you ground, never whether" ([§DISC-citation-directions](discussions/proposals/2026-06-13-citation-directions.md#disc-citation-directions-encode-citation-directions-as-checked-config)), and grounding "follows the home" for non-citable kinds ([§DISC-id-less-kinds](discussions/proposals/2026-08-25-id-less-kinds.md#disc-id-less-kinds-kinds-that-declare-no-ids)). The unit is also fixed at the file: one citation anywhere grounds all of it.
+
+GitHub: [#150](https://github.com/vjovanov/grund/issues/150).
+
+### 1. What
+
+Two keys on the `[[kinds]]` row, each with its `[reference]` twin as the default for rows that do not say — the shape `index` already has ([§FS-config.3.4.2](functional-spec/FS-config.md#342-index--the-kinds-index-file)). `require_grounding` stays the boolean it is today. `grounding_level` is an integer in Markdown heading levels: `1` is the file, `2` is every `##` subtree, `6` is every heading; a leaf at the level cites directly, a parent is satisfied by any descendant, and a file with no heading at the level is one unit. Source files keep the two ranks grund can see without parsing code ([§FS-non-goals.3](functional-spec/FS-non-goals.md#3-code-ast-parsing)): unindented doc-comment blocks, and all of them. `[citations]` obligations follow the row's unit, so *whether* and *what* are asked of the same thing. The homeless kind takes both keys like any row. The global keys stay as defaults rather than being deprecated: every existing config keeps its meaning with no edit, and `--require-grounding` needs a global meaning regardless.
+
+### 2. Why now
+
+It is the fix for the adoption above: "every skill file must be grounded" cannot be said today without saying it of every workflow and build script in the scan, which is why that repository's hole stays open and [§RM-obligation-no-unit](roadmap.md#rm-obligation-no-unit-warn-when-a-citation-direction-obligation-applies-to-nothing) can only warn about it. Both keys are additive ([§FS-config.5](functional-spec/FS-config.md#5-schema-versioning)), so nothing about the change waits on a deprecation window.
+
+### 3. Measurable
+
+Row on with global off checks only that home; global on with row off exempts it; `--require-grounding` with an explicit row `false` leaves the row exempt; each config error (`scan = false`, a `file =` row, a level outside `1..=6`, a level beside an explicit `false`) is a rejection case; `config show` round-trips. For the levels: a cited `##` beside an uncited one at level 2; a `###` leaf satisfying its parent at level 3; a file with no `##` at level 2 judged as one unit; an unindented doc-comment beside an indented one; a `must` obligation firing per section.
+
+## RM-directions-one-source: one source for the citation-directions explanation
+
+`[citations]` is specified in [§FS-config.3.9](functional-spec/FS-config.md#39-citations--citation-direction-rules) and rendered per [§FS-init.2.3.5](functional-spec/FS-init.md#235-citation-directions), and explained on none of the three surfaces a person or agent reads during setup: the `grund-init` skill walks every config section except this one, against the "pros and cons for every config option" [§FS-init.5](functional-spec/FS-init.md#5-agent-setup-instructions) asks for; the `grund.toml` template comment shows nine example rules and never states that entries in one array are all required while `|` inside an entry is any one of them; the README states two directions inside a table cell. Nowhere is a config shown beside the bullet it becomes.
+
+GitHub: [#148](https://github.com/vjovanov/grund/issues/148).
+
+### 1. What
+
+One page, `docs/user-facing/citation-directions.md`: the levels, the grammar stated once, who may cite and be cited, the no-unit trap, and an example config beside its render. Every other face is a checked copy or a checked render of it, on the two precedents the repository already has: the skill carries it between markers and `test_asset_sync.py` compares the region byte for byte, so `grund agent-setup-instructions` prints it too; the example render is a unit test through the code `grund init` uses — the [§DF-citation-directions.2.7](decisions/functional/DF-citation-directions.md#27-generated-agent-entrypoint-section-with-a-drift-check) drift check turned on the documentation; the README links the page. The template comment and the no-config entrypoint sentence gain the grammar line and the path.
+
+### 2. Why now
+
+Reading `must = ["FS|AR|TCK|CI|METADATA|TESTS"]` in a real config, grund's own author asked whether it should be a plain list — and a plain list would have meant "cite all six". Three surfaces explaining this independently would drift the way the skill and its embedded copy would have without the sync test.
+
+### 3. Measurable
+
+The sync test fails when the skill's marked region and the page differ by a byte; the render test fails when the page's example block and the live render differ; `grund check --full` over this repository stays green.
+
+## RM-directions-render: render the Citation directions section so it is exact
+
+The generated section ([§FS-init.2.3.5](functional-spec/FS-init.md#235-citation-directions)) is what an agent reads instead of the config, and it is inexact in five ways. A mixed rule renders ambiguously — `must = ["FS|GOAL", "AR"]` prints `must cite FS or GOAL and AR`, which English parses as *FS, or GOAL and AR*, and the rule means the opposite grouping. The unit is never stated: `FS should cite GOAL or FS` is per declaration, `skills/ must cite FS` is per file, `code … should cite FS or AR` is per citing source file. Grounding is not rendered at all — the template has no placeholder for it, and this repository's own entrypoint, with the key on, never says a source file must cite a declared ID. Rule grammar leaks into prose (`avoid citing */AR`), and a closed per-kind default takes two clauses to say "only". And nothing says which levels `grund check` enforces.
+
+GitHub: [#151](https://github.com/vjovanov/grund/issues/151).
+
+### 1. What
+
+A re-render that states the unit per bullet, groups a conjunction of alternatives unambiguously, translates `*/K` into words, folds a closed default into its permission, says what gates and what is suggested, and carries the grounding sentence generated from the rows of [§RM-grounding-per-place](roadmap.md#rm-grounding-per-place-require_grounding-and-grounding_level-on-the-kinds-row). The exact wording is deliberately not fixed here: it is hard to choose well, and it should be chosen once, against a canonical config that exercises every branch — the homeless kind declared first, a kind with no rules, two and three alternatives, a conjunction of singletons, a mixed rule, a closed per-kind default, a pinned alias, a `*/` target, two non-citable homes — and recorded in a DF beside the golden that pins it. One line is settled: the `code` bullet says "that cites anything", because the obligation constrains what a source file cites and never whether, and a util that cites nothing is not a unit ([§FS-config.3.9.2](functional-spec/FS-config.md#392-the-homeless-kind)).
+
+### 2. Why now
+
+Every wording change is a managed-block version bump, so every adopting repository sees an `agents-init` finding until it re-runs `grund init` ([§FS-check.3.5](functional-spec/FS-check.md#35-invalid-agent-entrypoint-init-block)). There are still few adopters, and the grounding sentence needs the same bump, so this is the moment to pay it once rather than later and twice.
+
+### 3. Measurable
+
+The canonical config's render is one e2e golden, and its `agents-init` drift check round-trips; three sibling cases pin the homeless kind without a title, a closed global default, and grounding off. `must = ["FS|GOAL", "AR"]` renders to a bullet with one reading.
+
 ## RM-index-entry-error: flip the missing-index-entry warning to an error
 
 [§FS-check.4.6](functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index) ships as a warning that names the release it becomes an error in, which is the deprecation path [§REQ-backwards-compatibility.2](requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) requires of a finding no command can fix. The warning is only half a contract: the release it names has to actually happen, or `grund` has told every user a deadline it then let slip. This milestone is that release.
