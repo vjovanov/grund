@@ -24,6 +24,10 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Changed
+
+- [§RM-obligation-no-unit](roadmap.md#rm-obligation-no-unit-warn-when-a-citation-direction-obligation-applies-to-nothing), [§RM-grounding-per-place](roadmap.md#rm-grounding-per-place-require_grounding-and-grounding_level-on-the-kinds-row), [§RM-directions-one-source](roadmap.md#rm-directions-one-source-one-source-for-the-citation-directions-explanation), [§RM-directions-render](roadmap.md#rm-directions-render-render-the-citation-directions-section-so-it-is-exact): four planned milestones on the roadmap, from one adoption's `[citations]` config — warn when a direction obligation has no unit behind it, `require_grounding` and a `grounding_level` per `[[kinds]]` row, one checked source for the citation-directions explanation, and a re-render of the generated Citation directions section chosen against a canonical config. [§FS-config.3.9](functional-spec/FS-config.md#39-citations--citation-direction-rules) and [§FS-init.2.3.5](functional-spec/FS-init.md#235-citation-directions) point at the two documentation milestones. (PR #152)
+
 ## 2. [0.12.2] — 2026-08-26
 
 ### Added
