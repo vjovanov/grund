@@ -127,6 +127,13 @@ pub struct Citation {
     /// is `false`.
     pub numeric_run: bool,
     pub text: String,
+    /// The comment block this citation sits in, when that block is an inline
+    /// citation site (§FS-inline-citation-style.1). `None` outside a comment
+    /// block, in Markdown, in a block that declares an ID — and in a **doc
+    /// comment**: `///`, `//!`, `/** … */`, a docstring, or a comment a position
+    /// language puts right above a definition is documentation, not a note, so
+    /// it is no site and carries no budget, style, or layout
+    /// (§FS-inline-citation-style.1.1).
     pub inline_site: Option<InlineCitationSite>,
     /// The resolved *citing* kind for this site (§AR-scanner.2.4): the kind of
     /// the enclosing declaration, else the file's unique kind home, else the
@@ -142,7 +149,11 @@ pub struct Citation {
 
 /// The enclosing source-comment citation site for one citation
 /// (§FS-inline-citation-style.1, §FS-inline-citation-style.2.3). Markdown
-/// citations and citations outside recognized comment blocks carry `None`.
+/// citations and citations outside recognized comment blocks carry `None`, and
+/// so does a citation in a **doc comment**: what a language calls documentation
+/// is not an inline note, so its block is not a site
+/// (§FS-inline-citation-style.1.1). Such a citation still resolves and is still
+/// checked for everything else — dangling, direction, grounding, shorthand.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct InlineCitationSite {
     pub first_line: usize,

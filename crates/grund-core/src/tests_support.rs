@@ -480,4 +480,60 @@ mod tests_support {
             })
             .collect()
     }
+
+    /// One source file's inline-citation-style findings as `(line, message)`,
+    /// ascending — the harness the two doc-comment suites share
+    /// (§FS-inline-citation-style.1.1). The tree always declares `FS-001-login`,
+    /// so a citation resolves and only the style rule can speak, and the caps
+    /// are the defaults (3 lines, 100 columns), so a four-line comment block is
+    /// over them.
+    pub(crate) fn inline_style_findings(
+        name: &str,
+        file: &str,
+        source: &str,
+    ) -> Vec<(usize, String)> {
+        inline_style_findings_with(name, file, source, |_| {})
+    }
+
+    /// The same harness with one turn of the config first: an extension outside
+    /// the default `[scan] extensions`, a different `inline_style`, or the note
+    /// layout keys.
+    pub(crate) fn inline_style_findings_with(
+        name: &str,
+        file: &str,
+        source: &str,
+        configure: impl FnOnce(&mut Config),
+    ) -> Vec<(usize, String)> {
+        let root = test_root(name);
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: Login\n",
+        );
+        write(&root.join(file), source);
+
+        let mut config = legacy_fs_folder_config(root.clone());
+        configure(&mut config);
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+        let report = check_findings(&findings, &config);
+        let mut rows = report
+            .errors
+            .iter()
+            .chain(report.warnings.iter())
+            .filter(|finding| finding.code == "inline-citation-style")
+            .map(|finding| (finding.line.unwrap_or(0), finding.message.clone()))
+            .collect::<Vec<_>>();
+        rows.sort();
+        rows
+    }
+
+    /// The one finding a block of more than three lines earns under the default
+    /// caps, anchored at the line the block opens on.
+    pub(crate) fn over_the_line_cap(line: usize) -> Vec<(usize, String)> {
+        vec![(line, "inline note exceeds 3-line maximum".to_string())]
+    }
+
+    /// The one finding a line wider than a hundred characters earns.
+    pub(crate) fn over_the_column_cap(line: usize) -> Vec<(usize, String)> {
+        vec![(line, "inline note exceeds 100-column maximum".to_string())]
+    }
 }

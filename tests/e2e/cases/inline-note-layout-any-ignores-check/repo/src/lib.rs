@@ -14,8 +14,8 @@ pub fn delta() {}
 // the note sits on the next line of the same comment block
 pub fn epsilon() {}
 
-/// Walks the alpha table.
-/// §FS-001-alpha: one finding per unresolved entry.
+// Walks the alpha table.
+// §FS-001-alpha: one finding per unresolved entry.
 pub fn zeta() {}
 
 // §FS-001-alpha, §FS-002-beta

@@ -89,7 +89,7 @@ mod tests_grounding_style {
         );
         write(
             &root.join("src/auth.rs"),
-            "/// §FS-001-login rationale with a long line that exceeds the cap\n/// second line\npub fn login() {}\n",
+            "// §FS-001-login rationale with a long line that exceeds the cap\n// second line\npub fn login() {}\n",
         );
 
         let mut config = Config::default_for(root.clone());
@@ -254,7 +254,7 @@ mod tests_grounding_style {
         );
         write(
             &root.join("src/auth.rs"),
-            "/// FS-001-login: Login\n/// §FS-002-beta body citation with prose\npub fn login() {}\n",
+            "// FS-001-login: Login\n// §FS-002-beta body citation with prose\npub fn login() {}\n",
         );
 
         let mut config = Config::default_for(root.clone());
@@ -367,7 +367,7 @@ mod tests_grounding_style {
         );
         write(
             &root.join("src/auth.rs"),
-            "/**\n * §FS-001-login\n */\npub fn login() {}\n",
+            "/*\n * §FS-001-login\n */\npub fn login() {}\n",
         );
 
         let mut config = Config::default_for(root.clone());

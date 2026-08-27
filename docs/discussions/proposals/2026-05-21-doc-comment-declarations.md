@@ -44,7 +44,7 @@ Python docstrings are already special-cased by [§AR-scanner.4](../../architectu
 | Rust | `rs` | `///`, `//!`, `/** */`, `/*! */` | `//`, `/* */` | marker |
 | C# | `cs` | `///` (XML doc) | `//`, `/* */` | marker |
 | C / C++ / Objective-C | `c` `h` `cpp` `cc` `hpp` `hh` `m` `mm` | `/** */`, `/*! */`, `///`, `//!` (Doxygen) | `//`, `/* */` | marker |
-| Java | `java` | `/** */` (Javadoc) | `//`, `/* */` | marker |
+| Java | `java` | `/** */` (Javadoc), `///` (JEP 467, JDK 23 Markdown documentation comments) | `//`, `/* */` | marker |
 | Kotlin | `kt` | `/** */` (KDoc) | `//`, `/* */` | marker |
 | Scala | `scala` | `/** */` (Scaladoc) | `//`, `/* */` | marker |
 | Swift | `swift` | `///`, `/** */` | `//`, `/* */` | marker |

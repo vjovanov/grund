@@ -84,7 +84,8 @@ fn scan_file_text(
 ) -> Result<()> {
     let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
     let is_py = path.extension().and_then(|e| e.to_str()) == Some("py");
-    let inline_sites = inline_citation_sites(&text, is_md, is_py, config, workspace_targets);
+    let inline_sites =
+        inline_citation_sites(path, &text, is_md, is_py, config, workspace_targets);
     let in_docs = path.components().any(|c| c.as_os_str() == "docs");
     let mut markdown_fence = None;
     let mut py_docstring = PythonDocstringScanState::default();
@@ -571,16 +572,13 @@ fn file_home_kind(path: &Path, config: &Config) -> Option<String> {
     matched.map(str::to_string)
 }
 
-#[derive(Clone)]
-enum CommentBlockKind {
-    Line(String),
-    Block,
-    PythonDocstring,
-}
-
 /// Locate the source-comment blocks that can host inline citation sites
-/// (§FS-inline-citation-style.1). Markdown prose is deliberately out of scope.
+/// (§FS-inline-citation-style.1). Markdown prose is deliberately out of scope,
+/// and so is a *doc comment*: documentation is not a note about a clause, so
+/// nothing the inline citation style says applies to one
+/// (§FS-inline-citation-style.1.1, §AR-scanner.4).
 fn inline_citation_sites(
+    path: &Path,
     text: &str,
     is_md: bool,
     is_py: bool,
@@ -592,6 +590,17 @@ fn inline_citation_sites(
         return sites;
     }
     let lines = text.lines().collect::<Vec<_>>();
+    // §FS-inline-citation-style.1.1: which blocks this file's language calls
+    // documentation. Read once from the extension, then applied to each block
+    // below with one comparison (§AR-scanner.4).
+    let doc_rule = doc_comment_rule(path);
+    // Only a position language asks where the file's leading comment is, so the
+    // scan for it is taken only there and the marker recognizers ignore the flag
+    // it feeds (§GOAL-fast-feedback).
+    let leading_limit = match doc_rule {
+        DocCommentRule::Position(_) => first_content_line(&lines),
+        _ => 0,
+    };
     let mut index = 0;
     while index < lines.len() {
         let Some(kind) = comment_block_kind(lines[index], is_py, config) else {
@@ -630,8 +639,20 @@ fn inline_citation_sites(
                 end
             }
         };
-        if !block_declares_id(&lines[start..=end], matches!(kind, CommentBlockKind::PythonDocstring), config) {
-            let block = &lines[start..=end];
+        let block = &lines[start..=end];
+        // §FS-inline-citation-style.1.1: a doc comment hosts no site — the same
+        // skip a block that *declares* an ID already earned, and for the same
+        // reason: its shape is not this spec's to govern.
+        let is_doc_comment = block_is_doc_comment(
+            doc_rule,
+            &kind,
+            block,
+            lines.get(end + 1).copied(),
+            start <= leading_limit,
+        );
+        if !is_doc_comment
+            && !block_declares_id(block, matches!(kind, CommentBlockKind::PythonDocstring), config)
+        {
             // §FS-inline-citation-style.3.3: both verdicts are taken here, while
             // the block's lines are in hand, so the checker never re-reads one
             // (§AR-scanner.3).
@@ -653,69 +674,6 @@ fn inline_citation_sites(
         index = end + 1;
     }
     sites
-}
-
-fn comment_block_kind(line: &str, is_py: bool, config: &Config) -> Option<CommentBlockKind> {
-    let trimmed = line.trim_start();
-    if trimmed.is_empty() {
-        return None;
-    }
-    if config.docstring_python && is_py && python_docstring_quote(line).is_some() {
-        return Some(CommentBlockKind::PythonDocstring);
-    }
-    if config.comment_prefixes.iter().any(|prefix| prefix == "/*") && trimmed.starts_with("/*") {
-        return Some(CommentBlockKind::Block);
-    }
-    line_comment_marker(trimmed, config).map(CommentBlockKind::Line)
-}
-
-fn line_comment_marker(trimmed: &str, config: &Config) -> Option<String> {
-    for marker in ["///", "//!", "//"] {
-        if config.comment_prefixes.iter().any(|prefix| prefix == "//")
-            && trimmed.starts_with(marker)
-        {
-            return Some(marker.to_string());
-        }
-    }
-    let mut prefixes = config
-        .comment_prefixes
-        .iter()
-        .filter(|prefix| !matches!(prefix.as_str(), "" | "//" | "*" | "/*"))
-        .collect::<Vec<_>>();
-    prefixes.sort_by_key(|prefix| std::cmp::Reverse(prefix.len()));
-    prefixes
-        .into_iter()
-        .find(|prefix| trimmed.starts_with(prefix.as_str()))
-        .map(|prefix| prefix.to_string())
-}
-
-fn python_docstring_closes(line: &str, quote: &str, is_opening_line: bool) -> bool {
-    let trimmed = line.trim_start();
-    let search = if is_opening_line {
-        trimmed.strip_prefix(quote).unwrap_or(trimmed)
-    } else {
-        trimmed
-    };
-    search.contains(quote)
-}
-
-fn block_declares_id(lines: &[&str], in_py_docstring: bool, config: &Config) -> bool {
-    let mut py_docstring = PythonDocstringScanState::default();
-    lines.iter().any(|line| {
-        let scan = if in_py_docstring {
-            source_scan_line(line, true, config.docstring_python, &mut py_docstring)
-        } else {
-            SourceScanLine {
-                text: line,
-                in_py_docstring: false,
-                column_offset: 0,
-                closed_py_docstring: false,
-            }
-        };
-        declaration_captures(&config.grammar, scan.text, scan.in_py_docstring, false)
-            .and_then(|caps| parse_id(&caps))
-            .is_some()
-    })
 }
 
 /// §FS-workspace.5: a member-local scan must still recognize marker-qualified

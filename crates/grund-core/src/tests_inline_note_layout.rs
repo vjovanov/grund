@@ -63,11 +63,11 @@ mod tests_inline_note_layout {
             "// §FS-001-login: the rule (see also §FS-002-logout)",
             "// §FS-001-login:",
             "// §FS-001-login:  two spaces still open a note",
-            "///   §FS-001-login: indented past the prefix",
+            "//   §FS-001-login: indented past the prefix",
             "//\t§FS-001-login: a tab past the prefix",
             " *   §FS-001-login: aligned under the block opener",
             "#\t§FS-001-login: a tab after a hash",
-            "/// Walks every recognized citation and resolves it.",
+            "// Walks every recognized citation and resolves it.",
             "//",
         ] {
             assert!(conforms(&config, line), "must accept `{line}`");
@@ -102,7 +102,11 @@ mod tests_inline_note_layout {
 
     // §FS-inline-citation-style.3.3: the line is read after the comment prefix and
     // any block closer are stripped, so every recognized comment shape is judged on
-    // the same content the author sees.
+    // the same content the author sees. The prefix set is the project's, not one
+    // language's: `//!` and `/**` open a doc comment in the C family and so are
+    // never judged there (§FS-inline-citation-style.1.1), but `[scan]
+    // comment_prefixes` applies to every extension, so the reader still has to
+    // strip them.
     #[test]
     fn citation_first_colon_reads_every_comment_prefix() {
         let config = layout_config(
@@ -162,12 +166,12 @@ mod tests_inline_note_layout {
             "citation-first-colon",
         );
         for line in [
-            "/// - §FS-001-login: a bulleted grounded point",
-            "/// * §FS-001-login: a star bullet",
-            "/// + §FS-001-login: a plus bullet",
-            "/// 1. §FS-001-login: an ordered item",
-            "/// 12) §FS-001-login: a two-digit ordered item",
-            "///   - §FS-001-login: indented past the prefix first",
+            "// - §FS-001-login: a bulleted grounded point",
+            "// * §FS-001-login: a star bullet",
+            "// + §FS-001-login: a plus bullet",
+            "// 1. §FS-001-login: an ordered item",
+            "// 12) §FS-001-login: a two-digit ordered item",
+            "//   - §FS-001-login: indented past the prefix first",
         ] {
             assert!(conforms(&config, line), "must accept `{line}`");
         }
@@ -215,9 +219,9 @@ mod tests_inline_note_layout {
         // The first citation-bearing line is judged whatever it opens with: a
         // summary line above it is unconstrained, it is not.
         let prose_first = [
-            "/// Walks the credential store.",
-            "/// then §FS-001-login decides",
-            "/// and §FS-002-logout follows",
+            "// Walks the credential store.",
+            "// then §FS-001-login decides",
+            "// and §FS-002-logout follows",
         ];
         assert_eq!(violations(&config, &prose_first, true), vec![2]);
     }
@@ -262,7 +266,7 @@ mod tests_inline_note_layout {
             "// §FS-001-login, §FS-002-logout",
             "// §FS-001-login,§FS-002-logout",
             "// §FS-001-login  ,  §FS-002-logout",
-            "/** §FS-001-login, §FS-002-logout */",
+            "/* §FS-001-login, §FS-002-logout */",
             "// §FS-001-login, §FS-002-logout, §FS-003-reset",
         ] {
             let block = [line];
@@ -384,9 +388,9 @@ mod tests_inline_note_layout {
         // The prose is on the block's first line, so the note walk has its answer
         // there and the two citation lines below it are never read.
         let block = [
-            "/// Walks the credential store.",
-            "/// §FS-001-login: one error per expired credential.",
-            "/// §FS-001-login — and one more, laid out wrong.",
+            "// Walks the credential store.",
+            "// §FS-001-login: one error per expired credential.",
+            "// §FS-001-login — and one more, laid out wrong.",
         ];
 
         // Documented-only (§FS-inline-citation-style.4.4): no channel, so no second
