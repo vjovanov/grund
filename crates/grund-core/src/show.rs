@@ -237,8 +237,7 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
         eprintln!("error: unsupported show format `{format}`");
         return ExitCode::from(2);
     }
-    // §FS-show.3 / partial-scan semantics: any unreadable file inside the
-    // selected project's scope is fatal — the lookup could miss the home.
+    // §FS-show.3 / partial-scan semantics: an unreadable file in scope is fatal.
     // §FS-workspace.8.7: rendered against the run's config, not the target
     // project's — the same spelling `check` uses for the same tree.
     if let Some((file, message)) = project.scan_errors.first() {
