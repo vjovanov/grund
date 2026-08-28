@@ -579,15 +579,11 @@ fn parse_citation_target(path: &Path, line_no: usize, token: &str) -> Result<Cit
             let namespace = if qualifier == "*" {
                 NamespaceMatch::Any
             } else {
-                // §FS-config.3.9.3: a qualifier is the alias path a citation writes, so
-                // a bad one names the failing *segment*, not the whole path (mostly right
-                // in a nested tree), like the CLI (§FS-workspace.8, §GOAL-friendliness-first).
-                if let Some(message) = invalid_alias_path_message(qualifier) {
-                    bail_config(
-                        path,
-                        line_no,
-                        format!("citation target `{token}`: {message} — `*` matches any project"),
-                    )?;
+                // §FS-config.3.9.3: config diagnostics name the citation target's
+                // qualifier and kind, while the CLI keeps its own `<alias>/<ID>`
+                // vocabulary. Both surfaces use the same segment validation.
+                if let Some(message) = invalid_citation_target_message(token, qualifier, kind) {
+                    bail_config(path, line_no, message)?;
                 }
                 NamespaceMatch::Alias(qualifier.to_string())
             };
@@ -606,6 +602,32 @@ fn parse_citation_target(path: &Path, line_no: usize, token: &str) -> Result<Cit
         namespace,
         kind: kind.to_string(),
     })
+}
+
+/// Render the `[citations]` form of an invalid namespace qualifier
+/// (§FS-config.3.9.3). This is intentionally separate from the CLI alias-path
+/// message: the final segment here is a citation kind, not an ID.
+fn invalid_citation_target_message(token: &str, qualifier: &str, kind: &str) -> Option<String> {
+    let bad = invalid_alias_path_segment(qualifier)?;
+    let detail = if qualifier.is_empty() {
+        format!("namespace qualifier before kind `{kind}` is empty")
+    } else if bad.is_empty() {
+        format!(
+            "invalid namespace qualifier segment (empty) in `{qualifier}` before kind `{kind}`"
+        )
+    } else {
+        format!(
+            "invalid namespace qualifier segment `{bad}` in `{qualifier}` before kind `{kind}`"
+        )
+    };
+    let wildcard = if bad == "*" {
+        "; `*` may only be the whole qualifier"
+    } else {
+        ""
+    };
+    Some(format!(
+        "citation target `{token}`: {detail} ({INVALID_ALIAS_PATH_EXPECTED}){wildcard}"
+    ))
 }
 
 /// Validate the parsed `[citations]` rules against the finalized kind set

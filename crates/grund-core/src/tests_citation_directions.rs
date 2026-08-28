@@ -397,38 +397,43 @@ default = "must-not"
             )
         };
 
-        // The message is the CLI's, so a nested path names the failing *segment*
-        // rather than quoting the whole path against a one-segment pattern
-        // (§FS-workspace.8).
-        for (target, expected) in [
-            ("/AR", "citation target `/AR`: invalid project alias: the path before the ID is empty"),
-            ("Root/AR", "citation target `Root/AR`: invalid project alias `Root`"),
-            (
-                "group/Api/AR",
-                "citation target `group/Api/AR`: invalid project alias segment `Api` in `group/Api`",
-            ),
-            (
-                "group//AR",
-                "citation target `group//AR`: invalid project alias `group/`: a segment is empty",
-            ),
-        ] {
+        // §FS-config.3.9.3: config diagnostics use citation-target vocabulary,
+        // name the kind and identify the first invalid qualifier segment.
+        let diagnostic = |target: &str| {
             write(&root.join(".agents/grund.toml"), &cfg(target));
-            match load_config(&root) {
-                Ok(_) => panic!("malformed citation namespace qualifier must be rejected"),
-                Err(err) => {
-                    let err = format!("{err:#}");
-                    assert!(
-                        err.contains(expected),
-                        "expected `{expected}` for {target}, got: {err}"
-                    );
-                    assert!(
-                        err.contains("— `*` matches any project"),
-                        "the qualifier that is not an alias path is still worth naming: {err}"
-                    );
-                }
-            }
-        }
+            let err = match load_config(&root) {
+                Ok(_) => panic!("malformed citation namespace qualifier must fail"),
+                Err(err) => format!("{err:#}"),
+            };
+            let start = err
+                .find("citation target ")
+                .expect("config error has a citation-target message");
+            err[start..].to_string()
+        };
 
+        assert_eq!(
+            diagnostic("/AR"),
+            "citation target `/AR`: namespace qualifier before kind `AR` is empty (expected [a-z][a-z0-9-]*, one segment per workspace level)"
+        );
+        assert_eq!(
+            diagnostic("Root/AR"),
+            "citation target `Root/AR`: invalid namespace qualifier segment `Root` in `Root` before kind `AR` (expected [a-z][a-z0-9-]*, one segment per workspace level)"
+        );
+        assert_eq!(
+            diagnostic("group/Api/AR"),
+            "citation target `group/Api/AR`: invalid namespace qualifier segment `Api` in `group/Api` before kind `AR` (expected [a-z][a-z0-9-]*, one segment per workspace level)"
+        );
+        assert_eq!(
+            diagnostic("group//AR"),
+            "citation target `group//AR`: invalid namespace qualifier segment (empty) in `group/` before kind `AR` (expected [a-z][a-z0-9-]*, one segment per workspace level)"
+        );
+        assert_eq!(
+            diagnostic("group/*/FS"),
+            "citation target `group/*/FS`: invalid namespace qualifier segment `*` in `group/*` before kind `FS` (expected [a-z][a-z0-9-]*, one segment per workspace level); `*` may only be the whole qualifier"
+        );
+
+        write(&root.join(".agents/grund.toml"), &cfg("*/AR"));
+        load_config(&root).expect("whole-qualifier wildcard must load");
         write(&root.join(".agents/grund.toml"), &cfg("root/AR"));
         load_config(&root).expect("valid namespace qualifier must load");
 

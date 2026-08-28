@@ -330,18 +330,33 @@ fn split_qualified_id_arg(raw: &str) -> Result<(Option<String>, &str)> {
 /// path is usually mostly right. A single-segment path is its own segment, so it
 /// is named plainly; an empty segment has nothing to quote and says so.
 fn invalid_alias_path_message(alias: &str) -> Option<String> {
-    const EXPECTED: &str = "expected [a-z][a-z0-9-]*, one segment per workspace level";
     let segments: Vec<&str> = alias.split('/').collect();
-    let bad = segments
-        .iter()
-        .find(|segment| !is_valid_project_alias(segment))?;
+    let bad = invalid_alias_path_segment(alias)?;
     Some(if alias.is_empty() {
-        format!("invalid project alias: the path before the ID is empty ({EXPECTED})")
+        format!(
+            "invalid project alias: the path before the ID is empty ({INVALID_ALIAS_PATH_EXPECTED})"
+        )
     } else if bad.is_empty() {
-        format!("invalid project alias `{alias}`: a segment is empty ({EXPECTED})")
+        format!(
+            "invalid project alias `{alias}`: a segment is empty ({INVALID_ALIAS_PATH_EXPECTED})"
+        )
     } else if segments.len() == 1 {
-        format!("invalid project alias `{alias}` ({EXPECTED})")
+        format!("invalid project alias `{alias}` ({INVALID_ALIAS_PATH_EXPECTED})")
     } else {
-        format!("invalid project alias segment `{bad}` in `{alias}` ({EXPECTED})")
+        format!(
+            "invalid project alias segment `{bad}` in `{alias}` ({INVALID_ALIAS_PATH_EXPECTED})"
+        )
     })
+}
+
+const INVALID_ALIAS_PATH_EXPECTED: &str =
+    "expected [a-z][a-z0-9-]*, one segment per workspace level";
+
+/// Return the first invalid segment of an alias path, preserving empty segments
+/// so each caller can render its surface's diagnostic without changing the
+/// shared validation rule (§FS-workspace.1).
+fn invalid_alias_path_segment(alias: &str) -> Option<&str> {
+    alias
+        .split('/')
+        .find(|segment| !is_valid_project_alias(segment))
 }
