@@ -39,6 +39,9 @@ pub enum CaseOutcome {
 // The `symlinks` manifest half, in a file of its own (§AR-core-module-layout.3).
 include!("case_symlinks.rs");
 
+// The stderr-conciseness half, in a file of its own (§AR-core-module-layout.3).
+include!("case_stderr.rs");
+
 /// Account for every case a pass did not run (§FS-errors.2.2 in spirit: a run says
 /// what it did not do). A skip is printed with its reason and counted — never
 /// folded into the pass total — and on a platform that can always create a
@@ -197,7 +200,7 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) -> CaseOutcome
 
     let expected_stdout = read_expected_output(case.join("expected.stdout"));
     let expected_stderr = read_expected_output(case.join("expected.stderr"));
-    assert_expected_errors_are_concise(case, name, &expected_stderr);
+    assert_expected_errors_are_concise(case, name, &args, &expected_stderr);
     assert_eq!(actual_stdout, expected_stdout, "{name}: stdout mismatch");
     assert_eq!(actual_stderr, expected_stderr, "{name}: stderr mismatch");
     assert_expected_repo(case, manifest_dir, name);
@@ -299,22 +302,6 @@ fn copy_dir(from: &Path, to: &Path) {
                 panic!("copy {} to {}: {err}", source.display(), target.display())
             });
         }
-    }
-}
-
-fn assert_expected_errors_are_concise(case: &Path, name: &str, stderr: &str) {
-    if read_to_string(case.join("expected.exit")).trim() == "0" {
-        return;
-    }
-    assert!(
-        !stderr.contains("error(s)") && !stderr.contains("warning(s)"),
-        "{name}: stderr should not include aggregate summaries"
-    );
-    for line in stderr.lines().filter(|line| !line.trim().is_empty()) {
-        assert!(
-            line.len() <= 180,
-            "{name}: stderr line is too long for a concise diagnostic: {line}"
-        );
     }
 }
 

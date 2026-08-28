@@ -142,6 +142,7 @@ version = "0.12.2"
 dependencies = [
  "grund-core",
  "iai-callgrind",
+ "serde_json",
 ]
 
 [[package]]
