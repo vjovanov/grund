@@ -235,6 +235,103 @@ mod tests_workspace_nested {
         );
     }
 
+    /// §FS-workspace.2: an existing glob parent that cannot be read is a
+    /// located config error at the `members` line, naming the glob as written
+    /// and retaining the operating-system reason.
+    #[test]
+    #[cfg(unix)]
+    fn an_unreadable_glob_parent_is_a_located_members_error() {
+        use std::os::unix::fs::PermissionsExt;
+
+        struct RestorePermissions {
+            path: PathBuf,
+            permissions: std::fs::Permissions,
+        }
+
+        impl Drop for RestorePermissions {
+            fn drop(&mut self) {
+                let _ = std::fs::set_permissions(&self.path, self.permissions.clone());
+            }
+        }
+
+        let root = test_root("an_unreadable_glob_parent_is_a_located_members_error");
+        write(
+            &root.join("grund.toml"),
+            "project_name = \"root\"\n\n[workspace]\nmembers = [\"group\"]\n",
+        );
+        write(
+            &root.join("group/grund.toml"),
+            "project_name = \"group\"\n\n[workspace]\nmembers = [\"packages/*\"]\n",
+        );
+        let packages = root.join("group/packages");
+        std::fs::create_dir_all(&packages).expect("create glob parent");
+        let permissions = std::fs::metadata(&packages)
+            .expect("read original glob-parent permissions")
+            .permissions();
+        let _restore = RestorePermissions {
+            path: packages.clone(),
+            permissions,
+        };
+        std::fs::set_permissions(&packages, std::fs::Permissions::from_mode(0o000))
+            .expect("make glob parent unreadable");
+        let read_error = match std::fs::read_dir(&packages) {
+            Ok(_) => return, // Root/elevated identities can still read mode 000.
+            Err(err) => err,
+        };
+
+        let mut config = load_config(&root).expect("load workspace root config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("an unreadable glob parent must fail expansion");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            format!(
+                "group/grund.toml:4: cannot read workspace member glob `packages/*`: {read_error}"
+            )
+        );
+    }
+
+    /// §FS-workspace.6.1: an unmatched glob is diagnosed only when the
+    /// whole block is empty, and multiple unmatched globs name the first entry
+    /// in config order so the output is deterministic.
+    #[test]
+    fn unmatched_globs_only_error_when_the_workspace_is_empty() {
+        let valid = test_root("an_unmatched_glob_beside_a_member_is_valid");
+        write(
+            &valid.join("grund.toml"),
+            "project_name = \"root\"\n\n[workspace]\nmembers = [\"empty/*\", \"member\"]\ninclude_root = false\n",
+        );
+        std::fs::create_dir_all(valid.join("empty")).expect("create empty glob parent");
+        write(
+            &valid.join("member/grund.toml"),
+            "project_name = \"member\"\n",
+        );
+        let mut config = load_config(&valid).expect("load valid workspace config");
+        let aliases = expand_workspace_tree(&mut config)
+            .expect("another member keeps the workspace in scope")
+            .into_iter()
+            .map(|entry| entry.alias)
+            .collect::<Vec<_>>();
+        assert_eq!(aliases, vec!["member"]);
+
+        let empty = test_root("multiple_unmatched_globs_name_the_first_in_config_order");
+        write(
+            &empty.join("grund.toml"),
+            "project_name = \"root\"\n\n[workspace]\nmembers = [\"z/*\", \"a/*\"]\ninclude_root = false\n",
+        );
+        std::fs::create_dir_all(empty.join("z")).expect("create first empty glob parent");
+        std::fs::create_dir_all(empty.join("a")).expect("create second empty glob parent");
+        let mut config = load_config(&empty).expect("load empty workspace config");
+        let Err(err) = expand_workspace_tree(&mut config) else {
+            panic!("a workspace with only unmatched globs must fail");
+        };
+        assert_eq!(
+            format!("{err:#}"),
+            "grund.toml:4: the glob `z/*` matched no directories"
+        );
+    }
+
     /// §FS-workspace.6.1: the rule above bites only on an escape — a member that
     /// really is nested inside the block that lists it still loads, including the
     /// multi-segment form (`grp/alpha`) whose canonical root is two levels down.
