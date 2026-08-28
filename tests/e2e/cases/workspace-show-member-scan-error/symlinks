@@ -1,0 +1,4 @@
+# A path only the member's walk reaches. Every query command must name it
+# from the workspace root, the way `check` and `cover` already do
+# (§FS-workspace.8.7).
+packages/sub/docs/FS-gone.md -> FS-gone-target.md
