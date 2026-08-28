@@ -194,10 +194,12 @@ fn show_with_scope_and_overlays(
             }
         })?,
     };
+    // §FS-workspace.8.7: rendered against the run's config, not the target
+    // project's — the same spelling `check` uses for the same tree.
     if let Some((file, message)) = project.scan_errors.first() {
         return Err(anyhow!(
             "{}: {}",
-            display_path(&project.config, file),
+            display_path(context.render_config(), file),
             message
         ));
     }
@@ -1514,11 +1516,13 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
         if !opts.project_filter.is_empty() && !opts.project_filter.contains(&project.alias) {
             continue;
         }
+        // §FS-workspace.8.7: rendered against the run's config, like the entries
+        // below, not the scanning project's — the same spelling `check` uses.
         scan_errors.extend(
             project
                 .scan_errors
                 .iter()
-                .map(|(file, message)| api_scan_error(&project.config, file, message)),
+                .map(|(file, message)| api_scan_error(context.render_config(), file, message)),
         );
         let ref_counts = counts.refs_for(project.alias.as_str());
         let used_counts = counts.used_for(project.alias.as_str());
@@ -1759,11 +1763,13 @@ pub fn refs(opts: RefsOpts) -> Result<RefsOutput> {
     let mut hits = Vec::new();
     let mut scan_errors = Vec::new();
     for project in &context.projects {
+        // §FS-workspace.8.7: rendered against the run's config, like the hit
+        // rows below via `render_path`, not the scanning project's.
         scan_errors.extend(
             project
                 .scan_errors
                 .iter()
-                .map(|(file, message)| api_scan_error(&project.config, file, message)),
+                .map(|(file, message)| api_scan_error(context.render_config(), file, message)),
         );
         let is_target = project.alias == target_alias;
         for citation in &project.findings.citations {

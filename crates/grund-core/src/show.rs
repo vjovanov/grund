@@ -239,10 +239,12 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
     }
     // §FS-show.3 / partial-scan semantics: any unreadable file inside the
     // selected project's scope is fatal — the lookup could miss the home.
+    // §FS-workspace.8.7: rendered against the run's config, not the target
+    // project's — the same spelling `check` uses for the same tree.
     if let Some((file, message)) = project.scan_errors.first() {
         eprintln!(
             "error: {}: {}",
-            display_path(&project.config, file),
+            display_path(context.render_config(), file),
             message
         );
         return ExitCode::from(2);

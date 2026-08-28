@@ -607,4 +607,7 @@ All six surfaces above keep the exit codes they had:
 - `fmt --cross-refs` — unchanged from [§FS-fmt](FS-fmt.md#fs-fmt-grund-normalizes-references-in-bulk).
 
 Paths in every command respect `[output] relative_paths` as `check` already
-does (§5).
+does (§5). That includes the `error: <path>: <reason>` line a per-file scan
+failure earns ([§FS-check.2](FS-check.md#2-outputs)): it is spelled from the run's base — the workspace root
+in workspace mode — the same line `check` prints for the same tree, whichever
+command met the failure first.
