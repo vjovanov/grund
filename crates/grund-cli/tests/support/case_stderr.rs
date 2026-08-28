@@ -1,5 +1,5 @@
 // The stderr-conciseness half of the case runner: judging a non-zero case's
-// `expected.stderr` against the shape §FS-errors.5 promises rather than
+// `expected.stderr` against the shape the JSON format promises rather than
 // against its serialized length. Split out of `case_runner.rs` along the same
 // seam as `case_symlinks.rs` — included into the same module, so both halves
 // share `case_name` and the manifest readers.
