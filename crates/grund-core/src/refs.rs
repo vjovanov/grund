@@ -340,10 +340,9 @@ fn command_refs(args: &[String]) -> ExitCode {
     if !had_scan_errors {
         ExitCode::SUCCESS
     } else {
-        // Partial-scan semantics (§FS-refs.4 / §FS-check.2): the listed citations
-        // are real but the view of the tree was incomplete.
-        // §FS-workspace.8.7: rendered against the run's config, like the hit
-        // rows above via `render_path`, not the scanning project's.
+        // Partial-scan semantics (§FS-refs.4 / §FS-check.2): citations are real but
+        // the view was incomplete. §FS-workspace.8.7: rendered against the run's
+        // config, like the hit rows above via `render_path`, not the scanning project's.
         for project in &context.projects {
             for (file, message) in &project.scan_errors {
                 eprintln!(

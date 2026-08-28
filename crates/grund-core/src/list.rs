@@ -455,10 +455,9 @@ fn command_list(args: &[String]) -> ExitCode {
     if !had_scan_errors {
         ExitCode::SUCCESS
     } else {
-        // Partial-scan semantics (§FS-check.2): the listed declarations are real
-        // but the view of the tree was incomplete, so the catalog may be short.
-        // §FS-workspace.8.7: rendered against the run's config, like the rows
-        // above, not the scanning project's — the same spelling `check` uses.
+        // Partial-scan semantics (§FS-check.2): the catalog may be short but is real.
+        // §FS-workspace.8.7: rendered against the run's config, like the rows above,
+        // not the scanning project's — the same spelling `check` uses.
         for project in &context.projects {
             for (file, message) in &project.scan_errors {
                 eprintln!("error: {}: {}", display_path(&config, file), message);
