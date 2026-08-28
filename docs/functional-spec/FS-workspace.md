@@ -81,8 +81,11 @@ roots are config errors reported at the `members` line per
 it rather than the root it resolved to — a resolved root renders as nothing when
 it is the block's own and as an absolute path once it leaves the tree. `packages/*` means
 every direct child directory under `packages/`; recursive `**` globs are not
-part of v1. `include_root` defaults to `true`; when false, `grund check` at the
-workspace root checks only member projects.
+part of v1. If the glob parent exists but cannot be read, that is likewise a
+config error at the `members` line: “cannot read workspace member glob
+`packages/*`: `<I/O reason>`”, naming the whole glob as written and preserving
+the filesystem reason. `include_root` defaults to `true`; when false, a
+workspace-root `grund check` checks only member projects.
 
 Each member is a separate project namespace. If a member has its own config —
 either discovery form, `.agents/grund.toml` or a bare `grund.toml`
@@ -235,7 +238,13 @@ Every block must put at
 least one project in scope, so `include_root = false` with no members is a
 config error at that block's `members` line — or at its `[workspace]` line when
 there is no `members` key to point at, since a tree may hold many blocks and the
-error has to say which one is empty.
+error has to say which one is empty. An explicitly empty `members = []` is the
+same no-members case. A non-empty list whose glob entries all match no
+directories is different: at the `members` line it says “the glob
+`packages/*` matched no directories”, naming the first unmatched glob in list
+order when there is more than one. This diagnostic belongs to the empty block,
+not to each empty glob independently: an included root or another member that
+does put a project in scope keeps the block valid.
 
 Members are compared as canonical paths. Two entries in *one* `members` list that
 resolve to the same root are the same member — deduped, not rejected, so a glob

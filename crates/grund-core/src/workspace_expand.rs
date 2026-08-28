@@ -322,14 +322,18 @@ fn member_alias(
 /// The `members` line is the anchor when there is one; the block that reaches this
 /// error with `include_root = false` and *no* `members` key has none, so it falls
 /// back to its own `[workspace]` line. Without the fallback the message carried no
-/// location at all, in a tree that may hold many blocks (§FS-errors.4).
+/// location at all, in a tree that may hold many blocks (§FS-errors.4). A
+/// non-empty list can reach here only when every entry is a glob that matched no
+/// directories; §FS-workspace.6.1 names the first in config order instead of
+/// falsely claiming there were no members.
 fn empty_workspace_error(config: &Config) -> anyhow::Error {
     let source = config
         .workspace_members_source
         .as_ref()
         .or(config.workspace_section_source.as_ref());
-    config_location_error(
-        source,
-        "workspace has no projects in scope (include_root = false and no members)".to_string(),
-    )
+    let message = config.workspace_members.first().map_or_else(
+        || "workspace has no projects in scope (include_root = false and no members)".to_string(),
+        |glob| format!("the glob `{glob}` matched no directories"),
+    );
+    config_location_error(source, message)
 }

@@ -49,9 +49,32 @@ fn expand_workspace_member_list(config: &Config) -> Result<Vec<WorkspaceMember>>
                     format!("workspace member glob parent does not exist: {glob_parent}"),
                 ));
             }
-            for entry in fs::read_dir(&parent)? {
-                let entry = entry?;
-                if !entry.file_type()?.is_dir() {
+            // §FS-workspace.2: reading the directory is part of interpreting
+            // this config entry, so every I/O failure stays at the `members`
+            // line and names the glob as written rather than escaping bare.
+            let entries = fs::read_dir(&parent).map_err(|err| {
+                workspace_members_error(
+                    config,
+                    format!("cannot read workspace member glob `{member}`: {err}"),
+                )
+            })?;
+            for entry in entries {
+                let entry = entry.map_err(|err| {
+                    workspace_members_error(
+                        config,
+                        format!("cannot read workspace member glob `{member}`: {err}"),
+                    )
+                })?;
+                if !entry
+                    .file_type()
+                    .map_err(|err| {
+                        workspace_members_error(
+                            config,
+                            format!("cannot read workspace member glob `{member}`: {err}"),
+                        )
+                    })?
+                    .is_dir()
+                {
                     continue;
                 }
                 let path = entry.path();
