@@ -65,8 +65,11 @@ fn expand_workspace_member_list(config: &Config) -> Result<Vec<WorkspaceMember>>
                         format!("cannot read workspace member glob `{member}`: {err}"),
                     )
                 })?;
-                if !entry
-                    .file_type()
+                let path = entry.path();
+                // §FS-workspace.2: classify the child by its followed metadata, so a
+                // symlink to a directory is a member subject to the same checks below.
+                if !path
+                    .metadata()
                     .map_err(|err| {
                         workspace_members_error(
                             config,
@@ -77,7 +80,6 @@ fn expand_workspace_member_list(config: &Config) -> Result<Vec<WorkspaceMember>>
                 {
                     continue;
                 }
-                let path = entry.path();
                 // §AR-workspace.5.3: `packages/*` skips hidden dirs (`.git`,
                 // `.agents`, ...) — they are never workspace members and are
                 // not valid aliases either.
