@@ -80,8 +80,9 @@ roots are config errors reported at the `members` line per
 [§FS-config.4.3](FS-config.md#43-invalid-config-behavior), and they name the entry as the config wrote
 it rather than the root it resolved to — a resolved root renders as nothing when
 it is the block's own and as an absolute path once it leaves the tree. `packages/*` means
-every direct child directory under `packages/`; recursive `**` globs are not
-part of v1. If the glob parent exists but cannot be read, that is likewise a
+every direct child directory under `packages/`, including a child symlink whose
+target is a directory; the same canonical containment rule applies to that target.
+Recursive `**` globs are not part of v1. If the glob parent exists but cannot be read, that is likewise a
 config error at the `members` line: “cannot read workspace member glob
 `packages/*`: `<I/O reason>`”, naming the whole glob as written and preserving
 the filesystem reason. `include_root` defaults to `true`; when false, a
