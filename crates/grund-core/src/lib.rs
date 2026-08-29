@@ -44,6 +44,7 @@ include!("output.rs");
 include!("show.rs");
 include!("show_render.rs");
 include!("show_body.rs");
+include!("never_rewrite.rs");
 include!("fmt.rs");
 include!("fmt_error.rs");
 include!("fmt_workspace.rs");

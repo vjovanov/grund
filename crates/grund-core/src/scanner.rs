@@ -49,9 +49,11 @@ fn qualified_suppressed_in_source(scan_line: &str, is_md: bool, pos: usize) -> b
 /// The per-file scan (§AR-scanner.2): line by line, find declaration headings
 /// (§AR-scanner.2.1 — in Markdown or in a code/`"""` doc-comment, §AR-scanner.4),
 /// nested section headings (§AR-scanner.2.2), and `<ID>[.<section>]` citations
-/// (§AR-scanner.2.3, §FS-check.1.1) — skipping fenced code blocks and, outside
-/// Markdown, bare ID-shaped tokens inside string literals (§FS-fmt.2.3.1) and any
-/// bare token at all under `[reference] strict` (§FS-config.3.1).
+/// (§AR-scanner.2.3, §FS-check.1.1) — skipping fenced code blocks; outside
+/// Markdown, bare ID-shaped tokens inside string literals (§FS-fmt.2.3.1); in
+/// Markdown, bare ID-shaped tokens inside a link destination (§FS-check.1.1,
+/// §FS-fmt.2.3); and any bare token at all under `[reference] strict`
+/// (§FS-config.3.1).
 ///
 /// One citation regex is used for every scan; whether a match is qualified
 /// (marker + `<alias>/<ID>`) or unqualified (marker + `<ID>`) is determined by
@@ -254,7 +256,7 @@ fn scan_file_text(
             if config.strict && !has_marker {
                 continue;
             }
-            if !is_md && !has_marker && is_inside_string_literal(scan_line, full.start()) {
+            if !has_marker && bare_token_in_never_rewrite_zone(scan_line, is_md, full.start()) {
                 continue;
             }
             let Some(id) = parse_id(&caps) else { continue };

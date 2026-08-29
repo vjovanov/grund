@@ -282,4 +282,66 @@ slug_pattern = "[a-z0-9][a-z0-9-]*"
         let literal_link = section_anchor_text("### 4.2 `[a](b)`", "4.2");
         assert_eq!(anchor_slug_github(&literal_link), "42-ab");
     }
+
+    /// §FS-check.1.1 / grund#131: a bare ID-shaped token inside a Markdown link
+    /// destination is not a citation off strict mode — not the extended one a
+    /// declaration's own home file name introduces (`FS-001-login-a.md` for
+    /// `FS-001-login`), and not one that merely repeats a real ID
+    /// (`FS-001-login.md`). The marked link text, the bare prose mention, and
+    /// the standalone marked citation are all still live; under `strict = true`
+    /// only the two marked ones are.
+    #[test]
+    fn bare_token_in_markdown_link_destination_is_not_a_citation() {
+        let root = test_root("bare_token_in_markdown_link_destination_is_not_a_citation");
+        let path = root.join("docs/functional-spec/FS-001-login.md");
+        write(
+            &path,
+            concat!(
+                "[§FS-001-login](FS-001-login-a.md#fs-001-login-user-login)\n",
+                "[login spec](FS-001-login.md)\n",
+                "FS-001-login\n",
+                "§FS-001-login\n",
+            ),
+        );
+        let mut config = numbered_config(root.clone());
+        config.strict = false;
+        let (findings, _) = scan_tree(&config, Some(&path), true).expect("scan Markdown file");
+
+        assert!(
+            findings
+                .citations
+                .iter()
+                .all(|cite| cite.id.slug.as_deref() != Some("login-a")),
+            "the ID-extending file name must not become a citation of its own: {:?}",
+            findings.citations
+        );
+        let sites: Vec<(usize, bool)> = findings
+            .citations
+            .iter()
+            .map(|cite| (cite.line, cite.has_marker))
+            .collect();
+        assert_eq!(
+            sites,
+            vec![(1, true), (3, false), (4, true)],
+            "only the marked link text, the bare prose token, and the standalone \
+             marker survive — nothing from either link destination: {:?}",
+            findings.citations
+        );
+
+        config.strict = true;
+        let (strict_findings, _) =
+            scan_tree(&config, Some(&path), true).expect("scan Markdown file under strict mode");
+        let strict_sites: Vec<(usize, bool)> = strict_findings
+            .citations
+            .iter()
+            .map(|cite| (cite.line, cite.has_marker))
+            .collect();
+        assert_eq!(
+            strict_sites,
+            vec![(1, true), (4, true)],
+            "strict mode drops the bare prose token and never recognized either \
+             link destination to begin with: {:?}",
+            strict_findings.citations
+        );
+    }
 }

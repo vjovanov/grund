@@ -22,7 +22,7 @@ The categories are:
 - **init** — scaffold/template rendering, agent-entrypoint selection ([§FS-init.2.1](../functional-spec/FS-init.md#21-files-written-updated-or-left-in-place): which entrypoints a repository has, and which of them one run writes, appends to, or updates), and managed agent-entrypoint updates.
 - **completions** — shell completion scripts and dynamic completion helpers.
 - **api** — public embedding API that runs the engine without CLI argument parsing or stdout/stderr rendering.
-- **grammar** — the ID grammar and the lexical helpers the scanner, checker and formatter share: fenced-block, comment-line, and comment-block recognition — which marker opens a block, where it ends, and whether it is a doc comment or an inline comment — number-only shorthand, and the inline-note layout rules.
+- **grammar** — the ID grammar and the lexical helpers the scanner, checker and formatter share: fenced-block, comment-line, and comment-block recognition — which marker opens a block, where it ends, and whether it is a doc comment or an inline comment — number-only shorthand, the inline-note layout rules, and the never-rewrite context predicates ([§FS-fmt.2.3](../functional-spec/FS-fmt.md#23-what-is-never-rewritten)) shared by the scanner, `fmt`, and the LSP on-type path.
 - **workspace** — `[workspace]` expansion, member claims, scope narrowing, and the multi-project scan context.
 - **integrations** — the clickable-citation client artifacts and their managed writes.
 - **lsp** — the snapshot-backed hover and on-type helpers `grund-lsp` calls, kept here so the server stays a transport.
@@ -46,7 +46,7 @@ A file belongs to the category whose prefix its name carries — `scanner_walk.r
 | **init** | `init` |
 | **completions** | `completions` |
 | **api** | `api` |
-| **grammar** | `grammar`, `markdown_fence`, `comment_line`, `comment_block`, `shorthand`, `inline_note_layout` |
+| **grammar** | `grammar`, `markdown_fence`, `comment_line`, `comment_block`, `shorthand`, `inline_note_layout`, `never_rewrite` |
 | **workspace** | `workspace` |
 | **integrations** | `integrations` |
 | **lsp** | `lsp`, `on_type` |

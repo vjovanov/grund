@@ -45,6 +45,14 @@ fn stdout(output: &Output) -> String {
 /// (§FS-config.3.1): off strict mode a bare token is a citation, which is where
 /// `check` and `fmt` have the most room to disagree.
 fn build_fixture(name: &str, strict: bool, index_body: &str) -> PathBuf {
+    build_fixture_with_home(name, strict, index_body, "FS-001-login.md")
+}
+
+/// Same as [`build_fixture`], but the declaration's home file name is given
+/// explicitly rather than assumed to match the ID — the grund#131 shape needs a
+/// name that *extends* the ID (`FS-001-login-a.md`) so the link `fmt` writes
+/// puts an ID-shaped token in its own destination.
+fn build_fixture_with_home(name: &str, strict: bool, index_body: &str, home: &str) -> PathBuf {
     let dir = manifest_dir().join("target/index-round-trip").join(name);
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(dir.join("docs/specs")).expect("create specs dir");
@@ -60,10 +68,10 @@ fn build_fixture(name: &str, strict: bool, index_body: &str) -> PathBuf {
     )
     .expect("write grund.toml");
     fs::write(
-        dir.join("docs/specs/FS-001-login.md"),
+        dir.join("docs/specs").join(home),
         "# FS-001-login: a user logs in\n\nLead.\n\n## 1. Behaviour\n\nText.\n",
     )
-    .expect("write FS-001-login.md");
+    .expect("write declaration");
     fs::write(dir.join("docs/specs/README.md"), index_body).expect("write README.md");
     dir
 }
@@ -156,6 +164,49 @@ fn fmt_write_clears_a_marked_bare_entry_off_strict_mode() {
         "# Specs\n\n- §FS-001-login — a user logs in\n",
     );
     assert_round_trip(&dir, "marked bare entry, strict = false");
+}
+
+/// grund#131: a declaration whose home file name extends its own ID
+/// (`FS-001-login` homed in `FS-001-login-a.md`). Off strict mode, the token
+/// `fmt --cross-refs` writes into the link destination (`FS-001-login-a`) must
+/// not become a citation of its own — the round trip has to clear the unlinked
+/// entry without leaving behind a new `unknown reference` (§FS-check.1.1).
+#[test]
+fn fmt_write_clears_a_bare_entry_whose_home_extends_the_id() {
+    let dir = build_fixture_with_home(
+        "bare_entry_home_extends_id",
+        false,
+        "# Specs\n\n- §FS-001-login — a user logs in\n",
+        "FS-001-login-a.md",
+    );
+
+    let before = run_grund(&["check", "."], &dir);
+    assert!(
+        has_unlinked_entry(&before),
+        "expected an unlinked-index-entry error to start from, got: {}",
+        stdout(&before)
+    );
+
+    let fmt = run_grund(&["fmt", "--write", "."], &dir);
+    assert_eq!(fmt.status.code(), Some(0), "fmt failed");
+    assert!(
+        !stdout(&fmt).contains("rewrote 0 references"),
+        "`check` named `grund fmt --write` as the fix and it wrote nothing: {}",
+        stdout(&fmt)
+    );
+
+    let after = run_grund(&["check", "."], &dir);
+    assert_eq!(
+        after.status.code(),
+        Some(0),
+        "the token `fmt` just wrote into the link destination must not dangle: {}",
+        stdout(&after)
+    );
+    assert!(
+        !stdout(&after).contains("unknown reference"),
+        "the token `fmt` just wrote into the link destination must not dangle: {}",
+        stdout(&after)
+    );
 }
 
 /// A marked citation of a section that exists. `fmt` computes the section's
