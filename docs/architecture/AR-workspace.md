@@ -399,6 +399,7 @@ outlive what it cites:
 | Same local ID in two members is not a duplicate  | `tests/e2e/cases/workspace-same-id-different-projects` |
 | Single-project repo flags stray `<§>alias/<ID>`  | `tests/e2e/cases/cross-project-citation-without-workspace` |
 | `config show` round-trips `[workspace]`          | `tests/e2e/cases/config-show-workspace-roundtrip` |
+| `config validate` at a workspace root loads every member config; a member config that does not load, or a `members` list that cannot expand, fails it with exit 1 | `tests/e2e/cases/config-validate-workspace-broken-member`; `tests/e2e/cases/config-validate-workspace-missing-member`; `tests/e2e/cases/config-validate-workspace-ok`; `validate_config_at_a_workspace_root_fails_on_a_broken_member` (`crates/grund-core/src/tests_api.rs`) |
 | `check --format json` shape in a workspace       | `tests/e2e/cases/workspace-check-json` |
 | `list` / `refs` / `fmt` skip qualified citations  | `tests/e2e/cases/list-ignore-qualified-project-local`; `tests/e2e/cases/refs-ignore-qualified-project-local`; `tests/e2e/cases/fmt-cross-refs-ignore-qualified-project-local` |
 | `cover` counts a qualified citation, workspace or not | `tests/e2e/cases/cover-counts-qualified-project-local`; `tests/e2e/cases/workspace-cover-text` |

@@ -466,13 +466,20 @@ pub fn effective_config(path: &Path) -> Result<Config> {
 }
 
 /// Validate config discovery/parsing for a path without printing CLI output
-/// (§FS-config.4.1). Discovery *is* the validation — a config that loads is a
-/// config that is valid — so this is [`effective_config`] under the name of the
-/// question `grund config validate` asks, and delegates rather than repeating
-/// it. Returns the loaded config so a caller can also report the non-fatal
-/// findings [`config_warnings`] carries.
+/// (§FS-config.4.1). Discovery *is* the validation for one project — a config
+/// that loads is a config that is valid. At a workspace root the config the
+/// run loads includes every member's, so validation loads them too
+/// (§FS-config.4.1.1): every member config the run would load, and the
+/// `members` list itself, is validated here exactly as `expand_workspace_tree`
+/// validates it for `grund check` — no tree scan. Returns the resolved config
+/// so a caller can also report the non-fatal findings [`config_warnings`]
+/// carries.
 pub fn validate_config(path: &Path) -> Result<Config> {
-    effective_config(path)
+    let mut config = resolve_workspace_config(path)?;
+    if config.workspace_declared {
+        expand_workspace_tree(&mut config)?;
+    }
+    Ok(config)
 }
 
 /// The CLI-level `warning:` texts a loaded config carries — today only the

@@ -1,0 +1,1 @@
+error: apps/api/.agents/grund.toml:6: [id].slug_pattern must not match `/` (expected a pattern that cannot produce one — it separates the alias path from the ID)

@@ -53,7 +53,7 @@ fn command_config(args: &[String]) -> ExitCode {
     let path = path.unwrap_or_else(|| ".".into());
 
     match action {
-        "validate" => match load_config(&path) {
+        "validate" => match validate_config(&path) {
             Ok(config) => {
                 print_config_warnings(&config);
                 ExitCode::SUCCESS

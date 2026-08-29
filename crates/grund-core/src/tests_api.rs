@@ -476,6 +476,36 @@ file = "specs/requirements.md"
         }
     }
 
+    /// §FS-config.4.1.1: at a workspace root, `validate_config` loads every
+    /// member config the run would load — the same public API a binding or
+    /// `grund-lsp` would call, so its `Err` must name the broken member.
+    #[test]
+    fn validate_config_at_a_workspace_root_fails_on_a_broken_member() {
+        let root = test_root("validate_config_at_a_workspace_root_fails_on_a_broken_member");
+        write(
+            &root.join(".agents/grund.toml"),
+            "grund_config_version = 1\nproject_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
+        );
+        write(
+            &root.join("apps/api/.agents/grund.toml"),
+            "grund_config_version = 1\nproject_name = \"api\"\n\n[id]\nformat = \"{kind}-{slug}\"\nslug_pattern = \"[^.[:space:]]+\"\n",
+        );
+
+        let Err(err) = validate_config(&root) else {
+            panic!("a workspace root with a broken member config must fail validation");
+        };
+
+        let message = format!("{err:#}");
+        assert!(
+            message.starts_with("apps/api/.agents/grund.toml:"),
+            "the error must name the member config that failed to load: {message}"
+        );
+        assert!(
+            message.contains("[id].slug_pattern must not match `/`"),
+            "the error must carry the member's own diagnosis: {message}"
+        );
+    }
+
     #[test]
     fn deprecated_main_entry_symbol_remains_available_for_0_4_consumers() {
         #[allow(deprecated)]
