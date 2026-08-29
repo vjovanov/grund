@@ -188,9 +188,11 @@ match = "exact"
 rules = ["core-source"]
 kind = "deferred"
 until = "the renderers stop changing with the query"
-max_accepted = { value = 399, unit = "lines" }
+max_accepted = { value = 409, unit = "lines" }
 reason = """
-The declaration catalog query and its renderers, 47 lines over budget (18 before `--unused` learned to discount a kind's own index entries, §DF-index-not-an-inbound-citation, and 30 before that discount stopped being written twice). They change together — every field the query learns to select is a field the output shapes have to show — so splitting now produces two files that are always opened as a pair. What retires this is that coupling ending, not the file growing.
+The declaration catalog query and its renderers, 57 lines over budget (18 before `--unused` learned to discount a kind's own index entries, §DF-index-not-an-inbound-citation, 30 before that discount stopped being written twice, and 47 before the `--summary` fix below). They change together — every field the query learns to select is a field the output shapes have to show — so splitting now produces two files that are always opened as a pair. What retires this is that coupling ending, not the file growing.
+
+The last +10 is `--summary` learning to sort its rows by alias and size the alias column to the widest one emitted, mirroring the same fix in `api.rs` so the deprecated path cannot re-diverge from the live one on the same bug (§FS-workspace.8.3, issue #68).
 
 The last +2 is the `--kind` selector learning to tell a typo from a configured kind that declares no IDs (§FS-config.3.4.1) — one more arm on the check that was already there, in the query half rather than the renderers.
 

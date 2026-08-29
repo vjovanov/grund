@@ -94,6 +94,15 @@ fn command_list(args: &[String]) -> ExitCode {
 }
 
 fn render_list_summary(summaries: &[grund_core::ListSummary], workspace: bool, format: &str) {
+    // §FS-workspace.8.3: the alias column is sized to the widest alias among
+    // the rows being rendered, capped like `render_list_text`'s `id_width`.
+    let alias_width = summaries
+        .iter()
+        .filter_map(|summary| summary.project.as_deref())
+        .map(|project| project.chars().count())
+        .max()
+        .unwrap_or(0)
+        .min(40);
     for summary in summaries {
         if workspace {
             let project = summary.project.as_deref().unwrap_or("");
@@ -108,8 +117,8 @@ fn render_list_summary(summaries: &[grund_core::ListSummary], workspace: bool, f
                 );
             } else {
                 println!(
-                    "{:<10}  {:<4}  {:>3}  {}",
-                    project, summary.kind, summary.count, summary.home
+                    "{project:<alias_width$}  {:<4}  {:>3}  {}",
+                    summary.kind, summary.count, summary.home
                 );
             }
         } else if format == "json" {
