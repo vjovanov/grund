@@ -105,11 +105,11 @@ mod tests_grounding_style {
             .collect::<Vec<_>>();
 
         assert!(
-            messages.contains(&"inline note exceeds 1-line maximum"),
+            messages.contains(&"inline note is 2 lines, over the 1-line maximum"),
             "line cap should be reported: {messages:?}"
         );
         assert!(
-            messages.contains(&"inline note exceeds 40-column maximum"),
+            messages.contains(&"inline note is 64 columns, over the 40-column maximum"),
             "column cap should be reported: {messages:?}"
         );
     }
@@ -203,7 +203,8 @@ mod tests_grounding_style {
             vec![(
                 Some(4),
                 format!(
-                    "inline note exceeds {}-column maximum",
+                    "inline note is {} columns, over the {}-column maximum",
+                    at_cap.chars().count() + 1,
                     at_cap.chars().count()
                 )
             )],
@@ -233,7 +234,7 @@ mod tests_grounding_style {
                 .warnings
                 .iter()
                 .any(|warning| warning.code == "inline-citation-style"
-                    && warning.message == "inline note exceeds 1-line preferred limit"),
+                    && warning.message == "inline note is 2 lines, over the 1-line preferred limit"),
             "soft-cap overrun should be a warning when enabled"
         );
         assert!(

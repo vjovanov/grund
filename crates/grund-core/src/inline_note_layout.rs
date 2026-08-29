@@ -353,8 +353,10 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         path: Some(cite.file.clone()),
                         line: Some(site.first_line),
                         column: None,
+                        // §FS-inline-citation-style.4.1: names the measured size
                         message: format!(
-                            "inline note exceeds {}-line maximum",
+                            "inline note is {lines} line{}, over the {}-line maximum",
+                            plural(lines),
                             config.inline_note_max_lines
                         ),
                         sites: Vec::new(),
@@ -366,8 +368,11 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         path: Some(cite.file.clone()),
                         line: Some(site.first_line),
                         column: None,
+                        // §FS-inline-citation-style.4.1: names the measured size
                         message: format!(
-                            "inline note exceeds {}-column maximum",
+                            "inline note is {} column{}, over the {}-column maximum",
+                            site.max_columns,
+                            plural(site.max_columns),
                             config.inline_note_max_columns
                         ),
                         sites: Vec::new(),
@@ -382,8 +387,10 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         path: Some(cite.file.clone()),
                         line: Some(site.first_line),
                         column: None,
+                        // §FS-inline-citation-style.4.2: names the measured size
                         message: format!(
-                            "inline note exceeds {}-line preferred limit",
+                            "inline note is {lines} line{}, over the {}-line preferred limit",
+                            plural(lines),
                             config.inline_note_suggested_lines
                         ),
                         sites: Vec::new(),

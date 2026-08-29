@@ -1,2 +1,2 @@
-src/app.go:13: inline note exceeds 3-line maximum
-src/app.go:23: inline note exceeds 3-line maximum
+src/app.go:13: inline note is 4 lines, over the 3-line maximum
+src/app.go:23: inline note is 4 lines, over the 3-line maximum

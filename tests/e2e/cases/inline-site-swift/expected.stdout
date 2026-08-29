@@ -1,2 +1,2 @@
-src/App.swift:16: inline note exceeds 3-line maximum
-src/App.swift:26: inline note exceeds 3-line maximum
+src/App.swift:16: inline note is 4 lines, over the 3-line maximum
+src/App.swift:26: inline note is 4 lines, over the 3-line maximum
