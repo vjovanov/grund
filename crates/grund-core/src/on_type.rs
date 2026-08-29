@@ -19,6 +19,7 @@ pub fn can_replace_trigger_at(
     let config = resolve_workspace_config(path)?;
     Ok(can_replace_trigger_with_config(
         &config,
+        DocstringContent::default(),
         path,
         line,
         trigger_start,
@@ -26,8 +27,14 @@ pub fn can_replace_trigger_at(
     ))
 }
 
+/// `docstring` is where this line's Python docstring content sits
+/// (§FS-fmt.2.3.1). One line cannot say — only a walk from the top of the document
+/// can — so the single-line `can_replace_trigger_at` above passes the empty view
+/// and reads a `"""` as the quote it looks like; `on_type_line_edits`, which is
+/// handed the document, passes the real one and agrees with `grund fmt`.
 fn can_replace_trigger_with_config(
     config: &Config,
+    docstring: DocstringContent<'_>,
     path: &Path,
     line: &str,
     trigger_start: usize,
@@ -46,7 +53,7 @@ fn can_replace_trigger_with_config(
         !is_inside_inline_code(line, trigger_start)
             && !is_inside_markdown_link_destination(line, trigger_start)
     } else {
-        !is_inside_string_literal(line, trigger_start)
+        !string_literal_in(docstring, line, trigger_start)
     }
 }
 
@@ -95,14 +102,45 @@ pub fn on_type_line_edits(
         return Ok(Vec::new());
     };
     let cursor = cursor_byte.min(line.len());
-    if let Some(edit) = trigger_marker_edit(&config, path, line, cursor) {
+    let is_py = path.extension().and_then(|ext| ext.to_str()) == Some("py");
+    if let Some(edit) = trigger_marker_edit(&config, path, text, line_index, is_py, line, cursor) {
         return Ok(vec![edit]);
     }
-    Ok(
-        shorthand_expansion_edit(&config, path, text, line_index, line, cursor, declarations)
-            .into_iter()
-            .collect(),
+    Ok(shorthand_expansion_edit(
+        &config,
+        path,
+        text,
+        line_index,
+        is_py,
+        line,
+        cursor,
+        declarations,
     )
+    .into_iter()
+    .collect())
+}
+
+/// Where the edited line's Python docstring content sits (§FS-fmt.2.3.1). Only a
+/// walk from the top of the document can say whether a line is inside a docstring,
+/// so this is the same shape as `line_is_rewritable`'s walk and is called for the
+/// same reason — and it is called only once a rewrite is already in prospect, so an
+/// ordinary keystroke pays nothing (§GOAL-fast-feedback). Every document that is
+/// not a scanned `.py` returns the empty view without walking at all.
+fn docstring_content_at<'a>(
+    config: &Config,
+    text: &'a str,
+    line_index: usize,
+    is_py: bool,
+) -> DocstringContent<'a> {
+    let mut docstrings = DocstringCursor::new(is_py, config.docstring_python);
+    let mut content = DocstringContent::default();
+    for (index, line) in text.lines().enumerate() {
+        content = docstrings.advance(line);
+        if index == line_index {
+            break;
+        }
+    }
+    content
 }
 
 /// Whether `grund fmt` would rewrite anything on this line at all — the two
@@ -114,8 +152,17 @@ pub fn on_type_line_edits(
 /// this: it is the one that edits text the author did not just type, so a live
 /// transform that ignored these would silently rewrite an illustration inside a
 /// fence, or a citation in the title of a declaration.
-fn line_is_rewritable(config: &Config, text: &str, line_index: usize, is_md: bool) -> bool {
+fn line_is_rewritable(
+    config: &Config,
+    text: &str,
+    line_index: usize,
+    is_md: bool,
+    is_py: bool,
+) -> bool {
     let mut markdown_fence = None;
+    // §FS-fmt.2.3.1: `rewrite_file` reads a docstring line's content when it asks
+    // whether the line is a declaration heading, so this walk does too.
+    let mut docstrings = DocstringCursor::new(is_py, config.docstring_python);
     for (index, line) in text.lines().enumerate() {
         if is_md && markdown_fence_delimiter(&mut markdown_fence, line) {
             if index == line_index {
@@ -123,9 +170,16 @@ fn line_is_rewritable(config: &Config, text: &str, line_index: usize, is_md: boo
             }
             continue;
         }
+        let docstring = docstrings.advance(line);
         if index == line_index {
             return markdown_fence.is_none()
-                && declaration_captures(&config.grammar, line, false, is_md).is_none();
+                && declaration_captures(
+                    &config.grammar,
+                    docstring.text_of(line),
+                    docstring.is_docstring(),
+                    is_md,
+                )
+                .is_none();
         }
     }
     false
@@ -175,17 +229,26 @@ fn declarations_under_root<'a>(declarations: &[DeclaredId<'a>], root: &Path) -> 
 
 /// The `$$` → `§` conversion for the trigger immediately before `cursor`, when the
 /// text between it and the cursor is a whole ID-shaped token (§FS-fmt.2.1).
+#[allow(clippy::too_many_arguments)]
 fn trigger_marker_edit(
     config: &Config,
     path: &Path,
+    text: &str,
+    line_index: usize,
+    is_py: bool,
     line: &str,
     cursor: usize,
 ) -> Option<LineEdit> {
     let trigger_start = line[..cursor].rfind(&config.trigger)?;
     let token_start = trigger_start + config.trigger.len();
     let token = &line[token_start..cursor];
-    if token.is_empty() || !can_replace_trigger_with_config(config, path, line, trigger_start, token)
-    {
+    if token.is_empty() {
+        return None;
+    }
+    // §FS-fmt.2.3.1: the docstring walk runs only here, past the two tests that
+    // reject every ordinary keystroke (§GOAL-fast-feedback).
+    let docstring = docstring_content_at(config, text, line_index, is_py);
+    if !can_replace_trigger_with_config(config, docstring, path, line, trigger_start, token) {
         return None;
     }
     Some(LineEdit {
@@ -212,6 +275,7 @@ fn shorthand_expansion_edit(
     path: &Path,
     text: &str,
     line_index: usize,
+    is_py: bool,
     line: &str,
     cursor: usize,
     declarations: &[DeclaredId<'_>],
@@ -231,8 +295,9 @@ fn shorthand_expansion_edit(
     // §FS-fmt.2.3: the contexts the bulk pass refuses are the contexts the live
     // transform refuses, so a citation illustrated in inline code stays as typed.
     let is_md = path.extension().and_then(|ext| ext.to_str()) == Some("md");
-    if never_rewrite_context(line, is_md, marker_start)
-        || !line_is_rewritable(config, text, line_index, is_md)
+    let docstring = docstring_content_at(config, text, line_index, is_py);
+    if never_rewrite_context_in(docstring, line, is_md, marker_start)
+        || !line_is_rewritable(config, text, line_index, is_md, is_py)
     {
         return None;
     }

@@ -28,6 +28,7 @@ mod tests_shorthand_rewrite {
             let mut saw_candidate = false;
             expand_shorthand_citations(
                 line,
+                DocstringContent::default(),
                 &config,
                 is_md,
                 &ShorthandTargets::new(Some(&findings), None),
@@ -75,6 +76,7 @@ mod tests_shorthand_rewrite {
             let mut saw_candidate = false;
             expand_shorthand_citations(
                 line,
+                DocstringContent::default(),
                 &config,
                 is_md,
                 &ShorthandTargets::new(Some(&findings), None),
@@ -131,6 +133,7 @@ mod tests_shorthand_rewrite {
         let mut saw_candidate = false;
         expand_shorthand_citations(
             "See §FS-042.1 and §FS-043.",
+            DocstringContent::default(),
             &config,
             true,
             &ShorthandTargets::new(Some(&findings), None),
@@ -205,6 +208,7 @@ mod tests_shorthand_rewrite {
 
         let (line, label) = fmt_line(
             "Typed $$FS-042 here.",
+            DocstringCursor::default(),
             &root.join("docs/notes.md"),
             &config,
             true,
@@ -226,6 +230,7 @@ mod tests_shorthand_rewrite {
 
         let (line, label) = fmt_line(
             "Persisted §FS-042 here.",
+            DocstringCursor::default(),
             &root.join("docs/notes.md"),
             &config,
             true,

@@ -97,6 +97,7 @@ include!("tests_scanner_walk.rs");
 include!("tests_scanner_walk_errors.rs");
 include!("tests_shorthand.rs");
 include!("tests_shorthand_rewrite.rs");
+include!("tests_shorthand_docstring.rs");
 include!("tests_shorthand_surfaces.rs");
 include!("tests_shorthand_numeric_run.rs");
 include!("tests_fmt_workspace.rs");

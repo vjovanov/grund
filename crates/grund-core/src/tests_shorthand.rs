@@ -263,14 +263,16 @@ mod tests_shorthand {
         );
     }
 
-    /// §FS-check.3.13 / §FS-fmt.2.3: the "may `fmt` rewrite this?" question has to
-    /// be asked of the text `fmt` will see. A Python docstring's opening line is
-    /// where the two texts differ — the scanner works on the interior with the
-    /// quotes stripped, `fmt` on the raw line where `"""` opens a string literal —
-    /// so asking the scanner's view reports an error `fmt --write` never clears.
+    /// §FS-check.3.13 / §FS-fmt.2.3.1: the "may `fmt` rewrite this?" question has
+    /// to be asked of the text `fmt` will see, and inside a Python docstring that
+    /// text is the interior with the delimiters stripped — on both sides. The
+    /// opening line is where the raw line and the scanned line differ, so it is
+    /// where a rule read off the raw line gave one docstring two verdicts: the
+    /// `"""` opened a string literal there and nothing on the line below it. Both
+    /// lines are documentation, so both are rewritable and both are reported.
     #[test]
-    fn rewritability_is_judged_on_the_raw_line_not_the_scanned_one() {
-        let root = test_root("rewritability_is_judged_on_the_raw_line_not_the_scanned_one");
+    fn a_docstring_delimiter_is_not_a_quote_for_rewritability() {
+        let root = test_root("a_docstring_delimiter_is_not_a_quote_for_rewritability");
         write(
             &root.join("docs/functional-spec/FS-042-user-login.md"),
             "# FS-042-user-login: User login\n\nLead.\n",
@@ -287,7 +289,7 @@ mod tests_shorthand {
         config.docstring_python = true;
         let (findings, report) = check_tree(&config, &root);
 
-        // Both are citations; only the interior one is a site `fmt` can rewrite.
+        // Both are citations, and both are sites `fmt` can rewrite.
         let mut sites: Vec<(String, bool)> = findings
             .citations
             .iter()
@@ -304,13 +306,16 @@ mod tests_shorthand {
             sites,
             vec![
                 ("interior.py".to_string(), true),
-                ("opening.py".to_string(), false),
+                ("opening.py".to_string(), true),
             ]
         );
-        // …so exactly the rewritable one is reported.
+        // …so both are reported, with one message each.
         assert_eq!(
             messages(&report),
-            vec!["shorthand citation §FS-042; write §FS-042-user-login"]
+            vec![
+                "shorthand citation §FS-042; write §FS-042-user-login",
+                "shorthand citation §FS-042; write §FS-042-user-login",
+            ]
         );
     }
 
