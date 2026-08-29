@@ -164,7 +164,7 @@ fn command_fmt(args: &[String]) -> ExitCode {
                     refused_writes.append(&mut walked.refused_writes);
                 }
                 Err(err) => {
-                    eprintln!("error: {err:#}");
+                    print_fmt_error(&err);
                     return ExitCode::from(2);
                 }
             }
@@ -202,7 +202,7 @@ fn command_fmt(args: &[String]) -> ExitCode {
                 refused_writes = walked.refused_writes;
             }
             Err(err) => {
-                eprintln!("error: {err:#}");
+                print_fmt_error(&err);
                 return ExitCode::from(2);
             }
         }
@@ -245,5 +245,21 @@ fn command_fmt(args: &[String]) -> ExitCode {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
+    }
+}
+
+/// Render the compatibility CLI's fatal formatter error. Strict scan aborts
+/// stay structured through the API boundary, so each path gets its own CLI
+/// prefix and the same unmistakable refusal as the published CLI (§FS-fmt.3).
+fn print_fmt_error(err: &anyhow::Error) {
+    if let Some(abort) = err.downcast_ref::<FmtScanAbort>() {
+        for error in &abort.scan_errors {
+            eprintln!(
+                "error: nothing was rewritten: {}: {}",
+                error.path, error.message
+            );
+        }
+    } else {
+        eprintln!("error: {err:#}");
     }
 }

@@ -41,7 +41,18 @@ fn command_fmt(args: &[String]) -> ExitCode {
     }) {
         Ok(output) => output,
         Err(err) => {
-            eprintln!("error: {err:#}");
+            if let Some(abort) = err.downcast_ref::<FmtScanAbort>() {
+                // §FS-fmt.3: the engine keeps strict scan failures structured;
+                // this frontend owns the prefix on every complete refusal line.
+                for error in &abort.scan_errors {
+                    eprintln!(
+                        "error: nothing was rewritten: {}: {}",
+                        error.path, error.message
+                    );
+                }
+            } else {
+                eprintln!("error: {err:#}");
+            }
             return ExitCode::from(2);
         }
     };
