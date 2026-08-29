@@ -1,0 +1,6 @@
+grund_config_version = 1
+project_name = "api"
+
+[id]
+format = "{kind}-{slug}"
+slug_pattern = "[^.[:space:]]+"
