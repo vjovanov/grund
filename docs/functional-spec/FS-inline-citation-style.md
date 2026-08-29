@@ -231,7 +231,7 @@ Findings are reported using the located-finding shape of [§FS-errors.2.1](FS-er
 Each of the following is an error and contributes to a non-zero exit code, per [§FS-check.2](FS-check.md#2-outputs):
 
 | condition                                               | result                                                        |
-|----------------------------------------------------------|--------------------------------------------------------------|
+|---------------------------------------------------------|--------------------------------------------------------------|
 | `inline_style = "citation-only"` and a note is present  | error: `inline citation must carry no prose`                 |
 | `lines > inline_note_max_lines`                         | error: `inline note is M lines, over the N-line maximum`     |
 | `max(columns) > inline_note_max_columns`                | error: `inline note is M columns, over the N-column maximum` |
