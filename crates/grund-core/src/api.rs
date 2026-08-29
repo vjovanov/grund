@@ -1610,7 +1610,12 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
                 .entry((entry.project_alias.to_string(), entry.id.kind.clone()))
                 .or_insert(0) += 1;
         }
-        for project in &context.projects {
+        // §FS-workspace.8.3: rows sorted by alias — the same byte-wise `str`
+        // order the catalog above sorts `entries` by — then by that
+        // project's configured kind order.
+        let mut projects: Vec<&WorkspaceProject> = context.projects.iter().collect();
+        projects.sort_by(|a, b| a.alias.cmp(&b.alias));
+        for project in projects {
             if !opts.project_filter.is_empty() && !opts.project_filter.contains(&project.alias) {
                 continue;
             }

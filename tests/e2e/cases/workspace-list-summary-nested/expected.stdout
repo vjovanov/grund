@@ -1,0 +1,4 @@
+final             FS      1  docs/functional-spec
+hardware          AR      1  docs/architecture
+hardware/sprayer  FS      1  docs/functional-spec
+root              FS      1  docs/functional-spec

@@ -84,8 +84,9 @@ impl<'a> ListCitationCounts<'a> {
 /// no IDs is refused rather than accepted, because it would silently select
 /// nothing — exactly the empty-catalog-from-a-typo the check exists to prevent.
 ///
-/// Ordering of the workspace summary: project order is `context.projects` order,
-/// which is the root first and then members in member-glob order.
+/// Ordering of the workspace summary (§FS-workspace.8.3): rows sorted by
+/// alias — the same byte-wise `str` order the catalog above sorts `entries`
+/// by — then by that project's configured kind order.
 ///
 /// Why the JSON is one compact object per line: the shipped `grund-open` resolver
 /// and the VS Code extension parse it by substring/regex (`"id":"…"`, `"path":"…"`,
@@ -305,8 +306,8 @@ fn command_list(args: &[String]) -> ExitCode {
 
     if summary {
         if context.workspace_loaded {
-            // §FS-workspace.8.3: per-(project, kind) summary in workspace mode,
-            // in `context.projects` order, kinds inside each project in the
+            // §FS-workspace.8.3: rows sorted by alias — the same byte-wise
+            // `str` order `entries` above sorts by — then kinds in the
             // project's configured `[[kinds]]` order.
             let mut counts: BTreeMap<(String, String), usize> = BTreeMap::new();
             for entry in &entries {
@@ -314,7 +315,10 @@ fn command_list(args: &[String]) -> ExitCode {
                     .entry((entry.project_alias.to_string(), entry.id.kind.clone()))
                     .or_insert(0) += 1;
             }
-            for project in &context.projects {
+            let mut projects: Vec<&WorkspaceProject> = context.projects.iter().collect();
+            projects.sort_by(|a, b| a.alias.cmp(&b.alias));
+            let mut rows: Vec<(&str, &KindConfig, usize)> = Vec::new();
+            for project in &projects {
                 if !project_filter.is_empty() && !project_filter.contains(&project.alias) {
                     continue;
                 }
@@ -323,27 +327,36 @@ fn command_list(args: &[String]) -> ExitCode {
                         .get(&(project.alias.clone(), kind.kind.clone()))
                         .copied()
                         .unwrap_or(0);
-                    if count == 0 {
-                        continue;
+                    if count > 0 {
+                        rows.push((project.alias.as_str(), kind, count));
                     }
-                    if format == "json" {
-                        println!(
-                            "{{\"project\":\"{}\",\"kind\":\"{}\",\"title\":\"{}\",\"home\":\"{}\",\"count\":{}}}",
-                            json_escape(&project.alias),
-                            json_escape(&kind.kind),
-                            json_escape(kind.title.as_deref().unwrap_or("Declaration")),
-                            json_escape(kind.folder.as_deref().unwrap_or("")),
-                            count
-                        );
-                    } else {
-                        println!(
-                            "{:<10}  {:<4}  {:>3}  {}",
-                            project.alias,
-                            kind.kind,
-                            count,
-                            kind.folder.as_deref().unwrap_or("")
-                        );
-                    }
+                }
+            }
+            // §FS-workspace.8.3: the alias column is sized to the widest
+            // alias among the rows emitted, capped like `id_width` below.
+            let alias_width = rows
+                .iter()
+                .map(|(alias, _, _)| alias.chars().count())
+                .max()
+                .unwrap_or(0)
+                .min(40);
+            for (alias, kind, count) in rows {
+                if format == "json" {
+                    println!(
+                        "{{\"project\":\"{}\",\"kind\":\"{}\",\"title\":\"{}\",\"home\":\"{}\",\"count\":{}}}",
+                        json_escape(alias),
+                        json_escape(&kind.kind),
+                        json_escape(kind.title.as_deref().unwrap_or("Declaration")),
+                        json_escape(kind.folder.as_deref().unwrap_or("")),
+                        count
+                    );
+                } else {
+                    println!(
+                        "{alias:<alias_width$}  {:<4}  {:>3}  {}",
+                        kind.kind,
+                        count,
+                        kind.folder.as_deref().unwrap_or("")
+                    );
                 }
             }
         } else {

@@ -441,9 +441,12 @@ Output changes:
   projects.
 
 `grund list --summary` ([§FS-list.3.3](FS-list.md#33---summary)) gains a new variant when a workspace is
-loaded: rows are emitted per `(project, kind)` pair, sorted by alias then by
-configured kind order. `--project <alias>` narrows the summary to that
-project's kinds.
+loaded: rows are emitted per `(project, kind)` pair, sorted by the whole alias
+path — the same order the catalog's `<alias>/<ID>` rows above use — then by
+that project's configured kind order; `--format json` emits in the same
+order. `--project <alias>` narrows the summary to that project's kinds, and
+the alias column is sized to the widest alias among the rows emitted after
+that narrowing, capped the way the ID column is ([§FS-list.3.1](FS-list.md#31---format-text-default)).
 
 `--format json` adds `"project": "<alias>"` to every object and renders `id` in
 the qualified form (`api/FS-login`). The `refs` count is the count under that

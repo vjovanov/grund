@@ -1,0 +1,4 @@
+{"project":"final","kind":"FS","title":"What: behavior, requirements, and constraints","home":"docs/functional-spec","count":1}
+{"project":"hardware","kind":"AR","title":"How: high-level implementation, structure, and design","home":"docs/architecture","count":1}
+{"project":"hardware/sprayer","kind":"FS","title":"What: behavior, requirements, and constraints","home":"docs/functional-spec","count":1}
+{"project":"root","kind":"FS","title":"What: behavior, requirements, and constraints","home":"docs/functional-spec","count":1}
