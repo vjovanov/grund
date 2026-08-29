@@ -123,7 +123,17 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Err(err) => render_show_error(&id_arg, &path, default_invocation, &format, err),
+        Err(err) => {
+            let message = format!("{err:#}");
+            // §FS-errors.5: the ambiguous refusals carry their sites in a typed
+            // carrier the query itself raised; every other query failure downcasts
+            // to `None` and keeps `sites: null`.
+            let sites = err
+                .downcast_ref::<ShowQueryError>()
+                .map(|carrier| carrier.sites.as_slice())
+                .unwrap_or(&[]);
+            render_show_error(&id_arg, &path, default_invocation, &format, &message, sites)
+        }
     }
 }
 
@@ -132,20 +142,20 @@ fn render_show_error(
     path: &Path,
     default_invocation: bool,
     format: &str,
-    err: impl std::fmt::Display,
+    message: &str,
+    sites: &[FindingSite],
 ) -> ExitCode {
-    let message = format!("{err:#}");
     if default_invocation && message.starts_with("unknown project alias") && Path::new(id_arg).exists() {
         eprintln!("invalid ID `{id_arg}`");
         print_id_format_hint(path);
         eprintln!("hint: run `grund check {id_arg}` to validate a path");
         return ExitCode::FAILURE;
     }
-    let query_error_code = show_query_error_code(&message);
+    let query_error_code = show_query_error_code(message);
     if format == "json"
         && let Some(code) = query_error_code
     {
-        print_bare_query_json(code, &message);
+        print_bare_query_json(code, message, sites);
         return ExitCode::FAILURE;
     }
     if query_error_code.is_none() {
@@ -182,11 +192,12 @@ fn render_show_error(
     ExitCode::FAILURE
 }
 
-fn print_bare_query_json(code: &'static str, message: &str) {
+fn print_bare_query_json(code: &'static str, message: &str, sites: &[FindingSite]) {
     eprintln!(
-        "{{\"severity\":\"error\",\"path\":null,\"line\":null,\"code\":\"{}\",\"message\":\"{}\",\"sites\":null}}",
+        "{{\"severity\":\"error\",\"path\":null,\"line\":null,\"code\":\"{}\",\"message\":\"{}\",\"sites\":{}}}",
         code,
-        json_escape(message)
+        json_escape(message),
+        render_finding_sites_json(sites)
     );
 }
 

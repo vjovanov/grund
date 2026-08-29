@@ -85,6 +85,40 @@ mod tests_shorthand_surfaces {
         );
     }
 
+    /// §FS-show.2.2.1 / §FS-errors.5: the shorthand's candidates are IDs, not
+    /// `{path, line}` sites — listing either home under `sites` would tell a
+    /// JSON consumer to delete one of two *correct* declarations — so the
+    /// public `show` query never carries the typed sites carrier for this
+    /// refusal, unlike the two-homes and ambiguous-section refusals.
+    #[test]
+    fn ambiguous_shorthand_query_carries_no_sites() {
+        let root = test_root("ambiguous_shorthand_query_carries_no_sites");
+        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(
+            &root.join("docs/functional-spec/FS-042-user-login.md"),
+            "# FS-042-user-login: User login\n\nLead.\n",
+        );
+        write(
+            &root.join("docs/functional-spec/FS-042-user-logout.md"),
+            "# FS-042-user-logout: User logout\n\nLead.\n",
+        );
+
+        let Err(err) = show(
+            "FS-042",
+            ShowOpts {
+                path: root,
+                format: ShowFormat::Json,
+                ..ShowOpts::default()
+            },
+        ) else {
+            panic!("§FS-show.2.2.1: an ambiguous shorthand argument must refuse");
+        };
+        assert!(
+            err.downcast_ref::<ShowQueryError>().is_none(),
+            "the shorthand refusal must stay a plain message, not the sites carrier"
+        );
+    }
+
     /// §FS-lsp.1.4: a shorthand already in the document navigates like any other
     /// citation. The snapshot carries the canonical target while the range stays
     /// the written token, which is what makes hover, go-to-definition,

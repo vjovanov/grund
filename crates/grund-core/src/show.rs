@@ -138,7 +138,7 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
         Err(err) => {
             let message = format!("{err:#}");
             if format == "json" {
-                print_bare_query_json(current_config, show_query_error_code(&message), &message);
+                print_bare_query_json(show_query_error_code(&message), &message, &[]);
             } else {
                 eprintln!("{message}");
                 eprintln!(
@@ -211,7 +211,8 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
         Err(err) => {
             let message = format!("{err}");
             if format == "json" {
-                print_bare_query_json(config, show_query_error_code(&message), &message);
+                // §FS-show.2.2.1: the shorthand's candidates are IDs, not sites.
+                print_bare_query_json(show_query_error_code(&message), &message, &[]);
             } else {
                 eprintln!("{message}");
                 eprintln!(
@@ -284,7 +285,14 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
         Err(err) => {
             let message = format!("{err:#}");
             if format == "json" {
-                print_bare_query_json(config, show_query_error_code(&message), &message);
+                // §FS-errors.5: this mirror's diagnostic carries the same sites the
+                // shipped `grund` CLI does, read from the same typed carrier rather
+                // than re-parsed from `message`.
+                let sites = err
+                    .downcast_ref::<ShowQueryError>()
+                    .map(|carrier| carrier.sites.as_slice())
+                    .unwrap_or(&[]);
+                print_bare_query_json(show_query_error_code(&message), &message, sites);
             } else {
                 eprintln!("{message}");
                 if message.starts_with("ID not found:") {

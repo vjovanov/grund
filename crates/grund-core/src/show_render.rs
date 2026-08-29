@@ -48,16 +48,30 @@ fn show_declaration_with_overlays(
     if homes.len() > 1 {
         // §FS-errors.3: every path this refusal names is spelled from the report
         // root, like the `path` of any diagnostic printed beside it.
-        let mut sites: Vec<String> = homes
+        let mut sites: Vec<(String, String, usize)> = homes
             .iter()
-            .map(|d| format!("{}:{}", display_path(path_config, &d.file), d.line))
+            .map(|d| {
+                let path = display_path(path_config, &d.file);
+                (format!("{path}:{}", d.line), path, d.line)
+            })
             .collect();
-        sites.sort();
-        return Err(anyhow!(
+        sites.sort_by(|a, b| a.0.cmp(&b.0));
+        let message = format!(
             "ambiguous ID: {} (declared at {})",
             render_id(config, id),
-            sites.join(", ")
-        ));
+            sites.iter().map(|(rendered, ..)| rendered.as_str()).collect::<Vec<_>>().join(", ")
+        );
+        // §FS-errors.5: the same `[{ path, line }]` pairs, in the same order, ride
+        // along in a typed carrier so the JSON printer never re-parses this prose.
+        return Err(ShowQueryError {
+            code: "ambiguous",
+            sites: sites
+                .into_iter()
+                .map(|(_, path, line)| FindingSite { path, line })
+                .collect(),
+            message,
+        }
+        .into());
     }
     let decl = decls.iter().find(|decl| decl.is_stub).unwrap_or(&decls[0]);
     if let Some(case) = &decl.e2e_case {
@@ -143,17 +157,31 @@ fn ambiguous_section_refusal(
     lines.extend(body_decl.sections.get(section).map(|first| first.line));
     lines.sort_unstable();
     let rendered = display_path(path_config, file);
-    let sites = lines
+    let sites_text = lines
         .iter()
         .map(|line| format!("{rendered}:{line}"))
         .collect::<Vec<_>>()
         .join(", ");
-    Some(anyhow!(
-        "ambiguous section: {}{}{} (declared at {sites})",
+    let message = format!(
+        "ambiguous section: {}{}{} (declared at {sites_text})",
         render_id(config, id),
         config.section_separator,
         section
-    ))
+    );
+    // §FS-errors.5: the same sites the message just named, same order, for the
+    // JSON printer to read instead of re-parsing this prose.
+    let sites = lines
+        .iter()
+        .map(|line| FindingSite { path: rendered.clone(), line: *line })
+        .collect();
+    Some(
+        ShowQueryError {
+            code: "ambiguous-section",
+            message,
+            sites,
+        }
+        .into(),
+    )
 }
 
 /// Render an e2e case as an ID-query body: the invocation, expected exit, and

@@ -116,6 +116,45 @@ mod tests_workspace_message_paths {
         );
     }
 
+    /// §FS-errors.5: the typed carrier's `sites` are the same `path:line` pairs
+    /// the prose above just pinned, spelled from the same report root — no
+    /// consumer of the JSON diagnostic has to re-derive them from `message`.
+    #[test]
+    fn ambiguous_id_carries_its_sites_from_the_workspace_root() {
+        let (root_config, api_config, api_findings) =
+            member_workspace("workspace_message_paths_ambiguous_id_sites", &TWO_HOMES);
+
+        let Err(err) = show_declaration(
+            &api_config,
+            &root_config,
+            &api_findings,
+            &alpha(),
+            None,
+            ShowRenderMode::Default,
+            false,
+        ) else {
+            panic!("§FS-show.2.2.1: two homes must refuse rather than pick one");
+        };
+
+        let carrier = err
+            .downcast_ref::<ShowQueryError>()
+            .expect("§FS-errors.5: the refusal carries a typed error with sites");
+        assert_eq!(
+            carrier.sites,
+            vec![
+                FindingSite {
+                    path: "apps/api/docs/functional-spec/FS-001-alpha-again.md".to_string(),
+                    line: 1,
+                },
+                FindingSite {
+                    path: "apps/api/docs/functional-spec/FS-001-alpha.md".to_string(),
+                    line: 1,
+                },
+            ],
+            "§FS-workspace.8.1: sites are spelled from the report root, in the message's order"
+        );
+    }
+
     /// The third message the same function raises: a stub whose target is missing
     /// prints where that stub is. The target itself stays verbatim — that text is
     /// the user's own link quoted back, not a path `grund` resolved.

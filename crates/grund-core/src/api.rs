@@ -51,6 +51,41 @@ pub struct FindingSite {
     pub line: usize,
 }
 
+/// A failed ID query whose message names sites the JSON diagnostic can also
+/// carry (§FS-errors.5): the two-homes `ambiguous` refusal and the
+/// `ambiguous-section` refusal. Raised from `show_render.rs` and downcast by
+/// both printers, so `sites` never needs a second parse of `message`.
+/// `Display` is `message` verbatim — the text form is unchanged by this type.
+#[derive(Clone, Debug)]
+pub struct ShowQueryError {
+    pub code: &'static str,
+    pub message: String,
+    pub sites: Vec<FindingSite>,
+}
+
+impl std::fmt::Display for ShowQueryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for ShowQueryError {}
+
+/// The `sites` value of a query-refusal JSON diagnostic (§FS-errors.5): `null`
+/// when empty, else `[{ path, line }]` in the caller's order. Shared by the
+/// `grund` CLI and the deprecated `grund_core::main_entry()` mirror so the two
+/// printers cannot drift on the same bytes.
+pub fn render_finding_sites_json(sites: &[FindingSite]) -> String {
+    if sites.is_empty() {
+        return "null".to_string();
+    }
+    let entries: Vec<String> = sites
+        .iter()
+        .map(|site| format!("{{\"path\":\"{}\",\"line\":{}}}", json_escape(&site.path), site.line))
+        .collect();
+    format!("[{}]", entries.join(","))
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Finding {
     pub severity: &'static str,
