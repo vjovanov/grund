@@ -9,8 +9,8 @@
 //! author wrote. `symlink-fmt-write-abort` (`tests/e2e/cases/`) pins the
 //! explicit-path refusal this suite compares the no-path form against.
 //!
-//! Unix only: the fixture needs a real broken symlink, and everything below
-//! exists to serve the two `#[test]`s, so the whole file is gated rather than
+//! Unix only: the fixture needs real broken symlinks, and everything below
+//! exists to serve the three `#[test]`s, so the whole file is gated rather than
 //! leaving helpers unused (and `-D warnings`-fatal) on a platform that never
 //! compiles the tests that call them.
 
@@ -26,8 +26,8 @@ fn manifest_dir() -> PathBuf {
 
 /// A fresh fixture under this repository's own tree: a project whose
 /// `[fmt.cross_refs] enabled = true` needs the whole declaration set before
-/// it can rewrite anything, holding one rewritable citation and one broken
-/// symlink the scan cannot read past (§FS-fmt.3).
+/// it can rewrite anything, holding one rewritable citation and two broken
+/// symlinks the completed scan must report (§FS-fmt.3).
 fn build_fixture(name: &str) -> PathBuf {
     let dir = manifest_dir().join("target/fmt-tests").join(name);
     let _ = fs::remove_dir_all(&dir);
@@ -49,6 +49,8 @@ fn build_fixture(name: &str) -> PathBuf {
     .expect("write notes.md");
     std::os::unix::fs::symlink("nowhere.md", dir.join("docs/FS-002-gone.md"))
         .expect("create broken symlink");
+    std::os::unix::fs::symlink("nowhere-either.md", dir.join("docs/FS-003-also-gone.md"))
+        .expect("create second broken symlink");
     dir
 }
 
@@ -69,7 +71,25 @@ fn stdout(output: &Output) -> String {
 }
 
 const ORIGINAL_NOTES: &str = "# Notes\n\nSee $$FS-001-alpha for the rest.\n";
-const ABORT_MESSAGE: &str = "error: nothing was rewritten: docs/FS-002-gone.md: broken symlink: the target does not exist\n";
+const ABORT_MESSAGE: &str = concat!(
+    "error: nothing was rewritten: docs/FS-002-gone.md: broken symlink: the target does not exist\n",
+    "error: nothing was rewritten: docs/FS-003-also-gone.md: broken symlink: the target does not exist\n",
+);
+
+#[test]
+fn fmt_check_cross_refs_reports_every_unreadable_path_before_any_report() {
+    let root = build_fixture("check_cross_refs_complete_abort");
+
+    let output = run_grund(&["fmt", "--check", "--cross-refs", "."], &root);
+
+    assert_eq!(output.status.code(), Some(2), "{}", stderr(&output));
+    assert_eq!(stderr(&output), ABORT_MESSAGE);
+    assert_eq!(
+        stdout(&output),
+        "",
+        "an aborted run emitted a rewrite report"
+    );
+}
 
 #[test]
 fn fmt_write_refuses_alike_with_and_without_a_path_argument() {

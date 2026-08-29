@@ -127,7 +127,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - `fmt --check` refusing the same link `--write` refuses instead of listing a rewrite nobody can perform: the one pending edit in the tree is inside it, so the dry run is green with a `warning:` and not red forever
 - `fmt` in a workspace naming a member's unreadable path and its refused write from the **workspace root**, the way `check` names them, not from the member's own root where the same spelling is a different file
 - `list`, `refs`, and `show` naming a member's scan-error path from the **workspace root** too, byte-identical to the line `check` and `cover` print for the same tree ([§FS-workspace.8.7](../../docs/functional-spec/FS-workspace.md#87-output-and-exit-codes))
-- `fmt --write` aborting on a path it could not read, in the shape that says so — `nothing was rewritten:` — rather than the bare line the partial run prints after rewriting everything readable
+- `fmt --write` aborting on every path it could not read, each in the shape that says so — `nothing was rewritten:` — rather than the bare lines the partial run prints after rewriting everything readable
 - `fmt --check` naming the broken symlink it walked past, in the same shape and with the same exit `2` `check` uses for it
 - nested e2e fixture repos ignored during ordinary scans
 - unsupported extension ignored

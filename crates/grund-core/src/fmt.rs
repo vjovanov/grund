@@ -35,7 +35,8 @@ struct FmtRunOpts<'a> {
     workspace: Option<&'a WorkspaceContext>,
     /// Whole-project findings, when the caller has already produced them
     /// (workspace-root `fmt` reuses each project's `WorkspaceContext` scan).
-    /// `None` falls back to `scan_tree_strict` inside `fmt_tree`.
+    /// `None` falls back to a complete `scan_tree` inside `fmt_tree`, whose
+    /// errors become one structured strict abort rather than a partial result.
     precomputed_findings: Option<&'a Findings>,
     /// §FS-fmt.6.1 / §DF-index-always-linkified: run the cross-reference pass on
     /// a kind's index file even where `[fmt.cross_refs] enabled = false` turned
@@ -195,22 +196,24 @@ fn fmt_tree(
 
 /// The whole project's declarations for a run that cannot rewrite anything
 /// without them — `--cross-refs`, or a shorthand to expand (§FS-fmt.2.4) — with
-/// an unreadable path fatal up front (§FS-fmt.3).
+/// every unreadable path fatal up front and preserved for reporting (§FS-fmt.3).
 ///
-/// The refusal names itself. Both `fmt` failures exit `2` and both print one
-/// `error: <path>: <reason>` line, but the partial-scan one means every readable
-/// file was rewritten and this one means nothing was, and `--write` reaches this
-/// path in the ordinary case rather than the exceptional one — it turns
-/// `--cross-refs` on by itself wherever the scope holds Markdown (§FS-fmt.6.6).
-/// Rendered against the run's config, like every other path `fmt` prints.
+/// Every refusal line names itself. Both `fmt` failures exit `2`, but the
+/// partial-scan one means every readable file was rewritten and this one means
+/// nothing was, and `--write` reaches this path in the ordinary case rather
+/// than the exceptional one — it turns `--cross-refs` on by itself wherever
+/// the scope holds Markdown (§FS-fmt.6.6). Paths are rendered against the run's
+/// config, like every other path `fmt` prints.
 fn fmt_findings_or_abort(config: &Config, render: &Config) -> Result<Findings> {
     let (findings, errors) = scan_tree(config, None, false)?;
-    if let Some((path, message)) = errors.into_iter().next() {
-        return Err(anyhow!(
-            "nothing was rewritten: {}: {}",
-            display_path(render, &path),
-            message
-        ));
+    if !errors.is_empty() {
+        return Err(FmtScanAbort {
+            scan_errors: errors
+                .into_iter()
+                .map(|(path, message)| api_scan_error(render, &path, &message))
+                .collect(),
+        }
+        .into());
     }
     Ok(findings)
 }
