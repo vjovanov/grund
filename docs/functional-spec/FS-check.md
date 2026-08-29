@@ -284,6 +284,8 @@ A recognized shorthand citation (§1.2) persisted in a scanned file. The shortha
 
 **Where `fmt` may not rewrite, this rule does not fire.** A shorthand inside inline code, a Markdown link destination, or a source string literal is exempt from the resolving form of this error, because [§FS-fmt.2.3](FS-fmt.md#23-what-is-never-rewritten) forbids the rewrite there and an error whose only named fix the tool declines to perform is one a repository can never clear. The citation is untouched in every other respect — it resolves, `refs` lists it, and it keeps its declaration from being reported unused (§1.2). The exemption is for the *mechanical* form only: a shorthand matching zero or several declarations is still reported in those contexts, because that is a dangling reference rather than a formatting nit.
 
+**A Python docstring is not a string literal for this exemption.** Its delimiters are doc-comment syntax, so the question is asked of the docstring's content ([§FS-fmt.2.3.1](FS-fmt.md#231-string-literal-exclusion-rule)) and a shorthand anywhere inside one — the opening line, a one-line docstring, an interior line, the closing line — is reported and rewritten exactly like one in a `#` comment. A shorthand inside a `"…"` or `'…'` literal on a **code** line is what stays exempt.
+
 At most one *shorthand* finding per site, in one of three forms. Other rules judge the site on their own terms — a bad section (§3.2) or a forbidden direction (§3.12) is a separate fact about the same citation and is reported separately:
 
 ```
