@@ -52,7 +52,8 @@ Finding {
   line:     u32?           // 1-indexed; null for a file-level finding with no line (e.g. an unreadable file, FS-check.2)
   message:  string         // the human-readable text
   sites:    [{ path, line }]?  // null for a single-site diagnostic; a list naming every site for a multi-site
-                               // finding (a duplicate declaration) or an ambiguous-ID query failure
+                               // finding (a duplicate declaration) or an ambiguous-ID / ambiguous-section
+                               // query failure
 }
 
 ShowOpts {

@@ -70,7 +70,7 @@ If an ID has more than one home — the duplicate-declaration error from [§FS-c
 ambiguous ID: <ID> (declared at <path>:<line>, <path>:<line>[, ...])
 ```
 
-Sites are listed in lexicographic `path:line` order so the message is stable across runs. The repo must be fixed (run `grund check` first) before `show` will return a body.
+Sites are listed in lexicographic `path:line` order so the message is stable across runs. The repo must be fixed (run `grund check` first) before `show` will return a body. With `--format=json`, those same sites travel in the diagnostic's `sites` field, `[{ path, line }]` in the same order ([§FS-errors.5](FS-errors.md#5-json-format)).
 
 A number-only shorthand argument ([§FS-check.1.2](FS-check.md#12-the-number-only-shorthand)) fails the same way for a different reason — not one ID with two homes, but one abbreviation naming two IDs — so it names the **candidates** rather than the sites:
 
@@ -88,7 +88,7 @@ The same refusal one level down. If two numbered headings inside the selected de
 ambiguous section: FS-001-login.1 (declared at docs/functional-spec/FS-001-login.md:5, docs/functional-spec/FS-001-login.md:9)
 ```
 
-Sites are in `path:line` order, as in §2.2.1, and the exit is `1` with the bare stderr line of [§FS-errors.2.3](FS-errors.md#23-bare-query-failure). The repo must be fixed before `show` will return a body.
+Sites are in `path:line` order, as in §2.2.1, and the exit is `1` with the bare stderr line of [§FS-errors.2.3](FS-errors.md#23-bare-query-failure). The repo must be fixed before `show` will return a body. With `--format=json`, the same sites travel in the diagnostic's `sites` field too ([§FS-errors.5](FS-errors.md#5-json-format)).
 
 The code is `ambiguous-section`, not §2.2.1's `ambiguous` ([§FS-distribution.3.0](FS-distribution.md#30-language-neutral-data-shapes)). The two failures need different edits — one ID with two homes is fixed in whichever file should not have declared it, one declaration with two `1.` headings is fixed by renumbering inside it — and the check side already spells that difference `duplicate` versus `duplicate-section` ([§FS-check.3.16](FS-check.md#316-duplicate-section-path)). Reusing one code would leave a JSON consumer parsing the message prose to tell them apart, the cost [§FS-check.3.14](FS-check.md#314-out-of-scope-unresolvable-citation---full-only) refused to pay for its own four rules. Nothing regresses by adding it: before this rule the query returned a body and exit `0`, so no consumer ever saw `ambiguous` here to filter on.
 
