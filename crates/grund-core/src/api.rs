@@ -1308,45 +1308,40 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
     } else {
         None
     };
-    let mut changes: Vec<(PathBuf, usize, String)> = Vec::new();
-    let mut scan_errors: Vec<ApiScanError> = Vec::new();
-    let mut refused_writes: Vec<String> = Vec::new();
     let walk_all_projects = context.workspace_loaded
         && (!opts.path_provided
             || fs::canonicalize(&opts.path)
                 .map(|canonical| canonical == config.root)
                 .unwrap_or(false));
-    if walk_all_projects {
-        // §FS-fmt.3: reuse a project's findings only where its scan met no error
-        // (`usable_findings`), inheriting the completeness guard
-        // `fmt_findings_or_abort` applies to a fresh scan.
-        for project in &context.projects {
-            let auto_cross_refs = auto_cross_refs_for_scope(
-                &project.config,
-                Some(&project.config.root),
+    let (changes, scan_errors, refused_writes) = if walk_all_projects {
+        // §FS-fmt.3: complete every project's strict readiness pass before a
+        // workspace write can touch the first one. The dry pass also discovers
+        // shorthand-triggered strictness and aggregates root/member failures.
+        let preflight = fmt_workspace_projects(
+            &context,
+            &config,
+            opts.add_marker,
+            explicit_cross_refs,
+            opts.write,
+            false,
+        )?;
+        let walked = if opts.write {
+            fmt_workspace_projects(
+                &context,
+                &config,
+                opts.add_marker,
+                explicit_cross_refs,
                 true,
-                opts.write,
-            )?;
-            let run_opts = FmtRunOpts {
-                add_marker: opts.add_marker,
-                cross_refs: explicit_cross_refs || auto_cross_refs,
-                write: opts.write,
-                render: &config,
-                workspace: workspace_for_wrap,
-                precomputed_findings: usable_findings(project),
-                // §FS-fmt.6.1: the index is linkified whatever the toggle says.
-                index_cross_refs: opts.write || explicit_cross_refs,
-            };
-            let mut walked = fmt_tree(
-                &project.config,
-                Some(&project.config.root),
                 true,
-                &run_opts,
-            )?;
-            changes.append(&mut walked.changes);
-            scan_errors.append(&mut walked.scan_errors);
-            refused_writes.append(&mut walked.refused_writes);
-        }
+            )?
+        } else {
+            preflight
+        };
+        (
+            walked.changes,
+            walked.scan_errors,
+            walked.refused_writes,
+        )
     } else {
         // §FS-fmt.3: same guard as above — a bare `--write` and `--write .` name
         // the same scope and must refuse alike, not one quietly resolving
@@ -1367,10 +1362,12 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             index_cross_refs: opts.write || explicit_cross_refs,
         };
         let walked = fmt_tree(&config, Some(&opts.path), opts.path_provided, &run_opts)?;
-        changes = walked.changes;
-        scan_errors = walked.scan_errors;
-        refused_writes = walked.refused_writes;
-    }
+        (
+            walked.changes,
+            walked.scan_errors,
+            walked.refused_writes,
+        )
+    };
 
     Ok(FmtOutput {
         changes: changes
