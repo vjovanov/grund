@@ -426,3 +426,11 @@ counts each case it could not run, names it with the reason, and fails outright 
 one, so lost coverage cannot read as a pass; but a green `windows-latest` job ([§AR-ci](AR-ci.md#ar-ci-ci-mirrors-the-local-pre-commit-gate)) is still not
 evidence for the member-containment rejection rule. Reaching it there needs a Windows runner with symlink
 creation enabled.
+
+**A mismatch is data, not a panic.** Every runnable case is compared on every surface — exit code, stdout,
+stderr, `expected.repo` — before a pass decides anything: a golden that does not match is collected rather than
+asserted, so a mismatch on the first case, or the first surface of a case, does not hide a second one. The pass
+fails once, after the last case, naming every mismatched case in discovery order with each surface that differed
+under it — the same "account for and name every case, then decide once" shape the skip accounting above already
+uses. A fixture-validity error — a malformed manifest, an unreadable golden, a non-concise `expected.stderr` —
+still aborts at the case: the case itself cannot be judged, which is a harness error, not a verdict.
