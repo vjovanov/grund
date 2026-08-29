@@ -242,18 +242,34 @@ fn rewrite_file(
     let mut lines = Vec::new();
     let mut changed = false;
     let mut saw_shorthand_candidate = false;
+    // §FS-fmt.2.3.1: `fmt` judges a docstring line on its content, so it carries
+    // the scanner's docstring state — advanced on *every* line, including the ones
+    // passed through untouched, or one unvisited `"""` desynchronizes the file.
+    let is_py = path.extension().and_then(|e| e.to_str()) == Some("py");
+    let mut docstrings = DocstringCursor::new(is_py, config.docstring_python);
     for (idx, line) in original.lines().enumerate() {
         if is_md && markdown_fence_delimiter(&mut markdown_fence, line) {
             lines.push(line.to_string());
             continue;
         }
+        // The state this line *starts* in, kept so each rewrite stage can re-derive
+        // the span from the line it is about to change (see `DocstringCursor`).
+        let entry = docstrings;
+        let docstring = docstrings.advance(line);
         if markdown_fence.is_some()
-            || declaration_captures(&config.grammar, line, false, is_md).is_some()
+            || declaration_captures(
+                &config.grammar,
+                docstring.text_of(line),
+                docstring.is_docstring(),
+                is_md,
+            )
+            .is_some()
         {
             lines.push(line.to_string());
             continue;
         }
-        let (new_line, label) = fmt_line(line, path, config, is_md, opts, &mut saw_shorthand_candidate);
+        let (new_line, label) =
+            fmt_line(line, entry, path, config, is_md, opts, &mut saw_shorthand_candidate);
         if new_line != line {
             changes.push((path.to_path_buf(), idx + 1, label));
             changed = true;
@@ -305,18 +321,20 @@ struct FmtLineOpts<'a> {
 /// three rewrites move markup around an unchanged ID token, so `grund check` can
 /// still see a mistake in them; this one writes the slug *into* the token, and a
 /// wrong one is a well-formed citation of the wrong declaration.
+#[allow(clippy::too_many_arguments)]
 fn fmt_line(
     line: &str,
+    docstrings: DocstringCursor,
     path: &Path,
     config: &Config,
     is_md: bool,
     opts: &FmtLineOpts<'_>,
     saw_shorthand_candidate: &mut bool,
 ) -> (String, String) {
-    let triggered = replace_trigger(line, config, is_md);
+    let triggered = replace_trigger(line, docstrings.peek(line), config, is_md);
     let trigger_changed = triggered != line;
     let marked = if opts.add_marker {
-        add_markers(&triggered, config, is_md)
+        add_markers(&triggered, docstrings.peek(&triggered), config, is_md)
     } else {
         triggered.clone()
     };
@@ -327,6 +345,7 @@ fn fmt_line(
     let mut expansions = Vec::new();
     let expansion = expand_shorthand_citations(
         &marked,
+        docstrings.peek(&marked),
         config,
         is_md,
         opts.shorthand_targets,
@@ -378,14 +397,19 @@ fn fmt_line(
 /// followed by a real ID-shaped token, and never inside a string literal in source
 /// code or Markdown link destinations (§FS-fmt.2.1, §FS-fmt.2.3.1,
 /// §DF-reference-marker).
-fn replace_trigger(line: &str, config: &Config, is_md: bool) -> String {
+fn replace_trigger(
+    line: &str,
+    docstring: DocstringContent<'_>,
+    config: &Config,
+    is_md: bool,
+) -> String {
     let mut output = String::new();
     let mut cursor = 0;
     while let Some(relative) = line[cursor..].find(&config.trigger) {
         let start = cursor + relative;
         let after = start + config.trigger.len();
         if id_token_end_at(line, after, &config.grammar).is_some()
-            && (is_md || !is_inside_string_literal(line, start))
+            && (is_md || !string_literal_in(docstring, line, start))
             && (!is_md || !is_inside_inline_code(line, start))
             && (!is_md || !is_inside_markdown_link_destination(line, start))
         {
@@ -404,7 +428,12 @@ fn replace_trigger(line: &str, config: &Config, is_md: bool) -> String {
 /// Prefix `§` onto bare ID-shaped tokens that lack it — the `--marker` upgrade
 /// (§FS-fmt.2.2) — skipping tokens already marked, Markdown inline-code examples,
 /// Markdown link destinations, and source-code string literals (§FS-fmt.2.3).
-fn add_markers(line: &str, config: &Config, is_md: bool) -> String {
+fn add_markers(
+    line: &str,
+    docstring: DocstringContent<'_>,
+    config: &Config,
+    is_md: bool,
+) -> String {
     let mut output = String::new();
     let mut cursor = 0;
     for caps in config.grammar.citation_re.captures_iter(line) {
@@ -423,7 +452,7 @@ fn add_markers(line: &str, config: &Config, is_md: bool) -> String {
         if is_md && is_inside_markdown_link_destination(line, found.start()) {
             continue;
         }
-        if !is_md && is_inside_string_literal(line, found.start()) {
+        if !is_md && string_literal_in(docstring, line, found.start()) {
             continue;
         }
         output.push_str(&line[cursor..found.start()]);

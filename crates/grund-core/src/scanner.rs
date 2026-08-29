@@ -21,11 +21,15 @@ fn is_scannable(path: &Path, config: &Config) -> bool {
 struct CitationLine<'a> {
     scan_line: &'a str,
     /// The untransformed source line. `scan_line` may be a *slice* of it — a
-    /// Python docstring's interior with the quotes stripped (§AR-scanner.4) — and
-    /// the two answer differently when asked whether a position sits inside a
-    /// string literal. Anything deciding what `grund fmt` would do must ask the
-    /// raw line, because that is the text `fmt` sees (§FS-fmt.2.3).
+    /// Python docstring's interior with the quotes stripped (§AR-scanner.4) — so a
+    /// position on this line and a position on that one are not the same number.
+    /// Every never-rewrite question is asked at a **raw-line** offset and routed to
+    /// the right text by `docstring` below (§FS-fmt.2.3.1).
     raw_line: &'a str,
+    /// Where this line's Python docstring content sits in `raw_line`
+    /// (§FS-fmt.2.3.1) — the view every never-rewrite question is asked through,
+    /// so a docstring line is judged on the text `fmt` reads there too.
+    docstring: DocstringContent<'a>,
     column_offset: usize,
     lineno: usize,
     path: &'a Path,
@@ -302,6 +306,7 @@ fn scan_file_text(
         let citation_line = CitationLine {
             scan_line,
             raw_line: line,
+            docstring: DocstringContent::of(&scan),
             column_offset: scan.column_offset,
             lineno,
             path,
@@ -888,11 +893,7 @@ fn scan_workspace_qualified_pass(
             // §FS-fmt.2.3 / §FS-check.3.13: a qualified shorthand is rewritable
             // wherever an unqualified one is — the workspace pass reaches the aliased
             // project's declarations, so `fmt` can name the canonical form here too.
-            shorthand_rewritable: !never_rewrite_context(
-                line.raw_line,
-                line.is_md,
-                line.column_offset + marker_start,
-            ),
+            shorthand_rewritable: scanned_citation_rewritable(line, marker_start),
             shorthand: parsed.shorthand,
             // §FS-fmt.2.4.1: the marker is the citing project's, the number shape
             // the target's — the same split the rewrite itself uses.

@@ -53,6 +53,7 @@ mod tests_shorthand_numeric_run {
             let mut saw_candidate = false;
             expand_shorthand_citations(
                 line,
+                DocstringContent::default(),
                 &config,
                 true,
                 &ShorthandTargets::new(Some(&findings), None),
@@ -139,6 +140,7 @@ mod tests_shorthand_numeric_run {
             let mut saw_candidate = false;
             expand_shorthand_citations(
                 line,
+                DocstringContent::default(),
                 &config,
                 true,
                 &ShorthandTargets::new(Some(&findings), None),

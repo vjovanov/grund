@@ -342,11 +342,7 @@ fn scan_shorthand_citations(
             // §FS-check.3.13: still a citation here — it resolves, it counts, it
             // grounds its file — but `fmt` may not rewrite it (§FS-fmt.2.3), so the
             // checker withholds the "write the canonical form" error.
-            shorthand_rewritable: !never_rewrite_context(
-                line.raw_line,
-                line.is_md,
-                line.column_offset + marker_start,
-            ),
+            shorthand_rewritable: scanned_citation_rewritable(line, marker_start),
             numeric_run,
             text: line.scan_line[marker_start..token_end].to_string(),
             inline_site: line.inline_sites.get(&line.lineno).cloned(),
@@ -565,6 +561,7 @@ fn report_shorthand_citation<'a>(
 /// makes a rewrite reviewable before it is written.
 fn expand_shorthand_citations(
     line: &str,
+    docstring: DocstringContent<'_>,
     config: &Config,
     is_md: bool,
     targets: &ShorthandTargets<'_>,
@@ -642,9 +639,10 @@ fn expand_shorthand_citations(
         {
             continue;
         }
-        // §FS-fmt.2.3: the same exclusions the other rewrites honour — an
-        // illustration in inline code, a link destination, a runtime string.
-        if never_rewrite_context(line, is_md, marker_start) {
+        // §FS-fmt.2.3: the same exclusions the other rewrites honour — inline code,
+        // a link destination, a runtime string — asked of the docstring's content on
+        // a docstring line, exactly as the scanner asks it (§FS-fmt.2.3.1).
+        if never_rewrite_context_in(docstring, line, is_md, marker_start) {
             continue;
         }
         let Some(id) = parse_id(&caps) else { continue };
