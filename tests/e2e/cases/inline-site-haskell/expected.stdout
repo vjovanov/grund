@@ -1,2 +1,2 @@
-src/App.hs:14: inline note exceeds 3-line maximum
-src/App.hs:20: inline note exceeds 3-line maximum
+src/App.hs:14: inline note is 4 lines, over the 3-line maximum
+src/App.hs:20: inline note is 4 lines, over the 3-line maximum

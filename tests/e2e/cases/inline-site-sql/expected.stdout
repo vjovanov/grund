@@ -1,2 +1,2 @@
-src/schema.sql:12: inline note exceeds 3-line maximum
-src/schema.sql:19: inline note exceeds 3-line maximum
+src/schema.sql:12: inline note is 4 lines, over the 3-line maximum
+src/schema.sql:19: inline note is 4 lines, over the 3-line maximum

@@ -230,19 +230,19 @@ Findings are reported using the located-finding shape of [§FS-errors.2.1](FS-er
 
 Each of the following is an error and contributes to a non-zero exit code, per [§FS-check.2](FS-check.md#2-outputs):
 
-| condition                                                       | result                                          |
-|-----------------------------------------------------------------|-------------------------------------------------|
-| `inline_style = "citation-only"` and a note is present          | error: `inline citation must carry no prose`    |
-| `lines > inline_note_max_lines`                                 | error: `inline note exceeds N-line maximum`     |
-| `max(columns) > inline_note_max_columns`                        | error: `inline note exceeds N-column maximum`   |
+| condition                                               | result                                                        |
+|----------------------------------------------------------|--------------------------------------------------------------|
+| `inline_style = "citation-only"` and a note is present  | error: `inline citation must carry no prose`                 |
+| `lines > inline_note_max_lines`                         | error: `inline note is M lines, over the N-line maximum`     |
+| `max(columns) > inline_note_max_columns`                | error: `inline note is M columns, over the N-column maximum` |
 
-A single site that violates more than one cap produces one finding per violated cap (so the author sees every reason in a single pass).
+A single site that violates more than one cap produces one finding per violated cap (so the author sees every reason in a single pass). `M` is the measured size — physical lines, or characters (§2.3) of the site's longest line — placed next to the cap `N` so the finding is actionable without re-measuring, in keeping with [§GOAL-friendliness-first](../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible). `M` pluralises by its own value (`1 line`, `2 lines`, `1 column`, `2 columns`); `N-line` and `N-column` are adjectival and never pluralise.
 
 ### 4.2 Warnings — opt-in soft cap
 
 `warn_on_suggested = false` (default): soft-cap overruns are **silent** at `check` time. The soft cap is purely guidance for the agent-facing surface (§5); humans get the same guidance through the same rendered copy.
 
-`warn_on_suggested = true`: a site whose line count exceeds `inline_note_suggested_lines` but stays within `inline_note_max_lines` is reported as a **warning**. Warnings never affect the exit code, per [§FS-check.4](FS-check.md#4-warnings).
+`warn_on_suggested = true`: a site whose line count exceeds `inline_note_suggested_lines` but stays within `inline_note_max_lines` is reported as a **warning**: `inline note is M lines, over the N-line preferred limit`, `M` and `N` following the same measured-value and pluralisation rule as §4.1. Warnings never affect the exit code, per [§FS-check.4](FS-check.md#4-warnings).
 
 There is no `suggested_columns` knob; column width is a single hard cap. The motivation is symmetry with how editors and formatters already treat line length — a binary "too long" rather than a layered preference.
 

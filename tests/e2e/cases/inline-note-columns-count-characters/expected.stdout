@@ -1,1 +1,1 @@
-src/lib.rs:7: inline note exceeds 40-column maximum
+src/lib.rs:7: inline note is 47 columns, over the 40-column maximum

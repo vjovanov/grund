@@ -1,2 +1,2 @@
-src/App.cs:18: inline note exceeds 3-line maximum
-src/App.cs:29: inline note exceeds 3-line maximum
+src/App.cs:18: inline note is 4 lines, over the 3-line maximum
+src/App.cs:29: inline note is 4 lines, over the 3-line maximum

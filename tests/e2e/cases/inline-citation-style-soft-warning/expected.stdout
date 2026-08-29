@@ -1,1 +1,1 @@
-src/lib.rs:1: inline note exceeds 1-line preferred limit
+src/lib.rs:1: inline note is 2 lines, over the 1-line preferred limit

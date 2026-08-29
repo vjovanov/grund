@@ -1,2 +1,2 @@
-src/main.py:15: inline note exceeds 3-line maximum
-src/main.py:24: inline note exceeds 3-line maximum
+src/main.py:15: inline note is 4 lines, over the 3-line maximum
+src/main.py:24: inline note is 4 lines, over the 3-line maximum

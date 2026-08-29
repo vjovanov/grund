@@ -1,2 +1,2 @@
-src/App.scala:19: inline note exceeds 3-line maximum
-src/App.scala:27: inline note exceeds 3-line maximum
+src/App.scala:19: inline note is 4 lines, over the 3-line maximum
+src/App.scala:27: inline note is 4 lines, over the 3-line maximum
