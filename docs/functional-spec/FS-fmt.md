@@ -33,7 +33,7 @@ This list is the ownership boundary for the one command that edits files in plac
 - Declaration headings (the line that names the ID). The marker is for *citations*, not declarations.
 - Citations inside string literals on a source line (where rewriting would change runtime behavior).
 - Citations inside Markdown inline code spans (where rewriting would change a literal command, path, or example).
-- ID-shaped text inside Markdown link destinations (where rewriting would change the URL rather than the visible citation).
+- ID-shaped text inside Markdown link destinations (where rewriting would change the URL rather than the visible citation) — and, off strict mode, such a **bare** token is not recognized as a citation there at all ([§FS-check.1.1](FS-check.md#11-recognized-citations)), the same never-rewrite zone keeping `check` from demanding an edit this command refuses to make.
 - Files outside the configured scan set.
 - Files reached through a symlink that leaves the config root — `--write` reads them and does not write through them (§2.3.2).
 
