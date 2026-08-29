@@ -47,6 +47,10 @@ The string-literal exclusion is deterministic, not heuristic. For every candidat
 
 Markdown files (`.md`) are not subject to this rule — they have no string literals. The rule applies only to files matched by the `extensions` list excluding `md`.
 
+**A Python docstring is documentation, so the walk runs over its content.** In a `.py` file scanned with `[scan] docstring_python` ([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)), a `"""` / `'''` delimiter is doc-comment syntax rather than a quote — the same reading that makes a docstring a place a citation, or a whole declaration, may live ([§FS-check.1.1](FS-check.md#11-recognized-citations)). So the line this walk reads is the docstring's **content**, the delimiters stripped and the candidate's start column measured from there. A citation on the opening line, in a one-line docstring, or on the closing line is then judged exactly like one on an interior line, and exactly like one in a `#` comment: a quote written *inside* the content still opens and closes as it does anywhere else, and the delimiter never does. Without this one docstring gets three verdicts by line — the delimiter opens a literal on the opening line, closes nothing on an interior one, and precedes or follows the citation on the closing one — and the reason for the exclusion, that rewriting would change runtime behavior (§2.3), describes none of them. A docstring is documentation, which is what §2.4 exists to canonicalize.
+
+Everything else keeps the raw-line rule, unchanged: a string literal on a **code** line — the runtime text the exclusion is actually about — every line of a `.py` file scanned with `docstring_python = false`, and every file of every other language. On a docstring's closing line the content ends at the delimiter, so a candidate in the code after it is judged on the raw line like any other code.
+
 This gives two correctly-configured installs identical output on identical input ([§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
 
 #### 2.3.2 A link that leaves the config root is not written through
