@@ -6,7 +6,7 @@ mod case_runner;
 
 use case_runner::CaseKind::{E2e, Example};
 use case_runner::{
-    assert_case_is_deterministic, assert_every_case_ran, discover_e2e_cases, discover_examples,
+    assert_case_is_deterministic, assert_every_case_passed, discover_e2e_cases, discover_examples,
     run_case,
 };
 
@@ -15,8 +15,9 @@ fn repo_root() -> PathBuf {
 }
 
 // Every pass collects its per-case outcomes and hands them to
-// `assert_every_case_ran`: a case the platform could not build is counted and
-// named there, never left to look like one of the passes libtest reports.
+// `assert_every_case_passed`: a case that mismatched its goldens or that the
+// platform could not build is counted and named there, never left to look
+// like one of the passes libtest reports.
 
 #[test]
 fn e2e_cases_match_expected_reports() {
@@ -25,7 +26,7 @@ fn e2e_cases_match_expected_reports() {
         .iter()
         .map(|case| run_case(&manifest_dir, case, E2e))
         .collect::<Vec<_>>();
-    assert_every_case_ran("e2e cases", &outcomes);
+    assert_every_case_passed("e2e cases", &outcomes);
 }
 
 #[test]
@@ -35,7 +36,7 @@ fn e2e_output_is_deterministic() {
         .iter()
         .map(|case| assert_case_is_deterministic(&manifest_dir, case))
         .collect::<Vec<_>>();
-    assert_every_case_ran("e2e determinism", &outcomes);
+    assert_every_case_passed("e2e determinism", &outcomes);
 }
 
 #[test]
@@ -45,7 +46,7 @@ fn examples_are_e2e_cases() {
         .iter()
         .map(|case| run_case(&manifest_dir, case, Example))
         .collect::<Vec<_>>();
-    assert_every_case_ran("examples", &outcomes);
+    assert_every_case_passed("examples", &outcomes);
 }
 
 #[test]
@@ -55,5 +56,5 @@ fn example_output_is_deterministic() {
         .iter()
         .map(|case| assert_case_is_deterministic(&manifest_dir, case))
         .collect::<Vec<_>>();
-    assert_every_case_ran("example determinism", &outcomes);
+    assert_every_case_passed("example determinism", &outcomes);
 }

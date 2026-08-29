@@ -23,8 +23,9 @@ impl CaseKind {
 
 /// What one pass over one case actually did. A skipped case is not a passing case
 /// and libtest has no third verdict, so the outcome is returned rather than
-/// swallowed: [`assert_every_case_ran`] counts and names the skips at the end of
-/// the pass, and fails where the platform had no excuse for one.
+/// swallowed: [`assert_every_case_passed`] renders every mismatch and skip once,
+/// at the end of the pass, and fails where a mismatch was found or the platform
+/// had no excuse for a skip.
 pub enum CaseOutcome {
     /// The case ran and its goldens were compared.
     Ran,
@@ -34,6 +35,15 @@ pub enum CaseOutcome {
     NotApplicable,
     /// The platform could not build the fixture, so nothing was compared.
     Skipped { case: String, why: &'static str },
+    /// The case ran, but at least one golden did not match. Each element of
+    /// `mismatches` is one surface's report: a `<surface> mismatch` headline and,
+    /// below it, the payload needed to update the golden by hand. A run compares
+    /// every surface of every case before deciding, so a mismatch here never hid a
+    /// later case or a later surface of this one (§AR-workspace.9).
+    Failed {
+        case: String,
+        mismatches: Vec<String>,
+    },
 }
 
 // The `symlinks` manifest half, in a file of its own (§AR-core-module-layout.3).
@@ -42,36 +52,8 @@ include!("case_symlinks.rs");
 // The stderr-conciseness half, in a file of its own (§AR-core-module-layout.3).
 include!("case_stderr.rs");
 
-/// Account for every case a pass did not run (§FS-errors.2.2 in spirit: a run says
-/// what it did not do). A skip is printed with its reason and counted — never
-/// folded into the pass total — and on a platform that can always create a
-/// directory symlink it is a **failure**, because there a skipped case means the
-/// harness lost the coverage rather than the platform refusing it. That is the
-/// shape the old bare `return` hid: an unrelated `TMPDIR` property deleted the
-/// member-containment coverage on Linux and macOS and still printed `4 passed`.
-pub fn assert_every_case_ran(label: &str, outcomes: &[CaseOutcome]) {
-    let skipped = outcomes
-        .iter()
-        .filter_map(|outcome| match outcome {
-            CaseOutcome::Skipped { case, why } => Some(format!("  {case}: {why}")),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    if skipped.is_empty() {
-        return;
-    }
-    let summary = format!(
-        "{label}: {} case(s) skipped, not passed:\n{}",
-        skipped.len(),
-        skipped.join("\n")
-    );
-    assert!(
-        !cfg!(unix),
-        "{summary}\nthis platform can create a directory symlink, so a skipped case is lost \
-         coverage rather than an unsupported feature"
-    );
-    eprintln!("{summary}");
-}
+// The comparison-and-report half, in a file of its own (§AR-core-module-layout.3).
+include!("case_report.rs");
 
 pub fn discover_e2e_cases(manifest_dir: &Path) -> Vec<PathBuf> {
     let cases_dir = manifest_dir.join("tests/e2e/cases");
@@ -123,20 +105,40 @@ pub fn assert_case_is_deterministic(manifest_dir: &Path, case: &Path) -> CaseOut
     let args = command_args(manifest_dir, case, name);
     let first = run_grund(manifest_dir, &args, name);
     let second = run_grund(manifest_dir, &args, name);
-    assert_eq!(
-        first.status.code(),
-        second.status.code(),
-        "{name}: exit code differs between runs"
-    );
-    assert_eq!(
-        first.stdout, second.stdout,
-        "{name}: stdout differs between runs"
-    );
-    assert_eq!(
-        first.stderr, second.stderr,
-        "{name}: stderr differs between runs"
-    );
-    CaseOutcome::Ran
+    let mut mismatches = Vec::new();
+    if first.status.code() != second.status.code() {
+        mismatches.push(format!(
+            "exit code differs between runs: first {}, second {}",
+            exit_code_text(first.status.code()),
+            exit_code_text(second.status.code())
+        ));
+    }
+    if first.stdout != second.stdout {
+        mismatches.push(text_mismatch(
+            "stdout differs between runs",
+            "first run",
+            &String::from_utf8_lossy(&first.stdout),
+            "second run",
+            &String::from_utf8_lossy(&second.stdout),
+        ));
+    }
+    if first.stderr != second.stderr {
+        mismatches.push(text_mismatch(
+            "stderr differs between runs",
+            "first run",
+            &String::from_utf8_lossy(&first.stderr),
+            "second run",
+            &String::from_utf8_lossy(&second.stderr),
+        ));
+    }
+    if mismatches.is_empty() {
+        CaseOutcome::Ran
+    } else {
+        CaseOutcome::Failed {
+            case: name.to_string(),
+            mismatches,
+        }
+    }
 }
 
 /// Run one e2e case: build its fixture, run the binary, and compare the exit
@@ -193,18 +195,45 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) -> CaseOutcome
         .trim()
         .parse::<i32>()
         .unwrap_or_else(|err| panic!("{name}: parse expected.exit: {err}"));
-    assert_eq!(
-        actual_exit, expected_exit,
-        "{name}: exit code mismatch\nstdout:\n{actual_stdout}\nstderr:\n{actual_stderr}"
-    );
-
     let expected_stdout = read_expected_output(case.join("expected.stdout"));
     let expected_stderr = read_expected_output(case.join("expected.stderr"));
     assert_expected_errors_are_concise(case, name, &args, &expected_stderr);
-    assert_eq!(actual_stdout, expected_stdout, "{name}: stdout mismatch");
-    assert_eq!(actual_stderr, expected_stderr, "{name}: stderr mismatch");
-    assert_expected_repo(case, manifest_dir, name);
-    CaseOutcome::Ran
+
+    // Every surface is compared, in this fixed order, before deciding: a
+    // mismatch is pushed rather than panicked, so it cannot hide a later one
+    // (§AR-workspace.9).
+    let mut mismatches = Vec::new();
+    if actual_exit != expected_exit {
+        mismatches.push(exit_mismatch(expected_exit, actual_exit));
+    }
+    if actual_stdout != expected_stdout {
+        mismatches.push(text_mismatch(
+            "stdout mismatch",
+            "expected",
+            &expected_stdout,
+            "actual",
+            &actual_stdout,
+        ));
+    }
+    if actual_stderr != expected_stderr {
+        mismatches.push(text_mismatch(
+            "stderr mismatch",
+            "expected",
+            &expected_stderr,
+            "actual",
+            &actual_stderr,
+        ));
+    }
+    assert_expected_repo(case, manifest_dir, name, &mut mismatches);
+
+    if mismatches.is_empty() {
+        CaseOutcome::Ran
+    } else {
+        CaseOutcome::Failed {
+            case: name.to_string(),
+            mismatches,
+        }
+    }
 }
 
 fn case_name(case: &Path) -> &str {
@@ -301,56 +330,6 @@ fn copy_dir(from: &Path, to: &Path) {
             fs::copy(&source, &target).unwrap_or_else(|err| {
                 panic!("copy {} to {}: {err}", source.display(), target.display())
             });
-        }
-    }
-}
-
-fn assert_expected_repo(case: &Path, manifest_dir: &Path, name: &str) {
-    let expected = case.join("expected.repo");
-    if !expected.exists() {
-        return;
-    }
-    let actual = manifest_dir.join("target/e2e-work").join(name).join("repo");
-    assert!(
-        actual.exists(),
-        "{name}: expected.repo requires command.args to run against {{repo_copy}}"
-    );
-    let expected_files = relative_files(&expected);
-    let actual_files = relative_files(&actual);
-    assert_eq!(
-        actual_files, expected_files,
-        "{name}: final repo file list differs from expected.repo"
-    );
-    for rel in expected_files {
-        let expected_path = expected.join(&rel);
-        let actual_path = actual.join(&rel);
-        let expected_bytes = fs::read(&expected_path)
-            .unwrap_or_else(|err| panic!("{name}: read {}: {err}", expected_path.display()));
-        let actual_bytes = fs::read(&actual_path)
-            .unwrap_or_else(|err| panic!("{name}: read {}: {err}", actual_path.display()));
-        assert_eq!(
-            actual_bytes,
-            expected_bytes,
-            "{name}: final bytes differ for {}",
-            rel.display()
-        );
-    }
-}
-
-fn relative_files(root: &Path) -> BTreeSet<PathBuf> {
-    let mut files = BTreeSet::new();
-    collect_relative_files(root, root, &mut files);
-    files
-}
-
-fn collect_relative_files(root: &Path, dir: &Path, files: &mut BTreeSet<PathBuf>) {
-    for entry in fs::read_dir(dir).unwrap_or_else(|err| panic!("read {}: {err}", dir.display())) {
-        let entry = entry.unwrap();
-        let path = entry.path();
-        if path.is_dir() {
-            collect_relative_files(root, &path, files);
-        } else {
-            files.insert(path.strip_prefix(root).unwrap().to_path_buf());
         }
     }
 }
