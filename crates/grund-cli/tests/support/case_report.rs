@@ -198,3 +198,129 @@ fn collect_relative_files(root: &Path, dir: &Path, files: &mut BTreeSet<PathBuf>
     }
 }
 
+
+/// Pins the collect-then-decide verdict (§AR-workspace.9): a reporter test over
+/// synthetic outcomes, and an end-to-end one that drives [`run_case`] itself
+/// over a scratch corpus with two corrupted cases.
+#[cfg(test)]
+mod verdict_tests {
+    use super::{
+        assert_every_case_passed, case_name, copy_dir, discover_e2e_cases, mismatch_summary,
+        run_case, CaseKind, CaseOutcome,
+    };
+    use std::fs;
+    use std::panic::{self, AssertUnwindSafe};
+    use std::path::PathBuf;
+
+    #[test]
+    fn mismatch_summary_names_every_failed_case_and_surface_and_panics_once() {
+        let outcomes = vec![
+            CaseOutcome::Ran,
+            CaseOutcome::Failed {
+                case: "a".to_string(),
+                mismatches: vec![
+                    "exit code mismatch: expected 0, actual 1".to_string(),
+                    "stdout mismatch\n  expected:\n    x\n  actual:\n    y".to_string(),
+                ],
+            },
+            CaseOutcome::NotApplicable,
+            CaseOutcome::Skipped {
+                case: "s".to_string(),
+                why: "no symlinks",
+            },
+            CaseOutcome::Failed {
+                case: "c".to_string(),
+                mismatches: vec!["stderr mismatch\n  expected:\n    \n  actual:\n    boom"
+                    .to_string()],
+            },
+        ];
+
+        let summary = mismatch_summary("e2e cases", &outcomes).expect("outcomes mismatched");
+        assert!(summary.contains("2 case(s) mismatched"), "{summary}");
+        assert!(summary.contains("a: exit code mismatch"), "{summary}");
+        assert!(summary.contains("a: stdout mismatch"), "{summary}");
+        assert!(summary.contains("c: stderr mismatch"), "{summary}");
+        assert!(!summary.contains(": Ran"), "{summary}");
+        let a_at = summary.find("a: exit code mismatch").expect("names a");
+        let c_at = summary.find("c: stderr mismatch").expect("names c");
+        assert!(a_at < c_at, "a must be named before c:\n{summary}");
+
+        let payload = panic::catch_unwind(AssertUnwindSafe(|| {
+            assert_every_case_passed("e2e cases", &outcomes)
+        }))
+        .expect_err("a mismatch must fail the pass");
+        let message = payload
+            .downcast_ref::<String>()
+            .cloned()
+            .or_else(|| payload.downcast_ref::<&str>().map(|s| (*s).to_string()))
+            .unwrap_or_default();
+        assert!(message.contains('a'), "{message}");
+        assert!(message.contains('c'), "{message}");
+        assert!(message.contains('s'), "{message}");
+    }
+
+    #[test]
+    fn run_case_names_every_mismatched_case_and_surface() {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let scratch = manifest_dir
+            .join("target/e2e-harness-tests")
+            .join("run_case_names_every_mismatched_case_and_surface");
+        let _ = fs::remove_dir_all(&scratch);
+        let source = manifest_dir.join("tests/e2e/cases/cli-version");
+        let cases_dir = scratch.join("tests/e2e/cases");
+        for name in ["broken-a", "ok-b", "broken-c"] {
+            copy_dir(&source, &cases_dir.join(name));
+        }
+        fs::write(cases_dir.join("broken-a/expected.exit"), "1\n").expect("write expected.exit");
+        fs::write(
+            cases_dir.join("broken-a/expected.stdout"),
+            "not the version\n",
+        )
+        .expect("write expected.stdout");
+        fs::write(cases_dir.join("broken-c/expected.stderr"), "unexpected\n")
+            .expect("write expected.stderr");
+
+        let cases = discover_e2e_cases(&scratch);
+        let outcomes = cases
+            .iter()
+            .map(|case| run_case(&scratch, case, CaseKind::E2e))
+            .collect::<Vec<_>>();
+
+        for (case, outcome) in cases.iter().zip(&outcomes) {
+            match case_name(case) {
+                "broken-a" => {
+                    let CaseOutcome::Failed { mismatches, .. } = outcome else {
+                        panic!("broken-a should have mismatched its goldens");
+                    };
+                    assert_eq!(mismatches.len(), 2, "{mismatches:?}");
+                    assert!(mismatches[0].starts_with("exit code mismatch"));
+                    assert!(mismatches[1].starts_with("stdout mismatch"));
+                }
+                "ok-b" => assert!(
+                    matches!(outcome, CaseOutcome::Ran),
+                    "ok-b should run cleanly"
+                ),
+                "broken-c" => {
+                    let CaseOutcome::Failed { mismatches, .. } = outcome else {
+                        panic!("broken-c should have mismatched its goldens");
+                    };
+                    assert_eq!(mismatches.len(), 1, "{mismatches:?}");
+                    assert!(mismatches[0].starts_with("stderr mismatch"));
+                }
+                other => panic!("unexpected case {other}"),
+            }
+        }
+
+        let summary = mismatch_summary("e2e cases", &outcomes).expect("outcomes mismatched");
+        assert!(summary.contains("2 case(s) mismatched"), "{summary}");
+        assert!(summary.contains("broken-a: exit code mismatch"), "{summary}");
+        assert!(summary.contains("broken-a: stdout mismatch"), "{summary}");
+        assert!(summary.contains("broken-c: stderr mismatch"), "{summary}");
+        assert!(!summary.contains("ok-b"), "{summary}");
+        let broken_a_at = summary.find("broken-a").expect("names broken-a");
+        let broken_c_at = summary.find("broken-c").expect("names broken-c");
+        assert!(broken_a_at < broken_c_at, "discovery order:\n{summary}");
+
+        let _ = fs::remove_dir_all(&scratch);
+    }
+}
