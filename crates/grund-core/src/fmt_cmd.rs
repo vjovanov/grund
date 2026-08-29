@@ -92,156 +92,65 @@ fn command_fmt(args: &[String]) -> ExitCode {
         eprintln!("error: --check and --write cannot be used together");
         return ExitCode::from(2);
     }
-    // §FS-workspace.8.5: a workspace-root run loads every member so qualified
-    // `§<alias>/<ID>` citations can be wrapped; a member-local run, or a
-    // single-project repo, collapses to one project with its wraps preserved.
-    let context = match load_workspace_context(&path, path_provided) {
-        Ok(context) => context,
+    // §FS-fmt.3 / §AR-bindings.2: the compatibility adapter uses the same
+    // workspace-wide strict preflight as the public API. Keeping a second
+    // project loop here could let its mutation and aggregation ordering drift.
+    let output = match format_references(FmtOpts {
+        path,
+        path_provided,
+        write,
+        add_marker: marker,
+        cross_refs,
+    }) {
+        Ok(output) => output,
         Err(err) => {
-            eprintln!("error: {err:#}");
+            print_fmt_error(&err);
             return ExitCode::from(2);
         }
     };
-    let config = context.render_config().clone();
-    let explicit_cross_refs = cross_refs;
-    // §FS-workspace.8.5: walk each project's tree under its own config, but
-    // share one workspace handle so a qualified `§<alias>/<ID>` resolves
-    // through `WorkspaceContext`.
-    let workspace_for_wrap = if context.workspace_loaded {
-        Some(&context)
-    } else {
-        None
-    };
-    let mut changes: Vec<(PathBuf, usize, String)> = Vec::new();
-    // §FS-fmt.3: a path the walk could not read, already rendered against the
-    // project whose walk met it. Reported after the report, exit `2`.
-    let mut scan_errors: Vec<ApiScanError> = Vec::new();
-    // §FS-fmt.2.3.2: the files the rewrite would not write through, named on
-    // stderr here rather than from the engine — the same place every other path
-    // this command prints is turned into a line.
-    let mut refused_writes: Vec<String> = Vec::new();
-    // §FS-workspace.8.5: with no explicit path (or `path == workspace root`),
-    // walk every project so cross-project wraps are emitted across the whole
-    // repo; an explicit path narrows the walk to the project holding it.
-    let walk_all_projects = context.workspace_loaded
-        && (!path_provided
-            || fs::canonicalize(&path)
-                .map(|canonical| canonical == config.root)
-                .unwrap_or(false));
-    if walk_all_projects {
-        // §AR-workspace.8: `load_workspace_context` already produced each
-        // project's findings, so pass them through — but only where that scan
-        // met no error, which `usable_findings` decides (§FS-fmt.3).
-        for project in &context.projects {
-            let auto_cross_refs =
-                match auto_cross_refs_for_scope(&project.config, Some(&project.config.root), true, write) {
-                    Ok(enabled) => enabled,
-                    Err(err) => {
-                        eprintln!("error: {err:#}");
-                        return ExitCode::from(2);
-                    }
-                };
-            let cross_refs = explicit_cross_refs || auto_cross_refs;
-            let opts = FmtRunOpts {
-                add_marker: marker,
-                cross_refs,
-                write,
-                render: &config,
-                workspace: workspace_for_wrap,
-                precomputed_findings: usable_findings(project),
-                // §FS-fmt.6.1: the index is linkified whatever the toggle says.
-                index_cross_refs: write || explicit_cross_refs,
-            };
-            match fmt_tree(
-                &project.config,
-                Some(&project.config.root),
-                true,
-                &opts,
-            ) {
-                Ok(mut walked) => {
-                    changes.append(&mut walked.changes);
-                    scan_errors.append(&mut walked.scan_errors);
-                    refused_writes.append(&mut walked.refused_writes);
-                }
-                Err(err) => {
-                    print_fmt_error(&err);
-                    return ExitCode::from(2);
-                }
-            }
-        }
-    } else {
-        // Single-project / member-local / scope-narrowed: reuse the context's
-        // findings only where they cover the whole project (the implicit "."
-        // scope) and that scan met no error, per `usable_findings` (§FS-fmt.3).
-        let reusable_findings = (!path_provided)
-            .then(|| context.current_project())
-            .flatten()
-            .and_then(usable_findings);
-        let auto_cross_refs =
-            match auto_cross_refs_for_scope(&config, Some(&path), path_provided, write) {
-                Ok(enabled) => enabled,
-                Err(err) => {
-                    eprintln!("error: {err:#}");
-                    return ExitCode::from(2);
-                }
-            };
-        let cross_refs = explicit_cross_refs || auto_cross_refs;
-        let opts = FmtRunOpts {
-            add_marker: marker,
-            cross_refs,
-            write,
-            render: &config,
-            workspace: workspace_for_wrap,
-            precomputed_findings: reusable_findings,
-            index_cross_refs: write || explicit_cross_refs,
-        };
-        match fmt_tree(&config, Some(&path), path_provided, &opts) {
-            Ok(walked) => {
-                changes = walked.changes;
-                scan_errors = walked.scan_errors;
-                refused_writes = walked.refused_writes;
-            }
-            Err(err) => {
-                print_fmt_error(&err);
-                return ExitCode::from(2);
-            }
-        }
-    }
-    for path in &refused_writes {
+    for path in &output.refused_writes {
         eprintln!("warning: {path}: not rewritten: the symlink target is outside the config root");
     }
     // §FS-fmt.3 / §FS-errors.1: the report is `fmt`'s output — on stdout, the
     // same stream `grund check`'s findings use, not the stderr transcript shape
     // `grund init` uses (§FS-errors.6). Only CLI-level `error:` lines go to stderr.
     if write {
-        let mut files: Vec<PathBuf> = changes.iter().map(|(path, _, _)| path.clone()).collect();
-        files.sort_by_key(|path| sort_path_key(path));
+        let mut files = output
+            .changes
+            .iter()
+            .map(|change| change.path.clone())
+            .collect::<Vec<_>>();
+        files.sort();
         files.dedup();
         println!(
             "rewrote {} reference{}{}",
-            changes.len(),
-            if changes.len() == 1 { "" } else { "s" },
+            output.changes.len(),
+            if output.changes.len() == 1 { "" } else { "s" },
             if files.is_empty() { "" } else { ":" }
         );
         for path in &files {
-            let count = changes.iter().filter(|(p, _, _)| p == path).count();
-            println!("  {} ({})", display_path(&config, path), count);
+            let count = output
+                .changes
+                .iter()
+                .filter(|change| &change.path == path)
+                .count();
+            println!("  {path} ({count})");
         }
     } else {
-        for (path, line, label) in &changes {
-            println!("{}:{}: {}", display_path(&config, path), line, label);
+        for change in &output.changes {
+            println!("{}:{}: {}", change.path, change.line, change.label);
         }
     }
-    if !scan_errors.is_empty() {
+    if !output.scan_errors.is_empty() {
         // Partial-scan semantics (§FS-fmt.3 / §FS-check.2): what was rewritten is
         // real — and, under `--write`, already on disk — but the tree the rewrite
         // ran over was not the whole tree.
-        for error in &scan_errors {
+        for error in &output.scan_errors {
             eprintln!("error: {}: {}", error.path, error.message);
         }
         return ExitCode::from(2);
     }
-    if write || changes.is_empty() {
+    if write || output.changes.is_empty() {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE

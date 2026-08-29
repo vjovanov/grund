@@ -23,10 +23,10 @@ fn manifest_dir() -> PathBuf {
 /// A workspace with a root and one member, a citation crossing the boundary
 /// in each direction so neither declaration is "never cited", and a broken
 /// symlink only the member's walk reaches.
-fn build_fixture() -> PathBuf {
+fn build_fixture(name: &str) -> PathBuf {
     let dir = manifest_dir()
         .join("target/workspace-scan-error-tests")
-        .join("root");
+        .join(name);
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(dir.join("docs")).expect("create root docs dir");
     fs::create_dir_all(dir.join("packages/sub/docs")).expect("create member docs dir");
@@ -80,7 +80,7 @@ fn error_lines(output: &Output) -> BTreeSet<String> {
 
 #[test]
 fn every_query_command_names_a_member_scan_error_the_same_way() {
-    let root = build_fixture();
+    let root = build_fixture("query_equivalence");
     const EXPECTED_ERROR: &str =
         "error: packages/sub/docs/FS-gone.md: broken symlink: the target does not exist";
 
@@ -110,4 +110,57 @@ fn every_query_command_names_a_member_scan_error_the_same_way() {
             args.join(" ")
         );
     }
+}
+
+#[test]
+/// §FS-fmt.3: a strict workspace refusal preserves the ordinary scan's
+/// root-then-members error order while changing every line to the abort form.
+fn strict_workspace_check_reports_root_and_member_errors_in_scan_order() {
+    let root = build_fixture("strict_complete_abort");
+    std::os::unix::fs::symlink("nowhere.md", root.join("docs/FS-gone.md"))
+        .expect("create root broken symlink");
+
+    let ordinary = run_grund(&["fmt", "--check", "."], &root);
+    let output = run_grund(&["fmt", "--check", "--cross-refs", "."], &root);
+
+    assert_eq!(ordinary.status.code(), Some(2));
+    assert_eq!(
+        String::from_utf8_lossy(&ordinary.stderr),
+        concat!(
+            "error: docs/FS-gone.md: broken symlink: the target does not exist\n",
+            "error: packages/sub/docs/FS-gone.md: broken symlink: the target does not exist\n",
+        )
+    );
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        concat!(
+            "error: nothing was rewritten: docs/FS-gone.md: broken symlink: the target does not exist\n",
+            "error: nothing was rewritten: packages/sub/docs/FS-gone.md: broken symlink: the target does not exist\n",
+        )
+    );
+}
+
+#[test]
+/// §FS-fmt.3: a later member's strict refusal is discovered before a
+/// write-capable pass can mutate a readable file in the root project.
+fn strict_workspace_write_does_not_mutate_root_before_member_abort() {
+    let root = build_fixture("strict_write_abort");
+    let path = root.join("docs/FS-root-thing.md");
+    let before = fs::read(&path).expect("read root document before fmt");
+
+    let output = run_grund(&["fmt", "--write", "."], &root);
+
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "error: nothing was rewritten: packages/sub/docs/FS-gone.md: broken symlink: the target does not exist\n"
+    );
+    assert_eq!(
+        fs::read(path).expect("read root document after fmt"),
+        before,
+        "the earlier root project was rewritten before the member refused"
+    );
 }
