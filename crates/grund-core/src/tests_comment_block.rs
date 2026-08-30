@@ -32,7 +32,7 @@ mod tests_comment_block {
                 "pub fn relogin() {}\n",
             ),
         );
-        assert_eq!(findings, over_the_line_cap(12, 4));
+        assert_eq!(findings, over_the_line_cap(12, 4, "§FS-001-login"));
     }
 
     #[test]
@@ -56,7 +56,7 @@ mod tests_comment_block {
                 "class Other {}\n",
             ),
         );
-        assert_eq!(findings, over_the_line_cap(8, 5));
+        assert_eq!(findings, over_the_line_cap(8, 5, "§FS-001-login"));
     }
 
     /// §FS-inline-citation-style.1.1: exactly three slashes. A `////` run is a
@@ -75,7 +75,7 @@ mod tests_comment_block {
                 "pub fn login() {}\n",
             ),
         );
-        assert_eq!(findings, over_the_line_cap(1, 4));
+        assert_eq!(findings, over_the_line_cap(1, 4, "§FS-001-login"));
     }
 
     /// §FS-inline-citation-style.1.1: `/**/` is the empty block comment, not a
@@ -89,7 +89,7 @@ mod tests_comment_block {
             "src/App.java",
             &format!("/**/ §FS-001-login {padding} */\nclass App {{}}\n"),
         );
-        assert_eq!(findings, over_the_column_cap(1, 122));
+        assert_eq!(findings, over_the_column_cap(1, 122, "§FS-001-login"));
     }
 
     /// §FS-inline-citation-style.1.1: `/**` and `/*!` both open documentation,
@@ -127,7 +127,7 @@ mod tests_comment_block {
                 "x = 1\n",
             ),
         );
-        assert_eq!(findings, over_the_line_cap(8, 4));
+        assert_eq!(findings, over_the_line_cap(8, 4, "§FS-001-login"));
     }
 
     /// §FS-inline-citation-style.1.1: PEP 257 says only a docstring is
@@ -147,7 +147,7 @@ mod tests_comment_block {
                 "    pass\n",
             ),
         );
-        assert_eq!(findings, over_the_line_cap(1, 4));
+        assert_eq!(findings, over_the_line_cap(1, 4, "§FS-001-login"));
     }
 
     #[test]
@@ -169,7 +169,7 @@ mod tests_comment_block {
                 "function relogin() end\n",
             ),
         );
-        assert_eq!(findings, over_the_line_cap(7, 4));
+        assert_eq!(findings, over_the_line_cap(7, 4, "§FS-001-login"));
     }
 
     #[test]
@@ -191,7 +191,7 @@ mod tests_comment_block {
                 "relogin = ()\n",
             ),
         );
-        assert_eq!(findings, over_the_line_cap(7, 4));
+        assert_eq!(findings, over_the_line_cap(7, 4, "§FS-001-login"));
     }
 
     /// §FS-inline-citation-style.1.1: Haddock's other marker documents what
@@ -233,7 +233,7 @@ mod tests_comment_block {
             // `R` is outside the default `[scan] extensions`.
             |config| config.extensions.push("R".to_string()),
         );
-        assert_eq!(findings, over_the_line_cap(7, 4));
+        assert_eq!(findings, over_the_line_cap(7, 4, "§FS-001-login"));
     }
 
     /// §FS-inline-citation-style.1.1: an extension neither table names has no
@@ -261,8 +261,8 @@ mod tests_comment_block {
         assert_eq!(
             findings,
             vec![
-                (1, "inline note is 4 lines, over the 3-line maximum".to_string()),
-                (7, "inline note is 4 lines, over the 3-line maximum".to_string()),
+                over_the_line_cap(1, 4, "§FS-001-login")[0].clone(),
+                over_the_line_cap(7, 4, "§FS-001-login")[0].clone(),
             ]
         );
     }

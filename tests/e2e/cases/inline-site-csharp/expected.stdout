@@ -1,2 +1,2 @@
-src/App.cs:18: inline note is 4 lines, over the 3-line maximum
-src/App.cs:29: inline note is 4 lines, over the 3-line maximum
+src/App.cs:18: inline note is 4 lines, over the 3-line maximum: lines 18-21 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not
+src/App.cs:29: inline note is 4 lines, over the 3-line maximum: lines 29-32 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not

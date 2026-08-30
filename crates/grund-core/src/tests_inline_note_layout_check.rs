@@ -156,24 +156,25 @@ mod tests_inline_note_layout_check {
         }
     }
 
-    /// §FS-inline-citation-style.5: the layout sentence appends to the budget
-    /// sentence, is written with the project's marker, and is absent under `any` so
-    /// no existing managed block drifts. The doc-comment sentence closes the copy
-    /// at every `inline_style`, after whatever the other keys produced.
+    /// §FS-inline-citation-style.5: the block sentence appends to the budget
+    /// sentence and precedes the layout sentence, which is written with the
+    /// project's marker and absent under `any` so no existing managed block
+    /// drifts on that key. The doc-comment sentence closes the copy at every
+    /// `inline_style`, after whatever the other keys produced.
     #[test]
     fn agents_sentence_teaches_the_configured_layout() {
         let root = test_root("agents_sentence_teaches_the_configured_layout");
         let any = layout_config(root.clone(), "any");
         assert_eq!(
             inline_citation_style_sentence(&any),
-            "Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there."
+            "Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. A note is one comment block: a blank line splits it, an empty comment line does not. Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there."
         );
 
         let mut colon = layout_config(root.clone(), "citation-first-colon");
         colon.inline_note_layout_check = "error".into();
         assert_eq!(
             inline_citation_style_sentence(&colon),
-            "Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. Lay each note out citation-first: `// §<ID>: <note>` (several citations: `// §<ID>, §<ID>: <note>`). Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there."
+            "Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. A note is one comment block: a blank line splits it, an empty comment line does not. Lay each note out citation-first: `// §<ID>: <note>` (several citations: `// §<ID>, §<ID>: <note>`). Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there."
         );
 
         // The enforcement level is not an instruction: `off` renders the same

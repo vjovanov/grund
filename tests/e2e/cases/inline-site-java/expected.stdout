@@ -1,2 +1,2 @@
-src/App.java:17: inline note is 4 lines, over the 3-line maximum
-src/App.java:27: inline note is 4 lines, over the 3-line maximum
+src/App.java:17: inline note is 4 lines, over the 3-line maximum: lines 17-20 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not
+src/App.java:27: inline note is 4 lines, over the 3-line maximum: lines 27-30 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not

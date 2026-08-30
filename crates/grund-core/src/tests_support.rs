@@ -534,24 +534,32 @@ mod tests_support {
 
     /// The one finding a block of more than three lines earns under the default
     /// caps, anchored at the line the block opens on. `lines` is the fixture's
-    /// true physical line count — callers must count it, not guess.
-    pub(crate) fn over_the_line_cap(line: usize, lines: usize) -> Vec<(usize, String)> {
+    /// true physical line count and `citations` its true citation text, as
+    /// written — callers must count and copy them, not guess.
+    pub(crate) fn over_the_line_cap(line: usize, lines: usize, citations: &str) -> Vec<(usize, String)> {
+        let last_line = line + lines - 1;
+        let site = if line == last_line {
+            format!("line {line} cites {citations}")
+        } else {
+            format!("lines {line}-{last_line} cite {citations}")
+        };
         vec![(
             line,
             format!(
-                "inline note is {lines} line{}, over the 3-line maximum",
+                "inline note is {lines} line{}, over the 3-line maximum: {site}; a blank line splits a note, an empty comment line does not",
                 if lines == 1 { "" } else { "s" }
             ),
         )]
     }
 
     /// The one finding a line wider than a hundred characters earns. `columns`
-    /// is the fixture's true character count — callers must count it, not guess.
-    pub(crate) fn over_the_column_cap(line: usize, columns: usize) -> Vec<(usize, String)> {
+    /// is the fixture's true character count and `citations` its true citation
+    /// text, as written — callers must count and copy them, not guess.
+    pub(crate) fn over_the_column_cap(line: usize, columns: usize, citations: &str) -> Vec<(usize, String)> {
         vec![(
             line,
             format!(
-                "inline note is {columns} column{}, over the 100-column maximum",
+                "inline note is {columns} column{}, over the 100-column maximum: line {line} cites {citations}",
                 if columns == 1 { "" } else { "s" }
             ),
         )]

@@ -1,0 +1,1 @@
+src/auth.rs:1: inline note is 5 lines, over the 3-line maximum: lines 1-5 cite §FS-001-auth.1, §FS-001-auth.2; a blank line splits a note, an empty comment line does not
