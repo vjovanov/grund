@@ -200,14 +200,21 @@ fn json_escape(raw: &str) -> String {
 
 /// Render a path the way reports show it: relative to the repo root by default,
 /// or relative to the CLI base directory when `[output] relative_paths = false`
-/// (§FS-config.3.6, §FS-errors.4 — never an absolute path outside the root).
+/// (§FS-config.3.6 — an in-root target outside that base uses bounded `..`).
 fn display_path(config: &Config, path: &Path) -> String {
     let base = if config.relative_paths {
         &config.root
     } else {
         &config.cli_base
     };
-    format_path(path.strip_prefix(base).unwrap_or(path))
+    let relative = path.strip_prefix(base).map(Path::to_path_buf).unwrap_or_else(|_| {
+        if !config.relative_paths && path.starts_with(&config.root) {
+            relative_from_base(base, path)
+        } else {
+            path.to_path_buf()
+        }
+    });
+    format_path(&relative)
 }
 
 fn format_path(path: &Path) -> String {

@@ -519,12 +519,26 @@ fn scan_roots_for(
         if !scope.exists() {
             return Err(anyhow!("path does not exist: {}", scope.display()));
         }
-        let scope = fs::canonicalize(scope).unwrap_or_else(|_| scope.to_path_buf());
-        let scope = walk_root_under_config_root(config, &scope);
+        let lexical_scope = if scope.is_absolute() {
+            normalize_path_lexically(scope)
+        } else {
+            std::env::current_dir()
+                .map(|cwd| normalize_path_lexically(&cwd.join(scope)))
+                .unwrap_or_else(|_| normalize_path_lexically(scope))
+        };
+        let resolved = fs::canonicalize(scope).unwrap_or_else(|_| lexical_scope.clone());
+        // §FS-config.3.5.2: resolution chooses the file to read, but reports keep
+        // an explicit in-tree symlink's lexical spelling — including when its
+        // target is outside the root and therefore cannot be rendered safely.
+        let scope = if lexical_scope.starts_with(&config.root) {
+            lexical_scope
+        } else {
+            walk_root_under_config_root(config, &resolved)
+        };
         if scope.is_file() {
             return Ok(vec![scope]);
         }
-        if scope == config.root {
+        if resolved == canonical_config_root(config) {
             return Ok(root_scope_roots(config, full));
         }
         return Ok(vec![scope]);
