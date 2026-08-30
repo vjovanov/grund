@@ -109,6 +109,27 @@ mod tests_check_full_scope {
         );
     }
 
+    /// §FS-config.3.6: an OS-level alias for the config root must not make a
+    /// lexical explicit scope fall back to its absolute spelling.
+    #[cfg(unix)]
+    #[test]
+    fn full_scope_warning_keeps_a_lexical_root_alias() {
+        let root = drifted_include_repo("full_scope_warning_keeps_a_lexical_root_alias");
+        write(&root.join("sim/world.py"), "# Cites §FS-999-missing\n");
+        let alias = root.with_extension("alias");
+        symlink(root.to_str().expect("UTF-8 test path"), &alias);
+
+        let full = check_run(&alias.join("sim"), true);
+        let caution = full
+            .report
+            .warnings
+            .iter()
+            .find(|diagnostic| diagnostic.code == "full-scope-ignored")
+            .expect("redundant --full warning");
+        assert!(caution.message.ends_with("and sim already bypasses it"));
+        assert!(!caution.message.contains(alias.to_str().expect("UTF-8 test path")));
+    }
+
     #[test]
     fn full_scope_widens_every_workspace_member() {
         let root = test_root("full_scope_widens_every_workspace_member");

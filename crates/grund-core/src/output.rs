@@ -217,6 +217,25 @@ fn display_path(config: &Config, path: &Path) -> String {
     format_path(&relative)
 }
 
+/// Render an explicit lexical scope without resolving its final symlink.
+/// Canonical ancestors only identify the report base when the OS respells it.
+fn display_lexical_scope(config: &Config, path: &Path) -> String {
+    let base = if config.relative_paths {
+        &config.root
+    } else {
+        &config.cli_base
+    };
+    for ancestor in path.ancestors() {
+        if fs::canonicalize(ancestor)
+            .map(|resolved| resolved == *base)
+            .unwrap_or(false)
+        {
+            return format_path(path.strip_prefix(ancestor).unwrap_or(path));
+        }
+    }
+    display_path(config, path)
+}
+
 fn format_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
@@ -393,7 +412,7 @@ fn full_scope_ignored_warning(
         message: format!(
             "--full has no effect with an explicit PATH — it cancels [scan] include, and {} \
              already bypasses it",
-            display_path(config, &lexical_scope)
+            display_lexical_scope(config, &lexical_scope)
         ),
         sites: Vec::new(),
     })
