@@ -128,6 +128,39 @@ fn relative_paths_false_from_subdirectory_reaches_workspace_member() {
         );
         assert_eq!(String::from_utf8_lossy(&check.stderr), "");
 
+        let full_check = run_grund(&["check", "docs/external-link.md", "--full"], &root);
+        assert_eq!(full_check.status.code(), Some(1));
+        assert_eq!(
+            String::from_utf8_lossy(&full_check.stdout),
+            String::from_utf8_lossy(&check.stdout)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&full_check.stderr),
+            "warning: --full has no effect with an explicit PATH — it cancels [scan] include, and external-link.md already bypasses it\n"
+        );
+
+        let full_check_json = run_grund(
+            &[
+                "check",
+                "docs/external-link.md",
+                "--full",
+                "--format",
+                "json",
+            ],
+            &root,
+        );
+        assert_eq!(full_check_json.status.code(), Some(1));
+        assert_eq!(
+            String::from_utf8_lossy(&full_check_json.stderr),
+            concat!(
+                "{\"severity\":\"warning\",\"path\":null,\"line\":null,",
+                "\"code\":\"full-scope-ignored\",",
+                "\"message\":\"--full has no effect with an explicit PATH — it cancels ",
+                "[scan] include, and external-link.md already bypasses it\",",
+                "\"sites\":null}\n",
+            )
+        );
+
         let linked_cover = run_grund(
             &["cover", "docs/external-link.md", "--format", "json"],
             &root,
@@ -143,7 +176,12 @@ fn relative_paths_false_from_subdirectory_reaches_workspace_member() {
             )
         );
         let physical = external.to_string_lossy();
+        let machine_prefix = manifest_dir().to_string_lossy().into_owned();
         assert!(!String::from_utf8_lossy(&check.stdout).contains(physical.as_ref()));
         assert!(!String::from_utf8_lossy(&linked_cover.stdout).contains(physical.as_ref()));
+        assert!(!String::from_utf8_lossy(&full_check.stderr).contains(physical.as_ref()));
+        assert!(!String::from_utf8_lossy(&full_check_json.stderr).contains(physical.as_ref()));
+        assert!(!String::from_utf8_lossy(&full_check.stderr).contains(&machine_prefix));
+        assert!(!String::from_utf8_lossy(&full_check_json.stderr).contains(&machine_prefix));
     }
 }
