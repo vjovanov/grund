@@ -54,6 +54,7 @@ The rules that make this file, and the ones beside it, checked rather than hoped
 - [§DF-nested-workspaces](DF-nested-workspaces.md#df-nested-workspaces-a-nested-project-is-named-by-its-whole-alias-path) — a nested project is named by its whole alias path
 - [§DF-workspace-member-descriptions](DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists) — member-side `project_description` for workspace member lists
 - [§DF-cover-workspace-scope](DF-cover-workspace-scope.md#df-cover-workspace-scope-cover-indexes-the-whole-run-and-counts-cross-project-citations) — cover indexes the whole run and counts cross-project citations
+- [§DF-cli-base-parent-paths](DF-cli-base-parent-paths.md#df-cli-base-parent-paths-relative_paths--false-keeps-one-cli-base-and-may-climb-within-the-loaded-root) — `relative_paths = false` keeps one CLI base and may climb within the loaded root
 
 ## The command surface
 

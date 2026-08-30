@@ -581,8 +581,10 @@ Rationale and the discarded project-local alternative: [§DF-cover-workspace-sco
   spelled the way `[workspace] members` spells it and the recipe can join it
   against the same base `git diff` reports. Under `relative_paths = false` the
   base is the command's path argument, as it is for every other command
-  ([§FS-config.3.6](FS-config.md#36-output--report-format)). Scan errors from any project render against
-  whichever base the rows did.
+  ([§FS-config.3.6](FS-config.md#36-output--report-format)); a member outside
+  that base is reached with the minimum `..` components while remaining inside
+  the loaded workspace, never by falling back to its absolute path. Scan errors
+  from any project render against whichever base the rows did.
 - **`--format json` adds `"project": "<alias>"`** to the per-file object and to
   each nested citation object whenever workspace mode is loaded — the alias of
   the project that *contains* the file, which is also the citing project. The
@@ -612,6 +614,8 @@ All six surfaces above keep the exit codes they had:
 
 Paths in every command respect `[output] relative_paths` as `check` already
 does (§5). That includes the `error: <path>: <reason>` line a per-file scan
-failure earns ([§FS-check.2](FS-check.md#2-outputs)): it is spelled from the run's base — the workspace root
-in workspace mode — the same line `check` prints for the same tree, whichever
-command met the failure first.
+failure earns ([§FS-check.2](FS-check.md#2-outputs)): it is spelled from the
+run's configured base — the workspace root by default, or the path argument/cwd
+under `relative_paths = false`, with in-workspace parent components as specified
+by [§FS-config.3.6](FS-config.md#36-output--report-format) — the same line
+`check` prints for the same tree, whichever command met the failure first.
