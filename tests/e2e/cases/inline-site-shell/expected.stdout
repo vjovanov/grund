@@ -1,2 +1,2 @@
-src/deploy.sh:15: inline note is 4 lines, over the 3-line maximum
-src/deploy.sh:23: inline note is 4 lines, over the 3-line maximum
+src/deploy.sh:15: inline note is 4 lines, over the 3-line maximum: lines 15-18 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not
+src/deploy.sh:23: inline note is 4 lines, over the 3-line maximum: lines 23-26 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not

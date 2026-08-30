@@ -1,3 +1,3 @@
-src/lib.rs:12: inline note is 4 lines, over the 3-line maximum
-src/lib.rs:22: inline note is 4 lines, over the 3-line maximum
-src/lib.rs:32: inline note is 4 lines, over the 3-line maximum
+src/lib.rs:12: inline note is 4 lines, over the 3-line maximum: lines 12-15 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not
+src/lib.rs:22: inline note is 4 lines, over the 3-line maximum: lines 22-25 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not
+src/lib.rs:32: inline note is 4 lines, over the 3-line maximum: lines 32-35 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not

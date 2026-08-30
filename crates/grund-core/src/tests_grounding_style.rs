@@ -105,12 +105,51 @@ mod tests_grounding_style {
             .collect::<Vec<_>>();
 
         assert!(
-            messages.contains(&"inline note is 2 lines, over the 1-line maximum"),
+            messages.contains(
+                &"inline note is 2 lines, over the 1-line maximum: lines 1-2 cite §FS-001-login; a blank line splits a note, an empty comment line does not"
+            ),
             "line cap should be reported: {messages:?}"
         );
         assert!(
-            messages.contains(&"inline note is 64 columns, over the 40-column maximum"),
+            messages.contains(
+                &"inline note is 64 columns, over the 40-column maximum: lines 1-2 cite §FS-001-login"
+            ),
             "column cap should be reported: {messages:?}"
+        );
+    }
+
+    /// §FS-inline-citation-style.4.1: the site clause names every citation the
+    /// block carries, each exactly as written — marker and section included —
+    /// in source order, and only once: a token repeated verbatim contributes
+    /// nothing past its first occurrence.
+    #[test]
+    fn inline_note_line_cap_names_citations_in_source_order_deduplicated() {
+        let root = test_root("inline_note_line_cap_names_citations_in_source_order_deduplicated");
+        write(
+            &root.join("docs/functional-spec/FS-001-login.md"),
+            "# FS-001-login: Login\n\n## 1. Session\n",
+        );
+        write(
+            &root.join("src/auth.rs"),
+            "// §FS-001-login.1 the session rule, and §FS-001-login for the\n// whole feature, and §FS-001-login.1 again for the same rule\npub fn login() {}\n",
+        );
+
+        let mut config = Config::default_for(root.clone());
+        config.inline_note_max_lines = 1;
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan root");
+        let report = check_findings(&findings, &config);
+        let messages = report
+            .errors
+            .iter()
+            .filter(|error| error.code == "inline-citation-style")
+            .map(|error| error.message.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(
+            messages.contains(
+                &"inline note is 2 lines, over the 1-line maximum: lines 1-2 cite §FS-001-login.1, §FS-001-login; a blank line splits a note, an empty comment line does not"
+            ),
+            "citations are named as written, in source order, deduplicated: {messages:?}"
         );
     }
 
@@ -154,7 +193,7 @@ mod tests_grounding_style {
             .iter()
             .filter(|error| {
                 error.code == "inline-citation-style"
-                    && error.message.ends_with("-column maximum")
+                    && error.message.contains("-column maximum:")
             })
             .map(|error| (error.line, error.message.as_str()))
             .collect::<Vec<_>>();
@@ -193,7 +232,7 @@ mod tests_grounding_style {
             .iter()
             .filter(|error| {
                 error.code == "inline-citation-style"
-                    && error.message.ends_with("-column maximum")
+                    && error.message.contains("-column maximum:")
             })
             .map(|error| (error.line, error.message.clone()))
             .collect::<Vec<_>>();
@@ -203,7 +242,7 @@ mod tests_grounding_style {
             vec![(
                 Some(4),
                 format!(
-                    "inline note is {} columns, over the {}-column maximum",
+                    "inline note is {} columns, over the {}-column maximum: line 4 cites §FS-001-login",
                     at_cap.chars().count() + 1,
                     at_cap.chars().count()
                 )
@@ -234,7 +273,7 @@ mod tests_grounding_style {
                 .warnings
                 .iter()
                 .any(|warning| warning.code == "inline-citation-style"
-                    && warning.message == "inline note is 2 lines, over the 1-line preferred limit"),
+                    && warning.message == "inline note is 2 lines, over the 1-line preferred limit: lines 1-2 cite §FS-001-login; a blank line splits a note, an empty comment line does not"),
             "soft-cap overrun should be a warning when enabled"
         );
         assert!(

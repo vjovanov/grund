@@ -1,2 +1,2 @@
-src/app.lua:14: inline note is 4 lines, over the 3-line maximum
-src/app.lua:24: inline note is 4 lines, over the 3-line maximum
+src/app.lua:14: inline note is 4 lines, over the 3-line maximum: lines 14-17 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not
+src/app.lua:24: inline note is 4 lines, over the 3-line maximum: lines 24-27 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not

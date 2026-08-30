@@ -30,7 +30,7 @@ mod tests_comment_block_position {
                 "}\n",
             ),
         );
-        assert_eq!(findings, over_the_line_cap(10, 4));
+        assert_eq!(findings, over_the_line_cap(10, 4, "§FS-001-login"));
     }
 
     /// §FS-inline-citation-style.1.1: the definition has to be the *next* line.
@@ -72,7 +72,7 @@ mod tests_comment_block_position {
                 "src/auth.go",
                 detached,
             ),
-            over_the_line_cap(3, 4)
+            over_the_line_cap(3, 4, "§FS-001-login")
         );
     }
 
@@ -99,7 +99,7 @@ mod tests_comment_block_position {
                 "end\n",
             ),
         );
-        assert_eq!(findings, over_the_line_cap(7, 4));
+        assert_eq!(findings, over_the_line_cap(7, 4, "§FS-001-login"));
     }
 
     #[test]
@@ -127,7 +127,7 @@ mod tests_comment_block_position {
             // `sh` is outside the default `[scan] extensions`.
             |config| config.extensions.push("sh".to_string()),
         );
-        assert_eq!(findings, over_the_line_cap(11, 4));
+        assert_eq!(findings, over_the_line_cap(11, 4, "§FS-001-login"));
     }
 
     /// §FS-inline-citation-style.1.1: shell's other spelling, and the identifier
@@ -156,7 +156,7 @@ mod tests_comment_block_position {
             ),
             |config| config.extensions.push("sh".to_string()),
         );
-        assert_eq!(findings, over_the_line_cap(11, 4));
+        assert_eq!(findings, over_the_line_cap(11, 4, "§FS-001-login"));
     }
 
     #[test]
@@ -186,7 +186,7 @@ mod tests_comment_block_position {
                 "INSERT INTO login VALUES (1);\n",
             ),
         );
-        assert_eq!(findings, over_the_line_cap(15, 4));
+        assert_eq!(findings, over_the_line_cap(15, 4, "§FS-001-login"));
     }
 
     /// §FS-inline-citation-style.1.1: a position language's file header is its
@@ -250,6 +250,6 @@ mod tests_comment_block_position {
             ),
             |config| config.extensions.push("sh".to_string()),
         );
-        assert_eq!(findings, over_the_line_cap(3, 4));
+        assert_eq!(findings, over_the_line_cap(3, 4, "§FS-001-login"));
     }
 }

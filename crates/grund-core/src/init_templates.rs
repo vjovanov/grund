@@ -143,6 +143,15 @@ fn section_heading_note(config: &Config, marker: &str) -> String {
 /// finding.
 const DOC_COMMENT_SENTENCE: &str = " Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there.";
 
+/// §FS-inline-citation-style.5: the sentence that follows the budgets and
+/// precedes the layout sentence, under `citation-with-note` only — restating
+/// §1's block rule at the point an agent needs it to act on a cap finding. It
+/// moves no managed-block version, for the same reason the layout and
+/// doc-comment sentences do not (§2.2): a block that predates it teaches the
+/// same rule less precisely, an over-careful comment, never a finding.
+const BLOCK_SENTENCE: &str =
+    " A note is one comment block: a blank line splits it, an empty comment line does not.";
+
 fn inline_citation_style_sentence(config: &Config) -> String {
     if config.inline_style == "citation-only" {
         return format!(
@@ -165,11 +174,11 @@ fn inline_citation_style_sentence(config: &Config) -> String {
             config.inline_note_max_columns
         )
     };
-    // §FS-inline-citation-style.5: the layout sentence appends to the budgets and
-    // is empty under `any`, so a project that configures no layout renders the
-    // byte-identical block it rendered before this key existed.
+    // §FS-inline-citation-style.5: the layout sentence appends to the budgets
+    // and the block sentence, empty under `any`, so a project with no layout
+    // renders the byte-identical block it rendered before that key existed.
     format!(
-        "{budgets}{}{DOC_COMMENT_SENTENCE}",
+        "{budgets}{BLOCK_SENTENCE}{}{DOC_COMMENT_SENTENCE}",
         inline_note_layout_sentence(config)
     )
 }

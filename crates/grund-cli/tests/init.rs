@@ -303,7 +303,7 @@ fn init_agents_block_closes_the_house_style_with_the_doc_comment_sentence() {
     );
 
     let agents = fs::read_to_string(target.join("AGENTS.md")).expect("read AGENTS.md");
-    let expected = "- **Inline citation style.** Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there.";
+    let expected = "- **Inline citation style.** Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns. A note is one comment block: a blank line splits it, an empty comment line does not. Doc-comments (`///`, `//!`, `/** */`, a docstring, a comment right above a definition) are documentation, not notes: they are never measured, so cite in-sentence there.";
     assert!(
         agents.contains(expected),
         "AGENTS.md should carry the rendered house style `{expected}`, got:\n{agents}"

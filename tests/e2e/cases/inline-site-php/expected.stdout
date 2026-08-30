@@ -1,2 +1,2 @@
-src/app.php:19: inline note is 4 lines, over the 3-line maximum
-src/app.php:29: inline note is 4 lines, over the 3-line maximum
+src/app.php:19: inline note is 4 lines, over the 3-line maximum: lines 19-22 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not
+src/app.php:29: inline note is 4 lines, over the 3-line maximum: lines 29-32 cite §FS-001-alpha; a blank line splits a note, an empty comment line does not

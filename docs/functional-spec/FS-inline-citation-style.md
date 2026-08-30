@@ -11,7 +11,7 @@ An **inline citation site** is an *inline comment* block — a maximal run of ad
 - `/* … */` block comments, `/**`- and `/*!`-opened alike: from opener to closer.
 - Python triple-quoted docstrings (`""" … """` / `''' … '''`): from the opening triple-quote to the matching close.
 
-Adjacency is broken by any line that is not part of the same block: a code line, a blank line, or a different comment style. A site never spans more than one block.
+Adjacency is broken by any line that is not part of the same block: a code line, a blank line, or a different comment style. A site never spans more than one block. An empty comment line — the marker alone, such as `//` or `#`, with nothing after it — stays inside the run: it carries the marker, so only a line without one breaks it.
 
 This spec governs inline citation sites only. It does **not** govern:
 
@@ -230,19 +230,21 @@ Findings are reported using the located-finding shape of [§FS-errors.2.1](FS-er
 
 Each of the following is an error and contributes to a non-zero exit code, per [§FS-check.2](FS-check.md#2-outputs):
 
-| condition                                               | result                                                        |
-|---------------------------------------------------------|--------------------------------------------------------------|
-| `inline_style = "citation-only"` and a note is present  | error: `inline citation must carry no prose`                 |
-| `lines > inline_note_max_lines`                         | error: `inline note is M lines, over the N-line maximum`     |
-| `max(columns) > inline_note_max_columns`                | error: `inline note is M columns, over the N-column maximum` |
+| condition                                               | result                                                                                                             |
+|---------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| `inline_style = "citation-only"` and a note is present  | error: `inline citation must carry no prose`                                                                        |
+| `lines > inline_note_max_lines`                         | error: `inline note is M lines, over the N-line maximum: lines A-B cite <citations>; a blank line splits a note, an empty comment line does not` |
+| `max(columns) > inline_note_max_columns`                | error: `inline note is M columns, over the N-column maximum: line(s) A[-B] cite(s) <citations>`                     |
 
 A single site that violates more than one cap produces one finding per violated cap (so the author sees every reason in a single pass). `M` is the measured size — physical lines, or characters (§2.3) of the site's longest line — placed next to the cap `N` so the finding is actionable without re-measuring, in keeping with [§GOAL-friendliness-first](../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible). `M` pluralises by its own value (`1 line`, `2 lines`, `1 column`, `2 columns`); `N-line` and `N-column` are adjectival and never pluralise.
+
+Both findings also name the site: `A-B` is the block's `first_line`–`last_line`, or `line A` alone when the two coincide (only possible for the column cap); `<citations>` is every citation token of the site as written — marker, qualifier, section — in source order, deduplicated after the first occurrence, chain-spelled with `, ` the way §3.3 already joins a citation run. The line-count finding carries a further clause, `a blank line splits a note, an empty comment line does not`, restating §1's block rule at the point it fixes the finding: the citations name what has to move, and the clause names the boundary that moving them has to cross. The column cap carries no such clause — a wide line is fixed by wrapping, not by splitting.
 
 ### 4.2 Warnings — opt-in soft cap
 
 `warn_on_suggested = false` (default): soft-cap overruns are **silent** at `check` time. The soft cap is purely guidance for the agent-facing surface (§5); humans get the same guidance through the same rendered copy.
 
-`warn_on_suggested = true`: a site whose line count exceeds `inline_note_suggested_lines` but stays within `inline_note_max_lines` is reported as a **warning**: `inline note is M lines, over the N-line preferred limit`, `M` and `N` following the same measured-value and pluralisation rule as §4.1. Warnings never affect the exit code, per [§FS-check.4](FS-check.md#4-warnings).
+`warn_on_suggested = true`: a site whose line count exceeds `inline_note_suggested_lines` but stays within `inline_note_max_lines` is reported as a **warning**: `inline note is M lines, over the N-line preferred limit: lines A-B cite <citations>; a blank line splits a note, an empty comment line does not`, with `M`, `N`, the site clause, and the splitting clause following the same rules as §4.1's line-count finding. Warnings never affect the exit code, per [§FS-check.4](FS-check.md#4-warnings).
 
 There is no `suggested_columns` knob; column width is a single hard cap. The motivation is symmetry with how editors and formatters already treat line length — a binary "too long" rather than a layered preference.
 
@@ -277,6 +279,8 @@ The `init` machinery that writes versioned managed blocks into `AGENTS.md` / `CL
 - `inline_style = "citation-only"` → `Inline citations carry no prose — put rationale in the spec.`
 - `inline_style = "citation-with-note"`, `suggested_lines == max_lines` → e.g. `Inline notes: ≤ 1 line, ≤ 100 columns.`
 - `inline_style = "citation-with-note"`, `suggested_lines < max_lines` → e.g. `Inline notes: ≤ 1 line preferred, hard cap 3 lines; ≤ 100 columns.`
+
+Under `citation-with-note` only, one further sentence follows the budgets line and precedes everything below: `A note is one comment block: a blank line splits it, an empty comment line does not.` — restating §1's block rule where the agent will need it to act on a cap finding. No sentence is added under `citation-only`: a citation site with no note has no block to split. Like the layout and doc-comment sentences, this moves **no** managed-block version (§2.2): a block that predates it teaches the same rule less precisely, an over-careful comment, never a finding.
 
 When `inline_note_layout = "citation-first-colon"` is set, one further sentence is appended to whichever line above applies, naming the canonical form with the configured marker and placeholder IDs — e.g. ``Lay each note out citation-first: `// §<ID>: <note>` (several citations: `// §<ID>, §<ID>: <note>`).`` Under `inline_note_layout = "any"` nothing is appended and the rendered text is byte-identical to what a `grund` without this key produced, so no repository's managed block drifts on upgrade ([§FS-check.3.5](FS-check.md#35-invalid-agent-entrypoint-init-block)).
 

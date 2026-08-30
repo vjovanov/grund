@@ -314,6 +314,48 @@ fn line_says_something(line: &str, ranges: &[(usize, usize)], prefixes: &[&str])
     !strip_comment_tokens(&tokenless, prefixes).trim().is_empty()
 }
 
+/// The citation tokens of one inline citation site, for the message a budget
+/// finding names (§FS-inline-citation-style.4.1, §4.2): each citation's `text`
+/// exactly as written — marker, qualifier, section — in source order,
+/// duplicates dropped after the first, chain-spelled with
+/// `CITATION_RUN_SEPARATOR` the way §3.3 already joins a citation run.
+fn site_citation_texts(findings: &Findings) -> BTreeMap<(&Path, usize), String> {
+    let mut per_site: BTreeMap<(&Path, usize), Vec<&str>> = BTreeMap::new();
+    for cite in &findings.citations {
+        let Some(site) = &cite.inline_site else {
+            continue;
+        };
+        let texts = per_site
+            .entry((cite.file.as_path(), site.first_line))
+            .or_default();
+        if !texts.contains(&cite.text.as_str()) {
+            texts.push(cite.text.as_str());
+        }
+    }
+    per_site
+        .into_iter()
+        .map(|(key, texts)| (key, texts.join(CITATION_RUN_SEPARATOR)))
+        .collect()
+}
+
+/// The site clause a budget finding appends to name what it measured
+/// (§FS-inline-citation-style.4.1, §4.2): the block's line span and the
+/// citations that made it a site, as written. A one-line site — only possible
+/// for the column cap — reads `line N cites`; a longer one `lines A-B cite`.
+fn site_clause(first_line: usize, last_line: usize, citations: &str) -> String {
+    if first_line == last_line {
+        format!("line {first_line} cites {citations}")
+    } else {
+        format!("lines {first_line}-{last_line} cite {citations}")
+    }
+}
+
+/// §FS-inline-citation-style.4.1: the fix-it clause a line-count finding
+/// carries — the block-splitting rule (§1) the author needs to act on the site
+/// clause above. The column cap omits it: a wide line is fixed by wrapping,
+/// not by splitting.
+const BLOCK_SPLIT_CLAUSE: &str = "; a blank line splits a note, an empty comment line does not";
+
 /// §AR-checker.2.14: the inline citation style rule, a pure pass over
 /// `findings.citations` deduplicated by site. The budgets and the note-presence
 /// verdict are read off the site the scanner recorded, and so are the per-line
@@ -325,6 +367,7 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
     // than a clone of the whole recorded site.
     let mut seen = BTreeSet::new();
     let layout_message = layout_violation_message(config);
+    let citation_texts = site_citation_texts(findings);
     for cite in &findings.citations {
         let Some(site) = &cite.inline_site else {
             continue;
@@ -332,6 +375,10 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
         if !seen.insert((cite.file.as_path(), site.first_line)) {
             continue;
         }
+        let citations = citation_texts
+            .get(&(cite.file.as_path(), site.first_line))
+            .map(String::as_str)
+            .unwrap_or_default();
         match config.inline_style.as_str() {
             "citation-only" => {
                 if site.has_note {
@@ -353,11 +400,13 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         path: Some(cite.file.clone()),
                         line: Some(site.first_line),
                         column: None,
-                        // §FS-inline-citation-style.4.1: names the measured size
+                        // §FS-inline-citation-style.4.1: names the measured size,
+                        // the site, and the block-splitting rule
                         message: format!(
-                            "inline note is {lines} line{}, over the {}-line maximum",
+                            "inline note is {lines} line{}, over the {}-line maximum: {}{BLOCK_SPLIT_CLAUSE}",
                             plural(lines),
-                            config.inline_note_max_lines
+                            config.inline_note_max_lines,
+                            site_clause(site.first_line, site.last_line, citations),
                         ),
                         sites: Vec::new(),
                     });
@@ -369,11 +418,13 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         line: Some(site.first_line),
                         column: None,
                         // §FS-inline-citation-style.4.1: names the measured size
+                        // and the site
                         message: format!(
-                            "inline note is {} column{}, over the {}-column maximum",
+                            "inline note is {} column{}, over the {}-column maximum: {}",
                             site.max_columns,
                             plural(site.max_columns),
-                            config.inline_note_max_columns
+                            config.inline_note_max_columns,
+                            site_clause(site.first_line, site.last_line, citations),
                         ),
                         sites: Vec::new(),
                     });
@@ -387,11 +438,13 @@ fn check_inline_citation_style(findings: &Findings, config: &Config, report: &mu
                         path: Some(cite.file.clone()),
                         line: Some(site.first_line),
                         column: None,
-                        // §FS-inline-citation-style.4.2: names the measured size
+                        // §FS-inline-citation-style.4.2: names the measured size,
+                        // the site, and the block-splitting rule
                         message: format!(
-                            "inline note is {lines} line{}, over the {}-line preferred limit",
+                            "inline note is {lines} line{}, over the {}-line preferred limit: {}{BLOCK_SPLIT_CLAUSE}",
                             plural(lines),
-                            config.inline_note_suggested_lines
+                            config.inline_note_suggested_lines,
+                            site_clause(site.first_line, site.last_line, citations),
                         ),
                         sites: Vec::new(),
                     });
