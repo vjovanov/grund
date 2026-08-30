@@ -24,6 +24,8 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+## 2. [0.12.3] — 2026-08-30
+
 ### Changed
 
 - [§FS-inline-citation-style.4.1](functional-spec/FS-inline-citation-style.md#41-errors--hard-caps): the inline-note line- and column-cap findings, and the soft-cap warning ([§4.2](functional-spec/FS-inline-citation-style.md#42-warnings--opt-in-soft-cap)), now name the measured size next to the cap — `inline note is 47 columns, over the 40-column maximum` rather than just the cap — so an author does not have to re-measure or guess how a site was counted. The byte-vs-character counting defect the same issue reported shipped earlier, in v0.10.1 (PR #112); this closes the rest of [issue #84](https://github.com/vjovanov/grund/issues/84). (PR #162)
@@ -48,22 +50,9 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 - [§FS-config.3.9.3](functional-spec/FS-config.md#393-namespace-matching): malformed `[citations]` namespace-target diagnostics now name the citation target's kind and offending qualifier segment, including that `*` is valid only as the whole qualifier. (PR #158)
 - [§AR-workspace.9](architecture/AR-workspace.md#9-test-contracts): `e2e_cases_match_expected_reports` used `assert_eq!` for its golden comparisons, so the first mismatched surface of the first mismatched case panicked inside `map` and hid every later mismatch — mutation-testing several goldens at once named only the lexicographically first case. Every runnable case is now compared on every surface (exit, stdout, stderr, `expected.repo`) before the pass decides, and a mismatch is collected as data and named once, in discovery order, alongside any skip; the determinism pass uses the same mechanism. [issue #121](https://github.com/vjovanov/grund/issues/121) (PR #163)
 
-## 2. [0.12.2] — 2026-08-26
-
-### Added
-
-- [§FS-config.3.4.7](functional-spec/FS-config.md#347-scan--a-place-that-is-listed-not-walked): `[[kinds]] scan = false` — a non-citable kind that is listed in the generated Project map and not walked, for content that ships verbatim (scaffold templates, embedded assets, example configs). `scan = false` on a citable kind, on a kind with no home, and a `[citations.<kind>]` rule naming an unwalked kind are config errors; `check --full` still reaches the directory as out-of-scope territory, and `grund config show` prints the key where it is set. Decided in [§DF-unwalked-kind-home](decisions/functional/DF-unwalked-kind-home.md#df-unwalked-kind-home-a-kind-may-be-a-place-that-is-listed-but-not-walked). This repository lists `templates/` that way. (PR #145)
-
-### Fixed
-
-- [§FS-config.3.4.7](functional-spec/FS-config.md#347-scan--a-place-that-is-listed-not-walked): `scan = false` kept the home out of the walk *roots* only, so a walk still read it on the way down from a root above it — `docs/templates` under an `include = ["docs"]` entry, or the config root — and `[scan] include` naming the home walked it outright. The key was a silent no-op for the layout it is most often written for. The home is now pruned wherever a walk meets it — `folder` and `file` homes alike, the latter never being a directory to skip — and a file in one is outside the configured scope under `--full` even when a walk root encloses it ([§FS-check.3.14](functional-spec/FS-check.md#314-out-of-scope-unresolvable-citation---full-only)). (PR #146)
-
-### Changed
-
-- This repository's `examples/`, `.github/workflows/` and `scripts/` are non-citable homes ([§FS-config.3.4.1](functional-spec/FS-config.md#341-citable--kinds-that-declare-no-ids)) — `sh` joins `[scan] extensions` so the shell scripts are checked — and every folder-kind index carries each declaration's own title sentence. The roadmap drops its fifteen shipped milestones: their record is the changelog and the spec each landed in, and everything that cited a milestone now cites that spec — code and decisions re-pointed, release notes keeping the milestone name as plain text. Open items name their GitHub issue where one exists. (PR #145)
-
 ## 3. Older releases
 
+- [0.12.2](changelog/0.12.2.md) — 2026-08-26: - [§FS-config.3.4.7](functional-spec/FS-config.md#347-scan--a-place-that-is-listed-not-walked): `[[kinds]] scan = false` — a non-citable kind that is listed in the generated Project map and not walked, for content that ships verbatim (scaffold templates, embedded assets, example configs).
 - [0.12.1](changelog/0.12.1.md) — 2026-08-26: - [§FS-check.4.7](functional-spec/FS-check.md#47-declaration-near-miss): `grund check` warns on a heading that opens like a declaration and parses as none — `# FS-login: …` under the default `{kind}-{number}-{slug}`, the `-NNN-` left out.
 - [0.12.0](changelog/0.12.0.md) — 2026-08-25: - [§FS-config.3.9.2](functional-spec/FS-config.md#392-the-homeless-kind): the citing kind of every site outside every configured home is now **nameable**.
 - [0.11.0](changelog/0.11.0.md) — 2026-08-24: - [§FS-lsp.2.2](functional-spec/FS-lsp.md#22-lifecycle) / [§AR-lsp.2](architecture/AR-lsp.md#2-state): **nested and multi-root editor workspaces no longer silently hide citations outside the first folder** ([issue #126](https://github.com/vjovanov/grund/issues/126)).
