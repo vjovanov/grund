@@ -554,7 +554,9 @@ mod tests_support {
 
     /// The one finding a line wider than a hundred characters earns. `columns`
     /// is the fixture's true character count and `citations` its true citation
-    /// text, as written — callers must count and copy them, not guess.
+    /// text, as written — callers must count and copy them, not guess. Assumes
+    /// a one-line site (`first_line == last_line`); a multi-line fixture needs
+    /// `over_the_line_cap`'s span form instead.
     pub(crate) fn over_the_column_cap(line: usize, columns: usize, citations: &str) -> Vec<(usize, String)> {
         vec![(
             line,
