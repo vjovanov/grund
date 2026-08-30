@@ -375,7 +375,16 @@ fn full_scope_ignored_warning(
     if !full || scope_is_config_root(config, path, path_provided) {
         return None;
     }
-    let resolved = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    // §FS-config.3.5.2 / §FS-config.3.6: the warning reports the explicit
+    // spelling the scanner keeps, not the physical target an in-tree symlink
+    // resolves to. Identity checks above may canonicalize; report text may not.
+    let lexical_scope = if path.is_absolute() {
+        normalize_path_lexically(path)
+    } else {
+        std::env::current_dir()
+            .map(|cwd| normalize_path_lexically(&cwd.join(path)))
+            .unwrap_or_else(|_| normalize_path_lexically(path))
+    };
     Some(Diagnostic {
         code: "full-scope-ignored",
         path: None,
@@ -384,7 +393,7 @@ fn full_scope_ignored_warning(
         message: format!(
             "--full has no effect with an explicit PATH — it cancels [scan] include, and {} \
              already bypasses it",
-            display_path(config, &resolved)
+            display_path(config, &lexical_scope)
         ),
         sites: Vec::new(),
     })
