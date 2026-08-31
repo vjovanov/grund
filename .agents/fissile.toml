@@ -215,21 +215,32 @@ count_comment_lines = false
 priority = 20
 message = "split-python-tests"
 
-# The citable tree gets two to three times the code budgets — 750/1500 against
+# The citable tree gets a multiple of the code budgets — 750/2000 against
 # `core-source`'s 350/500 and `tests`' 450/700 — because `grund` changes who pays
 # for a document's length. A reader arrives at
 # a spec through a citation and reads a lead, a section, or a table of contents
 # (§FS-show) — never the file — so length here is not charged to every read the
 # way it is for a source file an agent opens whole. What still costs is a
 # document covering two subjects, and that is a structure problem the soft tier
-# names; the hard tier is the backstop for one that has stopped being a
-# document at all (§AR-ci.9, §GOAL-token-economy).
+# names at roughly twice the code soft budgets; the hard tier is the backstop for
+# a document that has stopped being one at all (§AR-ci.9, §GOAL-token-economy),
+# and it sits four times `core-source`'s ceiling rather than two.
+#
+# That gap is the point, and it is why the ceiling moved 1500 -> 2000 when the
+# four foundation projects adopted this rule as one shared policy. The hard tier
+# has no override, so it must clear the natural size of the documents it measures
+# by more than one ordinary edit: rhei's largest spec measures 1482 lines, which
+# left 18 lines of headroom under 1500 — the same shape as the 400 entrypoint
+# ceiling standing 13 lines above `skills/grund-init/SKILL.md` before it moved to
+# 500. 2000 is not a new opinion either: it is the ceiling rhei's own
+# AR-source-file-size.1 already declares for any file. Nothing here is near
+# either number — the largest document in this tree measures 530 lines.
 [[rules]]
 id = "docs"
 include = ["docs/**/*.md"]
 unit = "lines"
 soft = 750
-hard = 1500
+hard = 2000
 count_blank_lines = false
 count_comment_lines = true
 soft_message = "split-doc-soft"
