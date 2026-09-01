@@ -11,9 +11,13 @@ mod init_fixture;
 
 use init_fixture::{manifest_dir, run_grund, workdir};
 
+const CITATION_DIRECTIONS_URL: &str =
+    "https://github.com/vjovanov/grund/blob/main/docs/user-facing/citation-directions.md";
+
 #[test]
 fn init_default_writes_canonical_pair_and_passes_check() {
-    // §FS-init.2.1 (default form) + §FS-config.1 (config file location).
+    // §FS-init.2.1 (default form) + §FS-config.1 (config file location) +
+    // §FS-init.2.3.4.10 (reachable static citation-direction guidance).
     let target = workdir("init_default_writes_canonical_pair_and_passes_check");
     let output = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
     assert!(
@@ -35,6 +39,19 @@ fn init_default_writes_canonical_pair_and_passes_check() {
         "init must NOT write .agents/grund.toml — that form is discovered, not generated"
     );
 
+    let agents = fs::read_to_string(target.join("AGENTS.md")).expect("read AGENTS.md");
+    let grund_toml = fs::read_to_string(target.join("grund.toml")).expect("read grund.toml");
+    for (surface, contents) in [("AGENTS.md", agents), ("grund.toml", grund_toml)] {
+        assert!(
+            contents.contains(CITATION_DIRECTIONS_URL),
+            "fresh {surface} should link to the reachable canonical citation directions page"
+        );
+        assert!(
+            !contents.contains("See docs/user-facing/citation-directions.md"),
+            "fresh {surface} must not point at an absent repo-local page"
+        );
+    }
+
     let validate = run_grund(
         &["config", "validate", target.to_str().unwrap()],
         manifest_dir(),
@@ -48,7 +65,8 @@ fn init_default_writes_canonical_pair_and_passes_check() {
 
 #[test]
 fn init_docs_form_emits_full_scaffold_and_check_is_clean() {
-    // §FS-init.2.1 (--docs form). The scaffolded tree must satisfy `grund check` —
+    // §FS-init.2.1 (--docs form) + §FS-init.2.3.4.10 (reachable static
+    // citation-direction guidance). The scaffolded tree must satisfy `grund check` —
     // i.e. the canonical AGENTS.md + grund.toml + docs skeleton is internally consistent.
     let target = workdir("init_docs_form_emits_full_scaffold_and_check_is_clean");
     let output = run_grund(
@@ -95,6 +113,19 @@ fn init_docs_form_emits_full_scaffold_and_check_is_clean() {
     assert!(
         grund_toml.contains("project_name = \"DemoProject\""),
         "grund.toml must carry project_name from --name"
+    );
+    assert!(
+        agents.contains(CITATION_DIRECTIONS_URL),
+        "--docs AGENTS.md should link to the reachable canonical citation directions page"
+    );
+    assert!(
+        grund_toml.contains(CITATION_DIRECTIONS_URL),
+        "--docs grund.toml should link to the reachable canonical citation directions page"
+    );
+    assert!(
+        !agents.contains("See docs/user-facing/citation-directions.md")
+            && !grund_toml.contains("See docs/user-facing/citation-directions.md"),
+        "--docs output must not point at an absent repo-local page"
     );
 
     let check = run_grund(&["check", target.to_str().unwrap()], manifest_dir());

@@ -92,8 +92,9 @@ anchor_format = "github" # github | gitlab | mkdocs | pandoc | none
 
 # Citation directions (FS-config.3.9): encode which kinds may cite which, with
 # RFC-2119 levels. Entries in one array are all required; `|` inside one entry
-# means any one alternative. See docs/user-facing/citation-directions.md for
-# the complete grammar and a config/render example. must/must-not gate `grund
+# means any one alternative. See
+# https://github.com/vjovanov/grund/blob/main/docs/user-facing/citation-directions.md
+# for the complete grammar and a config/render example. must/must-not gate `grund
 # check`; should/should-not surface under `grund check --suggestions` and render
 # into this entrypoint. Uncomment to adopt the canonical climbing ruleset;
 # `code` is the reserved pseudo-kind for citation sites outside any kind home.
