@@ -19,7 +19,10 @@ fn init_default_writes_canonical_pair_and_passes_check() {
     // §FS-init.2.1 (default form) + §FS-config.1 (config file location) +
     // §FS-init.2.3.4.10 (reachable static citation-direction guidance).
     let target = workdir("init_default_writes_canonical_pair_and_passes_check");
-    let output = run_grund(&["init", target.to_str().unwrap()], manifest_dir());
+    let output = run_grund(
+        &["init", target.to_str().unwrap(), "--agents-md"],
+        manifest_dir(),
+    );
     assert!(
         output.status.success(),
         "init failed: stderr={}",
@@ -74,6 +77,7 @@ fn init_docs_form_emits_full_scaffold_and_check_is_clean() {
             "init",
             target.to_str().unwrap(),
             "--docs",
+            "--agents-md",
             "--name",
             "DemoProject",
         ],
