@@ -98,7 +98,7 @@ With `--format=json`, the findings are emitted as NDJSON on stdout instead — s
 
 #### 2.1.1 CLI-level messages
 
-Lines that are about the run rather than a finding at a site in the repo — unknown subcommand, malformed flag, invalid `grund.toml` schema (when the config itself parses but a value is wrong), a per-file read failure mid-walk (§2), the empty-scan caution (§2.2), the nothing-recognized caution (§4.5) — are emitted on **stderr**, never on stdout, as:
+Lines that are about the run rather than a finding at a site in the repo — unknown subcommand, malformed flag, invalid `grund.toml` schema (when the config itself parses but a value is wrong), a per-file read failure mid-walk (§2), the empty-scan caution (§2.2), the citation-obligation caution (§2.2.1), the nothing-recognized caution (§4.5) — are emitted on **stderr**, never on stdout, as:
 
 ```
 error: <message>
@@ -115,6 +115,26 @@ A walk that read **no scannable files** at all, and turned up no findings (no er
 - when an explicit path was given: the message names that path and the recognized extensions, since the usual cause is pointing `grund` at a tree with no `.md`/source files.
 
 This is a warning, not an error: the exit code stays `0` (a genuinely empty tree is not a failure), `--format=json` emits the warning as one diagnostic JSON object on stderr (the same stream as the text `warning:` line — it is not part of the findings on stdout), and a repo that *does* have a stale `AGENTS.md` block or any other finding **about the configured scope** gets that finding (on stdout) and **no** empty-scan notice. Two findings are not about that scope and do not suppress it: the redundant-config pair (§4.3), which is about which file the run read rather than what it walked — a repository mid-migration must not lose the scope diagnostic because it also has a config pair — and the out-of-scope tier (§3.14), which is about the tree *outside* the scope. The second is the case the caution is worth most: the tier says where the citations actually are, and the caution says the config has not been told. This is the friendliness-first counterpart to the explicit success marker ([§GOAL-friendliness-first.1](../goals.md#1-hard-requirements)): the run that scanned nothing is the one case where `success` would be the wrong answer.
+
+#### 2.2.1 Citation-direction obligation applies to nothing
+
+When `[citations.<kind>]` contains at least one `must` or `should` obligation, but the citing kind has no unit for the obligation to evaluate, `check` emits one CLI-level `warning:` on **stderr**. This is a run-level fact, not a finding at a repository site: the warning has no path, line, or sites, and it does not change the exit code or emit `success` in text mode. In `--format=json`, it is one standard warning diagnostic on **stderr** with `path`, `line`, and `sites` all `null` ([§FS-errors.5](FS-errors.md#5-json-format)). Its stable diagnostic code is `empty-citation-obligation`.
+
+The warning is emitted once per configured kind when all of these conditions hold:
+
+1. The table has a non-empty `must` or `should` list. A table containing only `must-not` or `should-not` entries has no obligation unit and does not warn. A kind with both levels is named by `must`; a `should`-only table is named by `should`.
+2. The citing kind has a `folder` home, and that kind is walked. File homes, the homeless kind, and `scan = false` kinds do not warn.
+3. The run successfully scanned at least one file that belongs to that folder, excluding the folder's entry file. For a citable kind, the entry is its effective `index` (`README.md` when the key is omitted); for a non-citable kind, the entry is the literal `README.md`. `index = false` excludes no file. Files not successfully scanned, files outside the home, and files hidden or excluded by the walk do not count.
+4. The ordinary obligation-unit derivation produced zero units: no declaration unit for a citable kind, or no citation-carrying scanned-file unit for a non-citable kind.
+
+The messages distinguish the two kinds of missing unit:
+
+```text
+warning: [citations.SKILL] must applies to nothing — skills/ declares no SKILL ID; did you mean `citable = false`?
+warning: [citations.skill] must applies to nothing — no scanned file in skills/ carries a citation; set [reference] require_grounding to make that an error
+```
+
+The folder membership and entry-file comparisons use the same normalized home matching as citation-source classification. The warning is independent of other findings: another warning or error does not suppress it. Workspace checking asks the question separately for each member, against that member's config and scanned files ([§FS-workspace.5](FS-workspace.md#5-command-scope)). An explicit path still evaluates the files it scans, so a path such as `grund check skills` can earn this warning; it does not broaden the path to unrelated homes.
 
 ### 2.3 Suggestions channel *(opt-in)*
 
@@ -266,7 +286,7 @@ The body extent and the citing-side classification come from the scanner ([AR-sc
 skills/review/SKILL.md:1: skills/ must cite FS (citation direction)
 ```
 
-Units are still built from citations, so a file carrying none produces no unit and `must` cannot fire on it — the same hole [§FS-config.3.9.2](FS-config.md#392-the-homeless-kind) states for the homeless kind. In a non-citable home `[reference] require_grounding` closes it (§3.6): there the grounding rule follows the home rather than the file extension, so "cite something" and "cite an `FS`" are two keys that compose. An `E2E`-kind obligation ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) is per case declaration, can be satisfied by the case's `spec.refs` manifest entries, and remains an error when the case has no scanned citations or matching manifest reference. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
+Units are still built from citations, so a file carrying none produces no unit and `must` cannot fire on it — except that a walked folder with real non-entry content now earns the run-level warning of [§FS-check.2.2.1](FS-check.md#221-citation-direction-obligation-applies-to-nothing). The same zero-unit boundary [§FS-config.3.9.2](FS-config.md#392-the-homeless-kind) states for the homeless kind remains intentionally unwarned. In a non-citable home `[reference] require_grounding` closes the per-file grounding hole (§3.6): there the grounding rule follows the home rather than the file extension, so "cite something" and "cite an `FS`" are two keys that compose, while the new warning points at that key when grounding is off. An `E2E`-kind obligation ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) is per case declaration, can be satisfied by the case's `spec.refs` manifest entries, and remains an error when the case has no scanned citations or matching manifest reference. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
 
 ### 3.12 Forbidden citation
 

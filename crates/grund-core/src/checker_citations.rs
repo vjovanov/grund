@@ -76,14 +76,22 @@ fn check_citation_obligations(findings: &Findings, config: &Config, report: &mut
         if rules.must.is_empty() && rules.should.is_empty() {
             continue;
         }
-        for unit in obligation_units(
+        let units = obligation_units(
             citing_kind,
             config,
             findings,
             &by_decl,
             &by_file,
             &e2e_by_case,
-        ) {
+        );
+        // §FS-check.2.2.1: a walked folder with real non-entry content must not
+        // silently pass when this obligation has no unit to evaluate.
+        if units.is_empty()
+            && let Some(warning) = empty_citation_obligation_warning(config, findings, citing_kind, rules)
+        {
+            report.warnings.push(warning);
+        }
+        for unit in units {
             for entry in &rules.must {
                 if !entry.targets.iter().any(|t| unit.satisfies(t)) {
                     report.errors.push(obligation_diagnostic(
@@ -108,6 +116,63 @@ fn check_citation_obligations(findings: &Findings, config: &Config, report: &mut
             }
         }
     }
+}
+
+/// §FS-check.2.2.1: identify the one run-level warning for a walked folder whose
+/// explicit obligation has real scanned content but no ordinary obligation unit.
+/// The warning is derived from the same normalized home classifier the scanner
+/// uses for citation-source attribution, so explicit paths and symlink spellings
+/// stay inside the same home boundary.
+fn empty_citation_obligation_warning(
+    config: &Config,
+    findings: &Findings,
+    citing_kind: &str,
+    rules: &KindCitationRules,
+) -> Option<Diagnostic> {
+    let kind = config.kinds.iter().find(|kind| kind.kind == citing_kind)?;
+    let folder = kind.folder.as_deref()?;
+    if !kind.scan
+        || !findings.scanned_files.iter().any(|file| {
+            file_home_kind(file, config).as_deref() == Some(citing_kind)
+                && !kind_entry_file(file, config, kind)
+        })
+    {
+        return None;
+    }
+
+    let level = if rules.must.is_empty() { "should" } else { "must" };
+    let place = format!("{folder}/");
+    let message = if kind.citable {
+        format!(
+            "[citations.{citing_kind}] {level} applies to nothing — {place} declares no {citing_kind} ID; did you mean `citable = false`?"
+        )
+    } else {
+        format!(
+            "[citations.{citing_kind}] {level} applies to nothing — no scanned file in {place} carries a citation; set [reference] require_grounding to make that an error"
+        )
+    };
+    Some(Diagnostic {
+        code: "empty-citation-obligation",
+        path: None,
+        line: None,
+        column: None,
+        message,
+        sites: Vec::new(),
+    })
+}
+
+/// Whether `file` is the entry file excluded from a folder's content count:
+/// the effective citable index, or literal `README.md` for a non-citable home
+/// (§FS-check.2.2.1). `index = false` naturally has no entry path.
+fn kind_entry_file(file: &Path, config: &Config, kind: &KindConfig) -> bool {
+    let entry = if kind.citable {
+        kind.index_path()
+    } else {
+        kind.folder
+            .as_deref()
+            .map(|folder| Path::new(folder).join("README.md"))
+    };
+    entry.is_some_and(|entry| paths_same_location(file, &config.root.join(entry)))
 }
 
 /// One thing an obligation is evaluated against (§AR-checker.2.9): a declaration

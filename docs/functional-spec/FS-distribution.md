@@ -44,7 +44,7 @@ Finding {
   severity: "error" | "warning"
   code:     // a `check` finding — "dangling" | "missing-section" | "duplicate" | "duplicate-section"
             //                   | "broken-stub" | "unused" | "ungrounded" | "agents-init"
-            //                   | "empty-scan" | "nothing-recognized" | "io"
+            //                   | "empty-scan" | "nothing-recognized" | "empty-citation-obligation" | "io"
             // — or, on a failed ID query (FS-show.3, rendered with this same shape on stderr,
             //   path/line null) — "not-found" | "missing-section" | "broken-stub" | "ambiguous"
             //                   | "ambiguous-section" | "invalid-id" | "query-failed"
