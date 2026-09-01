@@ -143,7 +143,7 @@ See [§FS-workspace](docs/functional-spec/FS-workspace.md#fs-workspace-grund-val
 
 ## 4. The structure that gets cited
 
-Every fact has a stable ID. The default kinds, all configurable — `*` marks a *place* rather than an ID namespace (`citable = false`: a home, a title and citation rules, no declarations), which is what a test is, and what any directory an agent must be told about can be:
+Every fact has a stable ID. The default kinds, all configurable — `*` marks a *place* rather than an ID namespace (`citable = false`: a home, a title and citation rules, no declarations), which is what a test is, and what any directory an agent must be told about can be. See [Citation directions](docs/user-facing/citation-directions.md) for the complete `[citations]` grammar and its rendered examples:
 
 | Kind | What it is | Where it lives |
 | --- | --- | --- |

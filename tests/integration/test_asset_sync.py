@@ -22,6 +22,21 @@ class AssetSyncTests(unittest.TestCase):
             "skills/grund-init/SKILL.md must stay byte-identical to the embedded asset",
         )
 
+    def test_skill_citation_directions_match_canonical_page(self):
+        canonical = REPO_ROOT / "docs" / "user-facing" / "citation-directions.md"
+        skill = (REPO_ROOT / "skills" / "grund-init" / "SKILL.md").read_bytes()
+        begin = b"<!-- BEGIN citation-directions -->\n"
+        end = b"<!-- END citation-directions -->"
+        self.assertEqual(skill.count(begin), 1)
+        self.assertEqual(skill.count(end), 1)
+        start = skill.index(begin) + len(begin)
+        finish = skill.index(end, start)
+        self.assertEqual(
+            skill[start:finish],
+            canonical.read_bytes(),
+            "the marked skill copy must stay byte-identical to the canonical citation-directions page",
+        )
+
     def test_every_template_matches_its_embedded_asset_in_both_directions(self):
         repo_templates = REPO_ROOT / "templates"
         embedded_templates = ASSETS / "templates"
