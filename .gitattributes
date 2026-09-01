@@ -3,3 +3,4 @@ examples/** text eol=lf
 crates/grund-core/assets/** text eol=lf
 skills/** text eol=lf
 templates/** text eol=lf
+docs/user-facing/** text eol=lf
