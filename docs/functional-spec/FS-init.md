@@ -213,7 +213,7 @@ The rules tell agents to run `grund refs <ID> --summary` before changing, moving
 
 ##### 2.3.4.10 Citation Direction
 
-The rules teach the expected citation direction: specs cite goals, architecture cites specs, code cites the specs it implements, and executable tests or cases cite the behavior they verify. When the effective `grund.toml` declares `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)), this guidance is the generated, config-derived Citation directions section (§2.3.5) rather than the static sentence above — so the rule an agent reads is the rule `grund check` enforces. A config without `[citations]` keeps the static sentence.
+The rules teach the expected citation direction: specs cite goals, architecture cites specs, code cites the specs it implements, and executable tests or cases cite the behavior they verify. When the effective `grund.toml` declares `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)), this guidance is the generated, config-derived Citation directions section (§2.3.5) rather than the static sentence above — so the rule an agent reads is the rule `grund check` enforces. A config without `[citations]` keeps the static sentence, which links to the durable canonical explanation at `https://github.com/vjovanov/grund/blob/main/docs/user-facing/citation-directions.md` so a generated entrypoint remains usable outside the grund source checkout.
 
 ##### 2.3.4.11 Decisions
 

@@ -13,6 +13,8 @@ const DF_README_TEMPLATE: &str =
 const DA_README_TEMPLATE: &str =
     include_str!("../assets/templates/decisions-architectural-README.md");
 const GITKEEP_TEMPLATE: &str = include_str!("../assets/templates/gitkeep.md");
+const CITATION_DIRECTIONS_URL: &str =
+    "https://github.com/vjovanov/grund/blob/main/docs/user-facing/citation-directions.md";
 pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-init/SKILL.md");
 /// v5 (§FS-init.2.3.6, §DF-integrations-command, §DF-repo-conversation-opinion):
 /// the block gains the `### Clickable citations` section — the fixed
@@ -224,8 +226,9 @@ fn citation_directions_section(config: &Config) -> String {
     let mut lines = vec!["### Citation directions".to_string(), String::new()];
     if !config.citations.declared {
         lines.push(
-            "Specs cite goals, architecture cites specs, code and executable tests cite the specs they realize. In a citation rule array, entries are all required; `|` inside one entry means any one alternative. See `docs/user-facing/citation-directions.md` for the levels and examples."
-                .to_string(),
+            format!(
+                "Specs cite goals, architecture cites specs, code and executable tests cite the specs they realize. In a citation rule array, entries are all required; `|` inside one entry means any one alternative. See {CITATION_DIRECTIONS_URL} for the levels and examples."
+            ),
         );
         return lines.join("\n");
     }
