@@ -47,7 +47,7 @@ Declarations are heading lines `# FS-042-user-login: …` in markdown. In a code
 
 ### Citation directions
 
-Specs cite goals, architecture cites specs, code and executable tests cite the specs they realize.
+Specs cite goals, architecture cites specs, code and executable tests cite the specs they realize. In a citation rule array, entries are all required; `|` inside one entry means any one alternative. See `docs/user-facing/citation-directions.md` for the levels and examples.
 
 ### Clickable citations
 

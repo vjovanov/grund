@@ -209,7 +209,8 @@ fn markdown_link_destination(raw: &str) -> String {
 /// `code` last, fixed level phrases, `|`→"or", conjunction→"and" — so
 /// `grund check` can re-render and byte-compare it for drift (§FS-check.3.5).
 /// When no `[citations]` section is declared, the static climbing-rule sentence
-/// stands in, so a config that predates the feature keeps a stable block.
+/// stands in, so a config that predates the feature keeps a stable block
+/// (§FS-init.2.3.4.10).
 ///
 /// Why a homed non-citable kind is named by its place: naming the kind would
 /// name something an agent can never write, while the place reads as the
@@ -223,7 +224,7 @@ fn citation_directions_section(config: &Config) -> String {
     let mut lines = vec!["### Citation directions".to_string(), String::new()];
     if !config.citations.declared {
         lines.push(
-            "Specs cite goals, architecture cites specs, code and executable tests cite the specs they realize."
+            "Specs cite goals, architecture cites specs, code and executable tests cite the specs they realize. In a citation rule array, entries are all required; `|` inside one entry means any one alternative. See `docs/user-facing/citation-directions.md` for the levels and examples."
                 .to_string(),
         );
         return lines.join("\n");
