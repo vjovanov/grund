@@ -1,0 +1,16 @@
+grund_config_version = 1
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+
+[[kinds]]
+kind = "SKILL"
+folder = "skills"
+
+[scan]
+include = ["skills"]
+
+[citations.SKILL]
+must = ["FS"]

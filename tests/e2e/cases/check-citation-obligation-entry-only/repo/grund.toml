@@ -1,0 +1,21 @@
+grund_config_version = 1
+
+[citations]
+
+[citations.FS]
+should = ["GOAL"]
+
+[citations.AR]
+must = ["FS"]
+
+[citations.DF]
+must = ["FS"]
+
+[citations.DA]
+must = ["FS"]
+
+[citations.e2e]
+must = ["FS"]
+
+[citations.integration]
+must = ["FS"]
