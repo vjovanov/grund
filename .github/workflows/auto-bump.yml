@@ -225,4 +225,25 @@ jobs:
             -f publish_crates=true \
             -f create_github_release=true
           git push origin --delete "$branch" || true
+
+      - name: Advance main to the next dev version
+        shell: bash
+        run: |
+          set -euo pipefail
+          released="${{ steps.versions.outputs.next }}"
+          IFS=. read -r major minor patch <<< "$released"
+          dev="${major}.${minor}.$((patch + 1))-dev"
+          # Without this main keeps the version it just released until the next
+          # bump, so a binary built from main is indistinguishable from the tag it
+          # is ahead of. The suffix is what makes `--version` say which side of
+          # the tag a build came from.
+          git fetch origin main
+          git checkout -B main refs/remotes/origin/main
+          cargo set-version --workspace "$dev"
+          # The version fixture is checked, so a bump that skips it pushes a main
+          # whose own e2e suite fails. The release bump writes the same file.
+          printf 'grund %s\n' "$dev" > tests/e2e/cases/cli-version/expected.stdout
+          git add -A
+          git commit -m "Open ${dev} for development"
+          git push origin main
           echo "Dispatched release.yml for v$next."
