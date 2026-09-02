@@ -94,7 +94,7 @@ The subject is a noun phrase, so `Each **FS** declaration never cite AR.` is not
 
 ### 2.7 One version bump, v7 → v8
 
-The bump is the whole cost ([§FS-init.2.3](../../functional-spec/FS-init.md#23-generated-agent-entrypoints)): 20 files in this repository carried the v7 marker and every adopting repository gets one `agents-init` finding until it re-runs `grund init`. It is paid once, here, for all five defects plus the grounding sentence, rather than once per fix.
+The bump is the whole cost ([§FS-init.2.3](../../functional-spec/FS-init.md#23-generated-agent-entrypoints)): 21 files in this repository carried the v7 marker and every adopting repository gets one `agents-init` finding until it re-runs `grund init`. It is paid once, here, for all five defects plus the grounding sentence, rather than once per fix.
 
 ## 3. The canonical config
 
