@@ -41,8 +41,8 @@ struct FmtRunOpts<'a> {
     /// §FS-fmt.6.1 / §DF-index-always-linkified: run the cross-reference pass on
     /// a kind's index file even where `[fmt.cross_refs] enabled = false` turned
     /// `cross_refs` off. It decides *which files* the pass touches when the pass
-    /// runs at all, never whether it runs: a scope that would run none — `fmt
-    /// --check` without `--cross-refs` — still runs none.
+    /// runs at all; dry-run and write mode both enable this carve-out so the
+    /// former previews the exact index-entry wraps the latter applies.
     index_cross_refs: bool,
 }
 

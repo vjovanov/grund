@@ -131,14 +131,17 @@ fn fmt_write_refuses_alike_with_and_without_a_path_argument() {
 }
 
 #[test]
-fn fmt_check_previews_the_same_refusal_with_and_without_a_path_argument() {
+fn fmt_check_auto_cross_refs_refuses_alike_with_and_without_a_path_argument() {
     let omitted = build_fixture("check_path_omitted");
     let explicit = build_fixture("check_path_explicit");
 
     let without_path = run_grund(&["fmt", "--check"], &omitted);
     let with_path = run_grund(&["fmt", "--check", "."], &explicit);
 
-    assert_eq!(without_path.status.code(), with_path.status.code());
-    assert_eq!(stdout(&without_path), stdout(&with_path));
-    assert_eq!(stderr(&without_path), stderr(&with_path));
+    assert_eq!(without_path.status.code(), Some(2));
+    assert_eq!(with_path.status.code(), Some(2));
+    assert_eq!(stdout(&without_path), "");
+    assert_eq!(stdout(&with_path), "");
+    assert_eq!(stderr(&without_path), ABORT_MESSAGE);
+    assert_eq!(stderr(&with_path), ABORT_MESSAGE);
 }

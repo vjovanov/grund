@@ -1364,7 +1364,6 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             &config,
             opts.add_marker,
             explicit_cross_refs,
-            opts.write,
             false,
         )?;
         let walked = if opts.write {
@@ -1373,7 +1372,6 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
                 &config,
                 opts.add_marker,
                 explicit_cross_refs,
-                true,
                 true,
             )?
         } else {
@@ -1393,7 +1391,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             .flatten()
             .and_then(usable_findings);
         let auto_cross_refs =
-            auto_cross_refs_for_scope(&config, Some(&opts.path), opts.path_provided, opts.write)?;
+            auto_cross_refs_for_scope(&config, Some(&opts.path), opts.path_provided)?;
         let run_opts = FmtRunOpts {
             add_marker: opts.add_marker,
             cross_refs: explicit_cross_refs || auto_cross_refs,
@@ -1401,7 +1399,8 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
             render: &config,
             workspace: workspace_for_wrap,
             precomputed_findings: reusable_findings,
-            index_cross_refs: opts.write || explicit_cross_refs,
+            // §FS-fmt.6.1: check previews the same index carve-out write applies.
+            index_cross_refs: true,
         };
         let walked = fmt_tree(&config, Some(&opts.path), opts.path_provided, &run_opts)?;
         (

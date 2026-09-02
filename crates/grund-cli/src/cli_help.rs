@@ -287,14 +287,14 @@ fn print_subcommand_help(cmd: &str) {
                 "  --cross-refs   wrap citations as Markdown links to targets          e.g. grund fmt --write --cross-refs"
             );
             println!(
-                "                 also runs by default on --write; set [fmt.cross_refs].enabled = false to opt out"
+                "                 runs by default in both modes for Markdown scopes; set [fmt.cross_refs].enabled = false to opt out"
             );
             println!();
             println!(
-                "With neither --check nor --write, fmt prints the would-be changes and exits 1 if any (a dry run)."
+                "With neither --check nor --write, fmt previews every change --write would apply and exits 1 if any."
             );
             println!(
-                "--write prints `rewrote N references:` then one `  <path> (count)` line per file touched."
+                "--write prints `rewrote N lines:` then one `  <path> (count)` line per file touched."
             );
             println!(
                 "The report goes to stdout (like `grund check`); CLI-level `error:` lines go to stderr."
