@@ -183,6 +183,33 @@ may = ["FS|GOAL"]
         assert!(!section.contains("unlisted citations"), "one clause, not two: {section}");
     }
 
+    /// §FS-init.2.3.5: the five clauses run `must`, `should`, `may`,
+    /// `must-not`, `should-not`, joined by "; " — one order, so two repositories
+    /// reading one config read one bullet.
+    #[test]
+    fn the_five_clauses_keep_one_order() {
+        let section = render_shared(
+            "the_five_clauses_keep_one_order",
+            r#"[[kinds]]
+kind = "DA"
+folder = "docs/decisions/architectural"
+[citations]
+[citations.FS]
+should-not = ["DA"]
+may = ["RM"]
+must-not = ["AR"]
+must = ["FS"]
+should = ["GOAL"]
+"#,
+        );
+        assert!(
+            section.contains(
+                "- Each **FS** declaration must cite FS; should cite GOAL; may cite RM; never cite AR; avoid citing DA."
+            ),
+            "{section}"
+        );
+    }
+
     /// §DF-directions-render.2.5: with a `must` beside it the permitted set is
     /// wider than the `may` list, so "only" would name the wrong set and the
     /// bullet ends with the explicit closing clause instead.
@@ -224,6 +251,23 @@ default = "must-not"
         assert!(
             section.contains("- Each **AR** declaration must not cite anything."),
             "{section}"
+        );
+
+        let discouraged = render_shared(
+            "a_discouraging_default_with_no_lists",
+            "[citations]\n[citations.AR]\ndefault = \"should-not\"\n",
+        );
+        assert!(
+            discouraged.contains("- Each **AR** declaration should not cite anything."),
+            "{discouraged}"
+        );
+        let hole = render_shared(
+            "an_open_default_with_no_lists_under_a_closed_global_one",
+            "[citations]\ndefault = \"must-not\"\n[citations.AR]\ndefault = \"may\"\n",
+        );
+        assert!(
+            hole.contains("- Each **AR** declaration may cite anything."),
+            "{hole}"
         );
     }
 
