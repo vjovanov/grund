@@ -1,0 +1,36 @@
+grund_config_version = 1
+project_name = "demo"
+
+# `[reference] require_grounding` off (§FS-init.2.3.5): the paragraph is the
+# legend alone.
+
+[reference]
+require_grounding = true
+
+[id]
+format = "{kind}-{slug}"
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+
+[[kinds]]
+kind = "AR"
+folder = "docs/architecture"
+index = false
+
+[[kinds]]
+kind = "skill"
+folder = "skills"
+citable = false
+title = "Agent skills"
+
+[citations]
+
+[citations.FS]
+should = ["AR"]
+
+[citations.skill]
+must = ["FS"]
+should-not = ["AR"]

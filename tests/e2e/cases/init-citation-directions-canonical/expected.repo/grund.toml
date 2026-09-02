@@ -1,0 +1,85 @@
+grund_config_version = 1
+project_name = "canon"
+
+# The canonical citation-directions config (§DF-directions-render.3): one file
+# that reaches every branch of the render, so the wording is pinned once.
+
+[reference]
+strict = true
+require_grounding = true            # the grounding sentence
+
+[id]
+format = "{kind}-{slug}"
+
+[[kinds]]                           # homeless kind declared FIRST: renders last
+kind = "code"
+citable = false
+title = "Gradle build and workflows" # a title beside the fixed subject
+
+[[kinds]]
+kind = "GRUND"
+file = "docs/grund.md"              # no rules: no bullet
+
+[[kinds]]
+kind = "GOAL"
+file = "docs/goals.md"
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+
+[[kinds]]
+kind = "AR"
+folder = "docs/architecture"
+index = false
+
+[[kinds]]
+kind = "DA"
+folder = "docs/decisions/architectural"
+index = false
+
+[[kinds]]
+kind = "RM"
+file = "docs/roadmap.md"            # cited, never citing: no bullet
+
+[[kinds]]
+kind = "skill"
+folder = "skills"
+citable = false
+title = "Agent skills"
+
+[[kinds]]
+kind = "e2e"
+folder = "tests/e2e"
+citable = false
+title = "User scenarios"
+
+[citations]
+default = "may"                     # open world: the closing line
+
+[citations.GOAL]
+should = ["GRUND|GOAL"]             # two alternatives
+
+[citations.FS]
+should = ["GOAL|FS"]
+must-not = ["AR"]                   # never
+should-not = ["GRUND"]              # avoid; three clauses on one bullet
+
+[citations.AR]
+default = "must-not"                # closed per-kind default
+may = ["FS|GOAL"]                   #   folds into "only"
+
+[citations.DA]
+must = ["FS|GOAL", "AR"]            # mixed: the ambiguous one
+
+[citations.skill]
+must = ["FS|AR|RM"]                 # three alternatives
+must-not = ["api/AR"]               # a pinned alias stays as spelled
+
+[citations.e2e]
+must = ["FS", "GOAL"]               # a conjunction of singletons
+should-not = ["*/AR"]               # any namespace: prose
+
+[citations.code]
+should = ["FS|AR"]

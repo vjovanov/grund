@@ -83,16 +83,6 @@ reason = """
 The hard twin is retired: the fixture builder moved to tests/support/init_fixture.rs and the entrypoint-selection cases to tests/init_agent_entrypoints.rs, which took this file from 1023 lines to 630 and under the hard budget. This entry now carries the argument alone. What is left is one area — what `init` writes and what it reports — whose cases are long because each builds a tree, runs the binary, and reads the bytes back, not because two areas share a file. Missing boundary: a second axis inside that area worth naming, most likely the scaffold contents against the report (`--docs`, `--force`, `--dry-run`, determinism).
 """
 [[exceptions]]
-path = "crates/grund-core/src/init_templates.rs"
-match = "exact"
-rules = ["core-source"]
-kind = "deferred"
-max_accepted = { value = 382, unit = "lines" }
-until = "payload and renderer are separated, leaving the managed-block renderer beside init.rs"
-reason = """
-The hard twin is retired: the workspace half — finding the workspace a target sits in, and rendering the member list the managed block carries — moved to init_workspace_members.rs, which took this file from 514 lines to 369 and under the hard budget. This entry now carries the argument alone. What is left is the managed-block renderer (citation directions, inline-style sentences, the Project map, link construction) sitting among the ten include_str! payload constants it composes, because both are reached from init. Missing boundary: payload and renderer are two jobs, and the renderer belongs beside init.rs. The ceiling moved 369 -> 382 when the two renderers learned that one kind is the complement of every home rather than one of them (§FS-config.3.9.2): it is skipped in the map and pinned last in the directions, which is a branch in each of them.
-"""
-[[exceptions]]
 path = "crates/grund-core/src/init.rs"
 match = "exact"
 rules = ["core-source"]
@@ -229,4 +219,13 @@ until = "the per-line readers leave, so this file is the compiled grammar and no
 reason = """
 The compiled ID grammar: `Grammar::build` turning `[id] format`, the kinds and the comment prefixes into one set of regexes, plus the small readers that ask them a question about a line — `declaration_captures`, `source_scan_line`, the near-miss pair §FS-check.4.7 added. Building and asking are two jobs, and the second is what has grown: 350 -> 411 when the near-miss patterns landed with the byte gate in front of them (§AR-benchmarks.5) — a second opinion about the same line the declaration pattern just declined, plus the cheap test that decides whether to ask for it. Missing boundary: the per-line readers as their own file, leaving this one the grammar it compiles. Not taken at 32 lines over, because the readers are the only callers of the private pattern strings and splitting now trades a long file for a wider interface between two halves that change together.
 """
-
+[[exceptions]]
+path = "crates/grund-core/src/tests_citation_directions.rs"
+match = "exact"
+rules = ["tests"]
+kind = "deferred"
+max_accepted = { value = 551, unit = "lines" }
+until = "the classification cases move to a scanner-side test file of their own"
+reason = """
+The render half of this file moved out to tests_citation_directions_render.rs, which took it from 659 lines to 551. What is left is the rule half: how the scanner classifies a citing site, the obligation and prohibition passes over those classes, the empty-obligation warning, and config validation. Missing boundary: classification and enforcement are two subjects — the first is scanner behaviour that citation directions happen to consume, the second is the checker's — and a scanner-side file would take the first with it.
+"""

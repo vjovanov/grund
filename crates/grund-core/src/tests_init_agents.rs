@@ -508,7 +508,7 @@ mod tests_init_agents {
         assert!(
             report.errors.iter().any(|error| error.code == "agents-init"
                 && error.path.as_deref() == Some(expected_path.as_path())
-                && error.message.contains("missing grund init block v7")),
+                && error.message.contains("missing grund init block v8")),
             "Zed workspace .rules should be required to carry the managed block: {:?}",
             report.errors
                 .iter()

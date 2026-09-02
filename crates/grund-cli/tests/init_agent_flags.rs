@@ -169,7 +169,7 @@ fn init_cursor_flag_updates_existing_legacy_cursorrules() {
 
     let legacy = fs::read_to_string(target.join(".cursorrules")).expect("read .cursorrules");
     assert!(
-        legacy.starts_with("# Legacy Cursor notes\n\n<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v7)\n"),
+        legacy.starts_with("# Legacy Cursor notes\n\n<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v8)\n"),
         ".cursorrules should keep existing notes and append the managed block:\n{legacy}"
     );
 
@@ -224,7 +224,7 @@ fn init_agent_flag_updates_canonical_target_for_symlinked_entrypoint() {
     );
     let agents = fs::read_to_string(target.join("AGENTS.md")).expect("read AGENTS.md");
     assert!(
-        agents.contains("## Grounding with grund (v7)"),
+        agents.contains("## Grounding with grund (v8)"),
         "AGENTS.md should receive the managed block:\n{agents}"
     );
 }
