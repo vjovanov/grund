@@ -208,24 +208,6 @@ It is the smallest change in this group and the only one that came from a verifi
 
 Four e2e cases: a citable folder kind with files beside its index and no declaration warns and exits as before; the non-citable mirror warns; the scaffold tree with the canonical `[citations]` ruleset does not; a single-file kind stub does not.
 
-## RM-grounding-per-place: `require_grounding` and `grounding_level` on the `[[kinds]]` row
-
-`require_grounding` is one boolean in `[reference]` that reaches every scanned source file and every non-citable home at once ([§FS-check.3.6](functional-spec/FS-check.md#36-ungrounded-source-file-opt-in)), while *whether* a file must cite is already reasoned about per place — direction rules "constrain how you ground, never whether" ([§DISC-citation-directions](discussions/proposals/2026-06-13-citation-directions.md#disc-citation-directions-encode-citation-directions-as-checked-config)), and grounding "follows the home" for non-citable kinds ([§DISC-id-less-kinds](discussions/proposals/2026-08-25-id-less-kinds.md#disc-id-less-kinds-kinds-that-declare-no-ids)). The unit is also fixed at the file: one citation anywhere grounds all of it.
-
-GitHub: [#150](https://github.com/vjovanov/grund/issues/150).
-
-### 1. What
-
-Two keys on the `[[kinds]]` row, each with its `[reference]` twin as the default for rows that do not say — the shape `index` already has ([§FS-config.3.4.2](functional-spec/FS-config.md#342-index--the-kinds-index-file)). `require_grounding` stays the boolean it is today. `grounding_level` is an integer in Markdown heading levels: `1` is the file, `2` is every `##` subtree, `6` is every heading; a leaf at the level cites directly, a parent is satisfied by any descendant, and a file with no heading at the level is one unit. Source files keep the two ranks grund can see without parsing code ([§FS-non-goals.3](functional-spec/FS-non-goals.md#3-code-ast-parsing)): unindented doc-comment blocks, and all of them. `[citations]` obligations follow the row's unit, so *whether* and *what* are asked of the same thing. The homeless kind takes both keys like any row. The global keys stay as defaults rather than being deprecated: every existing config keeps its meaning with no edit, and `--require-grounding` needs a global meaning regardless.
-
-### 2. Why now
-
-It is the fix for the adoption above: "every skill file must be grounded" cannot be said today without saying it of every workflow and build script in the scan, which is why that repository's hole stays open and [§RM-obligation-no-unit](roadmap.md#rm-obligation-no-unit-warn-when-a-citation-direction-obligation-applies-to-nothing) can only warn about it. Both keys are additive ([§FS-config.5](functional-spec/FS-config.md#5-schema-versioning)), so nothing about the change waits on a deprecation window.
-
-### 3. Measurable
-
-Row on with global off checks only that home; global on with row off exempts it; `--require-grounding` with an explicit row `false` leaves the row exempt; each config error (`scan = false`, a `file =` row, a level outside `1..=6`, a level beside an explicit `false`) is a rejection case; `config show` round-trips. For the levels: a cited `##` beside an uncited one at level 2; a `###` leaf satisfying its parent at level 3; a file with no `##` at level 2 judged as one unit; an unindented doc-comment beside an indented one; a `must` obligation firing per section.
-
 ## RM-directions-one-source: one source for the citation-directions explanation
 
 `[citations]` is specified in [§FS-config.3.9](functional-spec/FS-config.md#39-citations--citation-direction-rules) and rendered per [§FS-init.2.3.5](functional-spec/FS-init.md#235-citation-directions), and explained on none of the three surfaces a person or agent reads during setup: the `grund-init` skill walks every config section except this one, against the "pros and cons for every config option" [§FS-init.5](functional-spec/FS-init.md#5-agent-setup-instructions) asks for; the `grund.toml` template comment shows nine example rules and never states that entries in one array are all required while `|` inside an entry is any one of them; the README states two directions inside a table cell. Nowhere is a config shown beside the bullet it becomes.

@@ -409,9 +409,10 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
             ));
         }
     }
-    // §FS-config.3.4.8: the grounding pair, once the row shape it is validated
-    // against is known to be legal.
-    validate_kind_grounding(path, &parsed)?;
+    // §FS-config.3.4.8: the grounding pair, once the row shape it is validated against
+    // is known to be legal. The `[reference]` boolean goes with it: a row's level is
+    // judged against the value the row resolves to, not the one it wrote.
+    validate_kind_grounding(path, &parsed, config.require_grounding)?;
     // §FS-config.3.4: the `index` default is keyed on the name, and this is where a
     // *declared* kind picks it up. Runs after the validation above, which reads
     // `index` as the file wrote it.

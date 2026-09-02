@@ -1,0 +1,21 @@
+grund_config_version = 1
+
+[reference]
+require_grounding = true
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+
+[[kinds]]
+kind = "runbook"
+file = "RUNBOOK.md"
+citable = false
+grounding_level = 2
+
+[[kinds]]
+kind = "notes"
+file = "NOTES.md"
+citable = false
+require_grounding = false

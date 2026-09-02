@@ -95,6 +95,7 @@ include!("tests_comment_block.rs");
 include!("tests_comment_block_position.rs");
 include!("tests_grounding_style.rs");
 include!("tests_grounding_per_place.rs");
+include!("tests_grounding_config.rs");
 include!("tests_inline_note_layout.rs");
 include!("tests_inline_note_layout_check.rs");
 include!("tests_scanner.rs");

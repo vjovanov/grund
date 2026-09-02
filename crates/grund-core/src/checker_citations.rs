@@ -147,8 +147,16 @@ fn empty_citation_obligation_warning(
             "[citations.{citing_kind}] {level} applies to nothing — {place} declares no {citing_kind} ID; did you mean `citable = false`?"
         )
     } else {
+        // §FS-check.2.2.1: the row-key half is advice, so it is given only where it is
+        // still advice — a row already grounding (§FS-config.3.4.8) has made that
+        // setting, and this run is already reporting what it caught (§FS-check.3.6).
+        let tail = if config.kind_grounding(kind).0 {
+            String::new()
+        } else {
+            format!("; set require_grounding = true on the {place} row to make that an error")
+        };
         format!(
-            "[citations.{citing_kind}] {level} applies to nothing — no scanned file in {place} carries a citation; set require_grounding = true on the {place} row to make that an error"
+            "[citations.{citing_kind}] {level} applies to nothing — no scanned file in {place} carries a citation{tail}"
         )
     };
     Some(Diagnostic {
