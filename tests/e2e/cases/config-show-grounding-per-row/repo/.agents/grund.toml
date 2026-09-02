@@ -1,0 +1,25 @@
+grund_config_version = 1
+project_name = "grounded"
+
+[reference]
+require_grounding = true
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+
+[[kinds]]
+kind = "skill"
+folder = "skills"
+citable = false
+grounding_level = 2
+
+[[kinds]]
+kind = "workflow"
+folder = ".github/workflows"
+citable = false
+require_grounding = false
+
+[scan]
+include = ["docs"]

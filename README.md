@@ -49,7 +49,7 @@ When code realizes a named behavior, it carries a `§<ID>` citation — on its d
         let any_match = decls.iter().any(|d| d.sections.contains_key(sec));
 ```
 
-`grund` doesn't invent these citations — that's the contributor's call. What `grund` does is make sure the ones you wrote *resolve*. With `[reference] require_grounding = true`, it also fails scanned source files that carry no resolving citation; the stronger diff-aware "implementation changed with its spec or test" gate is tracked separately in [§RM-cochange-gate](docs/roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test).
+`grund` doesn't invent these citations — that's the contributor's call. What `grund` does is make sure the ones you wrote *resolve*. With `require_grounding = true` — in `[reference]` for every place at once, or on one `[[kinds]]` row for that place alone, at a `grounding_level` from the whole file down to every `##` of it ([§FS-config.3.4.8](docs/functional-spec/FS-config.md#348-require_grounding-and-grounding_level--grounding-per-place-and-per-level)) — it also fails what carries no resolving citation; the stronger diff-aware "implementation changed with its spec or test" gate is tracked separately in [§RM-cochange-gate](docs/roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test).
 
 ## 2. Re-read before you edit
 
@@ -94,7 +94,7 @@ docs/requirements/REQ-no-wrong-citation.md:7: missing section FS-check.3.2
 4. Every stub heading `# <ID>: [<text>](<path>)` points at a file containing the inline declaration. *(broken stubs)*
 5. The `AGENTS.md` / `CLAUDE.md` entry-point block is up to date. *(stale init)*
 6. Declared-but-uncited IDs are flagged. *(unused — warning, not error; a configured `E2E` kind's cases are exempt)*
-7. *(opt-in)* With `[reference] require_grounding = true`: every source file carries at least one citation. *(ungrounded source file)*
+7. *(opt-in)* With `require_grounding = true`: every source file — or every file of one configured place, down to every `##` section or doc-comment block of it — carries at least one citation. *(ungrounded source file)*
 8. *(workspace)* Alias-qualified citations resolve across configured sub-projects. *(cross-project references — see [§FS-workspace](docs/functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace))*
 
 `grund check` reads what `[scan] include` names, so a citation in a directory the config never mentioned is invisible rather than merely unchecked — it neither resolves nor dangles. `grund check --full` ([§FS-check.1.3](docs/functional-spec/FS-check.md#13-the-full-tree-scope---full)) walks the whole repository past that key and reports the references that resolve to nothing out there, and only those: a directory nobody configured is never judged against conventions it never adopted. It is purely additive, so it can only turn a green run red.

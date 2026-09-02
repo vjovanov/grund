@@ -73,6 +73,11 @@ fn print_effective_config(config: &Config) {
     println!("trigger = \"{}\"", config.trigger);
     println!("strict = {}", config.strict);
     println!("require_grounding = {}", config.require_grounding);
+    // §FS-config.3.4.8: the default for every row below, printed only where it
+    // could load back — a level with nothing turning grounding on is an error.
+    if config.grounding_enabled() {
+        println!("grounding_level = {}", config.grounding_level);
+    }
     println!("inline_style = \"{}\"", config.inline_style);
     println!(
         "inline_note_suggested_lines = {}",
@@ -131,6 +136,12 @@ fn print_effective_config(config: &Config) {
         // §FS-config.3.4.7: the same rule — absence is `scan = true`.
         if !kind.scan {
             println!("scan = false");
+        }
+        // §FS-config.3.4.8: each grounding key only where the row's effective
+        // value differs from the effective global printed above, so the shown
+        // config loads back as itself.
+        for line in config.kind_grounding_toml_lines(kind) {
+            println!("{line}");
         }
         if let Some(title) = &kind.title {
             println!("title = \"{}\"", escape_toml_basic(title));

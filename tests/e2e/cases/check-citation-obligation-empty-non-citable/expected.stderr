@@ -1,1 +1,1 @@
-{"severity":"warning","path":null,"line":null,"code":"empty-citation-obligation","message":"[citations.skill] must applies to nothing — no scanned file in skills/ carries a citation; set [reference] require_grounding to make that an error","sites":null}
+{"severity":"warning","path":null,"line":null,"code":"empty-citation-obligation","message":"[citations.skill] must applies to nothing — no scanned file in skills/ carries a citation; set require_grounding = true on the skills/ row to make that an error","sites":null}

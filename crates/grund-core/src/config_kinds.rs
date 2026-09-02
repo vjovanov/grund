@@ -108,6 +108,10 @@ struct ParsedKind {
     config: KindConfig,
     header_line: usize,
     name_key: Option<(&'static str, usize)>,
+    /// The row's `require_grounding` / `grounding_level`, each with the line it
+    /// was written on (§FS-config.3.4.8) — read by `config_grounding.rs`, which
+    /// owns both keys and every rule about them.
+    grounding: ParsedGrounding,
 }
 
 impl ParsedKind {
@@ -121,9 +125,12 @@ impl ParsedKind {
                 index: KindIndex::Default,
                 citable: true,
                 scan: true,
+                require_grounding: None,
+                grounding_level: None,
             },
             header_line,
             name_key: None,
+            grounding: ParsedGrounding::default(),
         }
     }
 }
@@ -402,6 +409,9 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
             ));
         }
     }
+    // §FS-config.3.4.8: the grounding pair, once the row shape it is validated
+    // against is known to be legal.
+    validate_kind_grounding(path, &parsed)?;
     // §FS-config.3.4: the `index` default is keyed on the name, and this is where a
     // *declared* kind picks it up. Runs after the validation above, which reads
     // `index` as the file wrote it.

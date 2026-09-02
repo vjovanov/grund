@@ -365,6 +365,10 @@ fn scan_file_text(
     if classify {
         classify_citation_sources(findings, config, path);
     }
+    // §AR-scanner.2.7: the headings and doc-comment blocks a grounding unit finer
+    // than the file is cut out of — recorded only where a `[[kinds]]` row asks
+    // for one, so a level-1 tree pays nothing (§FS-config.3.4.8).
+    record_file_structure(path, text, config, findings);
     Ok(())
 }
 
@@ -468,54 +472,15 @@ fn assign_declaration_bodies(
 }
 
 /// The 1-indexed inclusive line spans of every comment / docstring block in a
-/// source file (§AR-scanner.2.4) — the same block boundaries
-/// `inline_citation_sites` walks, without the declares-an-ID filtering, so a
-/// declaration's body can be bounded by the block that hosts it.
+/// source file (§AR-scanner.2.4) — the shared block walk of `comment_block.rs`
+/// without the declares-an-ID filtering, so a declaration's body can be bounded
+/// by the block that hosts it.
 fn comment_block_ranges(text: &str, is_py: bool, config: &Config) -> Vec<(usize, usize)> {
     let lines = text.lines().collect::<Vec<_>>();
-    let mut ranges = Vec::new();
-    let mut index = 0;
-    while index < lines.len() {
-        let Some(kind) = comment_block_kind(lines[index], is_py, config) else {
-            index += 1;
-            continue;
-        };
-        let start = index;
-        let end = match &kind {
-            CommentBlockKind::Line(marker) => {
-                let mut end = index;
-                while end + 1 < lines.len()
-                    && matches!(
-                        comment_block_kind(lines[end + 1], is_py, config),
-                        Some(CommentBlockKind::Line(next)) if next == *marker
-                    )
-                {
-                    end += 1;
-                }
-                end
-            }
-            CommentBlockKind::Block => {
-                let mut end = index;
-                while end + 1 < lines.len() && !lines[end].contains("*/") {
-                    end += 1;
-                }
-                end
-            }
-            CommentBlockKind::PythonDocstring => {
-                let quote = python_docstring_quote(lines[index]).unwrap_or("\"\"\"");
-                let mut end = index;
-                while end + 1 < lines.len()
-                    && !python_docstring_closes(lines[end], quote, end == start)
-                {
-                    end += 1;
-                }
-                end
-            }
-        };
-        ranges.push((start + 1, end + 1));
-        index = end + 1;
-    }
-    ranges
+    comment_blocks(&lines, is_py, config)
+        .into_iter()
+        .map(|(start, end, _)| (start + 1, end + 1))
+        .collect()
 }
 
 /// Classify each citation's citing side by the three-step fallback of
@@ -616,44 +581,7 @@ fn inline_citation_sites(
         DocCommentRule::Position(_) => first_content_line(&lines),
         _ => 0,
     };
-    let mut index = 0;
-    while index < lines.len() {
-        let Some(kind) = comment_block_kind(lines[index], is_py, config) else {
-            index += 1;
-            continue;
-        };
-        let start = index;
-        let end = match &kind {
-            CommentBlockKind::Line(marker) => {
-                let mut end = index;
-                while end + 1 < lines.len()
-                    && matches!(
-                        comment_block_kind(lines[end + 1], is_py, config),
-                        Some(CommentBlockKind::Line(next)) if next == *marker
-                    )
-                {
-                    end += 1;
-                }
-                end
-            }
-            CommentBlockKind::Block => {
-                let mut end = index;
-                while end + 1 < lines.len() && !lines[end].contains("*/") {
-                    end += 1;
-                }
-                end
-            }
-            CommentBlockKind::PythonDocstring => {
-                let quote = python_docstring_quote(lines[index]).unwrap_or("\"\"\"");
-                let mut end = index;
-                while end + 1 < lines.len()
-                    && !python_docstring_closes(lines[end], quote, end == start)
-                {
-                    end += 1;
-                }
-                end
-            }
-        };
+    for (start, end, kind) in comment_blocks(&lines, is_py, config) {
         let block = &lines[start..=end];
         // §FS-inline-citation-style.1.1: a doc comment hosts no site — the same
         // skip a block that *declares* an ID already earned, and for the same
@@ -686,7 +614,6 @@ fn inline_citation_sites(
                 sites.insert(line, site.clone());
             }
         }
-        index = end + 1;
     }
     sites
 }
@@ -1249,6 +1176,7 @@ fn merge_findings(target: &mut Findings, mut source: Findings) {
         .near_miss_headings
         .append(&mut source.near_miss_headings);
     target.scanned_files.append(&mut source.scanned_files);
+    target.file_structure.extend(source.file_structure);
 }
 
 fn scan_file_results(

@@ -862,6 +862,8 @@ fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: 
     let mut report = CheckReport::default();
     for project in &context.projects {
         let mut config = project.config.clone();
+        // §FS-check.1: the same global default the key sets, per member — an
+        // explicit `false` on a `[[kinds]]` row still wins (§FS-config.3.4.8).
         if force_require_grounding {
             config.require_grounding = true;
         }

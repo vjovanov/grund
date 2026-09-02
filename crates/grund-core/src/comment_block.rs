@@ -50,6 +50,63 @@ fn line_comment_marker(trimmed: &str, config: &Config) -> Option<String> {
         .map(|prefix| prefix.to_string())
 }
 
+/// Every comment / docstring block in a source file, as 0-indexed inclusive line
+/// spans with the kind that opened each one (§AR-scanner.2.4). One walk, three
+/// readers: the block that bounds a declaration body, the block that may host an
+/// inline citation site, and the block that is a grounding unit
+/// (§AR-scanner.2.7). They asked the same question three times, and a block
+/// boundary that answered differently for one of them would put a declaration,
+/// its note budget, and its grounding in three different places.
+fn comment_blocks(
+    lines: &[&str],
+    is_py: bool,
+    config: &Config,
+) -> Vec<(usize, usize, CommentBlockKind)> {
+    let mut blocks = Vec::new();
+    let mut index = 0;
+    while index < lines.len() {
+        let Some(kind) = comment_block_kind(lines[index], is_py, config) else {
+            index += 1;
+            continue;
+        };
+        let start = index;
+        let end = match &kind {
+            CommentBlockKind::Line(marker) => {
+                let mut end = index;
+                while end + 1 < lines.len()
+                    && matches!(
+                        comment_block_kind(lines[end + 1], is_py, config),
+                        Some(CommentBlockKind::Line(next)) if next == *marker
+                    )
+                {
+                    end += 1;
+                }
+                end
+            }
+            CommentBlockKind::Block => {
+                let mut end = index;
+                while end + 1 < lines.len() && !lines[end].contains("*/") {
+                    end += 1;
+                }
+                end
+            }
+            CommentBlockKind::PythonDocstring => {
+                let quote = python_docstring_quote(lines[index]).unwrap_or("\"\"\"");
+                let mut end = index;
+                while end + 1 < lines.len()
+                    && !python_docstring_closes(lines[end], quote, end == start)
+                {
+                    end += 1;
+                }
+                end
+            }
+        };
+        blocks.push((start, end, kind));
+        index = end + 1;
+    }
+    blocks
+}
+
 fn python_docstring_closes(line: &str, quote: &str, is_opening_line: bool) -> bool {
     let trimmed = line.trim_start();
     let search = if is_opening_line {

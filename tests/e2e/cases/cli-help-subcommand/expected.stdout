@@ -10,7 +10,7 @@ Path validation is explicit; `grund PATH` is parsed as an ID query.
 Options:
   --format text|json   text (default) prints `success` or `path:line: message`; json emits NDJSON.
   --full               also walk past [scan] include and report the references that resolve to nothing out there.
-  --require-grounding  also require every source file to cite a declared ID ([reference] require_grounding).
+  --require-grounding  also require every source file to cite a declared ID ([reference] require_grounding; a [[kinds]] row that sets it false stays exempt).
   --suggestions        also surface should/should-not citation-direction findings ([citations]).
 
 Findings go to stdout (the linter convention) — `grund check | …` and `grund check

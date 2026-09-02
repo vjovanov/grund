@@ -9,7 +9,7 @@ The `check` command walks a repo and reports every violation of the grund refere
 - Optional `grund.toml` configuring marker, trigger, kinds, and skip lists per [§GOAL-configurable](../goals.md#goal-configurable-every-default-is-overridable) ([§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)).
 - Optional `[workspace]` config; when present and `check` is run at the workspace root, `check` validates alias-qualified cross-project citations per [§FS-workspace](FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace).
 - `--watch` is reserved for the planned resident checker (§6) and is not accepted by the current CLI.
-- `--require-grounding` — turn the grounding check (§3.6) on for this run regardless of `[reference] require_grounding` in `grund.toml` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). It only ever *adds* the check; it cannot switch off a config that already sets it.
+- `--require-grounding` — turn the grounding check (§3.6) on for this run regardless of `[reference] require_grounding` in `grund.toml` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). It only ever *adds* the check; it cannot switch off a config that already sets it. The flag and the key are **one knob**: the flag sets the same global default, so a `[[kinds]]` row that says `require_grounding = false` is still exempt under it ([§FS-config.3.4.8](FS-config.md#348-require_grounding-and-grounding_level--grounding-per-place-and-per-level)). The row's word is the more specific one, and a run-level flag that overrode it would make the flag mean something the key cannot say. There is no flag for `grounding_level`; the unit comes from config only.
 - `--suggestions` — emit the `should`-level citation-direction findings ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) on the suggestions channel (§2.3) for this run. The same config-plus-flag pattern as `--require-grounding`: the flag never adds an error or changes the exit code, it only surfaces the advisory `suggested-citation` / `discouraged-citation` records that the default run withholds.
 - `--full` — walk the whole config root, past `[scan] include`, and report the references that resolve to nothing out there on their own tier (§1.3, §3.14). It only ever *adds* findings; the in-scope report is unchanged.
 - `--format text|json` — output shape, per [§FS-errors.5](FS-errors.md#5-json-format). The global flags `--version` and `--help` are handled before any scan ([§FS-cli](FS-cli.md#fs-cli-grunds-command-line-surface-conventions)).
@@ -131,7 +131,7 @@ The messages distinguish the two kinds of missing unit:
 
 ```text
 warning: [citations.SKILL] must applies to nothing — skills/ declares no SKILL ID; did you mean `citable = false`?
-warning: [citations.skill] must applies to nothing — no scanned file in skills/ carries a citation; set [reference] require_grounding to make that an error
+warning: [citations.skill] must applies to nothing — no scanned file in skills/ carries a citation; set require_grounding = true on the skills/ row to make that an error
 ```
 
 The folder membership and entry-file comparisons use the same normalized home matching as citation-source classification. The warning is independent of other findings: another warning or error does not suppress it. Workspace checking asks the question separately for each member, against that member's config and scanned files ([§FS-workspace.5](FS-workspace.md#5-command-scope)). An explicit path still evaluates the files it scans, so a path such as `grund check skills` can earn this warning; it does not broaden the path to unrelated homes.
@@ -199,23 +199,52 @@ If `<path>/AGENTS.md` exists, `check` verifies the versioned `grund init` block 
 
 ### 3.6 Ungrounded source file *(opt-in)*
 
-Off by default. When `[reference] require_grounding = true` is set in `grund.toml` ([§FS-config.3.1](FS-config.md#31-reference--citation-form)) — or `grund check --require-grounding` is passed (§1) — every scanned **source file** (a file the walk reads whose extension is not `.md`, [AR-scanner.1](../architecture/AR-scanner.md#1-tree-walk)) must be *grounded*: it must contain at least one recognized citation (§1.1) whose ID resolves to a declaration, **or** it must itself declare an ID inline (a spec home is grounded in the spec it *is*, [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)). A source file that is neither is an error, anchored at line 1:
+Off by default. Two config keys decide it, each written in `[reference]` as the default for every `[[kinds]]` row and settable on the row itself ([§FS-config.3.4.8](FS-config.md#348-require_grounding-and-grounding_level--grounding-per-place-and-per-level)): `require_grounding` says **whether** a place's files must be grounded, and `grounding_level` says **what the unit is** inside each of them. `grund check --require-grounding` (§1) sets the same global default, and an explicit `require_grounding = false` on a row wins over it.
+
+A unit is **grounded** when it contains at least one recognized citation (§1.1) whose ID resolves to a declaration — **or**, in a source file outside every non-citable home, when it declares an ID inline (a spec home is grounded in the spec it *is*, [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)). A unit that is neither is an error:
 
 ```
 src/foo.rs:1: ungrounded source file: no § citation to a declared ID
 ```
 
-The marker in the message is the configured one ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). A file whose only citation is dangling (§3.1) is *not* grounded — it gets both findings; fixing the citation clears both. Markdown files are never subject to this rule (they are documents, not implementation); use the unused-declaration warning (§4.1) and dangling/section errors for those.
+The marker in the message is the configured one ([§FS-config.3.1](FS-config.md#31-reference--citation-form)). A unit whose only citation is dangling (§3.1) is *not* grounded — it gets both findings; fixing the citation clears both.
 
-**One exception, and it is a home rather than an extension.** Inside a **non-citable kind's home** ([§FS-config.3.4.1](FS-config.md#341-citable--kinds-that-declare-no-ids)) every scanned file is subject to the rule, `.md` included, and the finding names the home:
+This is a pure function of `(tree, config)` like every other `check` rule ([§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)): it reads no git history ([§FS-non-goals.6](FS-non-goals.md#6-decision-database-audit-log-history-tracking)) and parses no code ([§FS-non-goals.3](FS-non-goals.md#3-code-ast-parsing)) — "source file" is decided by extension, a unit by heading level or comment indentation, and "grounded" by the citations the scanner already collected. It is the floor of the grounding discipline — the verification-at-rest layer of [§GOAL-agent-grounding.1](../goals.md#1-the-three-layers), on top of which `grund cover` exposes the citation graph ([§FS-cover](FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file)) and [§RM-cochange-gate](../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test) tracks the diff-aware co-change gate. Decided in [§DF-require-grounding](../decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec).
+
+#### 3.6.1 Which files a row governs
+
+Every scanned file resolves to exactly one `[[kinds]]` row, and that row's effective `require_grounding` decides whether the file is checked at all:
+
+- **A non-citable kind's home** ([§FS-config.3.4.1](FS-config.md#341-citable--kinds-that-declare-no-ids)) governs **every** scanned file in it, `.md` included.
+- **A citable kind's folder home** governs the **source files** in it — a file the walk reads whose extension is not `.md` ([AR-scanner.1](../architecture/AR-scanner.md#1-tree-walk)).
+- **The homeless kind** ([§FS-config.3.9.2](FS-config.md#392-the-homeless-kind)) governs the source files no home claims, and a file claimed by two overlapping homes falls to it as well, the way its citing side already does ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)).
+
+So Markdown is exempt except inside a non-citable home, and that exception is a home rather than an extension. The Markdown exemption reasons about implementation versus document; a non-citable home is neither guess — it is a directory the maintainer declared matters, and it is usually *all* Markdown, a skill, a runbook, a prompt library. Inheriting the exemption there would switch the rule off exactly where it was turned on. An unwalked home ([§FS-config.3.4.7](FS-config.md#347-scan--a-place-that-is-listed-not-walked)) has no scanned files, so the rule never reaches it — which is why `require_grounding = true` on such a row is a config error.
+
+A repository that sets only `[reference] require_grounding = true` and configures no non-citable kind sees this rule exactly as it did before these keys existed: every row inherits the global `true`, every level is `1`, and the unit is the file.
+
+#### 3.6.2 The unit
+
+`grounding_level` is an integer in Markdown heading levels ([§FS-config.3.4.8](FS-config.md#348-require_grounding-and-grounding_level--grounding-per-place-and-per-level)). Each level **contains the one below it**, so the file itself is always a unit and nothing passes vacuously for lacking structure.
+
+**In a Markdown file**, level `L` makes a unit of the whole file and of every heading subtree whose level is between `2` and `L`. A subtree runs from its heading to the line before the next heading at the same or a higher level, so a parent is satisfied by any descendant and a leaf must cite directly; text before the first heading belongs to the file rather than to a section. At level `1` there are no section units and the file is the only one, which is the unit every config had before the key existed. A file with no heading at the level is one unit — the file — for the same reason.
+
+**In a source file** there are two ranks, and they are read by indentation rather than by syntax ([§FS-non-goals.3](FS-non-goals.md#3-code-ast-parsing)): at level `2` every **unindented** doc-comment block is a unit — a parse-free stand-in for a top-level item, which holds across Rust, Python, Java, Go, and Kotlin — and at any higher level every doc-comment block is. What counts as a doc comment is the per-language rule of [§FS-inline-citation-style.1.1](FS-inline-citation-style.md#11-doc-comments-are-not-sites), already read once per file by the scanner. The file is a unit at every level, as in Markdown.
+
+The **inline-declaration escape** applies per unit: a doc-comment block that declares an ID is grounded by that declaration, and so is the file it sits in. It has no effect inside a non-citable home, where a declaration is a misplaced declaration to begin with (§3.7) — there the only way to ground a unit is to cite one.
+
+#### 3.6.3 Findings
+
+A finding is anchored at its unit — line 1 for a file, the heading line for a section, the block's first line for a doc comment — and names the unit and, when the unit sits in a non-citable home, the home:
 
 ```
+src/foo.rs:1: ungrounded source file: no § citation to a declared ID
 skills/triage/SKILL.md:1: ungrounded file in kind home skills/: no § citation to a declared ID
+skills/review/SKILL.md:14: ungrounded section `## Steps` in kind home skills/: no § citation to a declared ID
+src/walk.rs:41: ungrounded doc-comment: no § citation to a declared ID
 ```
 
-The Markdown exemption reasons about implementation versus document, and a non-citable home is neither guess: it is a directory the maintainer declared matters, and it is usually *all* Markdown — a skill, a runbook, a prompt library. Inheriting the exemption there would switch the rule off exactly where it was turned on. Files outside such a home are unaffected, so a repository that configures no non-citable kind sees this rule exactly as it did before. An unwalked home ([§FS-config.3.4.7](FS-config.md#347-scan--a-place-that-is-listed-not-walked)) has no scanned files, so the rule never reaches it.
-
-This is a pure function of `(tree, config)` like every other `check` rule ([§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)): it reads no git history ([§FS-non-goals.6](FS-non-goals.md#6-decision-database-audit-log-history-tracking)) and parses no code ([§FS-non-goals.3](FS-non-goals.md#3-code-ast-parsing)) — "source file" is decided by extension, "grounded" by the citations the scanner already collected. It is the floor of the grounding discipline — the verification-at-rest layer of [§GOAL-agent-grounding.1](../goals.md#1-the-three-layers), on top of which `grund cover` exposes the citation graph ([§FS-cover](FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file)) and [§RM-cochange-gate](../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test) tracks the diff-aware co-change gate. Decided in [§DF-require-grounding](../decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec).
+Section units arise only inside a non-citable home, since that is the only place Markdown is governed, so a section finding always names one. Every failing unit is reported: a file that cites nothing at level `2` earns the file finding *and* one per section, which is what "each level contains the one below it" means on the reporting side — the file is genuinely ungrounded, and so is each of its sections.
 
 ### 3.7 Misplaced declaration (configured kind home)
 
@@ -286,7 +315,9 @@ The body extent and the citing-side classification come from the scanner ([AR-sc
 skills/review/SKILL.md:1: skills/ must cite FS (citation direction)
 ```
 
-Units are still built from citations, so a file carrying none produces no unit and `must` cannot fire on it — except that a walked folder with real non-entry content now earns the run-level warning of [§FS-check.2.2.1](FS-check.md#221-citation-direction-obligation-applies-to-nothing). The same zero-unit boundary [§FS-config.3.9.2](FS-config.md#392-the-homeless-kind) states for the homeless kind remains intentionally unwarned. In a non-citable home `[reference] require_grounding` closes the per-file grounding hole (§3.6): there the grounding rule follows the home rather than the file extension, so "cite something" and "cite an `FS`" are two keys that compose, while the new warning points at that key when grounding is off. An `E2E`-kind obligation ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) is per case declaration, can be satisfied by the case's `spec.refs` manifest entries, and remains an error when the case has no scanned citations or matching manifest reference. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
+**Both per-file units follow the row's `grounding_level`** ([§FS-config.3.4.8](FS-config.md#348-require_grounding-and-grounding_level--grounding-per-place-and-per-level)): *whether* a place's files must cite and *what* they must cite are asked of the same thing (§3.6.2). At level `2` the unit of a non-citable Markdown home is every `##` subtree that carries a citation, and of a source file every unindented doc-comment block that does; the file stays a unit at every level, satisfied by any citation under it. A row at level `1` — which is every configuration written before the key existed — sees no change, and a citable kind's unit stays its declaration at every level, a declaration already being a unit inside a file.
+
+Units are still built from citations, so a file carrying none produces no unit and `must` cannot fire on it — except that a walked folder with real non-entry content now earns the run-level warning of [§FS-check.2.2.1](FS-check.md#221-citation-direction-obligation-applies-to-nothing). The same zero-unit boundary [§FS-config.3.9.2](FS-config.md#392-the-homeless-kind) states for the homeless kind remains intentionally unwarned. In a non-citable home `require_grounding` closes the per-file grounding hole (§3.6): there the grounding rule follows the home rather than the file extension, so "cite something" and "cite an `FS`" are two keys that compose, while the warning of §2.2.1 points at the row's key when grounding is off. An `E2E`-kind obligation ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) is per case declaration, can be satisfied by the case's `spec.refs` manifest entries, and remains an error when the case has no scanned citations or matching manifest reference. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
 
 ### 3.12 Forbidden citation
 
