@@ -75,12 +75,18 @@
 /// that already contain a managed block and leave project-owned unmanaged files
 /// alone.
 ///
-/// ### 2.8 Ungrounded source files — opt-in (§FS-check.3.6, §DF-require-grounding)
+/// ### 2.8 Ungrounded units — opt-in (§FS-check.3.6, §DF-require-grounding)
 ///
-/// When `[reference] require_grounding = true` (or `grund check --require-grounding`),
-/// every scanned non-`.md` file must carry at least one recognised citation that
-/// resolves, or itself declare an ID inline; a source file that does neither is
-/// one error anchored at line 1. Off by default.
+/// Off by default, and asked per `[[kinds]]` row: each scanned file resolves to
+/// the one row that governs it (§FS-check.3.6.1), and that row's effective
+/// `require_grounding` / `grounding_level` decide whether the file is checked and
+/// what the unit inside it is (§FS-config.3.4.8). At level 1 the unit is the file
+/// and the rule is what it always was — one resolving citation anywhere, or an
+/// inline declaration, anchored at line 1. Above it the units are the heading
+/// subtrees the scanner recorded for a Markdown file, or its doc-comment blocks
+/// for a source one (§AR-scanner.2.7), each finding anchored at its own unit. The
+/// pass is `checker_grounding.rs`; `[citations]` obligations read the same cut
+/// (§2.9), so *whether* and *what* are asked of one thing.
 ///
 /// ### 2.9 Citation-direction obligations (§FS-check.3.11, §FS-config.3.9, §DF-citation-directions)
 ///
@@ -90,7 +96,8 @@
 /// a disjunction). The body extent and the per-citation `enclosing_declaration` come
 /// from the scanner (§AR-scanner.2.4), so this pass is a lookup, not a re-scan. The
 /// homeless-kind obligation is per source file (§FS-config.3.9.2) rather than
-/// per declaration. A `must` miss is a `missing-citation` error; a `should` miss is a
+/// per declaration, and both per-file units are cut by the row's
+/// `grounding_level` like the grounding pass above (§FS-check.3.11). A `must` miss is a `missing-citation` error; a `should` miss is a
 /// `suggested-citation` suggestion, emitted only under `--suggestions` (§FS-check.2.3).
 ///
 /// ### 2.10 Citation-direction prohibitions (§FS-check.3.12, §FS-config.3.9, §DF-citation-directions)
@@ -262,7 +269,8 @@ struct WorkspaceCheckTarget<'a> {
 /// git, no AST. Markdown is exempt from it because a document is not
 /// implementation; a non-citable home is not, because it is a directory the
 /// maintainer declared matters and is usually all Markdown, so the exemption
-/// would make the rule inert exactly where it was asked for.
+/// would make the rule inert exactly where it was asked for. Which place is
+/// asked, and how finely, is a `[[kinds]]` row's to say (§FS-config.3.4.8).
 fn check_with_workspace(
     findings: &Findings,
     config: &Config,
@@ -511,59 +519,9 @@ fn check_with_workspace(
         }
     }
 
-    // §FS-check.3.6 / §DF-require-grounding: under `[reference] require_grounding`
-    // every scanned non-Markdown file must carry a citation to a declared ID — or
-    // itself declare one inline (a spec home is grounded in the spec it *is*).
-    if config.require_grounding {
-        // Collect the files that ground themselves in two linear passes — one over
-        // citations, one over declarations — so the per-file test below is a set
-        // lookup, not a re-scan per file (§GOAL-fast-feedback: speed is the ordering principle).
-        let mut grounded_files: BTreeSet<&Path> = findings
-            .citations
-            .iter()
-            .filter(|cite| citation_resolves(cite, findings, config, workspace))
-            .map(|cite| cite.file.as_path())
-            .collect();
-        grounded_files.extend(
-            findings
-                .declarations
-                .values()
-                .flatten()
-                .filter(|decl| !decl.is_stub && decl.e2e_case.is_none())
-                .map(|decl| decl.file.as_path()),
-        );
-        for file in &findings.scanned_files {
-            // §FS-check.3.6: Markdown is exempt because a document is not
-            // implementation — except inside a non-citable home, where the
-            // exemption would make the rule inert exactly where it was asked for.
-            let non_citable_home = kind_homes
-                .unique_decl_home_for_file(file)
-                .filter(|home| !home.citable)
-                .map(|home| home.place());
-            if non_citable_home.is_none()
-                && file.extension().and_then(|ext| ext.to_str()) == Some("md")
-            {
-                continue;
-            }
-            if !grounded_files.contains(file.as_path()) {
-                let subject = match &non_citable_home {
-                    Some(home) => format!("ungrounded file in kind home {home}"),
-                    None => "ungrounded source file".to_string(),
-                };
-                report.errors.push(Diagnostic {
-                    code: "ungrounded",
-                    path: Some(file.clone()),
-                    line: Some(1),
-                    column: None,
-                    message: format!(
-                        "{subject}: no {} citation to a declared ID",
-                        config.marker
-                    ),
-                    sites: Vec::new(),
-                });
-            }
-        }
-    }
+    // §FS-check.3.6 / §DF-require-grounding: the grounding pass, per `[[kinds]]`
+    // row and per unit, in `checker_grounding.rs` (§AR-checker.2.8).
+    check_grounding(findings, config, &kind_homes, workspace, &mut report);
 
     // §FS-check.4.7: headings that open like a declaration and parse as none.
     check_declaration_near_misses(findings, config, &mut report);

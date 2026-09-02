@@ -148,7 +148,7 @@ fn empty_citation_obligation_warning(
         )
     } else {
         format!(
-            "[citations.{citing_kind}] {level} applies to nothing — no scanned file in {place} carries a citation; set [reference] require_grounding to make that an error"
+            "[citations.{citing_kind}] {level} applies to nothing — no scanned file in {place} carries a citation; set require_grounding = true on the {place} row to make that an error"
         )
     };
     Some(Diagnostic {
@@ -264,23 +264,10 @@ fn obligation_units<'a>(
     if citing_kind == config.homeless_kind()
         || non_citable_kind_names(config).contains(citing_kind)
     {
-        let place = config
-            .kinds
-            .iter()
-            .find(|kind| kind.kind == citing_kind)
-            .and_then(KindConfig::place_label);
-        return by_file
-            .iter()
-            .filter(|((kind, _), _)| *kind == citing_kind)
-            .map(|((_, file), citations)| ObligationUnit {
-                id: None,
-                place: place.clone(),
-                path: file.to_path_buf(),
-                line: 1,
-                citations: citations.clone(),
-                e2e_spec_refs: Vec::new(),
-            })
-            .collect();
+        // §FS-check.3.11: a kind with no declarations answers with its files,
+        // cut by the row's `grounding_level` — the same unit §FS-check.3.6 asks
+        // for grounding, in `checker_grounding.rs`.
+        return file_obligation_units(citing_kind, config, findings, by_file);
     }
 
     let mut units = Vec::new();

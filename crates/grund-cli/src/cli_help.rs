@@ -90,7 +90,7 @@ fn print_subcommand_help(cmd: &str) {
                 "  --full               also walk past [scan] include and report the references that resolve to nothing out there."
             );
             println!(
-                "  --require-grounding  also require every source file to cite a declared ID ([reference] require_grounding)."
+                "  --require-grounding  also require every source file to cite a declared ID ([reference] require_grounding; a [[kinds]] row that sets it false stays exempt)."
             );
             println!(
                 "  --suggestions        also surface should/should-not citation-direction findings ([citations])."

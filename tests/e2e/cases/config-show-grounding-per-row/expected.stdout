@@ -1,0 +1,57 @@
+grund_config_version = 1
+project_name = "grounded"
+
+[reference]
+marker = "§"
+trigger = "$$"
+strict = true
+require_grounding = true
+grounding_level = 1
+inline_style = "citation-with-note"
+inline_note_suggested_lines = 1
+inline_note_max_lines = 3
+inline_note_max_columns = 100
+inline_note_layout = "any"
+inline_note_layout_check = "off"
+warn_on_suggested = false
+
+[id]
+format = "{kind}-{number}-{slug}"
+section_separator = "."
+section_heading_levels = "strict"
+number_pattern = "\\d+"
+slug_pattern = "[a-z0-9][a-z0-9-]*"
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
+
+[[kinds]]
+kind = "skill"
+folder = "skills"
+citable = false
+grounding_level = 2
+
+[[kinds]]
+kind = "workflow"
+folder = ".github/workflows"
+citable = false
+require_grounding = false
+
+[scan]
+include = ["docs"]
+exclude = ["target", "node_modules", ".git", "dist", "build", ".venv"]
+extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs", "lisp", "scm", "clj", "sql", "hs", "lhs", "lua", "ada", "adb", "ads"]
+comment_prefixes = ["//", "#", ";", "--", "*", "/*"]
+docstring_python = true
+respect_gitignore = true
+
+[output]
+format = "text"
+color = "auto"
+relative_paths = true
+
+[fmt.cross_refs]
+enabled = true
+anchor_format = "github"

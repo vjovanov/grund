@@ -13,6 +13,10 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
     let mut current_kind: Option<ParsedKind> = None;
     let mut kinds_block_seen = false;
     let mut inline_note_suggested_lines_source = None;
+    // §FS-config.3.4.8: where `[reference] grounding_level` was written, so the
+    // "nothing turns grounding on" rejection anchors at the key rather than at
+    // line 1. Asked once the `[[kinds]]` table is final.
+    let mut grounding_level_source = None;
     let mut inline_note_max_lines_source = None;
     for (idx, raw_line) in text.lines().enumerate() {
         let line_no = idx + 1;
@@ -127,6 +131,13 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             ("reference", "require_grounding") => {
                 config.require_grounding = parse_bool(path, line_no, value)?
             }
+            // §FS-config.3.4.8: the default unit inside every governed file; the
+            // key's own rules live in `config_grounding.rs` with its row twin.
+            ("reference", "grounding_level") => {
+                config.grounding_level = parse_usize(path, line_no, value)?;
+                check_grounding_level(path, line_no, config.grounding_level)?;
+                grounding_level_source = Some(line_no);
+            }
             ("reference", "conversation") => {
                 // §FS-config.3.1, §DF-repo-conversation-opinion.2.2: closed enum with the
                 // single member "link" — `plain` encodes machine state and stays user-scoped.
@@ -221,6 +232,12 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                     )?;
                 }
                 config.section_heading_levels = mode;
+            }
+            // §FS-config.3.4.8: the two grounding keys are `config_grounding.rs`'s
+            // on both sides — the row and the `[reference]` default — so the
+            // section walk hands them there rather than through the row reader.
+            ("kinds", key @ ("require_grounding" | "grounding_level")) => {
+                parse_kind_grounding_key(path, line_no, key, value, &mut current_kind)?;
             }
             // §FS-config.3.4: the `[[kinds]]` keys, in `config_kinds.rs`
             // (§AR-core-module-layout.1).
@@ -320,6 +337,11 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
     if kinds_block_seen {
         apply_parsed_kinds(path, parsed_kinds, config)?;
     }
+    // §FS-config.3.4.8: both keys resolve per row against these defaults, so the
+    // cross-section rule and the derived scanner flag are asked once the kind
+    // table is final — the built-in table included.
+    validate_global_grounding(path, config, grounding_level_source)?;
+    config.recompute_grounding_units();
     if grammar_dirty || kinds_block_seen {
         config
             .rebuild_grammar()

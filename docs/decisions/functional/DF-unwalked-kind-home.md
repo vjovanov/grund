@@ -29,7 +29,7 @@ A `[citations.<kind>]` table naming an unwalked kind as the citing kind is a con
 
 ## 3. Alternatives considered
 
-**A per-kind `require_grounding = false`.** Solves the templates case and nothing else: the files are still read, a `§` illustration in one still resolves or dangles, and a `[citations]` rule still applies. The problem was never that the templates are ungrounded; it is that nothing in them is this repository's to check.
+**A per-kind `require_grounding = false`.** Solves the templates case and nothing else: the files are still read, a `§` illustration in one still resolves or dangles, and a `[citations]` rule still applies. The problem was never that the templates are ungrounded; it is that nothing in them is this repository's to check. The key itself has since landed on the row ([§FS-config.3.4.8](../../functional-spec/FS-config.md#348-require_grounding-and-grounding_level--grounding-per-place-and-per-level)) for the case it *is* right for — grounding one home and not another — and this reasoning is why it does not replace `scan`: `require_grounding = true` on an unwalked row is a config error, because there is nothing to ground.
 
 **Let `[scan] exclude` prune a home it names.** [§FS-config.3.5](../../functional-spec/FS-config.md#35-scan--what-gets-walked) decided the opposite, for the honest reason that `exclude` is written about descendants. Reversing it would also flip a verdict silently for every repository whose home shares a name with a defensive exclude — `build`, `dist` — which [§REQ-backwards-compatibility](../../requirements/REQ-backwards-compatibility.md#req-backwards-compatibility-an-upgrade-never-changes-a-verdict-quietly) forbids.
 

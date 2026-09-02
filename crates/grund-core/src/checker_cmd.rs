@@ -144,8 +144,9 @@ fn run_check(
     // §FS-check.1.3: `--full` cancels `[scan] include` for the walk. It is a
     // per-run flag, never a config key (§DF-check-full-scope.2.5).
     config.scan_full = full;
-    // `--require-grounding` only ever turns the check on for this run; it never
-    // turns off a `[reference] require_grounding = true` set in the config.
+    // §FS-check.1: the flag and `[reference] require_grounding` are one knob, so
+    // it sets the same global default — it never turns the key off, and a
+    // `[[kinds]]` row that says `false` stays exempt under it (§FS-config.3.4.8).
     if force_require_grounding {
         config.require_grounding = true;
     }

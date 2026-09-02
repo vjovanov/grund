@@ -208,6 +208,10 @@ pub struct Findings {
     /// §DF-require-grounding). Files that failed to read are not here; they are in
     /// the walk's `ScanError` list instead.
     pub scanned_files: Vec<PathBuf>,
+    /// Per-file heading and doc-comment structure, for the files a grounding
+    /// unit finer than the file is asked of (§AR-scanner.2.7, §FS-check.3.6.2).
+    /// Empty — and never collected — unless `Config::grounding_units` is set.
+    pub file_structure: BTreeMap<PathBuf, FileStructure>,
     /// `<§>`-escaped citation illustrations (§AR-scanner.2.5): the schematic
     /// `<§>[alias/]ID[.section]` shape the detection passes deliberately skip
     /// because the literal `<§>` does not end with the marker. Inert to every
@@ -278,6 +282,16 @@ pub struct KindConfig {
     /// root. `false` is a place that is listed — its Project map row — and not
     /// walked: content that ships verbatim, which nothing here may check.
     pub scan: bool,
+    /// The `require_grounding` key (§FS-config.3.4.8): whether the files this
+    /// row governs must cite a declared ID. `None` inherits the `[reference]`
+    /// default, which `grund check --require-grounding` also sets — the flag and
+    /// the key are one knob, so an explicit `Some(false)` wins over both.
+    pub require_grounding: Option<bool>,
+    /// The `grounding_level` key (§FS-config.3.4.8): the unit inside each
+    /// governed file, in Markdown heading levels. `None` inherits the
+    /// `[reference]` default; `1` is the file, which is what every config had
+    /// before the key existed.
+    pub grounding_level: Option<usize>,
 }
 
 /// The three states of `[[kinds]] index` (§FS-config.3.4): unset (the
@@ -448,6 +462,16 @@ pub struct Config {
     /// source file that carries no resolving citation (and declares no ID inline).
     /// `--require-grounding` on `grund check` forces it on for one run.
     pub require_grounding: bool,
+    /// `[reference] grounding_level` (§FS-config.3.4.8, §FS-check.3.6.2) — the
+    /// default unit inside each governed file, in Markdown heading levels, for
+    /// every `[[kinds]]` row that does not set its own. `1` is the file.
+    pub grounding_level: usize,
+    /// Whether any row's effective `grounding_level` is finer than the file
+    /// (§AR-scanner.2.7). Derived from the two keys once the config is read, so
+    /// the scanner records per-file structure only where a row asks for it and a
+    /// level-1 tree — which is every config written before the keys existed —
+    /// pays nothing (§GOAL-fast-feedback).
+    pub grounding_units: bool,
     /// `[reference] conversation` (§FS-config.3.1, §DF-repo-conversation-opinion) —
     /// the repository's committed conversation-rendering opinion. `None` means no
     /// opinion; the only accepted value is `"link"` (closed enum, widenable later).
@@ -536,6 +560,13 @@ pub struct Config {
 /// project may declare the homeless kind itself and name it (`src`,
 /// `modules`, …). See [`Config::homeless_kind`].
 const CODE_SOURCE_KIND: &str = "code";
+/// The default `grounding_level` (§FS-config.3.4.8): the file — the H1's own
+/// subtree, so one citation anywhere under it. It is the unit every config had
+/// before the key existed, which is what keeps the key additive.
+const DEFAULT_GROUNDING_LEVEL: usize = 1;
+/// The heading levels a `grounding_level` may name (§FS-config.3.4.8). Markdown
+/// has six, and a value outside them names no heading.
+const GROUNDING_LEVELS: std::ops::RangeInclusive<usize> = 1..=6;
 const DEFAULT_ID_FORMAT: &str = "{kind}-{number}-{slug}";
 const DEFAULT_SECTION_SEPARATOR: &str = ".";
 const DEFAULT_NUMBER_PATTERN: &str = r"\d+";
@@ -556,6 +587,8 @@ impl Config {
                 index: default_kind_index(kind),
                 citable: default_kind_citable(kind),
                 scan: true,
+                require_grounding: None,
+                grounding_level: None,
             })
             .collect();
         let kind_prefixes = kind_prefixes(&kinds);
@@ -584,6 +617,8 @@ impl Config {
             trigger: "$$".to_string(),
             strict: true,
             require_grounding: false,
+            grounding_level: DEFAULT_GROUNDING_LEVEL,
+            grounding_units: false,
             conversation: None,
             inline_style: "citation-with-note".into(),
             inline_note_suggested_lines: 1,

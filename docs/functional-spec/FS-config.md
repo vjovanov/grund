@@ -48,6 +48,8 @@ marker            = "§"      # default; rare character that prefixes a citation
 trigger           = "$$"     # default; typed sequence rewritten to marker by IDE plugin and `grund fmt`
 strict            = true     # default; if false, bare citations are also recognized
 require_grounding = false    # default; if true, `check` flags source files that cite no declared ID
+#                            # …and the default for every [[kinds]] row (§3.4.8)
+# grounding_level = 1        # default; 1 = the file — the unit inside each governed file (§3.4.8)
 # conversation    = "link"   # optional; committed conversation-rendering opinion — see below
 
 # Inline citation style — see [§FS-inline-citation-style](FS-inline-citation-style.md#fs-inline-citation-style-configurable-shape-of-inline-code-comment-citations)
@@ -88,6 +90,8 @@ The same spelling in both files is deliberate: one setting the user already know
 **`plain` is deliberately not a repository value.** It presumes an installed rendering layer, which is machine state a repository cannot know; committing it would break exactly the clones the key exists to serve ([§DF-repo-conversation-opinion.2.2](../decisions/functional/DF-repo-conversation-opinion.md#22-only-link-is-committable)). The repository value set is therefore a closed enum with the single member `link`, widenable later without a `grund_config_version` bump (§5); any other value — including `plain` — is a load-time error (§4.3) raised by every command that renders or checks the entrypoint, `grund init` included. `link` makes the declaration's location travel with the citation; the committed form is a Markdown link over the machine-independent `file` target, which the reader's own `conversation_target` may override ([§FS-init.2.3.4.17](FS-init.md#23417-clickable-citations), [§DF-conversation-link-target.2.3](../decisions/functional/DF-conversation-link-target.md#23-the-target-is-user-scoped-but-the-default-is-committable)).
 
 `require_grounding = true` adds the ungrounded-source-file error ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)): every scanned non-Markdown file must carry at least one resolving citation, or declare an ID inline. `grund check --require-grounding` forces it on for one run. Per [§DF-require-grounding](../decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec); off by default so adopting the discipline is a deliberate step, like `strict`.
+
+`require_grounding` and `grounding_level` are the two keys of this section that are **defaults for the `[[kinds]]` table** rather than settings of their own: each may be written on a row, and the row wins (§3.4.8). Written here they say what every place does; written on a row they say what one place does. `grounding_level` names the unit inside each governed file — `1`, the default, is the file, which is the unit every config had before the key existed. It is inert, and a config error, where nothing turns grounding on (§3.4.8).
 
 `inline_style`, the three budget keys (`inline_note_suggested_lines`, `inline_note_max_lines`, `inline_note_max_columns`), and `warn_on_suggested` govern the shape of inline citations in code comments — whether a `§<ID>` token may be accompanied by a short rationale, and how long that rationale may run. The budgets and the style bound *inline* comments only; a doc comment is documentation and lies outside all of them, so a citation inside one is checked for everything except its shape ([§FS-inline-citation-style.1.1](FS-inline-citation-style.md#11-doc-comments-are-not-sites)). The full contract — modes, enforcement, agent-facing rendering — lives in [§FS-inline-citation-style](FS-inline-citation-style.md#fs-inline-citation-style-configurable-shape-of-inline-code-comment-citations). Load-time invariant: `inline_note_suggested_lines ≤ inline_note_max_lines`. Under `inline_style = "citation-only"` the three budget keys are inert (no note is ever permitted), but they are still parsed and printed by `grund config show` — the file is the canonical machine-readable form.
 
@@ -180,7 +184,7 @@ What a non-citable kind **keeps**:
 - **A home** — `folder` or `file` — wherever the kind is a *place*. Leaving both out is not an omission but a different thing: the entry becomes the **homeless kind**, the complement of every home, whose default name is `code` (§3.9.2). Everything below is written about a non-citable kind with a home; §3.9.2 says where the homeless one differs.
 - **A row in the generated Project map and in the generated citation directions** ([§FS-init.2.3.4.4](FS-init.md#2344-project-map), [§FS-init.2.3.5](FS-init.md#235-citation-directions)) — rendered by **place**, never by name, because the name is a config handle and the place is the thing a reader can open.
 - **Citation-direction rules.** The citing-side classification already reaches it: a citation inside a kind's home is classified as that kind whether or not a declaration encloses it ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)). Obligations attach per file rather than per declaration ([§FS-check.3.11](FS-check.md#311-missing-required-citation)), since there is no declaration to attach them to.
-- **`[reference] require_grounding`**, over every scanned file in its home, `.md` included ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)).
+- **Grounding**, over every scanned file in its home, `.md` included ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)) — asked of this home alone with `require_grounding` on the row, or of every place at once with the `[reference]` default the row inherits (§3.4.8).
 
 What it **loses**:
 
@@ -312,7 +316,7 @@ The case it exists for is content that ships verbatim somewhere else: scaffold t
 
 An explicit path argument still reads it — `grund check docs/templates` scans the directory it names, the same way it reads past `[scan] include` (§3.5). The key describes the *default* scope, which is what a run with no argument reads and what [§FS-check.3.14](FS-check.md#314-out-of-scope-unresolvable-citation---full-only) tiers against; a path a user typed is that user narrowing the run to a directory they are asking about.
 
-What an unwalked kind keeps: its home, its title, and its Project map row. What it loses, beyond what `citable = false` already takes (§3.4.1), is every rule that reaches a file — citation checking, the directions bullet and `[citations.<kind>]` rules, and the `require_grounding` clause of §3.4.1 — because no file in it is scanned. Under `grund check --full` ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)) the whole config root is walked and its files are reached like any directory nobody configured: resolution failures only, never a convention it did not adopt. They are reached from *outside* the configured scope even when a walk root encloses them ([§FS-check.3.14](FS-check.md#314-out-of-scope-unresolvable-citation---full-only)), because the scope is what a run without the flag reads, and that run does not read them.
+What an unwalked kind keeps: its home, its title, and its Project map row. What it loses, beyond what `citable = false` already takes (§3.4.1), is every rule that reaches a file — citation checking, the directions bullet and `[citations.<kind>]` rules, and the grounding clause of §3.4.1 — because no file in it is scanned. That is why `require_grounding = true` on this row is a config error rather than a no-op (§3.4.8). Under `grund check --full` ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)) the whole config root is walked and its files are reached like any directory nobody configured: resolution failures only, never a convention it did not adopt. They are reached from *outside* the configured scope even when a walk root encloses them ([§FS-check.3.14](FS-check.md#314-out-of-scope-unresolvable-citation---full-only)), because the scope is what a run without the flag reads, and that run does not read them.
 
 Three combinations are config errors, reported per §4.3, each closing a state the key cannot describe:
 
@@ -321,6 +325,48 @@ Three combinations are config errors, reported per §4.3, each closing a state t
 - a `[citations.<kind>]` table naming an unwalked kind as the **citing** kind. No file in the home is scanned, so the rule could never fire — the vacuous pass [§DF-non-citable-kinds.2.5](../decisions/functional/DF-non-citable-kinds.md#25-obligations-get-a-per-file-unit-and-grounding-follows-the-home) refused for a kind with no declarations, one level up.
 
 `grund config show` (§4.2) prints `scan = false` where it is set and nothing where it is not, as it does for `citable`. The key is additive and does not move `grund_config_version` (§5). Decided in [§DF-unwalked-kind-home](../decisions/functional/DF-unwalked-kind-home.md#df-unwalked-kind-home-a-kind-may-be-a-place-that-is-listed-but-not-walked).
+
+#### 3.4.8 `require_grounding` and `grounding_level` — grounding per place and per level
+
+Two keys say, per kind, **whether** the files of a place must cite a declared ID and **how finely** that is asked. Each has a `[reference]` twin (§3.1) that is the default for every row not setting it — the shape `index` already has (§3.4.2): a global default, the row wins.
+
+```toml
+[reference]
+require_grounding = false      # whether — the default for every row below
+grounding_level   = 1          # how fine — 1 = the file; the default for every row below
+
+[[kinds]]
+kind = "skill"
+folder = "skills"
+citable = false
+require_grounding = true       # every scanned file here must cite a declared ID
+grounding_level = 2            # …and so must every `##` section of it
+
+[[kinds]]
+kind = "code"                  # the homeless row (§3.9.2)
+citable = false
+require_grounding = true       # …must cite one, or declare one inline
+```
+
+The keys exist because *whether* a file must cite is already reasoned about per place. Direction rules constrain how you ground and never whether ([§DISC-citation-directions](../discussions/proposals/2026-06-13-citation-directions.md#disc-citation-directions-encode-citation-directions-as-checked-config)), and for a non-citable kind grounding follows the home rather than the file extension (§3.4.1). One global boolean cannot say "every skill must cite" without also saying it of every workflow and build script in the scan, so the repository that wants the first declines the second and leaves the hole open ([§FS-check.2.2.1](FS-check.md#221-citation-direction-obligation-applies-to-nothing) can then only warn about it).
+
+**Which files a row governs** is [§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)'s own predicate, asked per row: every scanned file in a non-citable home; scanned *source* files — extension not `.md` — in a citable folder home and in the homeless kind's complement (§3.9.2). A file that no single home claims falls to the homeless row, the way its citing side already does ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)).
+
+**`grounding_level` picks the unit inside each governed file.** It is an integer in Markdown heading levels, `1..=6`: `1` is the file — the H1's own subtree, so one citation anywhere under it, which is exactly the unit every config had before this key existed — `2` adds every `##` subtree, `3` every `###` as well, and `6` every heading Markdown can have. Authors already think in `##`, and `[id] section_heading_levels` uses *level* for the same count, so there is no second numbering to learn. A source file has no headings, so it gets the two ranks grund can see without parsing code ([§FS-non-goals.3](FS-non-goals.md#3-code-ast-parsing)): by indentation, not by syntax. The units and the findings they produce are specified in [§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in); the same unit is what `[citations]` obligations are asked of ([§FS-check.3.11](FS-check.md#311-missing-required-citation)), so *whether* and *what* are asked of the same thing.
+
+**Precedence is row > global**, for both keys. `grund check --require-grounding` ([§FS-check.1](FS-check.md#1-inputs)) is the run-level spelling of the global boolean and sets the same default, so an explicit `require_grounding = false` on a row still wins over the flag: the flag and the key are one knob, and the row's word is the more specific one. The level comes from config only — there is no flag for it.
+
+**The homeless kind takes both keys like any row** (§3.9.2). A config that never declared it writes the row to set them, the same way it writes one to take a `title`.
+
+Five combinations are config errors, reported per §4.3 at the offending line, each closing a state the keys cannot describe:
+
+- `require_grounding = true` on a `scan = false` row (§3.4.7). No file in the home is read, so the rule could never fire — the reasoning §3.4.7 already gives for a `[citations.<kind>]` rule on an unwalked kind.
+- Either key on a `file = "<path>"` row. A single-file kind is one Markdown document and [§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in) never reaches it, so there is nothing the key could mean — as `index` means nothing on a file kind (§3.4.2).
+- `grounding_level` outside `1..=6`, on a row or in `[reference]`. There is no heading it could name.
+- `grounding_level` beside an explicit `require_grounding = false` on the same row. The level could never fire.
+- `[reference] grounding_level` where the global boolean is off and no row turns grounding on. The same reason, one scope up.
+
+`grund config show` (§4.2) prints each key on a row only where it differs from the effective global, as it does for `citable` and `scan`, so the printed config loads back as itself. Both keys are additive and do not move `grund_config_version` (§5): a config that sets one is only ever written for a binary that understands it, and an older binary meets it through the unknown-key rejection in §4.3. The global keys are kept rather than deprecated — every existing config keeps its exact meaning with no edit, and `--require-grounding` needs a global meaning regardless. Decided in [§DF-require-grounding.4](../decisions/functional/DF-require-grounding.md#4-grounding-per-place-and-per-level).
 
 ### 3.5 `[scan]` — what gets walked
 
@@ -462,6 +508,8 @@ should = ["FS|AR"]
 
 An entry is the homeless kind exactly when it sets `citable = false` and neither `folder` nor `file` — that shape is the declaration, not a separate key. Declaring two is a config error (§4.3): a complement is one place, and two rows claiming it leave the fallback with no single answer.
 
+The row takes `require_grounding` and `grounding_level` like any other (§3.4.8), and that is how a project asks for grounding of its source tree and of nothing else: `kind = "code"`, `citable = false`, `require_grounding = true`. Written on this row the keys govern the complement alone; written in `[reference]` they are the default this row inherits with every other.
+
 `code` is the default rather than a fixed name because it is the right word for most repositories and the wrong one for some — a Terraform tree, a SQL tree, a prose tree. It is still **reserved**: a `[[kinds]]` entry may take the name `code` only by *being* the homeless kind, because any other row wearing it would collide with the fallback every citation outside a home resolves to. Declaring `code` with a `title` is therefore how a project keeps the name and says what it covers.
 
 Naming the kind moves the rules with it: `[citations.src]` governs those sites, and `[citations.code]` in that config names an unknown kind (§3.9.5) rather than sitting inert.
@@ -504,7 +552,7 @@ When the discovered config declares `[workspace]` ([§3.8](#38-workspace--sub-pr
 
 ### 4.2 `grund config show [path]`
 
-Prints the **effective** configuration — defaults merged with the config discovered by walking up from `path` (or `.` when omitted), plus CLI flags — as TOML. Every `[[kinds]]` entry is printed under the canonical `kind` key whichever spelling the file used (§3.4.6), and `citable` is printed **only where it is `false`**: absence *is* `citable = true`, and the printed config has to load back as itself. Useful for debugging "why did grund recognize this citation" or "what does my config actually evaluate to." A redundant config pair at the config root is reported as a `warning:` on stderr before the TOML (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)), so the answer to "why is this key not taking effect" is on screen next to the effective value.
+Prints the **effective** configuration — defaults merged with the config discovered by walking up from `path` (or `.` when omitted), plus CLI flags — as TOML. Every `[[kinds]]` entry is printed under the canonical `kind` key whichever spelling the file used (§3.4.6), and `citable` is printed **only where it is `false`**: absence *is* `citable = true`, and the printed config has to load back as itself. `require_grounding` and `grounding_level` follow the same rule for the same reason, one scope down: a row prints either key only where its effective value differs from the effective global, which is printed under `[reference]` (§3.4.8). A row that inherits both prints neither, and the config that comes out loads back to the same effective values it went in with. Useful for debugging "why did grund recognize this citation" or "what does my config actually evaluate to." A redundant config pair at the config root is reported as a `warning:` on stderr before the TOML (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)), so the answer to "why is this key not taking effect" is on screen next to the effective value.
 
 ### 4.3 Invalid config behavior
 
