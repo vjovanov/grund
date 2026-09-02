@@ -347,11 +347,13 @@ should = ["FS|AR"]
 ```markdown
 ### Citation directions
 
-- **FS** should cite GOAL or FS; never cite AR.
-- **DA** must cite AR and FS.
-- **skills/** must cite FS; never cite AR.
-- **code** (any file outside a kind home) should cite FS or AR.
-Unlisted kinds and pairs are fine.
+`must`/`never` are `grund check` errors; `should`/`avoid` are suggestions (`grund check --suggestions`).
+
+- Each **FS** declaration should cite GOAL or FS; never cite AR.
+- Each **DA** declaration must cite AR and FS.
+- Each file in **skills/** must cite FS; never cite AR.
+- Each source file outside the Project map (**code**) that cites anything should cite FS or AR.
+Anything not listed above is allowed.
 ```
 <!-- END citation-directions -->
 
