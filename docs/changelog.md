@@ -34,7 +34,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Fixed
 
-- [§FS-fmt.1](functional-spec/FS-fmt.md#1-inputs), [§FS-fmt.3](functional-spec/FS-fmt.md#3-outputs), [§FS-fmt.6.1](functional-spec/FS-fmt.md#61-scope), [§FS-fmt.6.6](functional-spec/FS-fmt.md#66-why-generated-configs-enable-cross-references): `fmt --check` and the implicit dry run now preview every line `fmt --write` would change, including automatically enabled Markdown cross-reference rewrites and the always-linkified kind-index carve-out, while write summaries accurately label their existing counts as changed lines rather than references. Fixes [issue #82](https://github.com/vjovanov/grund/issues/82). (PR #N)
+- [§FS-fmt.1](functional-spec/FS-fmt.md#1-inputs), [§FS-fmt.3](functional-spec/FS-fmt.md#3-outputs), [§FS-fmt.6.1](functional-spec/FS-fmt.md#61-scope), [§FS-fmt.6.6](functional-spec/FS-fmt.md#66-why-generated-configs-enable-cross-references): `fmt --check` and the implicit dry run now preview every line `fmt --write` would change, including automatically enabled Markdown cross-reference rewrites and the always-linkified kind-index carve-out, while write summaries accurately label their existing counts as changed lines rather than references. Fixes [issue #82](https://github.com/vjovanov/grund/issues/82). (PR #180)
 
 ## 2. [0.12.3] — 2026-08-30
 
