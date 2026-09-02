@@ -90,7 +90,7 @@ fn join_sentences(first: &str, second: Option<&str>) -> String {
 /// file in a non-citable home can only cite, because a declaration there is
 /// misplaced (§FS-check.3.7). An unwalked home (§FS-config.3.4.7) is left out —
 /// nothing in it is scanned, so the rule never reaches it. Per-row grounding
-/// levels are §RM-grounding-per-place's, not this sentence's.
+/// levels (§FS-config.3.4.8) are not this sentence's.
 fn citation_grounding_sentence(config: &Config) -> Option<String> {
     if !config.require_grounding {
         return None;
