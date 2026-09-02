@@ -1,4 +1,4 @@
 <!-- BEGIN GRUND MANAGED BLOCK -->
-## Grounding with grund (v7)
+## Grounding with grund (v8)
 
 current managed block

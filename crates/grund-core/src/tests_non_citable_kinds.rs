@@ -187,8 +187,8 @@ mod tests_non_citable_kinds {
             "map row by place: {block}"
         );
         assert!(
-            block.contains("- **skills/** must cite FS."),
-            "directions row by place: {block}"
+            block.contains("- Each file in **skills/** must cite FS."),
+            "directions row by place, with the unit it is checked per: {block}"
         );
         assert!(
             block.contains("KIND ∈ {FS, AR}"),
@@ -424,12 +424,14 @@ mod tests_non_citable_kinds {
             "the complement of every home is not a place to link: {block}"
         );
         assert!(
-            block.contains("- **src** (Deployment modules and scripts) must cite FS."),
+            block.contains(
+                "- Each source file outside the Project map (**src**: Deployment modules and scripts) that cites anything must cite FS."
+            ),
             "its title says what it covers: {block}"
         );
         let directions = citation_directions_section(&config);
-        let src = directions.find("- **src**").expect("the src row");
-        let fs = directions.find("- **FS**").expect("the FS row");
+        let src = directions.find("(**src**").expect("the src row");
+        let fs = directions.find("Each **FS** declaration").expect("the FS row");
         assert!(fs < src, "the homeless kind closes the list: {directions}");
     }
 

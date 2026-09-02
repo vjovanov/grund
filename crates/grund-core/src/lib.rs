@@ -103,6 +103,7 @@ include!("tests_shorthand_surfaces.rs");
 include!("tests_shorthand_numeric_run.rs");
 include!("tests_fmt_workspace.rs");
 include!("tests_citation_directions.rs");
+include!("tests_citation_directions_render.rs");
 include!("tests_managed_block_drift.rs");
 include!("tests_workspace.rs");
 include!("tests_workspace_message_paths.rs");
