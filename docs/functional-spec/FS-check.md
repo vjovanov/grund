@@ -134,6 +134,12 @@ warning: [citations.SKILL] must applies to nothing — skills/ declares no SKILL
 warning: [citations.skill] must applies to nothing — no scanned file in skills/ carries a citation; set require_grounding = true on the skills/ row to make that an error
 ```
 
+The non-citable message keeps its `require_grounding` half only where that row's **effective** `require_grounding` is off ([§FS-config.3.4.8](FS-config.md#348-require_grounding-and-grounding_level--grounding-per-place-and-per-level)) — it is advice, and where the row already grounds, the setting it asks for is made and this run is already reporting what it caught (§3.6). There the message stops at the fact:
+
+```text
+warning: [citations.skill] must applies to nothing — no scanned file in skills/ carries a citation
+```
+
 The folder membership and entry-file comparisons use the same normalized home matching as citation-source classification. The warning is independent of other findings: another warning or error does not suppress it. Workspace checking asks the question separately for each member, against that member's config and scanned files ([§FS-workspace.5](FS-workspace.md#5-command-scope)). An explicit path still evaluates the files it scans, so a path such as `grund check skills` can earn this warning; it does not broaden the path to unrelated homes.
 
 ### 2.3 Suggestions channel *(opt-in)*
@@ -215,7 +221,7 @@ This is a pure function of `(tree, config)` like every other `check` rule ([§FS
 
 Every scanned file resolves to exactly one `[[kinds]]` row, and that row's effective `require_grounding` decides whether the file is checked at all:
 
-- **A non-citable kind's home** ([§FS-config.3.4.1](FS-config.md#341-citable--kinds-that-declare-no-ids)) governs **every** scanned file in it, `.md` included.
+- **A non-citable kind's home** ([§FS-config.3.4.1](FS-config.md#341-citable--kinds-that-declare-no-ids)) governs **every** scanned file in it, `.md` included — a `folder` home's files, or the one document of a `file` home ([§FS-config.3.4](FS-config.md#34-kinds--recognized-kinds)), which is a place a maintainer declared like any other and takes both keys on its row ([§FS-config.3.4.8](FS-config.md#348-require_grounding-and-grounding_level--grounding-per-place-and-per-level)).
 - **A citable kind's folder home** governs the **source files** in it — a file the walk reads whose extension is not `.md` ([AR-scanner.1](../architecture/AR-scanner.md#1-tree-walk)).
 - **The homeless kind** ([§FS-config.3.9.2](FS-config.md#392-the-homeless-kind)) governs the source files no home claims, and a file claimed by two overlapping homes falls to it as well, the way its citing side already does ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)).
 
@@ -316,6 +322,8 @@ skills/review/SKILL.md:1: skills/ must cite FS (citation direction)
 ```
 
 **Both per-file units follow the row's `grounding_level`** ([§FS-config.3.4.8](FS-config.md#348-require_grounding-and-grounding_level--grounding-per-place-and-per-level)): *whether* a place's files must cite and *what* they must cite are asked of the same thing (§3.6.2). At level `2` the unit of a non-citable Markdown home is every `##` subtree that carries a citation, and of a source file every unindented doc-comment block that does; the file stays a unit at every level, satisfied by any citation under it. A row at level `1` — which is every configuration written before the key existed — sees no change, and a citable kind's unit stays its declaration at every level, a declaration already being a unit inside a file.
+
+**Every failing unit is reported**, as it is for grounding (§3.6.3): at level `2` or above a file whose citations satisfy no `must` entry earns the finding on the file unit *and* one on each section unit that satisfies none either. The reason is the same — the file genuinely cites no such target, and neither does the section — and the two lines differ only in the anchor, which is what tells the reader whether the miss is local to one section.
 
 Units are still built from citations, so a file carrying none produces no unit and `must` cannot fire on it — except that a walked folder with real non-entry content now earns the run-level warning of [§FS-check.2.2.1](FS-check.md#221-citation-direction-obligation-applies-to-nothing). The same zero-unit boundary [§FS-config.3.9.2](FS-config.md#392-the-homeless-kind) states for the homeless kind remains intentionally unwarned. In a non-citable home `require_grounding` closes the per-file grounding hole (§3.6): there the grounding rule follows the home rather than the file extension, so "cite something" and "cite an `FS`" are two keys that compose, while the warning of §2.2.1 points at the row's key when grounding is off. An `E2E`-kind obligation ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) is per case declaration, can be satisfied by the case's `spec.refs` manifest entries, and remains an error when the case has no scanned citations or matching manifest reference. The parallel `should` obligation is not an error; it is a suggestion (§2.3).
 

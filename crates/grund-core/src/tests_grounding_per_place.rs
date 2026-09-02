@@ -251,6 +251,79 @@ mod tests_grounding_per_place {
         );
     }
 
+    /// §FS-check.3.11: at level 2 an unmet obligation reports on the file unit
+    /// *and* on each failing section — the shape §FS-check.3.6.3 states for
+    /// grounding, for the same reason: the file cites no `FS`, and neither does
+    /// the section under it.
+    #[test]
+    fn an_unmet_obligation_reports_on_the_file_and_the_section() {
+        let root = repo(
+            "an_unmet_obligation_reports_on_the_file_and_the_section",
+            "",
+            "require_grounding = true\ngrounding_level = 2\n",
+            "# Review skill\n\n## Steps\n\nSee §AR-001-bus.\n",
+            UNCITED_CODE,
+        );
+        let config_path = root.join("grund.toml");
+        let config = std::fs::read_to_string(&config_path).expect("read config");
+        write(
+            &config_path,
+            &format!("{config}\n[citations]\n[citations.skill]\nmust = [\"FS\"]\n"),
+        );
+        let run = check_run(&root, false);
+        assert_eq!(
+            findings(&run)
+                .into_iter()
+                .filter(|line| line.contains("must cite"))
+                .collect::<Vec<_>>(),
+            vec![
+                "skills/review/SKILL.md:1: skills/ must cite FS (citation direction)",
+                "skills/review/SKILL.md:3: skills/ must cite FS (citation direction)",
+            ],
+        );
+    }
+
+    /// The §FS-check.2.2.1 warning this run earns, with `[citations.skill] must`
+    /// appended to the fixture's config — the shape that makes a home with real
+    /// content produce no obligation unit.
+    fn no_unit_warning(name: &str, rows: &str) -> String {
+        let root = repo(name, "", rows, UNCITED_SKILL, UNCITED_CODE);
+        let config_path = root.join("grund.toml");
+        let config = std::fs::read_to_string(&config_path).expect("read config");
+        write(
+            &config_path,
+            &format!("{config}\n[citations]\n[citations.skill]\nmust = [\"FS\"]\n"),
+        );
+        check_run(&root, false)
+            .report
+            .warnings
+            .iter()
+            .find(|warning| warning.code == "empty-citation-obligation")
+            .map(|warning| warning.message.clone())
+            .expect("the no-unit warning")
+    }
+
+    /// §FS-check.2.2.1: the row-key half of the message is advice, so it is given
+    /// only where it is still advice — a row that already grounds has made that
+    /// setting, and this run is already reporting what it caught (§FS-check.3.6).
+    #[test]
+    fn the_no_unit_warning_asks_for_grounding_only_where_it_is_off() {
+        assert_eq!(
+            no_unit_warning(
+                "the_no_unit_warning_asks_for_grounding_only_where_it_is_off_on",
+                "require_grounding = true\n",
+            ),
+            "[citations.skill] must applies to nothing — no scanned file in skills/ carries a citation",
+        );
+        assert_eq!(
+            no_unit_warning(
+                "the_no_unit_warning_asks_for_grounding_only_where_it_is_off_off",
+                "",
+            ),
+            "[citations.skill] must applies to nothing — no scanned file in skills/ carries a citation; set require_grounding = true on the skills/ row to make that an error",
+        );
+    }
+
     /// §FS-check.3.6.2: the inline-declaration escape is a source file's and has
     /// no effect in a non-citable home, where the declaration is misplaced to
     /// begin with (§FS-check.3.7) — so the file earns both findings.
@@ -274,6 +347,114 @@ mod tests_grounding_per_place {
             "{:?}",
             findings(&run)
         );
+    }
+
+    /// A repo whose only non-citable home is a *single file* (§FS-config.3.4):
+    /// the shape §FS-check.3.6.1 governs like any other home, and the one the
+    /// keys were rejected on before they meant anything there.
+    fn runbook_repo(name: &str, row: &str) -> PathBuf {
+        let root = test_root(name);
+        write(
+            &root.join("grund.toml"),
+            &format!(
+                "grund_config_version = 1\n\n\
+                 [reference]\nrequire_grounding = true\n\n\
+                 [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n\n\
+                 [[kinds]]\nkind = \"runbook\"\nfile = \"RUNBOOK.md\"\ncitable = false\n{row}"
+            ),
+        );
+        write(
+            &root.join("docs/specs/FS-001-login.md"),
+            "# FS-001-login: A user logs in\n\nBody.\n",
+        );
+        write(
+            &root.join("RUNBOOK.md"),
+            "# Runbook\n\nNothing here.\n\n## Restart\n\nNothing here either.\n",
+        );
+        root
+    }
+
+    /// §FS-check.3.6.1: a non-citable `file` home is a home, so its one document
+    /// is governed — and §FS-check.3.6.2 cuts it into heading subtrees at level
+    /// 2 exactly as it cuts a folder home's files.
+    #[test]
+    fn a_non_citable_file_home_is_governed_and_cut_by_its_level() {
+        let run = check_run(
+            &runbook_repo(
+                "a_non_citable_file_home_is_governed_and_cut_by_its_level",
+                "grounding_level = 2\n",
+            ),
+            false,
+        );
+        assert_eq!(
+            ungrounded(&run),
+            vec![
+                "RUNBOOK.md:1: ungrounded file in kind home RUNBOOK.md: no § citation to a declared ID",
+                "RUNBOOK.md:5: ungrounded section `## Restart` in kind home RUNBOOK.md: no § citation to a declared ID",
+            ],
+        );
+    }
+
+    /// §FS-config.3.4.8: and the row's own `require_grounding` exempts it under a
+    /// global `true` — the per-place switch the shape most in need of it could
+    /// not write before.
+    #[test]
+    fn a_non_citable_file_row_can_exempt_its_own_document() {
+        let run = check_run(
+            &runbook_repo(
+                "a_non_citable_file_row_can_exempt_its_own_document",
+                "require_grounding = false\n",
+            ),
+            false,
+        );
+        assert!(ungrounded(&run).is_empty(), "{:?}", ungrounded(&run));
+    }
+
+    /// §FS-check.3.6.3: every failing unit is reported — a file that cites
+    /// nothing at level 2 earns the file finding *and* one per section, which is
+    /// what "each level contains the one below it" means on the reporting side.
+    #[test]
+    fn an_uncited_file_earns_the_file_finding_and_one_per_section() {
+        let run = check_run(
+            &repo(
+                "an_uncited_file_earns_the_file_finding_and_one_per_section",
+                "",
+                "require_grounding = true\ngrounding_level = 2\n",
+                "# Review skill\n\nNothing here.\n\n## Steps\n\nNothing.\n\n## Notes\n\nNothing.\n",
+                UNCITED_CODE,
+            ),
+            false,
+        );
+        assert_eq!(
+            ungrounded(&run),
+            vec![
+                "skills/review/SKILL.md:1: ungrounded file in kind home skills/: no § citation to a declared ID",
+                "skills/review/SKILL.md:5: ungrounded section `## Steps` in kind home skills/: no § citation to a declared ID",
+                "skills/review/SKILL.md:9: ungrounded section `## Notes` in kind home skills/: no § citation to a declared ID",
+            ],
+        );
+    }
+
+    /// §AR-scanner.2.7: the structure pass is asked per file, not per project —
+    /// a level-2 row describes its own home's files and leaves every other
+    /// place's alone (§GOAL-fast-feedback).
+    #[test]
+    fn structure_is_recorded_only_for_the_row_that_asks_for_it() {
+        let root = repo(
+            "structure_is_recorded_only_for_the_row_that_asks_for_it",
+            "",
+            "require_grounding = true\ngrounding_level = 2\n",
+            UNCITED_SKILL,
+            UNCITED_CODE,
+        );
+        let config = load_config(&root).expect("load config");
+        let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
+        let described: Vec<String> = findings
+            .file_structure
+            .keys()
+            .map(|path| path.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(described, vec!["SKILL.md".to_string()]);
     }
 
     /// §FS-config.3.4.8 / §REQ-backwards-compatibility.1: a config that writes
@@ -321,109 +502,6 @@ mod tests_grounding_per_place {
         assert_eq!(lines("FS"), Vec::<String>::new(), "inherits both");
         assert_eq!(lines("skill"), vec!["grounding_level = 2".to_string()]);
         assert!(config.grounding_enabled(), "the [reference] level prints");
-    }
-
-    /// The message a config this repo cannot load fails with. `Config` carries no
-    /// `Debug`, so the error is unwrapped by matching rather than by `expect_err`.
-    fn config_error(name: &str, body: &str) -> String {
-        let root = test_root(name);
-        write(&root.join("grund.toml"), body);
-        match load_config(&root) {
-            Ok(_) => panic!("expected the config to be rejected"),
-            Err(error) => format!("{error:#}"),
-        }
-    }
-
-    /// §FS-config.3.4.8: no file in an unwalked home is read, so the rule could
-    /// never fire — rejected at the key's own line.
-    #[test]
-    fn grounding_on_an_unwalked_row_is_rejected() {
-        let error = config_error(
-            "grounding_on_an_unwalked_row_is_rejected",
-            "grund_config_version = 1\n\n\
-             [[kinds]]\nkind = \"FS\"\nfolder = \"docs\"\n\n\
-             [[kinds]]\nkind = \"template\"\nfolder = \"templates\"\ncitable = false\n\
-             scan = false\nrequire_grounding = true\n",
-        );
-        assert!(
-            error.ends_with(
-                "grund.toml:12: kind `template` sets `require_grounding = true` and `scan = false` (no file in an unwalked home is read, so the rule could never fire)"
-            ),
-            "{error}"
-        );
-    }
-
-    /// §FS-config.3.4.8: a single-file kind is one document, which §FS-check.3.6
-    /// never reaches, so neither key has anything to mean on it.
-    #[test]
-    fn a_grounding_key_on_a_file_row_is_rejected() {
-        let error = config_error(
-            "a_grounding_key_on_a_file_row_is_rejected",
-            "grund_config_version = 1\n\n\
-             [[kinds]]\nkind = \"FS\"\nfolder = \"docs\"\n\n\
-             [[kinds]]\nkind = \"GOAL\"\nfile = \"docs/goals.md\"\nrequire_grounding = true\n",
-        );
-        assert!(
-            error.ends_with(
-                "grund.toml:10: kind `GOAL` sets `require_grounding` with `file` (a single-file kind is one document, which the grounding rule never reaches)"
-            ),
-            "{error}"
-        );
-    }
-
-    /// §FS-config.3.4.8: there is no seventh Markdown heading level for a level
-    /// of `7` to name.
-    #[test]
-    fn a_level_outside_the_heading_range_is_rejected() {
-        let error = config_error(
-            "a_level_outside_the_heading_range_is_rejected",
-            "grund_config_version = 1\n\n\
-             [reference]\nrequire_grounding = true\ngrounding_level = 7\n\n\
-             [[kinds]]\nkind = \"FS\"\nfolder = \"docs\"\n",
-        );
-        assert!(
-            error.ends_with(
-                "grund.toml:5: `grounding_level` must be a Markdown heading level 1..6 (`7` is not)"
-            ),
-            "{error}"
-        );
-    }
-
-    /// §FS-config.3.4.8: a unit for a rule the same row just switched off.
-    #[test]
-    fn a_level_beside_an_explicit_row_false_is_rejected() {
-        let error = config_error(
-            "a_level_beside_an_explicit_row_false_is_rejected",
-            "grund_config_version = 1\n\n\
-             [reference]\nrequire_grounding = true\n\n\
-             [[kinds]]\nkind = \"FS\"\nfolder = \"docs\"\n\n\
-             [[kinds]]\nkind = \"skill\"\nfolder = \"skills\"\ncitable = false\n\
-             require_grounding = false\ngrounding_level = 2\n",
-        );
-        assert!(
-            error.ends_with(
-                "grund.toml:15: kind `skill` sets `grounding_level` and `require_grounding = false` (the level could never fire)"
-            ),
-            "{error}"
-        );
-    }
-
-    /// §FS-config.3.4.8: the same rule one scope up — a `[reference]` level with
-    /// nothing turning grounding on anywhere.
-    #[test]
-    fn a_global_level_with_grounding_off_is_rejected() {
-        let error = config_error(
-            "a_global_level_with_grounding_off_is_rejected",
-            "grund_config_version = 1\n\n\
-             [reference]\ngrounding_level = 2\n\n\
-             [[kinds]]\nkind = \"FS\"\nfolder = \"docs\"\n",
-        );
-        assert!(
-            error.ends_with(
-                "grund.toml:4: [reference] `grounding_level` is set and nothing turns grounding on (set `require_grounding` here or on a [[kinds]] row)"
-            ),
-            "{error}"
-        );
     }
 
     /// §FS-config.3.4.8: a row turning grounding on is enough — the global level

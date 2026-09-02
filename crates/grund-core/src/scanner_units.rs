@@ -4,8 +4,9 @@
 /// This is a *description* of a file, not a list of units: the level that turns
 /// headings and doc-comment blocks into units belongs to the `[[kinds]]` row that
 /// governs the file (§FS-config.3.4.8), and the cut is made in
-/// `checker_grounding.rs` so the level rule is written once. The pass runs only
-/// where some row asks for a unit finer than the file, so a project at level `1`
+/// `checker_grounding.rs` so the level rule is written once. It runs per file,
+/// only where that file's own row asks for a unit finer than the file, so one
+/// fine-grained place does not describe the whole tree and a project at level `1`
 /// — every configuration written before the keys existed — records nothing and
 /// pays nothing (§GOAL-fast-feedback).
 
@@ -39,11 +40,15 @@ pub struct FileStructure {
     pub total_lines: usize,
 }
 
-/// Record `path`'s grounding structure into `findings`, or do nothing when no
-/// `[[kinds]]` row asks for a unit finer than the file (§AR-scanner.2.7). Called
-/// once per file from the per-file scan, with the text it already read.
+/// Record `path`'s grounding structure into `findings`, or do nothing when the
+/// row this file belongs to asks for no unit finer than the file
+/// (§AR-scanner.2.7). Called once per file from the per-file scan, with the text
+/// it already read.
 fn record_file_structure(path: &Path, text: &str, config: &Config, findings: &mut Findings) {
-    if !config.grounding_units {
+    // The project-wide answer first: one field read exempts every file of a
+    // level-1 tree — every configuration written before the keys existed — from
+    // the per-file lookup below (§GOAL-fast-feedback).
+    if !config.grounding_units || file_grounding_level(path, config) <= DEFAULT_GROUNDING_LEVEL {
         return;
     }
     let extension = path.extension().and_then(|ext| ext.to_str());
@@ -53,6 +58,21 @@ fn record_file_structure(path: &Path, text: &str, config: &Config, findings: &mu
         source_structure(path, text, extension == Some("py"), config)
     };
     findings.file_structure.insert(path.to_path_buf(), structure);
+}
+
+/// The effective `grounding_level` of the row `path` belongs to (§AR-scanner.2.7)
+/// — its home kind's, or the homeless kind's where no single home claims it
+/// (§AR-scanner.2.4). That lookup is the one §FS-check.3.6.1 defers to for which
+/// row governs a file, and the level it feeds is the checker's own, so what is
+/// recorded here and what is cut out of it later are one rule.
+///
+/// A Markdown document in a *citable* home is recorded when its row asks for a
+/// finer unit, though §FS-check.3.6 will not ask for its units: the row's level
+/// is a statement about the place, and erring toward having the structure costs
+/// one description, while a second home rule here could disagree with that one.
+fn file_grounding_level(path: &Path, config: &Config) -> usize {
+    let home = file_home_kind(path, config);
+    grounding_level_for_kind(config, home.as_deref().unwrap_or(config.homeless_kind()))
 }
 
 /// Every heading outside a fenced block, with its text (§AR-scanner.2.7). The

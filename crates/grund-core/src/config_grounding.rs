@@ -68,7 +68,11 @@ fn check_grounding_level(path: &Path, line_no: usize, level: usize) -> Result<()
 /// state they cannot describe. Run over the parsed entries once the rest of the
 /// `[[kinds]]` validation has passed, so a row that is already malformed is
 /// reported as that rather than as a grounding error.
-fn validate_kind_grounding(path: &Path, parsed: &[ParsedKind]) -> Result<()> {
+///
+/// `global_require` is the `[reference]` default the rows resolve against, which
+/// is why this runs after the whole file is parsed: whether a row's level is dead
+/// is a question about the row's *effective* boolean, not about what it wrote.
+fn validate_kind_grounding(path: &Path, parsed: &[ParsedKind], global_require: bool) -> Result<()> {
     for entry in parsed {
         let kind = &entry.config;
         // §FS-config.3.4.7: nothing in an unwalked home is read, so the rule
@@ -87,41 +91,45 @@ fn validate_kind_grounding(path: &Path, parsed: &[ParsedKind]) -> Result<()> {
                 ),
             )?;
         }
-        // §FS-config.3.4.8: a single-file kind is one Markdown document and
-        // §FS-check.3.6 never reaches it, so neither key has anything to mean —
-        // as `index` has nothing to mean on a file kind (§FS-config.3.4.2).
+        // §FS-config.3.4.8: a citable single-file kind is one declaration document,
+        // which §FS-check.3.6.1 leaves alone — as `index` means nothing on a file kind.
+        // A non-citable `file` home is governed like any other, so there they mean.
         if kind.file.is_some()
+            && kind.citable
             && let Some((key, line)) = grounding_key_site(&entry.grounding)
         {
             bail_config(
                 path,
                 line,
                 format!(
-                    "kind `{}` sets `{key}` with `file` (a single-file kind is one document, which the grounding rule never reaches)",
+                    "kind `{}` sets `{key}` with `file` on a citable kind (a citable single-file kind is one declaration document, which the grounding rule leaves alone — a non-citable one takes both keys)",
                     kind.kind
                 ),
             )?;
         }
-        // §FS-config.3.4.8: a level beside an explicit `false` on the same row is
-        // a unit for a rule this row just switched off.
-        if kind.require_grounding == Some(false)
-            && let Some(line) = entry.grounding.level_line
+        // §FS-config.3.4.8: a level on a row whose *effective* `require_grounding` is
+        // off is a unit for a rule that never runs there — the row spelling of the
+        // `[reference]` rejection below, and what keeps §AR-scanner.2.7 off such a tree.
+        if let Some(line) = entry.grounding.level_line
+            && !kind.require_grounding.unwrap_or(global_require)
         {
+            let cause = if kind.require_grounding == Some(false) {
+                "`require_grounding = false` (the level could never fire)".to_string()
+            } else {
+                "nothing turns grounding on for it (set `require_grounding = true` here or in [reference])".to_string()
+            };
             bail_config(
                 path,
                 line,
-                format!(
-                    "kind `{}` sets `grounding_level` and `require_grounding = false` (the level could never fire)",
-                    kind.kind
-                ),
+                format!("kind `{}` sets `grounding_level` and {cause}", kind.kind),
             )?;
         }
     }
     Ok(())
 }
 
-/// Which of the two keys a row wrote first, for the `file =` rejection above —
-/// by line, so the message names the key the reader can go and delete.
+/// Which of the two keys a row wrote first, for the citable-`file` rejection
+/// above — by line, so the message names the key the reader can go and delete.
 fn grounding_key_site(grounding: &ParsedGrounding) -> Option<(&'static str, usize)> {
     let require = grounding.require_line.map(|line| ("require_grounding", line));
     let level = grounding.level_line.map(|line| ("grounding_level", line));

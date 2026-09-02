@@ -366,7 +366,7 @@ fn scan_file_text(
         classify_citation_sources(findings, config, path);
     }
     // §AR-scanner.2.7: the headings and doc-comment blocks a grounding unit finer
-    // than the file is cut out of — recorded only where a `[[kinds]]` row asks
+    // than the file is cut out of — recorded only where the file's own row asks
     // for one, so a level-1 tree pays nothing (§FS-config.3.4.8).
     record_file_structure(path, text, config, findings);
     Ok(())
