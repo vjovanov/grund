@@ -18,7 +18,7 @@ use iai_callgrind::{Command, binary_benchmark, binary_benchmark_group, main};
 #[cfg(feature = "bench")]
 use std::{
     path::{Path, PathBuf},
-    process::Command as ProcessCommand,
+    process::{Command as ProcessCommand, Stdio},
 };
 
 /// The freshly built `grund` binary under test (Cargo exports this env var).
@@ -74,6 +74,21 @@ fn ensure_fixture(rel: &str, file_count: usize, citations: bool) -> PathBuf {
 #[cfg(feature = "bench")]
 fn canonical_repo() -> PathBuf {
     ensure_fixture(CANONICAL_REPO_REL, CANONICAL_FILE_COUNT, false)
+}
+
+/// Generate and normalize the formatter benchmark input outside Callgrind so
+/// the measured `--check` exits successfully on a canonical tree. §AR-benchmarks.1
+#[cfg(feature = "bench")]
+fn canonical_fmt_repo() -> PathBuf {
+    let root = canonical_repo();
+    let status = ProcessCommand::new(GRUND)
+        .args(["fmt", "--write"])
+        .arg(&root)
+        .stdout(Stdio::null())
+        .status()
+        .expect("normalize formatter benchmark fixture");
+    assert!(status.success(), "formatter benchmark setup failed");
+    root
 }
 
 // `grund check <fixture>` — validate every citation in the tree.
@@ -170,7 +185,7 @@ fn cover() -> Command {
 fn fmt_check() -> Command {
     Command::new(GRUND)
         .args(["fmt", "--check"])
-        .arg(canonical_repo())
+        .arg(canonical_fmt_repo())
         .build()
 }
 
