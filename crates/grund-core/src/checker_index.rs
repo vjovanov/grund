@@ -347,7 +347,7 @@ fn check_kind_indexes(
             let form = index_citation_form(line, &citation.text, &config.marker);
             // §FS-fmt.6.2: the pass has to compute a link target, and a citation
             // naming a section no declaration declares has none — `fmt` skips the
-            // line and answers `rewrote 0 references`. Only the bare form is gated.
+            // line and answers `rewrote 0 lines`. Only the bare form is gated.
             let form = if form == IndexCitationForm::Bare
                 && !index_section_resolves(findings, citation)
             {

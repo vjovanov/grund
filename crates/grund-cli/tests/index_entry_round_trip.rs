@@ -8,7 +8,7 @@
 //! Every other test of this rule asserts the *negative* half — that a citation
 //! `fmt` will not wrap is not reported (`tests_kind_index_entry_form.rs`). That
 //! half cannot catch the failure this file exists for: a finding that fires on
-//! something `fmt` skips, which answers `rewrote 0 references` and leaves a
+//! something `fmt` skips, which answers `rewrote 0 lines` and leaves a
 //! repository permanently red. Two such cases shipped and were caught by hand
 //! (an unmarked token off strict mode, and a citation naming a section no
 //! declaration declares); this asserts the round trip instead of enumerating
@@ -116,7 +116,7 @@ fn has_unlinked_entry(output: &Output) -> bool {
 /// The round trip, for an index entry `fmt` does rewrite: `check` names the
 /// error, the named command clears it, and the second `check` is silent about
 /// it. The `fmt` run must also report that it wrote something — a pass that
-/// answers `rewrote 0 references` while `check` stays red is exactly the state
+/// answers `rewrote 0 lines` while `check` stays red is exactly the state
 /// §FS-check.3.17's licence under §REQ-backwards-compatibility.3 forbids.
 fn assert_round_trip(dir: &Path, case: &str) {
     let before = run_grund(&["check", "."], dir);
@@ -129,7 +129,7 @@ fn assert_round_trip(dir: &Path, case: &str) {
     let fmt = run_grund(&["fmt", "--write", "."], dir);
     assert_eq!(fmt.status.code(), Some(0), "{case}: fmt failed");
     assert!(
-        !stdout(&fmt).contains("rewrote 0 references"),
+        !stdout(&fmt).contains("rewrote 0 lines"),
         "{case}: `check` named `grund fmt --write` as the fix and it wrote nothing: {}",
         stdout(&fmt)
     );
@@ -190,7 +190,7 @@ fn fmt_write_clears_a_bare_entry_whose_home_extends_the_id() {
     let fmt = run_grund(&["fmt", "--write", "."], &dir);
     assert_eq!(fmt.status.code(), Some(0), "fmt failed");
     assert!(
-        !stdout(&fmt).contains("rewrote 0 references"),
+        !stdout(&fmt).contains("rewrote 0 lines"),
         "`check` named `grund fmt --write` as the fix and it wrote nothing: {}",
         stdout(&fmt)
     );
@@ -227,7 +227,7 @@ fn fmt_write_clears_a_bare_entry_naming_a_section() {
 /// section no declaration declares has no link target, so `fmt` skips the line
 /// (§FS-fmt.6.2). `check` must not name it under §FS-check.3.17 — the tree is
 /// already red for the missing section itself (§FS-check.3.2), and a second
-/// finding here would name a command that answers `rewrote 0 references`.
+/// finding here would name a command that answers `rewrote 0 lines`.
 #[test]
 fn a_dangling_section_is_not_an_entry() {
     let dir = build_fixture(
@@ -251,7 +251,7 @@ fn a_dangling_section_is_not_an_entry() {
 
     let fmt = run_grund(&["fmt", "--write", "."], &dir);
     assert!(
-        stdout(&fmt).contains("rewrote 0 references"),
+        stdout(&fmt).contains("rewrote 0 lines"),
         "the fixture is only meaningful while `fmt` leaves this line alone: {}",
         stdout(&fmt)
     );

@@ -71,7 +71,7 @@ fn command_fmt(args: &[String]) -> ExitCode {
         files.sort();
         files.dedup();
         println!(
-            "rewrote {} reference{}{}",
+            "rewrote {} line{}{}",
             output.changes.len(),
             if output.changes.len() == 1 { "" } else { "s" },
             if files.is_empty() { "" } else { ":" }

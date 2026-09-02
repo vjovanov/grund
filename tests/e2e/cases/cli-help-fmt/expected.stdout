@@ -8,10 +8,10 @@ Options:
   --write        apply the changes in place                           e.g. grund fmt --write
   --marker       also prefix bare `<ID>` tokens with the marker        e.g. grund fmt --write --marker
   --cross-refs   wrap citations as Markdown links to targets          e.g. grund fmt --write --cross-refs
-                 also runs by default on --write; set [fmt.cross_refs].enabled = false to opt out
+                 runs by default in both modes for Markdown scopes; set [fmt.cross_refs].enabled = false to opt out
 
-With neither --check nor --write, fmt prints the would-be changes and exits 1 if any (a dry run).
---write prints `rewrote N references:` then one `  <path> (count)` line per file touched.
+With neither --check nor --write, fmt previews every change --write would apply and exits 1 if any.
+--write prints `rewrote N lines:` then one `  <path> (count)` line per file touched.
 The report goes to stdout (like `grund check`); CLI-level `error:` lines go to stderr.
 
 Exit:  0 nothing to do, or --write succeeded · 1 changes pending (dry run / --check) · 2 unreadable tree or CLI error.

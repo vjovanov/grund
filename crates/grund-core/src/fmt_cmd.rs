@@ -1,7 +1,8 @@
 /// §FS-fmt.6.6: whether this invocation turns the cross-reference pass on by
-/// itself — `[fmt.cross_refs] enabled`, a `--write` scope, and at least one
-/// Markdown file in it. It answers a question about the *command*, so it lives
-/// beside the command surface rather than in the rewrite walk.
+/// itself — `[fmt.cross_refs] enabled` and at least one Markdown file in its
+/// scope, identically for dry-run and write mode. It answers a question about
+/// the *command*, so it lives beside the command surface rather than in the
+/// rewrite walk.
 ///
 /// The compatibility CLI's `fmt` command: flags, the per-project walk, the report
 /// on stdout, and the exit code (§FS-fmt.1, §FS-fmt.3). It sits beside `fmt.rs`
@@ -12,9 +13,8 @@ fn auto_cross_refs_for_scope(
     config: &Config,
     scope: Option<&Path>,
     explicit_scope: bool,
-    write: bool,
 ) -> Result<bool> {
-    if !write || !config.fmt_cross_refs_enabled {
+    if !config.fmt_cross_refs_enabled {
         return Ok(false);
     }
     scope_contains_markdown(config, scope, explicit_scope)
@@ -123,7 +123,7 @@ fn command_fmt(args: &[String]) -> ExitCode {
         files.sort();
         files.dedup();
         println!(
-            "rewrote {} reference{}{}",
+            "rewrote {} line{}{}",
             output.changes.len(),
             if output.changes.len() == 1 { "" } else { "s" },
             if files.is_empty() { "" } else { ":" }

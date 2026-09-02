@@ -11,7 +11,6 @@ fn fmt_workspace_projects(
     render: &Config,
     add_marker: bool,
     explicit_cross_refs: bool,
-    requested_write: bool,
     perform_writes: bool,
 ) -> Result<FmtTreeOutcome> {
     let mut outcome = FmtTreeOutcome {
@@ -27,7 +26,6 @@ fn fmt_workspace_projects(
             &project.config,
             Some(&project.config.root),
             true,
-            requested_write,
         )?;
         let run_opts = FmtRunOpts {
             add_marker,
@@ -36,8 +34,8 @@ fn fmt_workspace_projects(
             render,
             workspace: Some(context),
             precomputed_findings: usable_findings(project),
-            // §FS-fmt.6.1: the index is linkified whatever the toggle says.
-            index_cross_refs: requested_write || explicit_cross_refs,
+            // §FS-fmt.6.1: check previews the same index carve-out write applies.
+            index_cross_refs: true,
         };
         match fmt_tree(
             &project.config,
