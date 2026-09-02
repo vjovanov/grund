@@ -1,7 +1,7 @@
 # grund — agent instructions
 
 <!-- BEGIN GRUND MANAGED BLOCK -->
-## Grounding with grund (v7)
+## Grounding with grund (v8)
 
 This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, REQ, AR, DF, DA, RM, DISC}`), cited with the marker `§` — e.g. `<§>FS-user-login.3.1` (the `FS-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `grund.toml`, so only `§`-prefixed citations are checked.
 
@@ -57,20 +57,22 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 
 ### Citation directions
 
-- **GOAL** should cite GRUND or GOAL.
-- **FS** should cite GOAL or FS; never cite AR.
-- **REQ** should cite GRUND or GOAL; never cite AR.
-- **AR** should cite FS or GOAL.
-- **DF** should cite FS or GOAL.
-- **DA** should cite AR or FS.
-- **tests/e2e/** must cite FS; avoid citing AR.
-- **tests/integration/** should cite AR.
-- **skills/** must cite FS; never cite AR.
-- **examples/** must cite FS; never cite AR.
-- **.github/workflows/** should cite FS or AR.
-- **scripts/** should cite FS or AR.
-- **code** (any file outside a kind home) should cite FS or AR.
-Unlisted kinds and pairs are fine.
+`must`/`never` are `grund check` errors; `should`/`avoid` are suggestions (`grund check --suggestions`). Every source file must cite a declared ID or declare one inline; every file under tests/e2e/, tests/integration/, skills/, examples/, .github/workflows/, and scripts/ must cite one.
+
+- Each **GOAL** declaration should cite GRUND or GOAL.
+- Each **FS** declaration should cite GOAL or FS; never cite AR.
+- Each **REQ** declaration should cite GRUND or GOAL; never cite AR.
+- Each **AR** declaration should cite FS or GOAL.
+- Each **DF** declaration should cite FS or GOAL.
+- Each **DA** declaration should cite AR or FS.
+- Each file in **tests/e2e/** must cite FS; avoid citing AR.
+- Each file in **tests/integration/** should cite AR.
+- Each file in **skills/** must cite FS; never cite AR.
+- Each file in **examples/** must cite FS; never cite AR.
+- Each file in **.github/workflows/** should cite FS or AR.
+- Each file in **scripts/** should cite FS or AR.
+- Each source file outside the Project map (**code**) that cites anything should cite FS or AR.
+Anything not listed above is allowed.
 
 ### Clickable citations
 

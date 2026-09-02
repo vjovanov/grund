@@ -468,7 +468,7 @@ Naming the kind moves the rules with it: `[citations.src]` governs those sites, 
 
 **Obligations apply per file**, only to files that contain at least one citation, and only to **source files** under the exact predicate `require_grounding` uses — a scanned file whose extension is not `.md` ([§DF-require-grounding.2.2](../decisions/functional/DF-require-grounding.md#22-grounded-is-defined-syntactically)). Markdown outside a kind home (a README, the changelog) is therefore prohibition-checked but obligation-exempt. A configured non-citable kind *with* a home (§3.4.1) is the same species and differs on exactly that point: its unit is every scanned file in its home, `.md` included ([§FS-check.3.11](FS-check.md#311-missing-required-citation)).
 
-**It gets no Project map row** ([§FS-init.2.3.4.4](FS-init.md#2344-project-map)) — every row there links a place, and this is the kind that has none. Its citation-directions row renders **last**, wherever in the table it was declared, labelled with its name and what it covers: its `title` where the project wrote one, and the fixed phrase *any file outside a kind home* otherwise ([§FS-init.2.3.5](FS-init.md#235-citation-directions)).
+**It gets no Project map row** ([§FS-init.2.3.4.4](FS-init.md#2344-project-map)) — every row there links a place, and this is the kind that has none. Its citation-directions row renders **last**, wherever in the table it was declared, and is the one row whose subject names the kind rather than a place — *each source file outside the Project map*, qualified by its `title` where the project wrote one ([§FS-init.2.3.5](FS-init.md#235-citation-directions)).
 
 #### 3.9.3 Namespace matching
 

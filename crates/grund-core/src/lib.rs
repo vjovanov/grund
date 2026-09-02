@@ -57,6 +57,7 @@ include!("list.rs");
 include!("completions.rs");
 include!("integrations.rs");
 include!("init_templates.rs");
+include!("init_citation_directions.rs");
 include!("init_entrypoints.rs");
 include!("init_workspace_members.rs");
 include!("init_plan.rs");

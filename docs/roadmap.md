@@ -244,24 +244,6 @@ Reading `must = ["FS|AR|TCK|CI|METADATA|TESTS"]` in a real config, grund's own a
 
 The sync test fails when the skill's marked region and the page differ by a byte; the render test fails when the page's example block and the live render differ; `grund check --full` over this repository stays green.
 
-## RM-directions-render: render the Citation directions section so it is exact
-
-The generated section ([§FS-init.2.3.5](functional-spec/FS-init.md#235-citation-directions)) is what an agent reads instead of the config, and it is inexact in five ways. A mixed rule renders ambiguously — `must = ["FS|GOAL", "AR"]` prints `must cite FS or GOAL and AR`, which English parses as *FS, or GOAL and AR*, and the rule means the opposite grouping. The unit is never stated: `FS should cite GOAL or FS` is per declaration, `skills/ must cite FS` is per file, `code … should cite FS or AR` is per citing source file. Grounding is not rendered at all — the template has no placeholder for it, and this repository's own entrypoint, with the key on, never says a source file must cite a declared ID. Rule grammar leaks into prose (`avoid citing */AR`), and a closed per-kind default takes two clauses to say "only". And nothing says which levels `grund check` enforces.
-
-GitHub: [#151](https://github.com/vjovanov/grund/issues/151).
-
-### 1. What
-
-A re-render that states the unit per bullet, groups a conjunction of alternatives unambiguously, translates `*/K` into words, folds a closed default into its permission, says what gates and what is suggested, and carries the grounding sentence generated from the rows of [§RM-grounding-per-place](roadmap.md#rm-grounding-per-place-require_grounding-and-grounding_level-on-the-kinds-row). The exact wording is deliberately not fixed here: it is hard to choose well, and it should be chosen once, against a canonical config that exercises every branch — the homeless kind declared first, a kind with no rules, two and three alternatives, a conjunction of singletons, a mixed rule, a closed per-kind default, a pinned alias, a `*/` target, two non-citable homes — and recorded in a DF beside the golden that pins it. One line is settled: the `code` bullet says "that cites anything", because the obligation constrains what a source file cites and never whether, and a util that cites nothing is not a unit ([§FS-config.3.9.2](functional-spec/FS-config.md#392-the-homeless-kind)).
-
-### 2. Why now
-
-Every wording change is a managed-block version bump, so every adopting repository sees an `agents-init` finding until it re-runs `grund init` ([§FS-check.3.5](functional-spec/FS-check.md#35-invalid-agent-entrypoint-init-block)). There are still few adopters, and the grounding sentence needs the same bump, so this is the moment to pay it once rather than later and twice.
-
-### 3. Measurable
-
-The canonical config's render is one e2e golden, and its `agents-init` drift check round-trips; three sibling cases pin the homeless kind without a title, a closed global default, and grounding off. `must = ["FS|GOAL", "AR"]` renders to a bullet with one reading.
-
 ## RM-index-entry-error: flip the missing-index-entry warning to an error
 
 [§FS-check.4.6](functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index) ships as a warning that names the release it becomes an error in, which is the deprecation path [§REQ-backwards-compatibility.2](requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) requires of a finding no command can fix. The warning is only half a contract: the release it names has to actually happen, or `grund` has told every user a deadline it then let slip. This milestone is that release.

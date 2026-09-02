@@ -35,7 +35,14 @@ pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-
 /// following a v6 block creates a config in the form `init` no longer
 /// generates — so it carries a version bump rather than a silent rewrite
 /// (§FS-init.2.3).
-const AGENTS_BLOCK_VERSION: u32 = 7;
+/// v8 (§FS-init.2.3.5, §DF-directions-render): the generated
+/// `### Citation directions` section is re-rendered exactly — a unit per bullet,
+/// a grouped conjunction of alternatives, `*/K` said in words, a closed per-kind
+/// default folded into its permission, a legend for what gates, and the
+/// grounding sentence `[reference] require_grounding` was never rendering. The
+/// rules an agent reads changed, so it carries a bump rather than a silent
+/// rewrite (§FS-init.2.3).
+const AGENTS_BLOCK_VERSION: u32 = 8;
 
 pub fn canonical_template_text(template: &str) -> String {
     template.replace("\r\n", "\n").replace('\r', "\n")
@@ -206,85 +213,6 @@ fn markdown_link_destination(raw: &str) -> String {
     }
 }
 
-/// Render the `### Citation directions` managed-block section (§FS-init.2.3.5)
-/// from the effective `[citations]` rules. Deterministic — `[[kinds]]` order,
-/// `code` last, fixed level phrases, `|`→"or", conjunction→"and" — so
-/// `grund check` can re-render and byte-compare it for drift (§FS-check.3.5).
-/// When no `[citations]` section is declared, the static climbing-rule sentence
-/// stands in, so a config that predates the feature keeps a stable block
-/// (§FS-init.2.3.4.10).
-///
-/// Why a homed non-citable kind is named by its place: naming the kind would
-/// name something an agent can never write, while the place reads as the
-/// instruction the row is. The homeless kind has no place, so it keeps its name
-/// and says what it covers — its `title` where the project wrote one, the fixed
-/// phrase otherwise.
-fn citation_directions_section(config: &Config) -> String {
-    // Built as lines joined with `\n` and returned without a trailing newline:
-    // the `{CITATION_DIRECTIONS}` placeholder in the template supplies the single
-    // block-final newline, so `grund init` stays idempotent on re-run.
-    let mut lines = vec!["### Citation directions".to_string(), String::new()];
-    if !config.citations.declared {
-        lines.push(
-            format!(
-                "Specs cite goals, architecture cites specs, code and executable tests cite the specs they realize. In a citation rule array, entries are all required; `|` inside one entry means any one alternative. See {CITATION_DIRECTIONS_URL} for the levels and examples."
-            ),
-        );
-        return lines.join("\n");
-    }
-    if let Some(default) = config
-        .citations
-        .global_default
-        .and_then(citation_global_default_sentence)
-    {
-        lines.push(default);
-    }
-    // `[[kinds]]` order, then the homeless kind last (§FS-init.2.3.5) — wherever
-    // in the table a project happened to declare it, because it is the
-    // complement of every row above it and reads as the closing case.
-    let homeless = config.homeless_kind();
-    let mut kinds: Vec<String> = config
-        .kinds
-        .iter()
-        .map(|k| k.kind.clone())
-        .filter(|kind| kind != homeless)
-        .collect();
-    if config.citations.per_kind.contains_key(homeless) {
-        kinds.push(homeless.to_string());
-    }
-    for kind in &kinds {
-        let Some(rules) = config.citations.per_kind.get(kind) else {
-            continue;
-        };
-        let Some(clauses) = citation_direction_clauses(rules) else {
-            continue;
-        };
-        // §FS-init.2.3.5: a homed non-citable kind is named by its place, so
-        // the row reads as the instruction it is — "files in this directory
-        // cite X". The homeless kind keeps its name.
-        let label = if kind == homeless {
-            let scope = config
-                .kinds
-                .iter()
-                .find(|configured| configured.kind == *kind)
-                .and_then(|configured| configured.title.as_deref())
-                .unwrap_or("any file outside a kind home");
-            format!("**{kind}** ({scope})")
-        } else {
-            format!("**{}**", citing_side_label(config, kind))
-        };
-        lines.push(format!("- {label} {clauses}."));
-    }
-    // Load-bearing (§FS-init.2.3.5): silence is open-world only when neither the
-    // global default nor a per-kind default changes it.
-    if citation_defaults_are_open_world(config) {
-        lines.push("Unlisted kinds and pairs are fine.".to_string());
-    } else {
-        lines.push("Unlisted kinds and pairs follow their configured defaults.".to_string());
-    }
-    lines.join("\n")
-}
-
 /// Render the `### Clickable citations` section (§FS-init.2.3.6): the fixed
 /// repository-web convention always, plus the config-derived local-conversation
 /// sentence when the repo commits the `link` opinion (§FS-init.2.3.4.17,
@@ -358,91 +286,6 @@ impl ConversationSurface {
             _ => Self::Plain,
         }
     }
-}
-
-/// The verb-phrase clauses for one citing kind's rules, joined by "; " in the
-/// order obligations, permissions, prohibitions, then the default
-/// (§FS-init.2.3.5). `None` when the kind has no renderable rule.
-fn citation_direction_clauses(rules: &KindCitationRules) -> Option<String> {
-    let mut clauses = Vec::new();
-    if !rules.must.is_empty() {
-        clauses.push(format!("must cite {}", citation_rule_targets(&rules.must)));
-    }
-    if !rules.should.is_empty() {
-        clauses.push(format!("should cite {}", citation_rule_targets(&rules.should)));
-    }
-    if !rules.may.is_empty() {
-        clauses.push(format!("may cite {}", citation_rule_targets(&rules.may)));
-    }
-    if !rules.must_not.is_empty() {
-        clauses.push(format!("never cite {}", citation_rule_targets(&rules.must_not)));
-    }
-    if !rules.should_not.is_empty() {
-        clauses.push(format!("avoid citing {}", citation_rule_targets(&rules.should_not)));
-    }
-    if let Some(default) = rules.default {
-        clauses.push(citation_default_clause(default));
-    }
-    if clauses.is_empty() {
-        return None;
-    }
-    Some(clauses.join("; "))
-}
-
-fn citation_defaults_are_open_world(config: &Config) -> bool {
-    let global_open = matches!(config.citations.global_default, None | Some(CitationLevel::May));
-    global_open
-        && config
-            .citations
-            .per_kind
-            .values()
-            .all(|rules| matches!(rules.default, None | Some(CitationLevel::May)))
-}
-
-fn citation_default_clause(level: CitationLevel) -> String {
-    match level {
-        CitationLevel::Must => "unlisted citations default to must".to_string(),
-        CitationLevel::Should => "unlisted citations default to should".to_string(),
-        CitationLevel::May => "unlisted citations are fine".to_string(),
-        CitationLevel::ShouldNot => "unlisted citations are discouraged".to_string(),
-        CitationLevel::MustNot => "unlisted citations are forbidden".to_string(),
-    }
-}
-
-fn citation_global_default_sentence(level: CitationLevel) -> Option<String> {
-    match level {
-        CitationLevel::Must => {
-            Some("By default, unlisted citation pairs are treated as must.".to_string())
-        }
-        CitationLevel::Should => {
-            Some("By default, unlisted citation pairs are treated as should.".to_string())
-        }
-        CitationLevel::May => None,
-        CitationLevel::ShouldNot => {
-            Some("By default, unlisted citation pairs are discouraged.".to_string())
-        }
-        CitationLevel::MustNot => {
-            Some("By default, unlisted citation pairs are forbidden.".to_string())
-        }
-    }
-}
-
-/// Render a list of disjunctions as a target phrase: alternatives within an
-/// entry joined by " or ", conjunctive entries joined by " and "
-/// (§FS-init.2.3.5).
-fn citation_rule_targets(disjunctions: &[CitationDisjunction]) -> String {
-    disjunctions
-        .iter()
-        .map(|disjunction| {
-            disjunction
-                .targets
-                .iter()
-                .map(render_citation_target)
-                .collect::<Vec<_>>()
-                .join(" or ")
-        })
-        .collect::<Vec<_>>()
-        .join(" and ")
 }
 
 /// The Project map rows (§FS-init.2.3.4.4): one per configured kind, linking
