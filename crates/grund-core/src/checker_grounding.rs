@@ -69,17 +69,19 @@ fn check_grounding(
             continue;
         }
         let place = home.as_ref().filter(|home| !home.citable).map(|home| home.place());
-        let empty = Vec::new();
-        let mut grounding: Vec<usize> = cited.get(file.as_path()).unwrap_or(&empty).clone();
+        let none: &[usize] = &[];
+        let cited_lines = cited.get(file.as_path()).map_or(none, Vec::as_slice);
         // §FS-check.3.6.2: no inline-declaration escape in a non-citable home —
         // a declaration there is already misplaced (§FS-check.3.7), so the only
         // way to ground a unit is to cite one.
-        if place.is_none() {
-            grounding.extend(declared.get(file.as_path()).unwrap_or(&empty));
-        }
+        let declared_lines = match place {
+            Some(_) => none,
+            None => declared.get(file.as_path()).map_or(none, Vec::as_slice),
+        };
         for unit in grounding_units(findings.file_structure.get(file), level) {
-            if grounding
+            if cited_lines
                 .iter()
+                .chain(declared_lines)
                 .any(|line| unit.start <= *line && *line <= unit.end)
             {
                 continue;
