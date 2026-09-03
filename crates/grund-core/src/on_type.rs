@@ -143,15 +143,22 @@ fn docstring_content_at<'a>(
     content
 }
 
-/// Whether `grund fmt` would rewrite anything on this line at all — the two
+/// Whether `grund fmt` would rewrite anything on this line at all — the three
 /// whole-line skips `rewrite_file` applies before it looks at any citation: a
-/// fenced code block, and a declaration heading (§FS-fmt.2.3).
+/// fenced code block, a declaration heading, and a suppressed region a
+/// `grund:fmt off` above the cursor has opened (§FS-fmt.2.3, §FS-fmt.2.5.2).
 ///
-/// Both need the lines *above* the cursor, which is why the on-type entry point
-/// takes the document rather than one line. Only the shorthand rewrite consults
-/// this: it is the one that edits text the author did not just type, so a live
-/// transform that ignored these would silently rewrite an illustration inside a
-/// fence, or a citation in the title of a declaration.
+/// All three need the lines *above* the cursor, which is why the on-type entry
+/// point takes the document rather than one line. Only the shorthand rewrite
+/// consults this: it is the one that edits text the author did not just type, so
+/// a live transform that ignored these would silently rewrite an illustration
+/// inside a fence, a citation in the title of a declaration, or the diagram a
+/// region was written to protect (§FS-lsp.1.4).
+///
+/// The region state is `rewrite_file`'s own `FmtDirectives`, read in
+/// `rewrite_file`'s own order — the fence first, then the directive, then the
+/// heading — because two spellings of one state machine would drift and the
+/// editor would start disagreeing with the command it previews.
 fn line_is_rewritable(
     config: &Config,
     text: &str,
@@ -163,6 +170,9 @@ fn line_is_rewritable(
     // §FS-fmt.2.3.1: `rewrite_file` reads a docstring line's content when it asks
     // whether the line is a declaration heading, so this walk does too.
     let mut docstrings = DocstringCursor::new(is_py, config.docstring_python);
+    // §FS-fmt.2.5.2: every file starts with the rewrite on — a region never
+    // carries across files, so the walk starts at the top of this one.
+    let mut directives = FmtDirectives::new(config, is_md);
     for (index, line) in text.lines().enumerate() {
         if is_md && markdown_fence_delimiter(&mut markdown_fence, line) {
             if index == line_index {
@@ -171,8 +181,24 @@ fn line_is_rewritable(
             continue;
         }
         let docstring = docstrings.advance(line);
+        // §FS-fmt.2.5.2: inside a fence nothing is rewritten and a directive is an
+        // illustration, so the fence is asked first here exactly as it is there.
+        if markdown_fence.is_some() {
+            if index == line_index {
+                return false;
+            }
+            continue;
+        }
+        // §FS-fmt.2.5.2: the directive line itself is never rewritten, whichever
+        // state it leaves behind.
+        if directives.consume(line, docstring) {
+            if index == line_index {
+                return false;
+            }
+            continue;
+        }
         if index == line_index {
-            return markdown_fence.is_none()
+            return directives.rewriting()
                 && declaration_captures(
                     &config.grammar,
                     docstring.text_of(line),
@@ -183,6 +209,22 @@ fn line_is_rewritable(
         }
     }
     false
+}
+
+/// Whether the edited file is one this project's `[fmt] exclude` takes out of
+/// every rewrite (§FS-fmt.2.5.1) — the per-file half of the verdict
+/// `line_is_rewritable` reads per line.
+///
+/// Consulted only once an expansion is already in prospect, and free for a
+/// repository that set no key (§GOAL-fast-feedback). A pattern set that will not
+/// compile was refused at config load (§FS-config.3.10), so reaching the error
+/// here is a grund bug — and of the two ways to be wrong about it, refusing the
+/// edit is the one that cannot damage a protected file.
+fn file_is_fmt_excluded(config: &Config, path: &Path) -> bool {
+    match FmtExcluded::new(config) {
+        Ok(excluded) => excluded.contains(path),
+        Err(_) => true,
+    }
 }
 
 /// One declaration the caller already knows about: the file it lives in, and its
@@ -292,11 +334,13 @@ fn shorthand_expansion_edit(
     let token_end = cursor - typed.len_utf8();
     let marker_start = line[..token_end].rfind(&config.marker)?;
     let token_start = marker_start + config.marker.len();
-    // §FS-fmt.2.3: the contexts the bulk pass refuses are the contexts the live
-    // transform refuses, so a citation illustrated in inline code stays as typed.
+    // §FS-fmt.2.3, §FS-fmt.2.5: the contexts the bulk pass refuses are the
+    // contexts the live transform refuses, so a citation illustrated in inline
+    // code stays as typed and so does one in a scope the repository suppressed.
     let is_md = path.extension().and_then(|ext| ext.to_str()) == Some("md");
     let docstring = docstring_content_at(config, text, line_index, is_py);
     if never_rewrite_context_in(docstring, line, is_md, marker_start)
+        || file_is_fmt_excluded(config, path)
         || !line_is_rewritable(config, text, line_index, is_md, is_py)
     {
         return None;
