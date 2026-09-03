@@ -215,11 +215,13 @@ mod tests_shorthand_rewrite {
             &FmtLineOpts {
                 add_marker: false,
                 cross_refs: false,
+                excluded: false,
                 index_entry_ids: None,
                 findings: Some(&findings),
                 workspace: None,
                 shorthand_targets: &ShorthandTargets::new(Some(&findings), None),
             },
+            false,
             &mut false,
         );
         assert_eq!(line, "Typed §FS-042-user-login here.");
@@ -237,11 +239,13 @@ mod tests_shorthand_rewrite {
             &FmtLineOpts {
                 add_marker: false,
                 cross_refs: false,
+                excluded: false,
                 index_entry_ids: None,
                 findings: Some(&findings),
                 workspace: None,
                 shorthand_targets: &ShorthandTargets::new(Some(&findings), None),
             },
+            false,
             &mut false,
         );
         assert_eq!(line, "Persisted §FS-042-user-login here.");

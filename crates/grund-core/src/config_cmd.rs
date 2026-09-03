@@ -191,6 +191,17 @@ fn command_config(args: &[String]) -> ExitCode {
                 println!("color = \"auto\"");
                 println!("relative_paths = {}", config.relative_paths);
                 println!();
+                // §FS-config.3.10: printed only where set — absence *is* the
+                // empty list, and the shown config has to load back as itself.
+                // Ahead of `[fmt.cross_refs]`, so the super-table comes first.
+                if !config.fmt_exclude.is_empty() {
+                    println!("[fmt]");
+                    println!(
+                        "exclude = {}",
+                        format_toml_string_list(&config.fmt_exclude)
+                    );
+                    println!();
+                }
                 println!("[fmt.cross_refs]");
                 println!("enabled = {}", config.fmt_cross_refs_enabled);
                 println!("anchor_format = \"{}\"", config.cross_ref_anchor_format);

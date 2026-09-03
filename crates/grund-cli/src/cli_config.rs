@@ -170,6 +170,14 @@ fn print_effective_config(config: &Config) {
     println!("color = \"auto\"");
     println!("relative_paths = {}", config.relative_paths);
     println!();
+    // §FS-config.3.10: printed only where the list is non-empty — absence *is*
+    // the empty list, and the shown config has to load back as itself. Before
+    // `[fmt.cross_refs]` so the super-table is declared ahead of its child.
+    if !config.fmt_exclude.is_empty() {
+        println!("[fmt]");
+        println!("exclude = {}", format_toml_string_list(&config.fmt_exclude));
+        println!();
+    }
     println!("[fmt.cross_refs]");
     println!("enabled = {}", config.fmt_cross_refs_enabled);
     println!("anchor_format = \"{}\"", config.cross_ref_anchor_format);

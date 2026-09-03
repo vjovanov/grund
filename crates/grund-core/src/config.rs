@@ -1,6 +1,6 @@
 /// Parse one `grund.toml` over `config` — the schema of §FS-config.3 and its
 /// subsections (`[reference]` 3.1, `[id]` 3.2/3.3, `[[kinds]]` 3.4, `[scan]` 3.5,
-/// `[output]` 3.6, `[fmt.cross_refs]` 3.7). Any unknown section/key or malformed
+/// `[output]` 3.6, `[fmt.cross_refs]` 3.7, `[fmt]` 3.10). Any unknown section/key or malformed
 /// value is a hard error reported as `path:line:` (§FS-config.4.3, §FS-errors.2.1).
 fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) -> Result<()> {
     let text = fs::read_to_string(read_path)
@@ -28,7 +28,8 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             let is_array_table = line.starts_with("[[") && line.ends_with("]]");
             section = line.trim_matches(['[', ']']).to_string();
             match section.as_str() {
-                "reference" | "scan" | "output" | "id" | "fmt.cross_refs" | "workspace" => {
+                "reference" | "scan" | "output" | "id" | "fmt" | "fmt.cross_refs"
+                | "workspace" => {
                     if section == "workspace" && is_array_table {
                         bail_config(
                             path,
@@ -283,6 +284,16 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             }
             ("output", "relative_paths") => {
                 config.relative_paths = parse_bool(path, line_no, value)?;
+            }
+            // §FS-config.3.10: validated as it is parsed, so a malformed glob is a
+            // config error at its own line rather than a surprise at the first
+            // `grund fmt` (§FS-config.4.3).
+            ("fmt", "exclude") => {
+                let patterns = parse_string_list(path, line_no, value)?;
+                if let Err(message) = validate_fmt_exclude(&patterns) {
+                    bail_config(path, line_no, message)?;
+                }
+                config.fmt_exclude = patterns;
             }
             ("fmt.cross_refs", "enabled") => {
                 config.fmt_cross_refs_enabled = parse_bool(path, line_no, value)?;

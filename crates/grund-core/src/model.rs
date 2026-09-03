@@ -513,6 +513,12 @@ pub struct Config {
     pub slug_pattern: String,
     pub section_heading_levels: String,
     pub kinds: Vec<KindConfig>,
+    /// `[fmt] exclude` (§FS-config.3.10) — the files `grund fmt` performs no
+    /// rewrite in, as gitignore-style globs against the config root. Read by
+    /// `fmt` alone: the walk, the scan, and every check are untouched by it
+    /// (§FS-fmt.2.5.1). Empty is what every config written before the key
+    /// existed means.
+    pub fmt_exclude: Vec<String>,
     pub fmt_cross_refs_enabled: bool,
     pub cross_ref_anchor_format: String,
     pub workspace_declared: bool,
@@ -660,6 +666,7 @@ impl Config {
             slug_pattern: DEFAULT_SLUG_PATTERN.into(),
             section_heading_levels: "strict".into(),
             kinds,
+            fmt_exclude: Vec::new(),
             fmt_cross_refs_enabled: true,
             cross_ref_anchor_format: "github".into(),
             workspace_declared: false,
