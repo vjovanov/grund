@@ -25,7 +25,7 @@ COMPAT_RENDERERS = {
     "cover.rs",
     "fmt_cmd.rs",
     "id.rs",
-    "init.rs",
+    "init_cmd.rs",
     "integrations.rs",
     "list.rs",
     "output.rs",
