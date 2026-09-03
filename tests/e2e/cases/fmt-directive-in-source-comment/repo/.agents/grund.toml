@@ -1,0 +1,12 @@
+grund_config_version = 1
+
+[reference]
+strict = false
+
+[scan]
+include = ["docs", "src"]
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
