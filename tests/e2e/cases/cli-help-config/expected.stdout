@@ -6,6 +6,6 @@ Usage:  grund config <show | validate> [PATH]
   validate   parse the discovered config and report the first error; exit 0 if it's well-formed.
 
 PATH defaults to `.`; config is discovered by walking up from that path.
-There is no `--config <file>` override — config is discovered, not pointed at (FS-cli.6).
+There is no `--config <file>` override — config is discovered, not pointed at.
 
 Exit:  0 well-formed / printed · 1 `validate` found an error · 2 no subcommand, or `show` couldn't read the config.

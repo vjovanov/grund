@@ -3,7 +3,7 @@ grund citation integration for iTerm2.
 iTerm2 keeps its configuration in a binary property list, not a text file, so
 there is no config to splice a managed block into — this integration is applied
 by hand, once, through Settings. `--write` still installs the `grund-open`
-resolver everything else depends on (§FS-integrations.3.4).
+resolver everything else depends on.
 
 Smart Selection binds an action to a regex, and the first action fires on
 cmd-click, so a citation becomes cmd-clickable the same way kitty's hints make
@@ -51,7 +51,6 @@ Notes
 You may not need this at all. iTerm2's Semantic History already makes a plain
 `path:line` cmd-clickable, so `grund integrations --write --conversation link`
 makes agents write the location next to each citation and iTerm2 handles the
-rest with no rule (§FS-integrations.4.3). For the same reason the rule above
-stays citation-only: the location beside a citation is Semantic History's job
-here, where the other terminals need grund's location matcher
-(§FS-integrations.3.1).
+rest with no rule. For the same reason the rule above stays citation-only: the
+location beside a citation is Semantic History's job here, where the other
+terminals need grund's location matcher.

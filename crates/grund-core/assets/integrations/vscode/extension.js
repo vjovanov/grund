@@ -1,8 +1,8 @@
 // grund terminal citations — a VS Code TerminalLinkProvider that turns §<ID>
 // citations printed in the integrated terminal into links. Clicking one runs
-// `grund` to resolve the citation to its cited line and opens it
-// (§FS-integrations). Nothing is published to a marketplace; this extension is
-// materialized on disk by `grund integrations vscode --write`.
+// `grund` to resolve the citation to its cited line and opens it. Nothing is
+// published to a marketplace; this extension is materialized on disk by `grund
+// integrations vscode --write`.
 const vscode = require('vscode');
 const { execFile } = require('child_process');
 const fs = require('fs');
@@ -15,14 +15,13 @@ const path = require('path');
 const CITATION = /[^\w\s]{1,3}(?:[a-z][a-z0-9-]*\/)?[A-Z][A-Z0-9]*-[a-z0-9][a-z0-9-]*(?:\.[0-9]+)*/g;
 
 // Resolve a citation to `{path, line, body}` via `grund`. VS Code is the one
-// client that can show declaration content on *hover* rather than on click
-// (§FS-integrations.3.3), and a tooltip has to carry its text at provide time —
-// so this is called while building links, not when one is clicked. Results are
-// cached by citation because provideTerminalLinks runs per rendered line and the
-// same citation scrolls past repeatedly; the cache is what keeps that cheap.
-// One `--brief` resolution serves hover and click alike (§FS-integrations.3.2):
-// the brief report already carries the `path` and `line` a click needs, and its
-// body is exactly the hover slice.
+// client that can show declaration content on *hover* rather than on click,
+// and a tooltip has to carry its text at provide time — so this is called while
+// building links, not when one is clicked. Results are cached by citation
+// because provideTerminalLinks runs per rendered line and the same citation
+// scrolls past repeatedly; the cache is what keeps that cheap. One `--brief`
+// resolution serves hover and click alike: the brief report already carries the
+// `path` and `line` a click needs, and its body is exactly the hover slice.
 const resolved = new Map();
 
 function resolve(id, cwd) {
@@ -44,19 +43,19 @@ function resolve(id, cwd) {
 }
 
 // grund reports paths relative to the config root it discovers by walking up
-// from its cwd (§FS-config.3.6). Mirror that walk from the workspace folder
-// (§FS-integrations.3.2): running grund at this root and joining the reported
-// path against the same root keeps the two from ever disagreeing — e.g. when
-// the opened folder is a subdirectory of the repository.
+// from its cwd. Mirror that walk from the workspace folder: running grund at
+// this root and joining the reported path against the same root keeps the two
+// from ever disagreeing — e.g. when the opened folder is a subdirectory of the
+// repository.
 function grundRoot() {
   let dir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!dir) return undefined;
   for (;;) {
-    // Both discovery names (§FS-config.1) — a repository configured by the bare
-    // root `grund.toml` that `grund init` generates is a config root too, and
-    // probing only `.agents/` would return undefined there, leaving grund to run
-    // from the extension host's own cwd against an unrelated tree. Either name
-    // answers with the same directory, so no precedence is needed here.
+    // Both discovery names — a repository configured by the bare root
+    // `grund.toml` that `grund init` generates is a config root too, and
+    // probing only `.agents/` would return undefined there, leaving grund to
+    // run from the extension host's own cwd against an unrelated tree. Either
+    // name answers with the same directory, so no precedence is needed here.
     if (fs.existsSync(path.join(dir, 'grund.toml'))) return dir;
     if (fs.existsSync(path.join(dir, '.agents', 'grund.toml'))) return dir;
     const parent = path.dirname(dir);
@@ -95,9 +94,9 @@ function activate(context) {
     async handleTerminalLink(link) {
       // Strip the marker without hardcoding one, and keep the `.<section>`
       // suffix: `grund <ID>.<section>` resolves to that section's own line,
-      // where dropping it would always land on the declaration heading
-      // (§FS-integrations.3.1). Shares the cache with the hover above, so a
-      // click on something already hovered spawns nothing.
+      // where dropping it would always land on the declaration heading. Shares
+      // the cache with the hover above, so a click on something already hovered
+      // spawns nothing.
       const id = link.data.replace(/^[^A-Za-z0-9]+/, '');
       const cwd = grundRoot();
       const decl = await resolve(id, cwd);
@@ -106,19 +105,18 @@ function activate(context) {
         return;
       }
       // `path` is relative to the config root grund ran in, which is the same
-      // root grundRoot() discovered (§FS-config.3.6) — so joining against it
-      // can never point outside the repository grund answered for.
+      // root grundRoot() discovered — so joining against it can never point
+      // outside the repository grund answered for.
       const abs = cwd
         ? vscode.Uri.joinPath(vscode.Uri.file(cwd), decl.path)
         : vscode.Uri.file(decl.path);
-      // A directory-backed E2E declaration answers with the manifest shape
-      // (§FS-show.2.4): no `line`, and `path` names the case *directory*.
-      // There is no file to show — showTextDocument rejects a directory — so
-      // reveal it in the Explorer, the editor's shape of the terminal
-      // resolver's open-the-directory-bare behavior (§FS-integrations.3.2).
-      // The Explorer can only reveal what the workspace contains: with a
-      // subdirectory of the repository opened, the case directory sits above
-      // it, and the reveal falls back to the OS file manager.
+      // A directory-backed E2E declaration answers with the manifest shape: no
+      // `line`, and `path` names the case *directory*. There is no file to show
+      // — showTextDocument rejects a directory — so reveal it in the Explorer,
+      // the editor's shape of the terminal resolver's open-the-directory-bare
+      // behavior. The Explorer can only reveal what the workspace contains:
+      // with a subdirectory of the repository opened, the case directory sits
+      // above it, and the reveal falls back to the OS file manager.
       if (decl.line === undefined) {
         const workspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         const inWorkspace = workspace && abs.fsPath.startsWith(workspace + path.sep);
