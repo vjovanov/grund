@@ -15,5 +15,6 @@ What `grund` must never break — the hard invariants a release is blocked on �
 
 - [§REQ-readme](REQ-readme.md#req-readme-the-readme-is-the-grounded-shop-window) — the README is the grounded shop window
 - [§REQ-agents-md](REQ-agents-md.md#req-agents-md-the-agent-entrypoint-stays-managed-and-grounded) — the agent entrypoint stays managed and grounded
+- [§REQ-shipped-surfaces](REQ-shipped-surfaces.md#req-shipped-surfaces-what-grund-ships-or-prints-resolves-where-it-lands) — what grund ships or prints resolves where it lands
 
 This index is navigational only. Citations should target the requirement ID directly, never this file.
