@@ -96,6 +96,22 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
+      # The one drift nothing else here sees: a managed agent-entrypoint block
+      # whose rendered *text* went stale while its `(vN)` heading stayed current
+      # (§FS-init.4). `grund check` verifies that version, not the bytes
+      # (§FS-check.3.5), so a wording change that is not re-rendered passes every
+      # other hook, which is how a stale entrypoint survives a green
+      # `pre-commit run --all-files`. `--check` writes nothing and exits 1 when
+      # `init` would have; the fix is that same run without the flag. It sits **after**
+      # `grund-fmt` on purpose: `grund fmt --write` rewrites Markdown, so the
+      # block must be measured once fmt has had its say, not before.
+      - id: grund-init-check
+        name: grund init --check (managed block is current)
+        entry: cargo run --quiet -- init --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
       # `skills` and `templates` are in the path list because their files ship
       # verbatim into repositories that do not have this one: they carry public
       # URLs where a sentence needs an address (§REQ-shipped-surfaces.1), and

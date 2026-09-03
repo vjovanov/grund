@@ -351,7 +351,7 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!();
             println!(
-                "Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] [--dry-run] [--no-vcs] [--agents-md] [--claude] [--gemini] [--pi] [--copilot] [--cursor] [--windsurf] [--zed]"
+                "Usage:  grund init [PATH] [--docs] [--name NAME] [--description TEXT] [--force] [--dry-run] [--check] [--no-vcs] [--agents-md] [--claude] [--gemini] [--pi] [--copilot] [--cursor] [--windsurf] [--zed]"
             );
             println!();
             println!("Options:");
@@ -369,6 +369,9 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!(
                 "  --dry-run      report what would be written/appended/updated without touching any file"
+            );
+            println!(
+                "  --check        the same report, as a gate: writes nothing, exits 1 if anything is pending"
             );
             println!(
                 "  --no-vcs       scaffold into a target with no .git/.hg/.jj/.svn above it (refused by default)"
@@ -389,12 +392,13 @@ fn print_subcommand_help(cmd: &str) {
             println!("  --zed          create/update .rules");
             println!();
             println!(
-                "Exit:  0 written / updated / already current · 2 missing or refused target, unknown flag, or unsupported newer block."
+                "Exit:  0 written / updated / already current · 1 --check only: something is still pending · 2 missing or refused target, unknown flag, or unsupported newer block."
             );
             println!();
             println!("Examples:");
             println!("  grund init --docs                  # full first-time scaffold");
             println!("  grund init --dry-run               # preview without writing");
+            println!("  grund init --check                 # the same preview as a gate: exit 1 if pending");
             println!(
                 "  grund init --name \"My Service\"      # auto-detect entrypoint, else AGENTS.md"
             );

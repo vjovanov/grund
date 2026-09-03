@@ -87,7 +87,7 @@ kind = "deferred"
 max_accepted = { value = 529, unit = "lines" }
 until = "unify init_block.rs with the second implementation of the same protocol in integrations.rs"
 reason = """
-Half of this entry is paid: the managed agent-entrypoint block — locate, version, migrate, rewrite a document in place — left for init_block.rs, and the ceiling dropped from 776 with it; the run's entrypoint plan then left for init_plan.rs, taking it to 529. What is left here is scaffold writing, the run, and its report, which is one job. The debt that remains is the one this file cannot pay alone: integrations.rs implements the same locate-version-splice protocol a second time for foreign config files, and two implementations of in-place rewriting of a user's file is the risk worth naming. Missing boundary: one managed-block protocol both callers use.
+Half of this entry is paid: the managed agent-entrypoint block — locate, version, migrate, rewrite a document in place — left for init_block.rs, and the ceiling dropped from 776 with it; the run's entrypoint plan then left for init_plan.rs, taking it to 529. What is left here is scaffold writing, the run, and its report, which is one job. The debt that remains is the one this file cannot pay alone: integrations.rs implements the same locate-version-splice protocol a second time for foreign config files, and two implementations of in-place rewriting of a user's file is the risk worth naming. Missing boundary: one managed-block protocol both callers use. The deprecated init command adapter has since left for init_cmd.rs as well, taking the file to 447; the ceiling stays at 529 because the debt named here is the one that has not been paid.
 """
 [[exceptions]]
 path = "scripts/local-benchmark-report.py"
