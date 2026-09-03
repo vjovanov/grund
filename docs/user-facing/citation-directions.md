@@ -2,7 +2,7 @@
 
 `[citations]` describes which kinds of documents cite which other kinds. The
 five levels use two rule classes and two enforcement surfaces, as specified by
-`§FS-config.3.9.1`:
+[the `[citations]` section of grund's config spec](https://github.com/vjovanov/grund/blob/main/docs/functional-spec/FS-config.md#39-citations--citation-direction-rules):
 
 | Level | Rule class | Checked per | Surface |
 | --- | --- | --- | --- |
@@ -19,14 +19,14 @@ requires citations to both. Nearly every real rule is one entry with `|`.
 
 The citing side may be any configured kind, including a non-citable kind, or
 the homeless `code` kind. The cited side must be citable, because a citation
-needs an ID to point at (`§FS-config.3.9.5`). A non-citable kind may cite and is
-labelled by its home, such as `skills/`; the homeless kind covers any file
-outside a configured kind home and renders last (`§FS-config.3.9.2`).
+needs an ID to point at. A non-citable kind may cite and is labelled by its
+home, such as `skills/`; the homeless kind covers any file outside a configured
+kind home and renders last.
 
 An obligation on a citable kind that declares no IDs has no unit and never
 fires. A directory without declarations is `citable = false`, not a citable
 kind with an empty rule; this is the no-unit trap described by
-`§DF-non-citable-kinds.2.5`.
+[the non-citable-kinds decision](https://github.com/vjovanov/grund/blob/main/docs/decisions/functional/DF-non-citable-kinds.md#25-obligations-get-a-per-file-unit-and-grounding-follows-the-home).
 
 The config and the generated section below are the same example. The TOML is
 shown beside the Markdown it renders:

@@ -1,6 +1,11 @@
 // The scaffold templates `grund init` writes are embedded in the binary; the
 // reference copies live under `templates/` in the source tree (§FS-init.2.1).
 const AGENTS_TEMPLATE: &str = include_str!("../assets/templates/AGENTS.md");
+/// The scaffold config. Its `[citations]` block comment explains the five levels
+/// and hands the reader `CITATION_DIRECTIONS_URL` below, where it used to cite
+/// §FS-config.3.9 by ID: the file lands verbatim in the adopting repository, so
+/// an ID of this one names a document that reader does not have — or an
+/// unrelated one of their own (§REQ-shipped-surfaces.1).
 const GRUND_TOML_TEMPLATE: &str = include_str!("../assets/templates/grund.toml");
 const GRUND_DOC_TEMPLATE: &str = include_str!("../assets/templates/grund.md");
 const GOALS_TEMPLATE: &str = include_str!("../assets/templates/goals.md");
@@ -15,6 +20,20 @@ const DA_README_TEMPLATE: &str =
 const GITKEEP_TEMPLATE: &str = include_str!("../assets/templates/gitkeep.md");
 const CITATION_DIRECTIONS_URL: &str =
     "https://github.com/vjovanov/grund/blob/main/docs/user-facing/citation-directions.md";
+/// The setup skill, printed byte-for-byte by `grund agent-setup-instructions`
+/// into whatever repository the agent is standing in (§FS-init.5). That is why
+/// `skills/` is an unwalked home (§FS-config.3.4.7) and why nothing in the file
+/// cites an ID of this repository: it would name a document the reader does not
+/// have (§REQ-shipped-surfaces.1), so its links are the public URLs of the pages
+/// they used to cite. What it teaches is grounded here instead — the config
+/// walkthrough ends on the full-tree scope that reports what `[scan] include`
+/// left out (§FS-check.1.3), its `[citations]` section is the canonical
+/// citation-directions page verbatim (§FS-config.3.9, kept in sync by the
+/// asset-sync check), and its setup step covers the clickable integrations
+/// (§FS-integrations), the global agent instruction files `--write`
+/// synchronizes (§FS-integrations.4.3), and the committable repository opinion
+/// with its per-agent gate (§DF-repo-conversation-opinion,
+/// §DF-conversation-link-target.2.4).
 pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-init/SKILL.md");
 /// v5 (§FS-init.2.3.6, §DF-integrations-command, §DF-repo-conversation-opinion):
 /// the block gains the `### Clickable citations` section — the fixed
