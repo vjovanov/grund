@@ -36,6 +36,7 @@ This list is the ownership boundary for the one command that edits files in plac
 - ID-shaped text inside Markdown link destinations (where rewriting would change the URL rather than the visible citation) — and, off strict mode, such a **bare** token is not recognized as a citation there at all ([§FS-check.1.1](FS-check.md#11-recognized-citations)), the same never-rewrite zone keeping `check` from demanding an edit this command refuses to make.
 - Files outside the configured scan set.
 - Files reached through a symlink that leaves the config root — `--write` reads them and does not write through them (§2.3.2).
+- Everything in a **suppressed scope**: a file the `[fmt] exclude` list names, and a region between a `grund:fmt off` directive and the `grund:fmt on` that closes it (§2.5). Unlike every other entry in this list, these two are asked for by the repository rather than forced by the text, and they are the only ones an index carve-out outranks (§2.5.3).
 
 #### 2.3.1 String-literal exclusion rule
 
@@ -92,6 +93,45 @@ The rule reads forward only. `SPEC-001→§SPEC-003` — a run whose tail carrie
 
 The site is reported rather than skipped in silence: [§FS-check.3.15](FS-check.md#315-shorthand-citation-in-a-numeric-run) names it, with both the canonical form and the `<§>` escape, so the author picks. The site is still a citation in every other respect — it resolves, it counts as an edge, it grounds its file. Only the rewrite is withheld, and only where the shorthand resolves: one matching zero or several declarations keeps its [§FS-check.3.13](FS-check.md#313-number-only-shorthand-citation) message, which reports a resolution failure a run is no reason to say less about.
 
+### 2.5 Suppressed scopes
+
+A repository may take a file, or a region inside one, out of `fmt`'s reach without taking its citations out of grund's. Both scopes suppress **every** rewrite this command performs — trigger-to-marker (§2.1), bare-to-marker (§2.2), shorthand-to-canonical (§2.4), and cross-reference wrapping (§6) — and neither changes anything else. The file is still walked, its citations still resolve, still dangle, still count as edges, and still ground the file they sit in, so `grund check`, `grund refs`, `grund show`, and `grund cover` report exactly what they reported before. Only the edit stops. Decided in [§DF-fmt-suppression](../decisions/functional/DF-fmt-suppression.md#df-fmt-suppression-fmt-suppression-is-per-file-and-per-region-and-the-index-carve-out-outranks-both).
+
+The case this exists for is a citation whose *position* carries meaning: an ASCII topology diagram in an HTML `<pre>` block or a four-space indented block, whose edge labels are citations. Those citations are deliberately live — a fenced block would kill them (§6.4) — but wrapping one into `[§ID](path#anchor)` destroys the alignment the diagram is made of, and in an HTML block it renders as raw link markup. Before these scopes the choice was backticks around every citation in the diagram (an inline code span is never rewritten, §2.3), at the cost of literal backticks in the rendered output, or `[fmt.cross_refs] enabled = false` across the whole project.
+
+A dry run reports nothing for a suppressed scope and `--write` leaves its bytes byte-for-byte identical, so the two agree as §3 requires. Both scopes are idempotent by construction: a run that writes nothing has nothing left to write on the next pass.
+
+**What this costs, and who pays it.** The never-rewrite zones above are intrinsic — `fmt` may not touch a string literal, so [§FS-check.3.13](FS-check.md#313-number-only-shorthand-citation) withholds its error there rather than demanding an edit the tool refuses to make. A suppressed scope is the opposite: the repository asked for it, in its own config or in its own text, and every finding stays. A number-only shorthand written inside one is still a `check` error that `grund fmt --write` no longer clears — the fix is to write the canonical ID, or to lift the suppression around that line. Withholding the finding instead would make a suppressed region a place where citations quietly stop being checked, which is the one thing these scopes are specified not to be ([§DF-fmt-suppression.2.4](../decisions/functional/DF-fmt-suppression.md#24-check-is-unchanged-and-the-repository-pays-for-that)).
+
+#### 2.5.1 `[fmt] exclude` — a file at a time
+
+```toml
+[fmt]
+exclude = ["docs/architecture/AR-topology.md", "docs/diagrams"]
+```
+
+Each entry is a gitignore-style glob resolved against the config root ([§FS-config.3.10](FS-config.md#310-fmt--suppressing-the-rewrite)) — the same dialect the scanner already reads for `[scan] respect_gitignore` ([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)), so an entry naming a directory takes every file under it and an entry with no `/` matches at any depth. A file the list matches is walked, read, and checked exactly as before, and no rewrite is performed in it. A malformed pattern is a config error at its own line, like any other bad value ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)).
+
+The key is additive and the default is the empty list, so `grund_config_version` is unchanged ([§FS-config.5](FS-config.md#5-schema-versioning)). In a workspace every project is rewritten under its own config, so the list is read from the project that owns the file and a member's entries never reach its siblings ([§FS-workspace.8.5](FS-workspace.md#85-grund-fmt---cross-refs)).
+
+#### 2.5.2 `grund:fmt off` / `grund:fmt on` — a region at a time
+
+A comment line whose entire content is `grund:fmt off` suppresses every rewrite from the **next** line onward; one whose content is `grund:fmt on` resumes it. In Markdown the comment is an HTML comment — `<!-- grund:fmt off -->` — and in a source file it is a comment line under the configured `[scan] comment_prefixes` ([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)): `// grund:fmt off`, `# grund:fmt on`, `/* grund:fmt off */`, or a line of a Python docstring, which is read for its content like any other doc comment (§2.3.1).
+
+The rules in full:
+
+- The directive line itself is never rewritten, whichever state it leaves behind.
+- A region opened with no `on` after it runs to the end of the file. Nothing carries across files: every file starts with the rewrite on.
+- A redundant directive is a no-op — `on` where the rewrite is already on, `off` where it is already off — and a stray `on` in a file that never turned the rewrite off changes nothing.
+- A directive inside a fenced code block is an illustration and toggles nothing, the same reading that makes a citation there dead (§6.4). Nor is one inside an inline code span, which is how this document names them above.
+- Only an exact content match is a directive: `<!-- grund:fmt off please -->` and `// grund:fmt-off` are ordinary comments, and the text is fixed rather than configured so that a reader meeting one in an unfamiliar repository knows what it is.
+
+The region form is chosen over a rule keyed by declaration section (`AR-topology.2` → do not wrap) because it sits beside the thing it protects and survives the sections around it being renumbered ([§DF-fmt-suppression.2.2](../decisions/functional/DF-fmt-suppression.md#22-an-in-text-region-not-a-rule-keyed-by-declaration-section)).
+
+#### 2.5.3 A kind's index is still linkified
+
+The always-linkify carve-out for a kind's index entries (§6.1, [§DF-index-always-linkified](../decisions/functional/DF-index-always-linkified.md#df-index-always-linkified-the-cross-reference-pass-always-runs-on-a-kinds-index-file)) outranks both scopes, exactly as it already outranks `[fmt.cross_refs] enabled = false`. In an excluded index file, and inside a suppressed region in one, the entries that index owes ([§FS-check.4.6](FS-check.md#46-declaration-missing-from-its-kinds-index)) are still wrapped; every other citation there is suppressed as it would be anywhere else. Without this precedence a suppression could put an index into a state [§FS-check.3.17](FS-check.md#317-index-entry-is-not-a-link) reports and `grund fmt --write` refuses to repair, which is the hole [§DF-index-always-linkified](../decisions/functional/DF-index-always-linkified.md#df-index-always-linkified-the-cross-reference-pass-always-runs-on-a-kinds-index-file) exists to close.
+
 ## 3. Outputs
 
 - `0` — no changes needed, **or** `--write` succeeded (regardless of whether changes were made — they were the requested operation, not a failure).
@@ -115,6 +155,8 @@ Three reasons:
 ## 5. Configurability
 
 Marker, trigger, and the recognized `KIND` set are read from `grund.toml` per [§GOAL-configurable](../goals.md#goal-configurable-every-default-is-overridable). The defaults are `§` and `$$` as decided in [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger).
+
+Which *files* the command may rewrite is configurable too: `[fmt] exclude` takes a file out of every rewrite while leaving it walked and checked (§2.5.1). The per-region counterpart is written in the file rather than in the config (§2.5.2).
 
 ## 6. Cross-reference emission
 
@@ -161,6 +203,7 @@ In addition to the never-rewrite rules in §2.3:
 - Citations inside inline code spans (between backticks).
 - Citations on a declaration heading line. The marker is for citations, not declarations (§2.3).
 - Citations whose declaration cannot be located by the scanner. A dangling citation is a `grund check` error; `fmt` does not paper over it by emitting a link to a nonexistent file. Report the unwrapped citation; let `check` flag the underlying problem.
+- Citations in a suppressed scope — a file `[fmt] exclude` names, or a `grund:fmt off` region (§2.5) — with one exception: a kind's index entries are wrapped there anyway, because the always-linkify carve-out of §6.1 outranks the suppression (§2.5.3).
 
 ### 6.5 Interaction with `--marker`
 
@@ -193,6 +236,10 @@ anchor_format = "github"   # default; named renderer profile per §DF-md-link-an
 
 When `enabled = true`, the cross-reference pass runs on every `grund fmt` invocation whose rewrite scope contains at least one Markdown file, without requiring `--cross-refs`; dry-run and write mode make the same decision. Source-only scopes do not pay the full-project link-target scan because no file in that scope can be wrapped. When `enabled = false`, both modes skip link emission unless `--cross-refs` is passed for that invocation, apart from the index carve-out in §6.1. When a future `grund` adds a second markup family (the introduction to §6), that family's settings live under this same `[fmt.cross_refs]` block (a new key, or a sub-table such as `[fmt.cross_refs.asciidoc]`) — additive, so a v1 config that only set `anchor_format` keeps working and `grund_config_version` is unchanged ([§FS-config.5](FS-config.md#5-schema-versioning) bump rules).
 
+What is **not** here is the per-file opt-out: `[fmt] exclude` (§2.5.1) sits in the sibling `[fmt]` table because it governs every rewrite the command performs, not just this pass ([§DF-fmt-suppression.2.1](../decisions/functional/DF-fmt-suppression.md#21-one-general-fmt-exclude-not-one-exclude-per-pass)). Its files, and any `grund:fmt off` region (§2.5.2), are skipped by this pass with them — apart from a kind's index entries, which the §6.1 carve-out wraps regardless (§2.5.3).
+
 ### 6.8 Measurable
 
 E2E fixtures cover: wrap-on-first-run; dry-run/write parity when the default `enabled = true` causes both modes to run the cross-reference pass without the flag; source-only scopes skipping the default link-target scan in both modes; `enabled = false` preserving trigger-only behavior in both modes unless `--cross-refs` is passed, while the §6.1 index carve-out is still previewed and written; changed-line summary counts; no-op on second-run (idempotency); re-derive on heading rename (a wrap pointing at the old slug is rewritten to the new one in a single `fmt` pass); re-derive on file move; correct relative path across `docs/` subdirectories; a bare-ID citation linking to the declaration's own heading anchor ([§DF-declaration-anchor](../decisions/functional/DF-declaration-anchor.md#df-declaration-anchor-a-bare-id-markdown-link-points-at-the-declarations-heading-anchor)); source-file declaration link with no anchor; `anchor_format = "none"` produces file-only links; each named renderer profile (`github`, `gitlab`, `mkdocs`, `pandoc`) produces its expected slug for a curated heading set — for `github`, that set includes headings whose punctuation closes up into runs of `-` that GitHub keeps and a naive collapser would not (`## A — B` → `#a--b`; [§DF-github-anchor-fidelity](../decisions/functional/DF-github-anchor-fidelity.md#df-github-anchor-fidelity-the-github-anchor-profile-reproduces-github-slugger-exactly)) and a section heading that itself carries a citation, with another citation pointing at that section (the anchor derives from the heading's rendered text, so it is identical before and after `--cross-refs` wraps the heading's own citation — i.e. the wrap is idempotent over a citation that lives in a section heading); fenced-block exemption; dangling-citation skipped; declaration-line skipped; and `--cross-refs` without `--marker` on a tree containing both forms.
+
+The suppressed scopes of §2.5 carry their own fixtures: an excluded file silent in dry run and byte-identical under `--write` while its `check` and `refs` output is unchanged; a region protecting an HTML `<pre>` diagram while ordinary prose in the same file is still wrapped; all four rewrites suppressed in each scope, a typed `$$` trigger included; a directive inside a fenced block toggling nothing; an `off` with no `on` running to the end of the file; a stray `on` changing nothing; the source-file comment form; idempotency on a second pass; and a kind's index entries still wrapped under both scopes (§2.5.3).
