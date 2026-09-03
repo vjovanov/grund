@@ -435,3 +435,52 @@ fails once, after the last case, naming every mismatched case in discovery order
 under it — the same "account for and name every case, then decide once" shape the skip accounting above already
 uses. A fixture-validity error — a malformed manifest, an unreadable golden, a non-concise `expected.stderr` —
 still aborts at the case: the case itself cannot be judged, which is a harness error, not a verdict.
+
+### 9.1 A golden has one on-disk spelling
+
+A golden is bytes, and the harness is both their writer (`UPDATE_EXPECTED=1`)
+and their reader. Two spellings of one expectation are therefore one too many:
+the reader accepts both, the writer emits only one, and a refresh of any case
+rewrites every golden checked in in the other form — churn in cases the change
+never touched, to be reverted by hand or committed by accident. So each golden
+surface has exactly one canonical form:
+
+- an **output golden** (`expected.stdout`, `expected.stderr`) holds the run's
+  output with every `\r\n` folded to `\n`; empty output is a single `\n`, never
+  zero bytes;
+- an **exit golden** (`expected.exit`) holds the decimal exit code followed by
+  exactly one `\n`.
+
+**A refresh over an unchanged tree writes the bytes that are already there.**
+That is the invariant the canonical form exists for, and it is the one a
+contributor feels: `cargo test --test e2e`, then `UPDATE_EXPECTED=1 cargo test
+--test e2e`, leaves `git status --porcelain` empty. Refreshing one case leaves
+every other case's goldens byte-identical, so the diff of a golden update is the
+change and nothing else. It holds for `examples/` exactly as for
+`tests/e2e/cases/` — one harness writes both.
+
+**Why the newline and not zero bytes.** The canonical form is a fact about the
+tree rather than a preference. When this was settled, 469 of the 487 empty
+output goldens already carried a lone `\n` and 488 of the 491 exit goldens
+already ended in one, so keeping that form normalized 21 files where writing
+empty output as zero bytes instead would have rewritten 469. It is also the form
+`text eol=lf` in `.gitattributes` and every end-with-a-newline convention
+expect, and it keeps `\ No newline at end of file` out of the diff of a file a
+reviewer has to read as bytes.
+
+**What it costs, knowingly.** A whole-file `\n` means "no output", so a case
+whose real output is *exactly* one newline cannot be pinned: its golden reads
+back as empty and the case could never pass. No case in the tree needs that, and
+the alternative spelling would trade this one limitation for a golden that
+patches, editors and shells routinely mangle.
+
+**Checked, not remembered.** `goldens_are_in_canonical_form`
+(`crates/grund-cli/tests/e2e.rs`) walks every case under both roots and reads
+the bytes, never the reader's normalized string — through the reader the very
+difference under test disappears. It names every offending file in one failure
+with what is wrong with each, the same "account for every case, then decide
+once" shape as the pass above, so the tree can be normalized from the message
+alone. The writer's half is a property rather than a corpus:
+`crates/grund-cli/tests/support/case_golden_form.rs` writes each representative
+output, reads it back through the reader, and writes it again — the second write
+must produce the same bytes as the first.

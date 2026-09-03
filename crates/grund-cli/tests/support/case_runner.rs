@@ -55,6 +55,9 @@ include!("case_stderr.rs");
 // The comparison-and-report half, in a file of its own (§AR-core-module-layout.3).
 include!("case_report.rs");
 
+// The golden-form half, in a file of its own (§AR-core-module-layout.3).
+include!("case_golden_form.rs");
+
 pub fn discover_e2e_cases(manifest_dir: &Path) -> Vec<PathBuf> {
     let cases_dir = manifest_dir.join("tests/e2e/cases");
     let cases = discover_case_dirs(&cases_dir, |_| true);
