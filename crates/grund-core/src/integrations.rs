@@ -50,7 +50,10 @@ const VSCODE_PACKAGE_JSON: &str = include_str!("../assets/integrations/vscode/pa
 /// (§FS-config.3.6) under both discovery names (§FS-config.1), so a reported
 /// path is joined against the root that produced it, and reveals a
 /// directory-backed case in the Explorer, having no line to open
-/// (§FS-show.2.4).
+/// (§FS-show.2.4). Its document and terminal matchers, and the strip before a
+/// resolution, follow the citation-token rules every client shares: no hardcoded
+/// marker, and the `.<section>` suffix preserved so a subsection click lands on
+/// that section rather than the declaration heading (§FS-integrations.3.1).
 const VSCODE_EXTENSION_JS: &str = include_str!("../assets/integrations/vscode/extension.js");
 
 /// The version stamped into the managed dotfile block markers (§FS-integrations.4.1).
