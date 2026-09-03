@@ -2,7 +2,9 @@
 /// pin what a run prints and writes; these pin the two recognizers underneath —
 /// which paths `[fmt] exclude` claims (§FS-fmt.2.5.1) and which lines are
 /// directives (§FS-fmt.2.5.2) — where a case per spelling would be a fixture
-/// tree per spelling.
+/// tree per spelling. The on-type cases at the end are here for the same reason:
+/// the LSP live transform honours both scopes (§FS-lsp.1.4), and what it takes to
+/// see one is the document above the cursor, not a tree on disk.
 #[cfg(test)]
 mod tests_fmt_suppression {
     use super::*;
@@ -133,5 +135,111 @@ mod tests_fmt_suppression {
         assert!(!directives.rewriting(), "a redundant `off` changes nothing");
         assert!(directives.consume("<!-- grund:fmt on -->", DocstringContent::default()));
         assert!(directives.rewriting());
+    }
+
+    /// A repository whose config is `extra` plus the `{kind}-{number}-{slug}`
+    /// grammar the shorthand needs, with `FS-042-user-login` declared in it.
+    fn suppression_repo(name: &str, extra: &str) -> PathBuf {
+        let root = test_root(name);
+        write(
+            &root.join(".agents/grund.toml"),
+            &format!(
+                "grund_config_version = 1\n[id]\nformat = \"{{kind}}-{{number}}-{{slug}}\"\n{extra}"
+            ),
+        );
+        write(
+            &root.join("docs/functional-spec/FS-042-user-login.md"),
+            "# FS-042-user-login: User login\n\nLead.\n",
+        );
+        root
+    }
+
+
+    /// Replay `typed` one character at a time onto `prefix`, on the line after
+    /// `before`, applying each keystroke's edits as an LSP client would — the
+    /// harness `tests_shorthand_rewrite` uses, kept here because what these cases
+    /// vary is the document *above* the cursor and the config beside it, which is
+    /// the only place a suppressed scope is visible from.
+    fn type_line_in(root: &Path, file: &str, before: &str, prefix: &str, typed: &str) -> String {
+        let path = root.join(file);
+        let declarations = vec![DeclaredId {
+            path: root.as_ref(),
+            id: "FS-042-user-login",
+        }];
+        let line_index = before.lines().count();
+        let mut line = String::from(prefix);
+        for ch in typed.chars() {
+            line.push(ch);
+            let text = format!("{before}{line}");
+            let edits = on_type_line_edits(&path, &text, line_index, line.len(), &declarations)
+                .expect("on-type edits");
+            // Highest offset first, so an earlier edit's span stays valid.
+            for edit in edits.iter().rev() {
+                line.replace_range(edit.start..edit.end, &edit.text);
+            }
+        }
+        line
+    }
+
+    /// §FS-lsp.1.4, §FS-fmt.2.5.2: the live transform refuses a suppressed region
+    /// exactly as `grund fmt` does. The case is the one the scopes exist for — a
+    /// diagram whose alignment is the document — and the editor is where that
+    /// diagram is actually edited, so an on-type expansion here would splice a
+    /// slug into the column the region was written to protect.
+    #[test]
+    fn on_type_refuses_a_shorthand_inside_a_suppressed_region() {
+        let root = suppression_repo("on_type_refuses_a_shorthand_inside_a_suppressed_region", "");
+        let diagram = "   | balancer | <-- agent --+-- ";
+
+        // Outside any region the expansion fires, as it always has.
+        assert_eq!(
+            type_line_in(&root, "docs/topo.md", "# Topology\n", diagram, "$$FS-042 ."),
+            format!("{diagram}\u{a7}FS-042-user-login .")
+        );
+        // Inside the region it does not. The trigger still converts the two
+        // characters just typed; only the expansion is withheld (§FS-lsp.1.4).
+        assert_eq!(
+            type_line_in(
+                &root,
+                "docs/topo.md",
+                "# Topology\n<!-- grund:fmt off -->\n",
+                diagram,
+                "$$FS-042 ."
+            ),
+            format!("{diagram}\u{a7}FS-042 .")
+        );
+        // …and fires again once the region has closed.
+        assert_eq!(
+            type_line_in(
+                &root,
+                "docs/topo.md",
+                "# Topology\n<!-- grund:fmt off -->\ndiagram\n<!-- grund:fmt on -->\n",
+                diagram,
+                "$$FS-042 ."
+            ),
+            format!("{diagram}\u{a7}FS-042-user-login .")
+        );
+    }
+
+    /// §FS-lsp.1.4, §FS-fmt.2.5.1: and the live transform refuses every line of a
+    /// file the `[fmt] exclude` list names, which no line of that file can reveal
+    /// on its own — the verdict is the config's, so the transform reads it there.
+    #[test]
+    fn on_type_refuses_a_shorthand_in_an_excluded_file() {
+        let root = suppression_repo(
+            "on_type_refuses_a_shorthand_in_an_excluded_file",
+            "[fmt]\nexclude = [\"docs/AR-001-topo.md\"]\n",
+        );
+
+        assert_eq!(
+            type_line_in(&root, "docs/AR-001-topo.md", "# Topology\n", "See ", "$$FS-042 ."),
+            "See \u{a7}FS-042 ."
+        );
+        // A sibling the list does not name is rewritten as before: the exclusion
+        // is per file, not per project.
+        assert_eq!(
+            type_line_in(&root, "docs/notes.md", "# Notes\n", "See ", "$$FS-042 ."),
+            "See \u{a7}FS-042-user-login ."
+        );
     }
 }
