@@ -1,0 +1,67 @@
+grund_config_version = 1
+project_name = "repo"
+
+[reference]
+marker = "§"
+trigger = "$$"
+strict = false
+require_grounding = false
+
+[id]
+format = "{kind}-{number}-{slug}"
+section_separator = "."
+section_heading_levels = "strict"
+number_pattern = "\\d+"
+slug_pattern = "[a-z0-9][a-z0-9-]*"
+
+[[kinds]]
+kind = "G"
+folder = "docs/goals"
+title = "Where: project direction and outcomes"
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+title = "What: behavior, requirements, and constraints"
+
+[[kinds]]
+kind = "AR"
+folder = "docs/architecture"
+title = "How: high-level implementation, structure, and design"
+
+[[kinds]]
+kind = "DF"
+folder = "docs/decisions/functional"
+title = "Product behavior decisions and tradeoffs"
+
+[[kinds]]
+kind = "DA"
+folder = "docs/decisions/architectural"
+title = "Architecture decisions and tradeoffs"
+
+[[kinds]]
+kind = "E2E"
+folder = "e2e/cases"
+title = "Executable user scenarios"
+
+[[kinds]]
+kind = "RM"
+folder = "docs"
+title = "Planned milestones and sequencing"
+
+[scan]
+include = ["docs", "e2e", "src"]
+exclude = ["target", "node_modules", ".git", "dist", "build", ".venv"]
+extensions = ["md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb", "php", "cs"]
+comment_prefixes = ["//", "#", ";", "--", "*", "/*"]
+docstring_python = true
+respect_gitignore = true
+
+[output]
+format = "text"
+color = "auto"
+relative_paths = true
+
+[fmt.cross_refs]
+enabled = true
+anchor_format = "github"

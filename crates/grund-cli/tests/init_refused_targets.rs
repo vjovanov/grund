@@ -153,6 +153,7 @@ fn home_directory_refusal_is_lifted_by_no_flag() {
         vec!["--force"],
         vec!["--force", "--no-vcs"],
         vec!["--dry-run", "--no-vcs"],
+        vec!["--check", "--no-vcs"],
     ] {
         let mut args = flags.clone();
         args.push(home.to_str().unwrap());
@@ -217,6 +218,31 @@ fn dry_run_reports_the_refusal_rather_than_a_preview() {
     assert!(
         !message.contains("would-write"),
         "a preview of a run that would be refused is that refusal: {message}"
+    );
+}
+
+#[test]
+fn check_reports_the_refusal_and_keeps_its_exit_code() {
+    // A refusal is not a finding: `2` still wins over the `1` `--check` earns
+    // for a pending change (§FS-init.4).
+    let target = outside_repo_dir("check_refused");
+    let home = outside_repo_dir("check_refused_home");
+
+    let output = run_init(&["--check", target.to_str().unwrap()], Some(&home));
+
+    assert_eq!(output.status.code(), Some(2), "{}", stderr(&output));
+    let message = stderr(&output);
+    assert!(
+        message.contains("is not inside a version-controlled tree"),
+        "{message}"
+    );
+    assert!(
+        !message.contains("would-write"),
+        "a gate over a run that would be refused is that refusal: {message}"
+    );
+    assert!(
+        !target.join("AGENTS.md").exists() && !target.join("grund.toml").exists(),
+        "a refused run wrote files"
     );
 }
 
