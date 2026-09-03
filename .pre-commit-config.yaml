@@ -101,12 +101,15 @@ repos:
       # URLs where a sentence needs an address (§REQ-shipped-surfaces.1), and
       # both homes are `scan = false`, so `grund check` never looks at them and
       # this hook is the only thing keeping those addresses resolvable
-      # (§REQ-shipped-surfaces.3). Their embedded copies under
-      # `crates/grund-core/assets/` need no separate pass —
-      # `tests/integration/test_asset_sync.py` pins them byte-identical to these.
+      # (§REQ-shipped-surfaces.3). `templates/grund.toml` is named on its own
+      # because a directory argument yields only the markup files under it, and
+      # it is the one URL-carrying file in either home that is not Markdown.
+      # Their embedded copies under `crates/grund-core/assets/` need no separate
+      # pass — `tests/integration/test_asset_sync.py` pins them byte-identical
+      # to these.
       - id: lychee
         name: lychee
-        entry: lychee --no-progress --include-fragments README.md docs examples skills templates
+        entry: lychee --no-progress --include-fragments README.md docs examples skills templates templates/grund.toml
         language: system
         pass_filenames: false
         always_run: true
