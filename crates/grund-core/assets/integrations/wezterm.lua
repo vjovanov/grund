@@ -1,9 +1,9 @@
 -- grund citation integration for WezTerm.
 -- Makes a §<ID> citation in the terminal Ctrl/Cmd-clickable: the click resolves
 -- the citation with `grund` and opens the declaration in your editor via the
--- installed `grund-open` resolver (§FS-integrations). The location an agent
--- prints beside a citation — plain `path:line` text — is clickable the same
--- way, opening the editor at that line.
+-- installed `grund-open` resolver. The location an agent prints beside a
+-- citation — plain `path:line` text — is clickable the same way, opening the
+-- editor at that line.
 --
 -- WezTerm applies hyperlink rules only from the config object you return, so add
 -- one line where you build your config:
@@ -51,12 +51,12 @@ local wezterm = require 'wezterm'
 grund_citation_pattern =
   '[^\\w\\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z][A-Z0-9]*-[a-z0-9][a-z0-9-]*(?:\\.[0-9]+)*'
 
--- The *location* beside a citation (§FS-integrations.3.1): the `link`
--- conversation form prints `§<ID> path:line`, and WezTerm's default rules
--- match URLs only, so the location half would be inert text. A final path
--- segment with a dot-extension and a :line (optionally :col) suffix is a
--- location; grund-open tells the two shapes apart itself — an ID's section
--- suffix is dotted, never coloned — so both rules share one handler.
+-- The *location* beside a citation: the `link` conversation form prints `§<ID>
+-- path:line`, and WezTerm's default rules match URLs only, so the location half
+-- would be inert text. A final path segment with a dot-extension and a :line
+-- (optionally :col) suffix is a location; grund-open tells the two shapes apart
+-- itself — an ID's section suffix is dotted, never coloned — so both rules
+-- share one handler.
 grund_location_pattern =
   '(?:[A-Za-z0-9_.~-]+/)*[A-Za-z0-9_.~-]+\\.[A-Za-z0-9]+:[0-9]+(?::[0-9]+)?'
 
@@ -65,9 +65,9 @@ grund_location_pattern =
 function grund_apply_hyperlink_rule(config)
   config.hyperlink_rules = config.hyperlink_rules or wezterm.default_hyperlink_rules()
   -- Location before citation: rules are applied in order, and the citation
-  -- matcher false-positives on ID-shaped path segments (§FS-integrations.3.1).
-  -- Registered first, the location rule claims the whole `path:line` as one
-  -- correct link before that fragment can form inside it.
+  -- matcher false-positives on ID-shaped path segments. Registered first, the
+  -- location rule claims the whole `path:line` as one correct link before that
+  -- fragment can form inside it.
   table.insert(config.hyperlink_rules, {
     regex = grund_location_pattern,
     format = 'grund:$0',
@@ -84,16 +84,16 @@ function grund_apply_hyperlink_rule(config)
   -- mouse_reporting = true — WezTerm ignores user mouse bindings while the
   -- foreground program has captured the mouse, and the very programs that
   -- print citations (Claude Code, other agent TUIs, editors) are mouse-
-  -- capturing full-screen apps (§FS-integrations.3.1).
+  -- capturing full-screen apps.
   config.mouse_bindings = config.mouse_bindings or {}
   table.insert(config.mouse_bindings, grund_open_mouse_binding(false))
   table.insert(config.mouse_bindings, grund_open_mouse_binding(true))
   table.insert(config.mouse_bindings, grund_peek_mouse_binding(false))
   table.insert(config.mouse_bindings, grund_peek_mouse_binding(true))
 
-  -- The keyboard path (§FS-integrations.3.3). ctrl+shift+p would mirror kitty's
-  -- peek key, but WezTerm binds it to the command palette, so peek takes `i`
-  -- for inspect; `g` is free and matches kitty's open key.
+  -- The keyboard path. ctrl+shift+p would mirror kitty's peek key, but WezTerm
+  -- binds it to the command palette, so peek takes `i` for inspect; `g` is free
+  -- and matches kitty's open key.
   config.keys = config.keys or {}
   table.insert(config.keys, { key = 'g', mods = 'CTRL|SHIFT', action = grund_quick_select(false) })
   table.insert(config.keys, { key = 'i', mods = 'CTRL|SHIFT', action = grund_quick_select(true) })
@@ -120,9 +120,9 @@ function grund_quick_select(peek)
 end
 
 -- Ctrl-click opens the declaration in your editor; Ctrl-Shift-click peeks at it
--- in a split pane instead (§FS-integrations.3.3). WezTerm has no hover event and
--- no link tooltip (wezterm/wezterm#4, open since 2018), so peek is the read-without-
--- leaving path here.
+-- in a split pane instead. WezTerm has no hover event and no link tooltip
+-- (wezterm/wezterm#4, open since 2018), so peek is the read-without-leaving
+-- path here.
 --
 -- Ctrl-click duplicates a WezTerm default on purpose: the default variant is
 -- inert inside a mouse-capturing TUI, and registering our own pair keeps the
@@ -158,10 +158,9 @@ function grund_peek_mouse_binding(mouse_reporting)
   }
 end
 
--- grund-open finds the repository by walking up from its working directory
--- (§FS-integrations.3.1), and the WezTerm GUI process's own cwd is wherever the
--- desktop launched it — so every spawn below must run in the *clicked pane's*
--- directory instead.
+-- grund-open finds the repository by walking up from its working directory, and
+-- the WezTerm GUI process's own cwd is wherever the desktop launched it — so
+-- every spawn below must run in the *clicked pane's* directory instead.
 --
 -- There is no single way to ask WezTerm for it. Newer builds answer
 -- `get_current_working_directory` with a Url object; older ones spell it
@@ -249,8 +248,7 @@ end
 -- A Flatpak-packaged WezTerm adds one more indirection: the sandbox's PATH is
 -- /app/bin:/usr/bin, so neither grund-open nor grund exists inside it. Its
 -- session-bus talk permission includes org.freedesktop.Flatpak, so the spawn
--- is handed back to the host through flatpak-spawn --host instead
--- (§FS-integrations.3.1).
+-- is handed back to the host through flatpak-spawn --host instead.
 --
 -- But only when *we* are the one spawning, from inside the sandbox. A pane
 -- command is spawned by WezTerm itself, and the Flatpak build already sends

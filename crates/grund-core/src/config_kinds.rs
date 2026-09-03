@@ -381,7 +381,7 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
         // every home. Any other row wearing it would collide with that fallback.
         if k.kind == CODE_SOURCE_KIND && !(!k.citable && k.folder.is_none() && k.file.is_none()) {
             return Err(anyhow!(
-                "{}: `{CODE_SOURCE_KIND}` names the homeless kind — a [[kinds]] entry may take it only with `citable = false` and no `folder` or `file` (§FS-config.3.9.2)",
+                "{}: `{CODE_SOURCE_KIND}` names the homeless kind — a [[kinds]] entry may take it only with `citable = false` and no `folder` or `file`",
                 format_path(path)
             ));
         }

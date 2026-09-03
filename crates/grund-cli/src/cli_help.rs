@@ -415,8 +415,10 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!();
             println!("PATH defaults to `.`; config is discovered by walking up from that path.");
+            // §FS-cli.6 — the rule the line states; a printed ID would name
+            // nothing in the reader's tree (§REQ-shipped-surfaces.1).
             println!(
-                "There is no `--config <file>` override — config is discovered, not pointed at (FS-cli.6)."
+                "There is no `--config <file>` override — config is discovered, not pointed at."
             );
             println!();
             println!(

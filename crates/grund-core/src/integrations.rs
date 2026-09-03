@@ -4,12 +4,53 @@
 /// only under `--write` as a managed marked block — the `completions`/`init`
 /// ethos (§DF-integrations-command). One implementation lives here and is called
 /// from both the live CLI and the deprecated compat frontend.
+///
+/// None of the payloads below cites anything. `--write` installs them into a
+/// user's dotfiles, where an ID of this repository names nothing that user has
+/// (§REQ-shipped-surfaces.1), so the grounding lives here instead — one doc
+/// comment per artifact, saying what each file is answering to, checked like
+/// every other citation in this tree (§REQ-shipped-surfaces.2).
+///
+/// The resolver every client shells out to, and the one artifact `--write`
+/// installs for all of them (§FS-integrations.3.4). It takes the clicked token,
+/// tells a citation from the `§<ID> path:line` location an agent prints beside
+/// one (§FS-integrations.3.1), finds the config root by climbing under either
+/// discovery name (§FS-config.1), reads `path` and `line` out of `--format
+/// json` — including the manifest shape a directory-backed case answers with
+/// (§FS-show.2.4) — and makes the path absolute, which grund's own reports
+/// never do (§FS-errors.4).
 const GRUND_OPEN_RESOLVER: &str = include_str!("../assets/integrations/grund-open");
+/// iTerm2 keeps its settings in a binary plist, so this one is printed for the
+/// user to apply by hand rather than spliced; `--write` still installs the
+/// resolver it depends on (§FS-integrations.3.4). Its Smart Selection rule
+/// stays citation-only because Semantic History already opens a bare
+/// `path:line`, which is what the `link` preference makes agents print
+/// (§FS-integrations.4.3) — the location matcher the other terminals need
+/// (§FS-integrations.3.1) would only compete with it.
 const ITERM2_SNIPPET: &str = include_str!("../assets/integrations/iterm2.txt");
+/// WezTerm: one hyperlink rule for the citation and one for the location beside
+/// it, registered location-first so the whole `path:line` wins over an
+/// ID-shaped fragment inside it (§FS-integrations.3.1). WezTerm has no hover
+/// event, so peek opens a split pane (§FS-integrations.3.3).
 const WEZTERM_SNIPPET: &str = include_str!("../assets/integrations/wezterm.lua");
+/// kitty: the `hints` kitten over the visible screen, matching the location
+/// ahead of the citation for the same reason WezTerm registers it first
+/// (§FS-integrations.3.1), with an overlay window as the read-without-leaving
+/// path kitty's missing hover leaves it (§FS-integrations.3.3).
 const KITTY_SNIPPET: &str = include_str!("../assets/integrations/kitty.conf");
+/// tmux cannot make text clickable at all, so a prefix key hands the copy
+/// buffer — citation or location alike, the resolver tells them apart
+/// (§FS-integrations.3.1) — to `grund-open`, and a second key reads the
+/// declaration in a popup over the session (§FS-integrations.3.3).
 const TMUX_SNIPPET: &str = include_str!("../assets/integrations/tmux.conf");
 const VSCODE_PACKAGE_JSON: &str = include_str!("../assets/integrations/vscode/package.json");
+/// VS Code is the one client that can show a declaration on *hover* rather than
+/// on click (§FS-integrations.3.3), and one `--brief` resolution serves both
+/// (§FS-integrations.3.2). The provider mirrors grund's own config-root climb
+/// (§FS-config.3.6) under both discovery names (§FS-config.1), so a reported
+/// path is joined against the root that produced it, and reveals a
+/// directory-backed case in the Explorer, having no line to open
+/// (§FS-show.2.4).
 const VSCODE_EXTENSION_JS: &str = include_str!("../assets/integrations/vscode/extension.js");
 
 /// The version stamped into the managed dotfile block markers (§FS-integrations.4.1).

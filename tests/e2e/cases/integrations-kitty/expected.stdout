@@ -6,7 +6,7 @@
 # grund citation integration for kitty.
 # kitty does not make arbitrary text clickable, so this binds keys that run the
 # "hints" kitten over the visible screen, match §<ID> citations, and hand the one
-# you pick to the installed `grund-open` resolver (§FS-integrations).
+# you pick to the installed `grund-open` resolver.
 # Paste into kitty.conf, or let `grund integrations kitty --write` manage it.
 #
 # Press ctrl+shift+p, then g to *go* to a citation, or i to *inspect* it.
@@ -23,8 +23,8 @@
 #
 # The regex is two alternatives sharing one resolver. The first is the
 # *location* an agent prints beside a citation — `path:line[:col]` with a
-# dot-extension (§FS-integrations.3.1) — listed first so the whole path is one
-# pick rather than an ID-shaped fragment inside it. The second is the citation:
+# dot-extension — listed first so the whole path is one pick rather than an
+# ID-shaped fragment inside it. The second is the citation:
 # its leading `[^\w\s]{1,3}` matches the marker without naming it, because
 # `[reference] marker` is per-repo while this file is user-global and installed
 # once — hardcoding § would leave every repo with a custom marker silently
@@ -42,7 +42,7 @@ map ctrl+shift+p>g kitten hints --type regex --regex '(?:[A-Za-z0-9_.~-]+/)*[A-Z
 # ctrl+shift+p then i *peeks* instead: the declaration — or, for a location,
 # the file from that line — opens in an overlay window over this one, and
 # closes when you quit the pager. kitty has no hover, so this is the
-# read-without-leaving path (§FS-integrations.3.3).
+# read-without-leaving path.
 map ctrl+shift+p>i kitten hints --type regex --regex '(?:[A-Za-z0-9_.~-]+/)*[A-Za-z0-9_.~-]+\.[A-Za-z0-9]+:[0-9]+(?::[0-9]+)?|[^\w\s]{1,3}(?:[a-z][a-z0-9-]*/)?[A-Z][A-Z0-9]*-[a-z0-9][a-z0-9-]*(?:\.[0-9]+)*' --program 'launch --type=overlay sh -c "PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\"; exec grund-open --peek \"$1\"" grund-open'
 
 # 2. Resolver — install grund-open to a directory on PATH (e.g. ~/.local/bin):
@@ -50,12 +50,12 @@ map ctrl+shift+p>i kitten hints --type regex --regex '(?:[A-Za-z0-9_.~-]+/)*[A-Z
 #!/bin/sh
 # grund-open — resolve a §<ID> citation to its cited line and open it.
 #
-# Installed by `grund integrations <client> --write` (§FS-integrations). A
-# terminal integration hands this script the clicked token; the script resolves
-# it with `grund` and opens the declaration in the user's editor. The editor is
-# GRUND_OPEN_CMD when set, else EDITOR, else a platform default — the user's
-# editor choice lives here, never in shared repository text. GRUND_OPEN_CMD is
-# an argv-style command prefix; use a wrapper executable for custom placement.
+# Installed by `grund integrations <client> --write`. A terminal integration
+# hands this script the clicked token; the script resolves it with `grund` and
+# opens the declaration in the user's editor. The editor is GRUND_OPEN_CMD when
+# set, else EDITOR, else a platform default — the user's editor choice lives
+# here, never in shared repository text. GRUND_OPEN_CMD is an argv-style command
+# prefix; use a wrapper executable for custom placement.
 #
 # With --peek it prints the declaration through a pager instead, for clients that
 # can put it in an overlay, popup, or split pane. Both modes share one resolution
@@ -73,12 +73,12 @@ fi
 token=${1:-}
 [ -n "$token" ] || { echo "grund-open: no citation given" >&2; exit 2; }
 
-# A *location* beside a citation — the `link` conversation form prints
-# `§<ID> path:line` (§FS-integrations.3.1) — is openable too. The shapes are
-# mechanically distinct: an ID's section suffix is dotted, never coloned, so a
-# token whose final dot-extension segment ends in `:<line>[:<col>]` is a
-# location. Detected before marker stripping, which would mangle a path; the
-# lighter clean below drops swept-in punctuation while preserving `/ . ~`.
+# A *location* beside a citation — the `link` conversation form prints `§<ID>
+# path:line` — is openable too. The shapes are mechanically distinct: an ID's
+# section suffix is dotted, never coloned, so a token whose final dot-extension
+# segment ends in `:<line>[:<col>]` is a location. Detected before marker
+# stripping, which would mangle a path; the lighter clean below drops swept-in
+# punctuation while preserving `/ . ~`.
 loc=$(printf '%s' "$token" | sed 's/^[^A-Za-z0-9_.~/]*//')
 loc_path=$(printf '%s' "$loc" | sed -n 's/^\(.*\.[A-Za-z0-9][A-Za-z0-9]*\):\([0-9][0-9]*\)\(:[0-9][0-9]*\)\{0,1\}$/\1/p')
 loc_line=$(printf '%s' "$loc" | sed -n 's/^\(.*\.[A-Za-z0-9][A-Za-z0-9]*\):\([0-9][0-9]*\)\(:[0-9][0-9]*\)\{0,1\}$/\2/p')
@@ -120,18 +120,17 @@ if [ -z "$path" ]; then
 id=$(printf '%s' "$token" | sed 's/^[^A-Za-z0-9]*//')
 [ -n "$id" ] || { echo "grund-open: empty id in '$token'" >&2; exit 2; }
 
-# Find the root and resolve in one climb (§FS-integrations.3.1). The terminal
-# hands us a token, never a directory, so the click may arrive with the shell
-# anywhere in the tree. Try every ancestor holding a config under either
-# discovery name (§FS-config.1) — a repository on the bare root `grund.toml`
-# `grund init` generates is as much a config root as one on `.agents/`, and
-# probing only the latter would leave every default-form repository
-# unclickable. Which name is found does not matter here: both name the same
-# config root, and `grund` itself re-runs the same discovery from that
-# directory. Nearest first — nearest alone is not enough: from inside a workspace member
-# the member's config resolves its own bare IDs, but a workspace-qualified
-# `<alias>/<ID>` only resolves from the workspace root above it, so on failure
-# the climb continues upward instead of giving up.
+# Find the root and resolve in one climb. The terminal hands us a token, never a
+# directory, so the click may arrive with the shell anywhere in the tree. Try
+# every ancestor holding a config under either discovery name — a repository on
+# the bare root `grund.toml` `grund init` generates is as much a config root as
+# one on `.agents/`, and probing only the latter would leave every default-form
+# repository unclickable. Which name is found does not matter here: both name
+# the same config root, and `grund` itself re-runs the same discovery from that
+# directory. Nearest first — nearest alone is not enough: from inside a
+# workspace member the member's config resolves its own bare IDs, but a
+# workspace-qualified `<alias>/<ID>` only resolves from the workspace root above
+# it, so on failure the climb continues upward instead of giving up.
 #
 # `grund <ID>[.<section>] --format json` emits one object whose `path` is
 # relative to the root it ran in and whose `line` is the cited section's line,
@@ -160,9 +159,9 @@ done
 # Anchor both extractions to the end of the object: `body` carries arbitrary
 # declaration prose that may itself contain `"path":` or `"line":`, and an
 # unanchored match would happily read that instead of the real field. A
-# directory-backed E2E declaration answers with the manifest shape instead
-# (§FS-show.2.4) — no `body` and no `"line"` — so its fallback anchors on the
-# grund-controlled prefix, and the case *directory* is what opens.
+# directory-backed E2E declaration answers with the manifest shape instead — no
+# `body` and no `"line"` — so its fallback anchors on the grund-controlled
+# prefix, and the case *directory* is what opens.
 path=$(printf '%s\n' "$json" | sed -n 's/.*"path":"\([^"]*\)","line":[0-9]*}$/\1/p')
 lineno=$(printf '%s\n' "$json" | sed -n 's/.*,"line":\([0-9]*\)}$/\1/p')
 if [ -z "$path" ]; then
@@ -172,8 +171,8 @@ fi
 [ -n "$path" ] || { echo "grund-open: could not resolve path for '$id'" >&2; exit 1; }
 lineno=${lineno:-1}
 
-# Hand the editor an absolute path. `grund` never emits one (§FS-errors.4 keeps
-# reports deterministic); composing it here is what makes the click work from a
+# Hand the editor an absolute path. `grund` never emits one — reports stay
+# deterministic; composing it here is what makes the click work from a
 # subdirectory. An E2E case resolves to its directory, where a `:line` suffix
 # would garble the argument, so the target drops it.
 path="$root/$path"
