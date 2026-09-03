@@ -45,6 +45,33 @@ mod tests_fmt_suppression {
         }
     }
 
+    /// §FS-fmt.2.5.1: the verdict is about the file, not about the spelling of the
+    /// path that reached it. The walk's paths are built from the config root and
+    /// always strip; an LSP client's are the editor's, and the root was
+    /// canonicalized when the config loaded, so the two differ wherever a symlink
+    /// stands between them — which is every macOS `$TMPDIR` and any repository
+    /// reached through a link — and the rewrite would be let through in the one
+    /// file the config named (§FS-lsp.1.4).
+    #[cfg(unix)]
+    #[test]
+    fn exclude_claims_a_file_reached_through_a_symlinked_root() {
+        let base = physical_test_root("exclude_claims_a_file_reached_through_a_symlinked_root");
+        let project = base.join("project");
+        write(&project.join("docs/AR-001-topo.md"), "# Topology\n");
+        let link = base.join("through-a-link");
+        std::os::unix::fs::symlink(&project, &link).expect("symlink the project root");
+
+        let matcher = excluded(&project, &["docs/AR-001-topo.md"]);
+        assert!(
+            matcher.contains(&link.join("docs/AR-001-topo.md")),
+            "the excluded file is excluded however the path reached it"
+        );
+        assert!(
+            !matcher.contains(&link.join("docs/notes.md")),
+            "and the resolution claims no file the list did not name"
+        );
+    }
+
     /// A config that set no key pays for nothing and claims nothing — the state
     /// every repository written before §FS-config.3.10 existed is in.
     #[test]
