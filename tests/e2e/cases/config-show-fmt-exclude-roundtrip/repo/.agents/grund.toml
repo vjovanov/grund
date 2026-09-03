@@ -1,0 +1,4 @@
+grund_config_version = 1
+
+[fmt]
+exclude = ["docs/architecture/AR-001-topology.md", "docs/diagrams"]

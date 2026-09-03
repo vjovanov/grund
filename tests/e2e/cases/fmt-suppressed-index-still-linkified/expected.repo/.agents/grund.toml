@@ -1,0 +1,14 @@
+grund_config_version = 1
+
+[fmt]
+exclude = ["docs/functional-spec/README.md"]
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+title = "Spec"
+
+[[kinds]]
+kind = "AR"
+folder = "docs/architecture"
+title = "Architecture"

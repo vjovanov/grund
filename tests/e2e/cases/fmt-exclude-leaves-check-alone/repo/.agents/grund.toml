@@ -1,0 +1,9 @@
+grund_config_version = 1
+
+[fmt]
+exclude = ["docs/functional-spec/FS-001-alpha.md"]
+
+[[kinds]]
+kind = "FS"
+folder = "docs/functional-spec"
+index = false
