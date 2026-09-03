@@ -57,7 +57,7 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 
 ### Citation directions
 
-`must`/`never` are `grund check` errors; `should`/`avoid` are suggestions (`grund check --suggestions`). Every source file must cite a declared ID or declare one inline; every file under tests/e2e/, tests/integration/, skills/, examples/, .github/workflows/, and scripts/ must cite one.
+`must`/`never` are `grund check` errors; `should`/`avoid` are suggestions (`grund check --suggestions`). Every source file must cite a declared ID or declare one inline; every file under tests/e2e/, tests/integration/, examples/, .github/workflows/, and scripts/ must cite one.
 
 - Each **GOAL** declaration should cite GRUND or GOAL.
 - Each **FS** declaration should cite GOAL or FS; never cite AR.
@@ -67,7 +67,6 @@ Declarations are heading lines `# FS-user-login: …` in markdown. In a code doc
 - Each **DA** declaration should cite AR or FS.
 - Each file in **tests/e2e/** must cite FS; avoid citing AR.
 - Each file in **tests/integration/** should cite AR.
-- Each file in **skills/** must cite FS; never cite AR.
 - Each file in **examples/** must cite FS; never cite AR.
 - Each file in **.github/workflows/** should cite FS or AR.
 - Each file in **scripts/** should cite FS or AR.

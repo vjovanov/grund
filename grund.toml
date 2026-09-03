@@ -92,12 +92,19 @@ title = "Design discussions and proposals"
 
 # A place, not an ID namespace (FS-config.3.4.1): `skills/` holds agent-facing
 # instructions, not specification, so its files declare nothing and its home is
-# named by its path everywhere it is shown. Being a home is also what puts it in
-# the scan scope — `[scan] include` below does not name it (FS-config.3.5).
+# named by its path everywhere it is shown. Listed, not walked (FS-config.3.4.7),
+# for the same reason `templates` below is: `grund agent-setup-instructions`
+# prints `grund-init/SKILL.md` byte-for-byte into a foreign repository (FS-init.5),
+# so a citation here would ship as a dangling reference to a declaration that
+# repository does not have (REQ-shipped-surfaces.2). Nothing in this directory is
+# this repository's to check, and the row in the Project map is what an agent
+# needs. There is no `[citations.skill]` table below for the same reason — an
+# unwalked kind cannot be a citing kind (FS-config.3.4.7).
 [[kinds]]
 kind = "skill"
 folder = "skills"
 citable = false
+scan = false
 title = "Agent review and automation skills"
 
 # Four more places (FS-config.3.4.1), each named by its path in the Project map.
@@ -144,8 +151,8 @@ title = "Init scaffold templates: what grund init writes, verbatim"
 # README.md and AGENTS.md are cited surfaces too — scanned so their citations
 # are checked, not decorative (REQ-readme.3, REQ-agents-md.4). Every `[[kinds]]`
 # home is walked by construction (FS-config.3.5), so the test homes, `examples`,
-# `.github/workflows`, and `scripts` are not repeated here; `templates` is a
-# home too, and one the config lists without walking.
+# `.github/workflows`, and `scripts` are not repeated here; `skills` and
+# `templates` are homes too, and ones the config lists without walking.
 include = ["docs", "src", "crates", "README.md", "AGENTS.md"]
 # `repo` / `expected.repo`: the e2e fixture trees under `tests/e2e/cases/*/` are
 # test inputs, not this project's code — keep them out of the host scan so strict
@@ -208,13 +215,6 @@ should-not = ["AR"]
 # An integration test proves the How: that the parts fit as designed.
 [citations.integration]
 should = ["AR"]
-
-# A skill tells an agent what to do; the spec is what makes that checkable, so a
-# skill file names the behaviour it drives. Never AR: a skill is a user-facing
-# procedure, and one written against the implementation rots with it.
-[citations.skill]
-must = ["FS"]
-must-not = ["AR"]
 
 # An example is a user-facing walkthrough of the What, so it names the FS point
 # it teaches and never the design.
