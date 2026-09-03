@@ -8,7 +8,7 @@ Goals say what matters and requirements say what must never break; this page nam
 - Functional specs own observable behavior.
 - Architecture and CI specs own harness shape.
 - E2E cases and benchmark reports own examples, baselines, and regression gates.
-- Integration tests (`tests/integration/`) own the proofs that span more than one part: that the server publishes what the CLI prints ([AR-lsp.5](AR-lsp.md#5-determinism-and-parity-tests)), that the frontends stay isolated ([AR-bindings.1](AR-bindings.md#1-target-workspace-layout)), that CI runs what pre-commit runs ([AR-ci.1](AR-ci.md#1-pre-commit-is-the-source-of-truth)), that the embedded assets match the tree, that every goal and requirement on this page is metered, that every path an architecture page names exists, that a report is the same bytes at any thread count, and that every host language has its dangling proof.
+- Integration tests (`tests/integration/`) own the proofs that span more than one part: that the server publishes what the CLI prints ([AR-lsp.5](AR-lsp.md#5-determinism-and-parity-tests)), that the frontends stay isolated ([AR-bindings.1](AR-bindings.md#1-target-workspace-layout)), that CI runs what pre-commit runs ([AR-ci.1](AR-ci.md#1-pre-commit-is-the-source-of-truth)), that the embedded assets match the tree, that nothing they ship names an ID of this repository ([§REQ-shipped-surfaces.3](../requirements/REQ-shipped-surfaces.md#3-checked-not-remembered)), that every goal and requirement on this page is metered, that every path an architecture page names exists, that a report is the same bytes at any thread count, and that every host language has its dangling proof.
 
 ## 2. Goal meters
 

@@ -90,7 +90,7 @@ relative_paths = true
 enabled = true
 anchor_format = "github" # github | gitlab | mkdocs | pandoc | none
 
-# Citation directions (FS-config.3.9): encode which kinds may cite which, with
+# Citation directions: encode which kinds may cite which, with
 # RFC-2119 levels. Entries in one array are all required; `|` inside one entry
 # means any one alternative. See
 # https://github.com/vjovanov/grund/blob/main/docs/user-facing/citation-directions.md
