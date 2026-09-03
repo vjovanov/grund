@@ -375,12 +375,20 @@ fn has_canonical_kind_prefix(reference: &str) -> bool {
     })
 }
 
+/// Write one golden in the single on-disk spelling it is allowed to have
+/// (§AR-workspace.9.1): the run's output with every `\r\n` folded to `\n`, and
+/// empty output as one `\n` rather than zero bytes. The fold is what the reader
+/// already does to whatever it finds, so writing it is what makes a refresh over
+/// an unchanged tree rewrite nothing — a writer that emitted the run's own line
+/// endings would rewrite every golden in the tree on a platform that produces
+/// CRLF, none of them the case the refresh was about.
 fn write_expected(path: &Path, content: &str) {
     let is_exit = path.extension().and_then(|s| s.to_str()) == Some("exit");
-    let body = if content.is_empty() && !is_exit {
+    let folded = content.replace("\r\n", "\n");
+    let body = if folded.is_empty() && !is_exit {
         "\n".to_string()
     } else {
-        content.to_string()
+        folded
     };
     fs::write(path, body).unwrap_or_else(|err| panic!("write {}: {err}", path.display()));
 }
