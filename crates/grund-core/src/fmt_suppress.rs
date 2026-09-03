@@ -46,12 +46,36 @@ impl FmtExcluded {
         let Some(matcher) = &self.matcher else {
             return false;
         };
-        let Ok(relative) = path.strip_prefix(&self.root) else {
+        let Some(relative) = self.rebase(path) else {
             return false;
         };
         matcher
-            .matched_path_or_any_parents(relative, false)
+            .matched_path_or_any_parents(&relative, false)
             .is_ignore()
+    }
+
+    /// `path` as the patterns see it: relative to the config root. The walk builds
+    /// every path out of the root itself, so the prefix strips outright and
+    /// nothing further is asked of it (§GOAL-fast-feedback).
+    ///
+    /// An editor does not. The LSP hands in the path its client opened, and the
+    /// config root was canonicalized when it was loaded (§FS-config.1), so the two
+    /// name one file in two spellings wherever a symlink stands between them — a
+    /// `/var` `$TMPDIR` on macOS, a short filename on Windows, any repository
+    /// reached through a link — and a strip of the literal prefix would let the
+    /// rewrite through in exactly the file the config took out of its reach. So
+    /// the strip is retried with both sides resolved the way the LSP resolves a
+    /// request URI (§AR-lsp.5), which does not require the file to exist yet. A
+    /// path genuinely outside the root is still not excluded rather than guessed
+    /// about.
+    fn rebase(&self, path: &Path) -> Option<PathBuf> {
+        if let Ok(relative) = path.strip_prefix(&self.root) {
+            return Some(relative.to_path_buf());
+        }
+        canonical_snapshot_path(path)
+            .strip_prefix(canonical_snapshot_path(&self.root))
+            .ok()
+            .map(Path::to_path_buf)
     }
 }
 
