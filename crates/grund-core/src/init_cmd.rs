@@ -1,3 +1,25 @@
+/// The deprecated `main_entry()` adapter for `grund init` (§AR-bindings.2): the
+/// argument parsing, the verdict, and the stderr rendering that only this path
+/// uses. The shipped CLI carries its own copy in `grund-cli`; this is the half
+/// of `init` that is a *command* rather than the library function `init()`
+/// beside it, which is why it sits in its own file the way `checker_cmd.rs`,
+/// `config_cmd.rs` and `fmt_cmd.rs` do.
+///
+/// `grund init [path] [--name N] [--docs] [--force] [--dry-run] [--check] [agent flags]` —
+/// scaffold a repo for `grund` (§FS-init.1): write or update the selected agent
+/// entrypoint(s) and `grund.toml` (and, with `--docs`, the `docs/`+`e2e/`
+/// tree, §FS-init.2.1), preserve an existing repo's agent-entrypoint choice by
+/// default (§FS-init.2.1), refuse to clobber edited scaffold files without
+/// `--force` — and never overwrite an existing `grund.toml`, in either discovery
+/// location (§FS-config.1), even with `--force`, since that file is the user's
+/// config (§FS-init.3) — print a `next:`
+/// block (suppressed when every reported path is `exists `, §FS-init.2.2), and
+/// exit `2` on a missing target / refused target (§FS-init.1.2) / CLI error /
+/// unsupported block version
+/// (§FS-init.4). Non-interactive — every choice is a flag (§FS-non-goals.10).
+/// With `--dry-run`, every line is reported with a `would-` prefix and nothing
+/// is written to disk; `--check` prints that same report and exits `1` when any
+/// line of it is a `would-` (§FS-init.4).
 fn command_init(args: &[String]) -> ExitCode {
     let mut path: Option<PathBuf> = None;
     let mut name: Option<String> = None;
@@ -14,13 +36,11 @@ fn command_init(args: &[String]) -> ExitCode {
             "--docs" => docs = true,
             "--force" => force = true,
             "--dry-run" => dry_run = true,
-            // §FS-init.1: the same preview, taken as a verdict.
             "--check" => check = true,
             "--no-vcs" => no_vcs = true,
             "--agents-md" => agent_selection.canonical = true,
             "--claude" => agent_selection.claude = true,
             "--gemini" => agent_selection.gemini = true,
-            "--pi" => agent_selection.pi = true,
             "--copilot" => agent_selection.copilot = true,
             "--cursor" => agent_selection.cursor = true,
             "--windsurf" => agent_selection.windsurf = true,
@@ -61,6 +81,7 @@ fn command_init(args: &[String]) -> ExitCode {
         }
         idx += 1;
     }
+
     let output = match init(InitOpts {
         target: path.unwrap_or_else(|| PathBuf::from(".")),
         name,
@@ -73,72 +94,33 @@ fn command_init(args: &[String]) -> ExitCode {
         agent_selection,
     }) {
         Ok(output) => output,
-        // §FS-init.4: `2` wins over `1` — a run that could not be performed
-        // produced no report to gate on.
         Err(err) => {
-            render_init_output(&err.output);
+            print_init_output(&err.output);
             eprintln!("error: {err}");
             return ExitCode::from(2);
         }
     };
-    render_init_output(&output);
-    // §FS-init.4: `--check` draws its verdict from the report it just printed —
-    // `1` when any reported path was a `would-…`, nothing else. `--dry-run`
-    // alone keeps `0` (§REQ-backwards-compatibility.1).
+    print_init_output(&output);
+    // §FS-init.4: the verdict is drawn from the report that was just printed,
+    // and only `--check` asks for one — `--dry-run` alone keeps its `0`.
     if check && output.has_pending_changes() {
         return ExitCode::from(1);
     }
     ExitCode::SUCCESS
 }
 
-fn render_init_output(output: &InitOutput) {
+fn print_init_output(output: &InitOutput) {
     for event in &output.events {
         eprintln!("{} {}", event.verb, event.path);
     }
-    // §FS-init.2.3.4.17: reported, never fatal — a note names something the run
-    // could not do that the caller would otherwise have to notice for itself.
     for note in &output.notes {
         eprintln!("note: {note}");
     }
     if let Some(next) = &output.next {
-        render_init_next(next);
+        print_next_block_for_home(next.docs, Some(&next.entrypoint), &next.fs_home);
     }
 }
 
-fn render_init_next(next: &InitNext) {
-    eprintln!();
-    eprintln!("next:");
-    if next.docs {
-        eprintln!("  1. run `grund check` — a freshly scaffolded tree is clean");
-        match &next.fs_home {
-            InitFsHome::File { path, heading_name, heading_marker } => {
-                eprintln!("  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}");
-                eprintln!(
-                    "     ({heading_name}: `{heading_marker} <ID>: <one-line statement of the behavior>`)"
-                );
-            }
-            InitFsHome::Folder { path } => {
-                eprintln!("  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}");
-                eprintln!("     (H1: `# <ID>: <one-line statement of the behavior>`)");
-            }
-        }
-        eprintln!(
-            "  3. cite it as §<ID> from the docs and e2e tests that depend on it, then `grund check` again"
-        );
-    } else {
-        let fs_home_path = match &next.fs_home {
-            InitFsHome::File { path, .. } | InitFsHome::Folder { path } => path,
-        };
-        eprintln!("  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and tests/ (or create them yourself) — until then `grund check` has nothing to scan");
-        eprintln!("  2. run `grund check` — a scaffolded tree is clean");
-        match &next.fs_home {
-            InitFsHome::File { path, .. } => {
-                eprintln!("  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}");
-            }
-            InitFsHome::Folder { path } => {
-                eprintln!("  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}");
-            }
-        }
-    }
-    eprintln!("see {} for the full workflow.", next.entrypoint);
+fn print_next_block_for_home(docs: bool, entrypoint: Option<&str>, fs_home: &InitFsHome) {
+    eprint!("{}", render_next_block_for_home(docs, entrypoint, fs_home));
 }

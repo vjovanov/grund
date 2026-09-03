@@ -8,6 +8,11 @@ pub struct InitOpts {
     pub docs: bool,
     pub force: bool,
     pub dry_run: bool,
+    /// `--check` — the `--dry-run` preview taken as a verdict (§FS-init.1):
+    /// writes nothing, reports what `--dry-run` reports, and leaves the caller
+    /// to exit `1` when any reported event is a change (§FS-init.4). It implies
+    /// `dry_run` inside `init` rather than opening a second path through it.
+    pub check: bool,
     /// `--no-vcs` — scaffold into a target no version-control marker covers
     /// (§FS-init.1.2). Lifts that rule and only that one; it is not `--force`,
     /// which decides whether files `init` owns get overwritten (§FS-init.3).
@@ -24,6 +29,7 @@ impl Default for InitOpts {
             docs: false,
             force: false,
             dry_run: false,
+            check: false,
             no_vcs: false,
             agent_selection: InitAgentEntrypointSelection::default(),
         }
@@ -34,6 +40,17 @@ impl Default for InitOpts {
 pub struct InitEvent {
     pub verb: &'static str,
     pub path: String,
+}
+
+impl InitEvent {
+    /// Whether this event reports work rather than a path that was already
+    /// current. Every verb but `exists` is a change — `wrote`/`appended`/
+    /// `updated` and their `would-` forms alike. The one definition of the
+    /// predicate: it suppresses the `next:` block (§FS-init.2.2) and it decides
+    /// the `--check` exit code (§FS-init.4), which is why those two agree.
+    pub fn is_change(&self) -> bool {
+        self.verb != "exists"
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -56,6 +73,16 @@ pub struct InitOutput {
     /// notice for itself (§FS-init.2.3.4.17). Reported, never fatal.
     pub notes: Vec<String>,
     pub next: Option<InitNext>,
+}
+
+impl InitOutput {
+    /// Whether the run reported anything left to do — the verdict `--check`
+    /// draws from the report it just printed (§FS-init.4). Notes and the
+    /// `next:` block are deliberately not consulted: a note is a report, not a
+    /// finding.
+    pub fn has_pending_changes(&self) -> bool {
+        self.events.iter().any(InitEvent::is_change)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -91,101 +118,6 @@ impl std::fmt::Display for InitError {
 }
 
 impl std::error::Error for InitError {}
-
-/// `grund init [path] [--name N] [--docs] [--force] [--dry-run] [agent flags]` —
-/// scaffold a repo for `grund` (§FS-init.1): write or update the selected agent
-/// entrypoint(s) and `grund.toml` (and, with `--docs`, the `docs/`+`e2e/`
-/// tree, §FS-init.2.1), preserve an existing repo's agent-entrypoint choice by
-/// default (§FS-init.2.1), refuse to clobber edited scaffold files without
-/// `--force` — and never overwrite an existing `grund.toml`, in either discovery
-/// location (§FS-config.1), even with `--force`, since that file is the user's
-/// config (§FS-init.3) — print a `next:`
-/// block (suppressed when every reported path is `exists `, §FS-init.2.2), and
-/// exit `2` on a missing target / refused target (§FS-init.1.2) / CLI error /
-/// unsupported block version
-/// (§FS-init.4). Non-interactive — every choice is a flag (§FS-non-goals.10).
-/// With `--dry-run`, every line is reported with a `would-` prefix and nothing
-/// is written to disk.
-fn command_init(args: &[String]) -> ExitCode {
-    let mut path: Option<PathBuf> = None;
-    let mut name: Option<String> = None;
-    let mut description: Option<String> = None;
-    let mut docs = false;
-    let mut force = false;
-    let mut dry_run = false;
-    let mut no_vcs = false;
-    let mut agent_selection = InitAgentEntrypointSelection::default();
-    let mut idx = 0;
-    while idx < args.len() {
-        match args[idx].as_str() {
-            "--docs" => docs = true,
-            "--force" => force = true,
-            "--dry-run" => dry_run = true,
-            "--no-vcs" => no_vcs = true,
-            "--agents-md" => agent_selection.canonical = true,
-            "--claude" => agent_selection.claude = true,
-            "--gemini" => agent_selection.gemini = true,
-            "--copilot" => agent_selection.copilot = true,
-            "--cursor" => agent_selection.cursor = true,
-            "--windsurf" => agent_selection.windsurf = true,
-            "--zed" => agent_selection.zed = true,
-            "--name" => {
-                idx += 1;
-                if idx >= args.len() {
-                    eprintln!("error: --name requires a value");
-                    return ExitCode::from(2);
-                }
-                name = Some(args[idx].clone());
-            }
-            other if other.starts_with("--name=") => {
-                name = Some(other.trim_start_matches("--name=").to_string());
-            }
-            "--description" => {
-                idx += 1;
-                if idx >= args.len() {
-                    eprintln!("error: --description requires a value");
-                    return ExitCode::from(2);
-                }
-                description = Some(args[idx].clone());
-            }
-            other if other.starts_with("--description=") => {
-                description = Some(other.trim_start_matches("--description=").to_string());
-            }
-            other if other.starts_with('-') => {
-                eprintln!("error: unknown flag `{other}`");
-                return ExitCode::from(2);
-            }
-            other => {
-                if path.is_some() {
-                    eprintln!("error: init takes at most one path argument");
-                    return ExitCode::from(2);
-                }
-                path = Some(PathBuf::from(other));
-            }
-        }
-        idx += 1;
-    }
-
-    let output = match init(InitOpts {
-        target: path.unwrap_or_else(|| PathBuf::from(".")),
-        name,
-        description,
-        docs,
-        force,
-        dry_run,
-        no_vcs,
-        agent_selection,
-    }) {
-        Ok(output) => output,
-        Err(err) => {
-            print_init_output(&err.output);
-            eprintln!("error: {err}");
-            return ExitCode::from(2);
-        }
-    };
-    print_init_output(&output);
-    ExitCode::SUCCESS
-}
 
 /// Scaffold a grund setup into `opts.target`: the agent-instruction
 /// entrypoints, `grund.toml`, and — with `--docs` — the documentation stubs.
@@ -232,9 +164,14 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         docs,
         force,
         dry_run,
+        check,
         no_vcs,
         agent_selection,
     } = opts;
+    // §FS-init.1: `--check` is the `--dry-run` run taken as a verdict, so it
+    // suppresses writes through that same flag rather than a second code path —
+    // which is what makes the two reports identical by construction.
+    let dry_run = dry_run || check;
     // §FS-init.1: `--description` mirrors the config-side single-line rule
     // (§FS-config.3) — reject line breaks before any file is touched.
     if let Some(description) = &description
@@ -325,7 +262,7 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
             dry_run,
         ) {
             Ok(event) => {
-                any_change |= event_is_change(&event);
+                any_change |= event.is_change();
                 events.push(event);
             }
             Err(message) => return Err(InitError::with_events(events, message)),
@@ -482,26 +419,6 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         notes,
         next,
     })
-}
-
-fn print_init_output(output: &InitOutput) {
-    for event in &output.events {
-        eprintln!("{} {}", event.verb, event.path);
-    }
-    for note in &output.notes {
-        eprintln!("note: {note}");
-    }
-    if let Some(next) = &output.next {
-        print_next_block_for_home(next.docs, Some(&next.entrypoint), &next.fs_home);
-    }
-}
-
-fn event_is_change(event: &InitEvent) -> bool {
-    event.verb != "exists"
-}
-
-fn print_next_block_for_home(docs: bool, entrypoint: Option<&str>, fs_home: &InitFsHome) {
-    eprint!("{}", render_next_block_for_home(docs, entrypoint, fs_home));
 }
 
 /// The trailing `next:` guidance block (§FS-init.2.2). Suppressed by the caller

@@ -70,6 +70,7 @@ include!("init_block.rs");
 include!("init_notes.rs");
 include!("init_target.rs");
 include!("init.rs");
+include!("init_cmd.rs");
 include!("api.rs");
 include!("api_report.rs");
 include!("on_type.rs");
