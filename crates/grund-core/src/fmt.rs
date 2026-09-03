@@ -94,10 +94,13 @@ fn fmt_tree(
     // a wrap's URL comes from a home file that may sit outside the rewrite scope.
     // §FS-fmt.2.4's scan is deferred instead, to the first shorthand candidate.
     let walked = walk_scannable_files_reporting(config, scope, explicit_scope)?;
-    // §FS-fmt.6.1: the index files this walk reached. Empty unless the run would
-    // otherwise skip the cross-reference pass on them, so a repository on the
-    // default `enabled = true` pays nothing for the carve-out.
-    let index_files = if opts.index_cross_refs && !cross_refs {
+    // §FS-fmt.2.5.1: the files this config takes out of every rewrite. The walk
+    // above is untouched — only what happens to each file's bytes changes.
+    let excluded = FmtExcluded::new(config)?;
+    // §FS-fmt.6.1: where the always-linkify carve-out may fire. Built for every
+    // run that could need it, since §FS-fmt.2.5.3 makes it outrank a suppressed
+    // scope too — a handful of configured paths, so nothing is deferred here.
+    let index_files = if opts.index_cross_refs {
         KindIndexFiles::new(config)
     } else {
         KindIndexFiles::empty()
@@ -115,12 +118,10 @@ fn fmt_tree(
     } else {
         precomputed_findings
     };
-    // §FS-fmt.6.1: which IDs each index in this walk owes an entry for. Built
-    // only for the carve-out, and only ever read there: a run that already
-    // linkifies everything wraps the whole file and never asks.
-    let index_entries = findings
-        .filter(|_| index_in_scope)
-        .map(|findings| KindIndexEntries::new(findings, config));
+    // §FS-fmt.6.1: which IDs each index owes an entry for. A pass over the
+    // declarations, so it waits for the first file that asks (§GOAL-fast-feedback)
+    // — an index in the walk forced the link pass, so they are there by then.
+    let mut index_entries: Option<KindIndexEntries> = None;
     // Holds the scan the shorthand pass triggers, so the borrow in `findings`
     // outlives the file that asked for it.
     #[allow(unused_assignments)]
@@ -147,15 +148,29 @@ fn fmt_tree(
         let original =
             fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
         let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
-        // §FS-fmt.6.1: an index's own entries are linkified whatever the toggle
-        // says — the entries, not the page; a foreign ID cited in the prose around
-        // them stays bare, which is what `enabled = false` asked for.
-        let index_entry_ids = index_entries.as_ref().and_then(|it| it.entries_in(&path));
-        let cross_refs = cross_refs || index_entry_ids.is_some();
+        // §FS-fmt.2.5.1: an excluded file keeps its bytes, so the ordinary pass
+        // is off here — every rewrite with it (§FS-fmt.2.5).
+        let file_excluded = excluded.contains(&path);
+        // §FS-fmt.6.1, §FS-fmt.2.5.3: an index's entries are linkified whatever
+        // turned the ordinary pass off here — `enabled = false`, the exclude
+        // list, or a region the text carries. The entries, not the page.
+        let carve_out = index_files.contains(&path)
+            && (!cross_refs || file_excluded || original.contains(FMT_DIRECTIVE));
+        if carve_out
+            && index_entries.is_none()
+            && let Some(findings) = findings
+        {
+            index_entries = Some(KindIndexEntries::new(findings, config));
+        }
+        let index_entry_ids = carve_out
+            .then(|| index_entries.as_ref().and_then(|it| it.entries_in(&path)))
+            .flatten();
+        let cross_refs = cross_refs && !file_excluded;
         let file_changes_start = changes.len();
         let mut rewritten = rewrite_file(&original, &path, config, is_md, &FmtLineOpts {
             add_marker,
             cross_refs,
+            excluded: file_excluded,
             index_entry_ids,
             findings,
             workspace,
@@ -172,6 +187,7 @@ fn fmt_tree(
             rewritten = rewrite_file(&original, &path, config, is_md, &FmtLineOpts {
                 add_marker,
                 cross_refs,
+                excluded: file_excluded,
                 index_entry_ids,
                 findings,
                 workspace,
@@ -229,7 +245,9 @@ struct RewrittenFile {
 
 /// Apply `fmt_line` to every rewritable line of one file, appending each changed
 /// line to `changes`. Fenced blocks and declaration headings are passed through
-/// untouched (§FS-fmt.2.3).
+/// untouched (§FS-fmt.2.3), and so is every line of a suppressed scope
+/// (§FS-fmt.2.5) — the `grund:fmt` region state is carried here beside the fence
+/// state, because both are facts about where in the file the reader has got to.
 fn rewrite_file(
     original: &str,
     path: &Path,
@@ -242,6 +260,9 @@ fn rewrite_file(
     let mut lines = Vec::new();
     let mut changed = false;
     let mut saw_shorthand_candidate = false;
+    // §FS-fmt.2.5.2: every file starts with the rewrite on — a region never
+    // carries across files.
+    let mut directives = FmtDirectives::new(config, is_md);
     // §FS-fmt.2.3.1: `fmt` judges a docstring line on its content, so it carries
     // the scanner's docstring state — advanced on *every* line, including the ones
     // passed through untouched, or one unvisited `"""` desynchronizes the file.
@@ -256,20 +277,33 @@ fn rewrite_file(
         // the span from the line it is about to change (see `DocstringCursor`).
         let entry = docstrings;
         let docstring = docstrings.advance(line);
-        if markdown_fence.is_some()
-            || declaration_captures(
-                &config.grammar,
-                docstring.text_of(line),
-                docstring.is_docstring(),
-                is_md,
-            )
-            .is_some()
+        // §FS-fmt.2.5.2: a directive inside a fenced block is an illustration, so
+        // the fence is asked first and toggles nothing; the directive line itself
+        // is passed through whatever state it leaves behind.
+        if markdown_fence.is_some() {
+            lines.push(line.to_string());
+            continue;
+        }
+        if directives.consume(line, docstring) {
+            lines.push(line.to_string());
+            continue;
+        }
+        if declaration_captures(
+            &config.grammar,
+            docstring.text_of(line),
+            docstring.is_docstring(),
+            is_md,
+        )
+        .is_some()
         {
             lines.push(line.to_string());
             continue;
         }
+        // §FS-fmt.2.5: the file's own `[fmt] exclude` verdict, or the region the
+        // directives above have opened. Either one leaves only the index carve-out.
+        let suppressed = opts.excluded || !directives.rewriting();
         let (new_line, label) =
-            fmt_line(line, entry, path, config, is_md, opts, &mut saw_shorthand_candidate);
+            fmt_line(line, entry, path, config, is_md, opts, suppressed, &mut saw_shorthand_candidate);
         if new_line != line {
             changes.push((path.to_path_buf(), idx + 1, label));
             changed = true;
@@ -289,10 +323,17 @@ fn rewrite_file(
 struct FmtLineOpts<'a> {
     add_marker: bool,
     cross_refs: bool,
-    /// §FS-fmt.6.1: when this file is a kind's index reached only through the
-    /// always-linkify carve-out, the IDs that index owes an entry for — the only
-    /// citations the pass wraps here. `None` in every other run, where
-    /// `cross_refs` already means "wrap what this file has".
+    /// §FS-fmt.2.5.1: this file is named by `[fmt] exclude`, so every line of it
+    /// is suppressed. The per-region directives (§FS-fmt.2.5.2) are the other half
+    /// of the same verdict and are read line by line in `rewrite_file`.
+    excluded: bool,
+    /// §FS-fmt.6.1: when this file is a kind's index the always-linkify carve-out
+    /// may have to reach, the IDs that index owes an entry for — the only citations
+    /// the pass wraps where the ordinary one is off. `None` for every other file,
+    /// and read on a line only where that line's ordinary pass is off: under
+    /// `[fmt.cross_refs] enabled = false`, or inside a suppressed scope
+    /// (§FS-fmt.2.5.3). Elsewhere `cross_refs` already means "wrap what this file
+    /// has" and the carve-out has nothing to add.
     index_entry_ids: Option<&'a BTreeSet<Id>>,
     findings: Option<&'a Findings>,
     workspace: Option<&'a WorkspaceContext>,
@@ -329,8 +370,12 @@ fn fmt_line(
     config: &Config,
     is_md: bool,
     opts: &FmtLineOpts<'_>,
+    suppressed: bool,
     saw_shorthand_candidate: &mut bool,
 ) -> (String, String) {
+    if suppressed {
+        return suppressed_line(line, path, config, is_md, opts);
+    }
     let triggered = replace_trigger(line, docstrings.peek(line), config, is_md);
     let trigger_changed = triggered != line;
     let marked = if opts.add_marker {
@@ -355,12 +400,15 @@ fn fmt_line(
     let shorthand_changed = expansion.is_some();
     let mut final_line = expansion.unwrap_or(marked);
     let mut link_changed = false;
-    if opts.cross_refs
+    // §FS-fmt.6.1: the carve-out narrows the pass to the index's own entries only
+    // where the ordinary pass is off; where it runs, it already wraps the page.
+    let entry_ids = if opts.cross_refs { None } else { opts.index_entry_ids };
+    if (opts.cross_refs || entry_ids.is_some())
         && is_md
         && let Some(findings) = opts.findings
     {
         let wrapped = wrap_markdown_links(&final_line, path, config, findings, opts.workspace,
-            opts.index_entry_ids);
+            entry_ids);
         link_changed = wrapped != final_line;
         final_line = wrapped;
     }
@@ -391,6 +439,39 @@ fn fmt_line(
         )
     };
     (final_line, label)
+}
+
+/// One line of a suppressed scope (§FS-fmt.2.5): an excluded file, or a
+/// `grund:fmt off` region. Every rewrite is off here — the trigger, the marker
+/// upgrade, the shorthand expansion, and the ordinary wrap alike — so the line
+/// keeps its bytes and the report says nothing about it.
+///
+/// The one survivor is the always-linkify carve-out (§FS-fmt.2.5.3): a kind's
+/// index entries are wrapped in a suppressed scope exactly as they are under
+/// `[fmt.cross_refs] enabled = false`, because a suppression that could leave an
+/// index in a state §FS-check.3.17 reports and `fmt` refuses to repair would
+/// reopen the hole §DF-index-always-linkified closed. `index_entry_ids` is
+/// `None` for every file that is not a configured index, which is the ordinary
+/// case and returns the line untouched.
+fn suppressed_line(
+    line: &str,
+    path: &Path,
+    config: &Config,
+    is_md: bool,
+    opts: &FmtLineOpts<'_>,
+) -> (String, String) {
+    let unchanged = || (line.to_string(), String::new());
+    if !is_md {
+        return unchanged();
+    }
+    let (Some(entry_ids), Some(findings)) = (opts.index_entry_ids, opts.findings) else {
+        return unchanged();
+    };
+    let wrapped = wrap_markdown_links(line, path, config, findings, opts.workspace, Some(entry_ids));
+    if wrapped == line {
+        return unchanged();
+    }
+    (wrapped, "markdown link".to_string())
 }
 
 /// Rewrite each `$$<ID>` trigger to `§<ID>` — but only where `$$` is immediately
