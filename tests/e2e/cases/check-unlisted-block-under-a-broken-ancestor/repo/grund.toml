@@ -1,0 +1,8 @@
+# The stray, broken config above the run's root: it declares [workspace] but its
+# `members` value cannot be read, so a climb that asks it anything gets no answer.
+# Nothing under `proj` is a member of it.
+grund_config_version = 1
+project_name = "stray"
+
+[workspace]
+members = "not-a-list"

@@ -1,0 +1,11 @@
+grund_config_version = 1
+project_name = "blk"
+
+[id]
+format = "{kind}-{slug}"
+
+[workspace]
+members = ["inner"]
+
+[scan]
+include = ["docs"]

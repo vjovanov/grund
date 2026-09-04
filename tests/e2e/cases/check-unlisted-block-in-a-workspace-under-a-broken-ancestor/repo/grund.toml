@@ -1,0 +1,8 @@
+# The stray, broken config above the workspace root: the alias-path climb reads it
+# and says so once, against the root the run was launched at. Nothing under `ws` is
+# a member of it.
+grund_config_version = 1
+project_name = "stray"
+
+[workspace]
+members = "not-a-list"

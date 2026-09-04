@@ -1,0 +1,1 @@
+warning: b/grund.toml:7: this [workspace] is listed by no enclosing workspace — the projects under it are absorbed into `proj` instead of named under their own alias path; add "b" to [workspace] members in grund.toml, or keep it out of that project's [scan] — an unlisted [workspace] becomes an error in grund 0.14.0

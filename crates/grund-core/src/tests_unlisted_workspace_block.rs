@@ -5,8 +5,9 @@
 /// block claims a directory and what the projects below it are therefore called.
 /// These cases fail together for one reason: whether a run that *meets* an
 /// unclaimed block says so. They are about the walk, not about the chain, which is
-/// also why their fixtures all put a config inside a scanned tree rather than
-/// above the run's root (§DF-unlisted-workspace-block.2.3).
+/// also why their fixtures put a config inside a scanned tree rather than above
+/// the run's root (§DF-unlisted-workspace-block.2.3) — except the one case that is
+/// about what an ancestor above that root can and cannot answer.
 #[cfg(test)]
 mod tests_unlisted_workspace_block {
     use super::*;
@@ -19,7 +20,12 @@ mod tests_unlisted_workspace_block {
     /// number, and every folder kind opts out of an index the cases never assert
     /// on (§FS-config.3.4).
     fn unlisted_block_repo(name: &str) -> PathBuf {
-        let root = test_root(name);
+        unlisted_block_repo_at(test_root(name))
+    }
+
+    /// The same tree at a root the caller chose, for the one case whose fixture
+    /// needs a directory *above* the run's root to put an ancestor config in.
+    fn unlisted_block_repo_at(root: PathBuf) -> PathBuf {
         write(
             &root.join("grund.toml"),
             "grund_config_version = 1\nproject_name = \"root\"\n\n\
@@ -58,6 +64,17 @@ mod tests_unlisted_workspace_block {
          — the projects under it are absorbed into `root` instead of named under their own alias path; \
          add \"b\" to [workspace] members in grund.toml, or keep it out of that project's [scan] \
          — an unlisted [workspace] becomes an error in grund 0.14.0";
+
+    /// Every message this rule reported, in report order — what a case about *how
+    /// many* findings one block earns asserts on.
+    fn block_findings(run: &CheckRun) -> Vec<String> {
+        run.report
+            .warnings
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "unlisted-workspace-block")
+            .map(|diagnostic| diagnostic.message.clone())
+            .collect()
+    }
 
     /// §FS-check.4.9: the finding itself. One warning, at the unlisted block's own
     /// `[workspace]` line, saying its projects are absorbed rather than named under
@@ -162,15 +179,8 @@ mod tests_unlisted_workspace_block {
         );
         write(&root.join("b/c/d/docs/FS-001-delta.md"), "# FS-001-delta: D\n\nTwo levels down, cited as §FS-001-delta\n");
         let run = check_run(&root, false);
-        let reported = run
-            .report
-            .warnings
-            .iter()
-            .filter(|diagnostic| diagnostic.code == "unlisted-workspace-block")
-            .map(|diagnostic| diagnostic.message.clone())
-            .collect::<Vec<_>>();
         assert_eq!(
-            reported,
+            block_findings(&run),
             vec![TICKET_MESSAGE.to_string()],
             "`b/c` is claimed by `b`, so the chain is one finding and one edit"
         );
@@ -283,6 +293,116 @@ mod tests_unlisted_workspace_block {
             "a run that cannot see the block does not judge it: {:?}",
             codes(&run)
         );
+    }
+
+    /// §FS-check.4.9 "one finding for one edit": the walk reaches `b` twice, once
+    /// as itself and once through a directory symlink inside `docs`, and one edit —
+    /// listing `b` — clears both. The claim test resolves symlinks, so the second
+    /// spelling answers exactly as the first did; only the report has to agree, and
+    /// the walk's *file* half already de-aliases in the same run.
+    #[cfg(unix)]
+    #[test]
+    fn one_block_the_walk_reached_twice_is_one_finding() {
+        let root = unlisted_block_repo("one_block_the_walk_reached_twice_is_one_finding");
+        symlink("../b", &root.join("docs/blink"));
+        let run = check_run(&root, false);
+        assert_eq!(
+            block_findings(&run),
+            vec![TICKET_MESSAGE.to_string()],
+            "one block and one edit, whatever spelling the walk reached it under"
+        );
+    }
+
+    /// The likeliest tree in the wild: a repository that is no workspace at all,
+    /// carrying a `[workspace]` block somewhere inside its scan. Every other fixture
+    /// here gives the root a `[workspace]` table, so this is the shape that exercises
+    /// the message's fallback name.
+    fn plain_repo_absorbing_the_block(name: &str, project_name: Option<&str>) -> PathBuf {
+        let root = unlisted_block_repo_at(test_root(name));
+        let named = project_name.map_or_else(String::new, |name| format!("project_name = \"{name}\"\n"));
+        write(
+            &root.join("grund.toml"),
+            &format!(
+                "grund_config_version = 1\n{named}\n\
+                 [id]\nformat = \"{{kind}}-{{slug}}\"\n\n\
+                 [scan]\ninclude = [\"docs\", \"b\"]\n"
+            ),
+        );
+        root
+    }
+
+    /// §FS-check.4.9: a run that loaded no workspace has no alias path to quote, so
+    /// the absorbing project is named the way the reader would see it the moment the
+    /// block is listed — the root's `project_name` (§AR-workspace.5.3), which is what
+    /// §FS-list prints for it once the namespace becomes a workspace.
+    #[test]
+    fn a_repo_with_no_workspace_table_is_named_by_its_project_name() {
+        let root = plain_repo_absorbing_the_block(
+            "a_repo_with_no_workspace_table_is_named_by_its_project_name",
+            Some("myrepo"),
+        );
+        let run = check_run(&root, false);
+        assert_eq!(
+            only(&run, "unlisted-workspace-block").message,
+            TICKET_MESSAGE.replace("`root`", "`myrepo`"),
+        );
+    }
+
+    /// The same tree with no `project_name` either: the root alias falls back to
+    /// `root` (§AR-workspace.5.3), which is again the spelling listing the block
+    /// would produce.
+    #[test]
+    fn a_repo_with_no_project_name_is_named_root() {
+        let root = plain_repo_absorbing_the_block("a_repo_with_no_project_name_is_named_root", None);
+        let run = check_run(&root, false);
+        assert_eq!(only(&run, "unlisted-workspace-block").message, TICKET_MESSAGE);
+    }
+
+    /// The ticket's tree one level down, under an ancestor `[workspace]` whose
+    /// `members` the caller writes — the only fixture here with a config *above* the
+    /// run's root, because the claim it tests is one only an ancestor can make.
+    fn repo_under_an_ancestor_listing(name: &str, members: &str) -> PathBuf {
+        let outer = test_root(name);
+        let root = unlisted_block_repo_at(outer.join("repo"));
+        write(
+            &outer.join("grund.toml"),
+            &format!(
+                "grund_config_version = 1\nproject_name = \"outer\"\n\n\
+                 [workspace]\nmembers = {members}\n"
+            ),
+        );
+        root
+    }
+
+    /// §FS-check.4.9: a claim an ancestor *names* and then cannot answer — here
+    /// `repo/b` listed beside a member that does not exist, so the list will not
+    /// expand — leaves the block undecidable in both directions (§FS-workspace.6.1)
+    /// and unreported. No answer is not the answer that nothing claims it.
+    #[test]
+    fn a_claim_the_ancestor_cannot_answer_leaves_the_block_unreported() {
+        let root = repo_under_an_ancestor_listing(
+            "a_claim_the_ancestor_cannot_answer_leaves_the_block_unreported",
+            "[\"repo/b\", \"nope\"]",
+        );
+        let run = check_run(&root, false);
+        assert!(
+            !codes(&run).contains(&"unlisted-workspace-block".to_string()),
+            "the ancestor names `repo/b` and cannot say what it is: {:?}",
+            codes(&run)
+        );
+    }
+
+    /// The floor under that silence: the claim is read off the entry text before
+    /// anything is expanded, so an ancestor that names nothing here is climbed past
+    /// however broken it is, and the finding fires as it does with no ancestor at all.
+    #[test]
+    fn an_ancestor_that_names_nothing_here_silences_nothing() {
+        let root = repo_under_an_ancestor_listing(
+            "an_ancestor_that_names_nothing_here_silences_nothing",
+            "[\"other\"]",
+        );
+        let run = check_run(&root, false);
+        assert_eq!(only(&run, "unlisted-workspace-block").message, TICKET_MESSAGE);
     }
 
     /// §REQ-backwards-compatibility.2, §DF-unlisted-workspace-block.2.1: the

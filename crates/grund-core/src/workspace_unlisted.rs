@@ -48,7 +48,11 @@ fn unlisted_workspace_block_warnings(
     // §GOAL-fast-feedback: one cache for the whole rule, the way
     // `enclosing_alias_prefix` shares one per climb — every candidate walks the same
     // ancestors, and without it each ancestor's config is re-read per candidate.
-    let mut ancestors = AncestorWorkspaces::for_run_at(&config.root);
+
+    // Quiet (§FS-check.4.8): this climb spells no alias path, so an ancestor it
+    // cannot read is this rule's silence rather than the reader's warning.
+    let mut ancestors = AncestorWorkspaces::quiet_for_run_at(&config.root);
+    let mut reported = BTreeSet::new();
     let mut warnings = Vec::new();
     for dir in walked_dirs {
         // The probe first: two `is_file` calls, and all a tree with no nested config
@@ -67,12 +71,18 @@ fn unlisted_workspace_block_warnings(
         if is_project_root_of_run(config, &canonical) {
             continue;
         }
+        // §FS-check.4.8 "one finding for one edit": one block the walk reached under
+        // two spellings answers the claim test identically, so the first spelling met
+        // is the one reported and a symlinked second is not another finding.
+        if !reported.insert(canonical) {
+            continue;
+        }
         match enclosing_workspace_of(dir, &config.cli_base, &mut ancestors) {
             // Claimed, at any depth: inside the chain, so nothing is absorbed.
             Ok(Some(_)) => continue,
-            // §FS-workspace.6.1: a claim that cannot be answered is undecidable in
-            // both directions, and the run says so on its own channel. Not one this
-            // rule may call unlisted.
+            // §FS-workspace.6.1: a claim an ancestor names but cannot answer is
+            // undecidable in both directions, so the block is left unreported and
+            // unexplained (§FS-check.4.8) rather than called unlisted.
             Err(_) => continue,
             Ok(None) => {}
         }
