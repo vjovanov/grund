@@ -37,11 +37,23 @@ fn resolve_workspace_config(path: &Path) -> Result<Config> {
 /// §AR-workspace.6: a workspace-declared scan must never descend into member
 /// roots. The boundary is the same list that `run_workspace_check`
 /// computes; setting it on the Config makes the scanner skip those subtrees.
+///
+/// §FS-check.4.8: it is also where the block a run is rooted at is asked whether
+/// that boundary leaves it anything to read. Every command that walks resolves
+/// its config through here, so asking at this one point is what puts the warning
+/// on `list`, `refs`, `cover` and `fmt` rather than on `check` alone — and asking
+/// it *here* rather than on the expansion below is what keeps it to once per
+/// block per run, since a workspace-wide run expands the same block a second
+/// time. A run narrowed inside a member never populates the parent block's
+/// boundary (`config_for_member_scope` rewrites first), so it stays silent about
+/// a block it is not reading through.
 fn apply_workspace_boundary(config: &mut Config) -> Result<()> {
     if !config.workspace_declared {
         return Ok(());
     }
-    config.workspace_boundary_roots = expand_workspace_members(config)?;
+    let members = expand_workspace_member_list(config)?;
+    warn_if_members_absorb_scan(config, &members);
+    config.workspace_boundary_roots = members.into_iter().map(|member| member.root).collect();
     Ok(())
 }
 
@@ -109,10 +121,17 @@ fn project_name_error(config: &Config, message: String) -> anyhow::Error {
 }
 
 fn config_location_error(source: Option<&ConfigLocation>, message: String) -> anyhow::Error {
-    if let Some(source) = source {
-        anyhow!("{}:{}: {message}", format_path(&source.path), source.line)
-    } else {
-        anyhow!("{message}")
+    anyhow!("{}", config_location_message(source, message))
+}
+
+/// The breadcrumb every diagnostic about a config key wears — `<config>:<line>:`
+/// ahead of the sentence (§FS-config.4.3) — built apart from the error above
+/// because a *warning* about such a key needs the same one and is not an error
+/// (§FS-check.4.8).
+fn config_location_message(source: Option<&ConfigLocation>, message: String) -> String {
+    match source {
+        Some(source) => format!("{}:{}: {message}", format_path(&source.path), source.line),
+        None => message,
     }
 }
 

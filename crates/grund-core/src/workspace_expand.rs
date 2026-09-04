@@ -136,6 +136,9 @@ fn qualify_alias(prefix: &str, alias: &str) -> String {
 /// walk.
 fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjectEntry>> {
     let members = expand_workspace_member_list(root_config)?;
+    // §FS-check.4.8: no warning here. `apply_workspace_boundary` already asked
+    // this block, on every route a walk takes (§AR-workspace.5.1), and this line
+    // only repopulates what it set — asking again would say it twice.
     root_config.workspace_boundary_roots = members.iter().map(|m| m.root.clone()).collect();
 
     let mut entries: Vec<WorkspaceProjectEntry> = Vec::new();
@@ -272,6 +275,10 @@ fn collect_workspace_members(
         // contributes its whole subtree, and `include_root` on *its* block
         // decides whether the grouping directory is one of the projects.
         let nested = expand_workspace_member_list(&member_config)?;
+        // §FS-check.4.8: a block below the run's root is populated here and
+        // nowhere else, so this is where it is asked — once, at its own
+        // `members` line (§FS-errors.4).
+        warn_if_members_absorb_scan(&member_config, &nested);
         member_config.workspace_boundary_roots = nested.iter().map(|m| m.root.clone()).collect();
         let before = entries.len();
         if member_config.workspace_include_root {

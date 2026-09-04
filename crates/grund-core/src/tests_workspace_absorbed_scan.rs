@@ -76,6 +76,43 @@ mod tests_workspace_absorbed_scan {
         );
     }
 
+    /// §FS-check.4.8, §RM-workspace-absorbed-scan-error: the one place the
+    /// release is written in the source is the release the shipped message names.
+    /// The guard above reads the bytes a user sees and holds them ahead of the
+    /// running version; this ties those bytes to the constant, so a ramp moved in
+    /// `ABSORBED_SCAN_ERROR_RELEASE` alone fails here rather than shipping a
+    /// message that disagrees with it.
+    #[test]
+    fn the_release_constant_is_the_release_the_message_names() {
+        let Some(golden) = repo_text(GOLDEN) else {
+            return;
+        };
+        assert_eq!(
+            named_release(&golden).as_deref(),
+            Some(super::ABSORBED_SCAN_ERROR_RELEASE),
+            "{GOLDEN} names a different release from the constant the message is built from"
+        );
+    }
+
+    /// §FS-check.4.8: the whole sentence, assembled from the covered pairs the
+    /// rule found — the golden with its `members`-line breadcrumb taken off the
+    /// front. Held here as well as end to end because this is where a failure
+    /// names the sentence rather than a whole run's stderr.
+    #[test]
+    fn the_message_is_assembled_from_the_covered_pairs() {
+        let Some(golden) = repo_text(GOLDEN) else {
+            return;
+        };
+        let shipped = golden.trim_end_matches('\n');
+        let sentence = shipped
+            .strip_prefix("warning: grund.toml:16: ")
+            .unwrap_or_else(|| panic!("{GOLDEN} is no longer a located warning:\n{shipped}"));
+        assert_eq!(
+            super::absorbed_scan_warning(&["`docs` in `docs`".to_string()]),
+            sentence
+        );
+    }
+
     /// §FS-check.4.8: the message the spec shows and the message the binary
     /// prints are one string. Without this the deadline could be kept in the
     /// golden and stale in the document a reader reaches by citation — and the
