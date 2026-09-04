@@ -183,9 +183,10 @@ fn warn_if_members_absorb_scan(config: &Config, members: &[WorkspaceMember]) {
 /// Comparison is canonical and by prefix, exactly as the walk's own prune
 /// compares, so a member reached through a symlink or a glob covers what it
 /// actually lands on. Each root is named by its path under the block root — the
-/// spelling the config gave it — because a canonical root renders as nothing when
-/// it equals the render base and as an absolute path when it does not
-/// (§FS-errors.4).
+/// config's spelling normalized rather than the spelling itself, so `./docs/`
+/// is named `docs` — because a canonical root renders as nothing when it equals
+/// the render base and as an absolute path when it does not (§FS-errors.4). The
+/// member beside it is the entry as written, which is what it was resolved from.
 fn absorbed_scan_roots(config: &Config, members: &[WorkspaceMember]) -> Vec<String> {
     // §FS-workspace.2.1: a block with `include_root = false` is not a project, so
     // it has no scan of its own to lose — what its files cost is §FS-workspace.6.1's
