@@ -134,7 +134,38 @@ fn qualify_alias(prefix: &str, alias: &str) -> String {
 /// the per-block "something in scope" rule, alias uniqueness among siblings,
 /// and the canonical-root check that both rejects a member cycle and bounds the
 /// walk.
+///
+/// The tree is rendered against its own root, which is what a walking command
+/// wants: `resolve_workspace_config` re-roots a narrowed run onto the member it
+/// was launched in (§AR-workspace.5.1), so the run's root and the top of the
+/// tree it expands are one directory. `init` is the route where they are not —
+/// see [`expand_workspace_tree_with_report_base`].
 fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjectEntry>> {
+    let report_base = root_config.root.clone();
+    expand_workspace_tree_with_report_base(root_config, &report_base)
+}
+
+/// [`expand_workspace_tree`] with the base every block's config path is rendered
+/// against named explicitly (§FS-check.4.8, §FS-errors.4).
+///
+/// One run renders every block against one base, and that base is the root the
+/// run was launched at — the same one [`AncestorWorkspaces::for_run_at`] carries
+/// up the climb, so a block above the run's root and a block below it are spelled
+/// from the same place the reader is standing. `init` expands the *outermost*
+/// workspace above its target rather than re-rooting onto it, so there the top of
+/// the tree lies above the run: without this the blocks below the run's root were
+/// rendered from the workspace root while the blocks above it were rendered from
+/// the launch directory, and one `grund init` printed two spellings of one tree —
+/// the nested ones naming a `grund.toml` that does not exist from where it ran.
+///
+/// Re-basing the other way — every block onto the workspace root — is what
+/// §FS-workspace.6.1 already forbids for an ancestor's `members` line: from a
+/// narrowed directory a *different* `grund.toml` exists, so that spelling names a
+/// real file that is the wrong one.
+fn expand_workspace_tree_with_report_base(
+    root_config: &mut Config,
+    report_base: &Path,
+) -> Result<Vec<WorkspaceProjectEntry>> {
     let members = expand_workspace_member_list(root_config)?;
     // §FS-check.4.8: no warning here. Every route in asks this block first —
     // `resolve_workspace_config` (§AR-workspace.5.1), or `find_init_workspace_root`
@@ -175,6 +206,7 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
         &members,
         root_config,
         root_config,
+        report_base,
         &self_path,
         &mut siblings,
         &mut visited,
@@ -203,8 +235,11 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
 
 /// One level of member expansion (§FS-workspace.6.1). `parent_config` is the
 /// block that listed `member_roots` — it owns the `members` line a member error
-/// points at; `top_config` is the outermost workspace root — it owns path
-/// rendering, so every diagnostic names a project against the same base;
+/// points at; `top_config` is the outermost workspace root — it owns project
+/// naming, so every diagnostic names a project against the same base;
+/// `report_base` is where this run was launched, which is what each member's own
+/// config paths are spelled from (§FS-errors.4, and the doc on
+/// [`expand_workspace_tree_with_report_base`] for why it is not `top_config.root`);
 /// `prefix` is the alias path of the enclosing workspace, empty at the top.
 ///
 /// What bounds the recursion is containment: every member root resolves strictly
@@ -215,10 +250,12 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
 /// duplicate reach the visited check anyway it is a config error at the line that
 /// introduced it, named as the entry was written and beside the root it lands on,
 /// since those are two different strings and the author wrote only one of them.
+#[allow(clippy::too_many_arguments)]
 fn collect_workspace_members(
     members: &[WorkspaceMember],
     parent_config: &Config,
     top_config: &Config,
+    report_base: &Path,
     prefix: &str,
     siblings: &mut BTreeMap<String, PathBuf>,
     visited: &mut Vec<PathBuf>,
@@ -240,11 +277,8 @@ fn collect_workspace_members(
             ));
         }
         visited.push(member_root.clone());
-        let mut member_config = load_config_at_with_report_base(
-            member_root,
-            &top_config.cli_base,
-            Some(&top_config.root),
-        )?;
+        let mut member_config =
+            load_config_at_with_report_base(member_root, &top_config.cli_base, Some(report_base))?;
         // The alias is derived whether or not the member turns out to be a
         // project: a member that is itself a workspace still contributes its
         // segment to every alias path below it (§FS-workspace.6.1).
@@ -291,6 +325,7 @@ fn collect_workspace_members(
             &nested,
             &member_config,
             top_config,
+            report_base,
             &qualified,
             &mut BTreeMap::new(),
             visited,

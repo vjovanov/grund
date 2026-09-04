@@ -38,12 +38,15 @@ fn find_init_workspace_context(
     pending_project_name: Option<&str>,
     pending_project_description: Option<&str>,
 ) -> Option<Vec<InitWorkspaceProject>> {
-    let mut root_config = find_init_workspace_root(target)?;
+    let (mut root_config, run_root) = find_init_workspace_root(target)?;
     // `expand_workspace_tree` returns canonical project roots, so canonicalize
     // `target` before §FS-init.2.3.4.15's identity-based self omission.
     let target_canonical = fs::canonicalize(target).ok()?;
     let mut projects = Vec::new();
-    for entry in expand_workspace_tree(&mut root_config).ok()? {
+    // §FS-check.4.8: the expansion below is the only route that walks *down* from
+    // a root above the run, so it is the only one that has to be told where the
+    // run is — every other command re-roots onto it first (§AR-workspace.5.1).
+    for entry in expand_workspace_tree_with_report_base(&mut root_config, &run_root).ok()? {
         let mut alias = entry.alias;
         let mut description = entry.config.project_description.clone();
         if entry.config.root == target_canonical && config_file_in(&entry.config.root).is_none() {
@@ -101,7 +104,13 @@ fn find_init_workspace_context(
 /// stop where the claims stop: an ancestor `[workspace]` that does not list the
 /// directory below it describes a different workspace, whose aliases resolve
 /// nowhere here and whose members lie outside this repository.
-fn find_init_workspace_root(target: &Path) -> Option<Config> {
+///
+/// Returns the climbed config **and the root this run was launched at** — the
+/// block governing `target`, before the climb moved off it. That is the base every
+/// diagnostic of this run is rendered against (§FS-errors.4), and the climb has
+/// already used it for the blocks above; the expansion downward needs the same one
+/// (§FS-check.4.8).
+fn find_init_workspace_root(target: &Path) -> Option<(Config, PathBuf)> {
     // Without a canonical anchor we cannot reliably compare against the
     // canonicalized project roots `expand_workspace_tree` returns; bail
     // out so the section is suppressed (§FS-init.2.3.4.15).
@@ -114,6 +123,7 @@ fn find_init_workspace_root(target: &Path) -> Option<Config> {
         }
         cursor = dir.parent();
     };
+    let run_root = config.root.clone();
     let mut ancestors = AncestorWorkspaces::for_run_at(&config.root);
     loop {
         match enclosing_workspace_of(&config.root, &canonical_target, &mut ancestors) {
@@ -131,7 +141,7 @@ fn find_init_workspace_root(target: &Path) -> Option<Config> {
     // through `resolve_workspace_config`, and the expansion asks every block but
     // this one — so without this, `init` says nothing about the block it is on.
     apply_workspace_boundary(&mut config).ok()?;
-    Some(config)
+    Some((config, run_root))
 }
 
 /// Render the §FS-init.2.3.4.15 Workspace Members section, or the empty string
