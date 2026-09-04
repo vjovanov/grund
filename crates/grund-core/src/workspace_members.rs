@@ -126,6 +126,106 @@ fn reject_overlapping_workspace_members(config: &Config, members: &[WorkspaceMem
     Ok(())
 }
 
+/// The release the finding below stops being a warning and becomes an error in
+/// (§FS-check.4.8, §RM-workspace-absorbed-scan-error). The deprecation path
+/// §REQ-backwards-compatibility.2 requires puts it one minor past the release the
+/// warning ships in; the message names it, because a warning that does not say
+/// when it bites tells a maintainer they have a problem and not that they have a
+/// deadline, and a unit test holds it ahead of the running version so the window
+/// cannot expire unnoticed.
+const ABSORBED_SCAN_ERROR_RELEASE: &str = "0.14.0";
+
+/// §FS-workspace.2.1, §FS-check.4.8: say so when this block's own `members` list
+/// covers every walk root the block has. Its project then reads nothing at all —
+/// the declarations reach no catalog and the dangling citations pass
+/// (§GOAL-no-dangling-refs) — which is the consequence [`workspace_member_root`]
+/// below already rejects a member root outright for, one step stronger.
+///
+/// A CLI-level `warning:` on stderr, like [`warn_undecidable_ancestor_claim`]
+/// below (§FS-errors.2.2): the question is settled before a report exists, which
+/// is also why it keeps its text under `--format json` and carries no code
+/// (§FS-errors.5). Asked at the two places a run first populates a block's
+/// boundary — `apply_workspace_boundary` for the block the run is rooted at,
+/// `collect_workspace_members` for each block below it — which is what puts the
+/// finding on every command that walks while leaving each block asked once.
+fn warn_if_members_absorb_scan(config: &Config, members: &[WorkspaceMember]) {
+    let covered = absorbed_scan_roots(config, members);
+    if covered.is_empty() {
+        return;
+    }
+    eprintln!(
+        "warning: {}",
+        config_location_message(
+            config.workspace_members_source.as_ref(),
+            absorbed_scan_warning(&covered),
+        )
+    );
+}
+
+/// §FS-workspace.2.1: each of the block's own walk roots that a member root
+/// covers, rendered `` `<root>` in `<member>` `` — empty unless **every** root
+/// that exists is covered, because a partly covered scope is §FS-workspace.6's
+/// boundary working as designed and has to stay silent.
+///
+/// The roots are [`root_scope_roots`] at `full = false` rather than a second
+/// reading of `[scan] include`: the question is about the set that boundary
+/// prunes, and one definition of it is what keeps this true when a `[[kinds]]`
+/// home or an unwalked home changes the set (§FS-config.3.5). `--full` is never
+/// asked, because the flag adds the config root as a root while the boundary
+/// still prunes — the finding is a property of the configuration, not of one
+/// walk (§FS-check.1.3).
+///
+/// Why a root that is not on disk is skipped: the walk skips it too, before it
+/// prunes, so it is read by nobody and rescues nothing. Without that filter a
+/// default kind home nobody scaffolded would answer "not every root is covered"
+/// for a project that plainly reads nothing.
+///
+/// Comparison is canonical and by prefix, exactly as the walk's own prune
+/// compares, so a member reached through a symlink or a glob covers what it
+/// actually lands on. Each root is named by its path under the block root — the
+/// spelling the config gave it — because a canonical root renders as nothing when
+/// it equals the render base and as an absolute path when it does not
+/// (§FS-errors.4).
+fn absorbed_scan_roots(config: &Config, members: &[WorkspaceMember]) -> Vec<String> {
+    // §FS-workspace.2.1: a block with `include_root = false` is not a project, so
+    // it has no scan of its own to lose — what its files cost is §FS-workspace.6.1's
+    // subject rather than this one.
+    if !config.workspace_include_root || members.is_empty() {
+        return Vec::new();
+    }
+    let mut covered = Vec::new();
+    for root in root_scope_roots(config, false) {
+        if !root.exists() {
+            continue;
+        }
+        let canonical = canonical_workspace_path(&root);
+        let Some(member) = members
+            .iter()
+            .find(|member| canonical.starts_with(&member.root))
+        else {
+            return Vec::new();
+        };
+        let written = root.strip_prefix(&config.root).unwrap_or(root.as_path());
+        covered.push(format!("`{}` in `{}`", format_path(written), member.written));
+    }
+    covered
+}
+
+/// The sentence [`warn_if_members_absorb_scan`] prints, built apart from the
+/// printing so a test can read it (§FS-check.4.8): what was swallowed by what,
+/// what that costs the project, the two ways out, and the release the finding
+/// stops being a warning in.
+fn absorbed_scan_warning(covered: &[String]) -> String {
+    format!(
+        "[workspace] members swallows this project's whole scan — every scan root \
+         is inside a member: {} — so its declarations are unreachable and its \
+         citations are never checked. Point [scan] include at a directory that is \
+         not a member, or set include_root = false. This becomes an error in grund \
+         {ABSORBED_SCAN_ERROR_RELEASE}.",
+        covered.join(", ")
+    )
+}
+
 /// §FS-workspace.6.1: resolve one `members` entry to the canonical project root
 /// it names, or the located error that entry earns. Both errors are reported at
 /// the block's `members` line and name the entry **as written**: a canonical root
