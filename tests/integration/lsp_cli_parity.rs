@@ -65,7 +65,7 @@ fn cli_findings(grund: &Path, root: &Path) -> Option<BTreeSet<Finding>> {
         for line in String::from_utf8_lossy(stream).lines() {
             let Ok(value) = serde_json::from_str::<Value>(line) else {
                 // §FS-errors.2.2: a CLI-level message is settled before a report
-                // exists, so neither surface carries it as a finding — §FS-check.4.8's
+                // exists, so neither surface carries it as a finding — §FS-check.4.9's
                 // and §FS-workspace.6.1's warnings both arrive here. Nothing else may.
                 if CLI_LEVEL_PREFIXES
                     .iter()

@@ -140,7 +140,7 @@ fn agents_template_substitutions(
 /// both `AGENTS.md` and a `CLAUDE.md` companion renders two blocks from one
 /// invocation — so a per-block build would repeat the walk-up's I/O and, worse,
 /// ask every block in the workspace twice whether its members swallowed its scan,
-/// against §FS-check.4.8's once per block per run.
+/// against §FS-check.4.9's once per block per run.
 ///
 /// Canonical target identity omits self regardless of whether this run selected
 /// the canonical `AGENTS.md` or only a companion.

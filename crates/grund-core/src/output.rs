@@ -431,7 +431,7 @@ pub fn print_config_warnings(config: &Config) {
     }
 }
 
-/// §FS-check.4.8, §DF-unlisted-workspace-block.2.4: the unlisted-`[workspace]`
+/// §FS-check.4.9, §DF-unlisted-workspace-block.2.4: the unlisted-`[workspace]`
 /// finding on the five surfaces that have no report to carry it — `list`, `refs`,
 /// `cover`, `fmt` and the ID read. One CLI-level `warning:` per block on stderr
 /// (§FS-errors.2.2), the identical text `check` puts in `report.warnings`, so what

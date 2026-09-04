@@ -33,7 +33,7 @@ struct WalkedTree {
     /// Every directory the walk descended into, scan roots included, sorted and
     /// deduplicated (§FS-errors.4). Carried out rather than asked about here: the
     /// scanner never asks "am I in a workspace?" (§AR-workspace.1), and the one
-    /// caller of this list — the unlisted-`[workspace]` rule of §FS-check.4.8 —
+    /// caller of this list — the unlisted-`[workspace]` rule of §FS-check.4.9 —
     /// probes each directory for a config and answers the claim above the walk.
     dirs: Vec<PathBuf>,
 }
@@ -80,7 +80,7 @@ fn walk_scannable_files_reporting(
     let mut aliasable = BTreeSet::new();
     let mut files = Vec::new();
     let mut errors = Vec::new();
-    // §FS-check.4.8: the directories the walk met, for the rule that asks which of
+    // §FS-check.4.9: the directories the walk met, for the rule that asks which of
     // them carries a `[workspace]` block nothing claims. Collected here because the
     // entries are already being enumerated — no second traversal (§GOAL-fast-feedback).
     let mut dirs = Vec::new();
@@ -177,7 +177,7 @@ fn walk_scannable_files_reporting(
                     continue;
                 }
             };
-            // §FS-check.4.8: a directory is not a scannable file, so it falls out
+            // §FS-check.4.9: a directory is not a scannable file, so it falls out
             // one line below. Its path is what the unlisted-`[workspace]` rule needs,
             // and the scan root itself — the entry at depth 0 — is one of them.
             if entry
