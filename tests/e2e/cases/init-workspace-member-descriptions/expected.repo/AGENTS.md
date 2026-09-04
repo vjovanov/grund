@@ -42,7 +42,6 @@ Cross-project citations use §alias/<ID>.
 
 - [`api`](apps/api/AGENTS.md): Payment API service
 - [`core`](packages/core/): Core domain library *(not yet initialized)*
-- [`root`](AGENTS.md): Workspace root: shared specs and tooling
 - [`ui`](packages/ui/) *(not yet initialized)*
 
 ### Declarations and citations

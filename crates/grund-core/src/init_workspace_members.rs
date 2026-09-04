@@ -25,31 +25,31 @@ struct InitWorkspaceProject {
 /// cycle, …) — init must not fail because a sibling member is misconfigured;
 /// the next `grund check` will surface the issue (§FS-init.2.3.4.15).
 ///
-/// Why a `target` that will not canonicalize suppresses the section: rendering a
-/// wrong self row is worse than rendering none.
+/// Why a `target` that will not canonicalize suppresses the section: canonical
+/// identity is what lets the renderer omit the local project instead of
+/// presenting it as a foreign namespace.
 ///
-/// Why `--name` and `--description` reach the self row: self is rendered against
-/// the config `init` is about to write, so `grund init member --name service
-/// --description "…"` teaches the future `service/...` workspace alias and its
-/// description immediately.
+/// Pending metadata is applied while collecting the effective project tree.
+/// The renderer later omits that canonical self project; only its pending name
+/// can still affect the section, by colliding with a foreign alias during the
+/// ambiguity check below.
 fn find_init_workspace_context(
     target: &Path,
     pending_project_name: Option<&str>,
     pending_project_description: Option<&str>,
 ) -> Option<Vec<InitWorkspaceProject>> {
     let mut root_config = find_init_workspace_root(target)?;
-    // `expand_workspace_tree` returns canonical project roots, so a
-    // non-canonical `target` would never match the self project on path
-    // equality and §FS-init.2.3.4.15's self-exception would silently misfire.
+    // `expand_workspace_tree` returns canonical project roots, so canonicalize
+    // `target` before §FS-init.2.3.4.15's identity-based self omission.
     let target_canonical = fs::canonicalize(target).ok()?;
     let mut projects = Vec::new();
     for entry in expand_workspace_tree(&mut root_config).ok()? {
         let mut alias = entry.alias;
         let mut description = entry.config.project_description.clone();
         if entry.config.root == target_canonical && config_file_in(&entry.config.root).is_none() {
-            // §FS-init.2.3.4.15: self is rendered against the config `init` is
-            // about to write, so `--name` and `--description` teach the future
-            // alias and description immediately.
+            // Apply pending config before validating the tree. The renderer
+            // omits this project; its pending name matters only if it makes
+            // the foreign aliases ambiguous (§FS-init.2.3.4.15).
             if let Some(name) = pending_project_name {
                 if !is_valid_project_alias(name) {
                     return None;
