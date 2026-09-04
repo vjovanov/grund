@@ -42,7 +42,6 @@ Cross-project citations use §alias/<ID>.
 
 - [`api`](apps/api/AGENTS.md)
 - [`core`](packages/core/) *(not yet initialized)*
-- [`root`](AGENTS.md)
 - [`ui`](packages/ui/) *(not yet initialized)*
 
 ### Declarations and citations

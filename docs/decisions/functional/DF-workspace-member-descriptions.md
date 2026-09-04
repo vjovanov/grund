@@ -7,9 +7,9 @@
 ## 1. Context
 
 The generated "Workspace members" section ([§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members)) maps each
-workspace alias to its `AGENTS.md`, but carries no semantic hint about what
-each namespace is for — an agent picking an alias for a cross-project citation
-must open each member's entrypoint or guess from path names
+foreign workspace alias to its `AGENTS.md`, but carries no semantic hint about
+what each foreign namespace is for — an agent picking an alias for a
+cross-project citation must open each member's entrypoint or guess from path names
 ([issue #36](https://github.com/vjovanov/grund/issues/36)). The list is
 high-traffic grounding context, so a one-line description per member makes
 alias selection cheaper and less error-prone, the same argument as
@@ -40,17 +40,21 @@ project_name = "gradle"
 project_description = "Gradle plugin that builds native images from JVM projects"
 ```
 
-The [§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members) renderer appends the description after the bullet's
+The [§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members) renderer appends a foreign project's description after the bullet's
 link as `: <description>`, before any `*(not yet initialized)*` marker; a
-project without a description keeps the link-only bullet. Adopting
+foreign project without a description keeps the link-only bullet. The project
+whose entrypoint is being rendered has no row, so its description is
+intentionally absent from that local list; the same description renders when
+the project is foreign from another entrypoint's perspective. Adopting
 descriptions also tightened the bullet itself: the alias is now the link's
 *label* — `` - [`api`](apps/api/AGENTS.md): Payment API service `` — so the
 destination path appears once instead of twice, sharing the Project Map's
 `- [x](y): …` grammar and superseding the `alias → path` bullet shape that
 [§DISC-init-workspace-members](../../discussions/proposals/2026-05-17-init-workspace-members.md#disc-init-workspace-members-have-init-mention-workspace-members) originally proposed. The
 generated `.agents/grund.toml` teaches the key with a commented line, and
-`grund init --description <text>` sets it at bootstrap time with the same
-pending-config self-exception as `--name`. The contract lives in
+`grund init --description <text>` sets it at bootstrap time. Self omission
+keeps that pending description out of the local list; it appears when another
+entrypoint renders the project as foreign. The contract lives in
 [§FS-config.3](../../functional-spec/FS-config.md#3-schema), [§FS-workspace.3](../../functional-spec/FS-workspace.md#3-aliases), and [§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members).
 
 ## 3. Why this shape
