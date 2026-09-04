@@ -20,13 +20,13 @@ mod tests_workspace_members {
         assert!(!rendered.contains("Cross-project citations"));
     }
 
-    /// §FS-init.2.3.4.15: invoked at the workspace root, the section lists
-    /// every member sorted by alias, marks uninitialized members with
-    /// `*(not yet initialized)*`, and includes the root row when
-    /// `include_root = true` (the default). Mirrors §FS-init-fixtures.6.1.
+    /// §FS-init.2.3.4.15: invoked at the workspace root, the section omits the
+    /// root itself and lists every foreign member in alias order, preserving
+    /// initialized and not-yet-initialized link grammar. Mirrors
+    /// §FS-init-fixtures.6.1.
     #[test]
-    fn workspace_members_root_init_lists_aliases_and_initialization_state() {
-        let root = test_root("workspace_members_root_init_lists_aliases_and_initialization_state");
+    fn workspace_members_root_init_omits_self_and_preserves_foreign_rows() {
+        let root = test_root("workspace_members_root_init_omits_self_and_preserves_foreign_rows");
         write(
             &root.join(".agents/grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\", \"packages/*\"]\n",
@@ -38,33 +38,18 @@ mod tests_workspace_members {
 
         let section = render_workspace_members_section(&root, None, None, "§", true);
 
-        assert!(section.contains("### Workspace members"));
-        assert!(section.contains("Cross-project citations use §alias/<ID>."));
-        assert!(section.contains("- [`api`](apps/api/AGENTS.md)"));
-        assert!(
-            section.contains("- [`core`](packages/core/) *(not yet initialized)*")
+        assert_eq!(
+            section,
+            "\n\n### Workspace members\n\nCross-project citations use §alias/<ID>.\n\n- [`api`](apps/api/AGENTS.md)\n- [`core`](packages/core/) *(not yet initialized)*\n- [`ui`](packages/ui/) *(not yet initialized)*"
         );
-        assert!(section.contains("- [`ui`](packages/ui/) *(not yet initialized)*"));
-        // `include_root = true` (default), and the root row is rendered with
-        // the uniform `alias → AGENTS.md` shape — self counts as initialized
-        // even though `root/AGENTS.md` does not yet exist on disk.
-        assert!(section.contains("- [`root`](AGENTS.md)"));
-        // Alias-sorted: api < core < root < ui.
-        let api = section.find("`api`").unwrap();
-        let core = section.find("`core`").unwrap();
-        let root_pos = section.find("`root`").unwrap();
-        let ui = section.find("`ui`").unwrap();
-        assert!(api < core && core < root_pos && root_pos < ui);
     }
 
-    /// §FS-init.2.3.4.15: invoked inside a member, the section has the same
-    /// alias list and ordering as the root run, the member-being-initialized
-    /// is marked as `self` (initialized even before the write completes), and
-    /// link paths are recomputed relative to the member's AGENTS.md. Mirrors
-    /// §FS-init-fixtures.6.2.
+    /// §FS-init.2.3.4.15: invoked inside a member, the section omits that member
+    /// and keeps the foreign root and siblings in alias order, with link paths
+    /// recomputed relative to the member's AGENTS.md. Mirrors §FS-init-fixtures.6.2.
     #[test]
-    fn workspace_members_member_init_uses_self_exception_and_relative_paths() {
-        let root = test_root("workspace_members_member_init_uses_self_exception_and_relative_paths");
+    fn workspace_members_member_init_omits_self_and_preserves_foreign_rows() {
+        let root = test_root("workspace_members_member_init_omits_self_and_preserves_foreign_rows");
         write(
             &root.join(".agents/grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\", \"packages/*\"]\n",
@@ -77,30 +62,17 @@ mod tests_workspace_members {
 
         let section = render_workspace_members_section(&api_target, None, None, "§", true);
 
-        // Self counts as initialized — `api` row is the uniform-shape link.
-        assert!(section.contains("- [`api`](AGENTS.md)"));
-        // Sibling members and the workspace root all carry the marker.
-        assert!(section
-            .contains("- [`core`](../../packages/core/) *(not yet initialized)*"));
-        assert!(section
-            .contains("- [`ui`](../../packages/ui/) *(not yet initialized)*"));
-        // Root row points at the workspace root *directory* because its
-        // AGENTS.md does not exist.
-        assert!(section.contains("- [`root`](../../) *(not yet initialized)*"));
-        // Alias list and ordering are independent of which project is self.
-        let api = section.find("`api`").unwrap();
-        let core = section.find("`core`").unwrap();
-        let root_pos = section.find("`root`").unwrap();
-        let ui = section.find("`ui`").unwrap();
-        assert!(api < core && core < root_pos && root_pos < ui);
+        assert_eq!(
+            section,
+            "\n\n### Workspace members\n\nCross-project citations use §alias/<ID>.\n\n- [`core`](../../packages/core/) *(not yet initialized)*\n- [`root`](../../) *(not yet initialized)*\n- [`ui`](../../packages/ui/) *(not yet initialized)*"
+        );
     }
 
-    /// §FS-init.2.3.4.15: companion-only init does not create the canonical
-    /// AGENTS.md, so the self row must still point at the project directory when
-    /// AGENTS.md is absent.
+    /// §FS-init.2.3.4.15: companion-only init omits self by the same canonical
+    /// identity rule as canonical-AGENTS.md init.
     #[test]
-    fn workspace_members_companion_only_init_marks_missing_self_agents_md() {
-        let root = test_root("workspace_members_companion_only_init_marks_missing_self_agents_md");
+    fn workspace_members_companion_only_init_omits_self() {
+        let root = test_root("workspace_members_companion_only_init_omits_self");
         write(
             &root.join(".agents/grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
@@ -110,8 +82,8 @@ mod tests_workspace_members {
 
         let section = render_workspace_members_section(&api_target, None, None, "§", false);
 
-        assert!(section.contains("- [`api`](./) *(not yet initialized)*"));
-        assert!(!section.contains("- [`api`](AGENTS.md)"));
+        assert!(!section.contains("`api`"), "self row leaked into: {section}");
+        assert!(section.contains("- [`root`](../../) *(not yet initialized)*"));
     }
 
     /// §FS-init.2.3.4.15: the discoverability line uses the target project's
@@ -131,13 +103,11 @@ mod tests_workspace_members {
         assert!(!section.contains("Cross-project citations use §alias/<ID>."));
     }
 
-    /// §FS-init.2.3.4.15: when a member has no local config yet, its self row
-    /// uses the `project_name` that `init` is about to write instead of the
-    /// directory basename, so the generated block matches later workspace
-    /// resolution.
+    /// §FS-init.2.3.4.15: self is selected by canonical project identity, not
+    /// by either the member directory basename or the pending `project_name`.
     #[test]
-    fn workspace_members_member_init_uses_pending_name_for_self_alias() {
-        let root = test_root("workspace_members_member_init_uses_pending_name_for_self_alias");
+    fn workspace_members_self_identity_is_canonical_not_pending_alias_text() {
+        let root = test_root("workspace_members_self_identity_is_canonical_not_pending_alias_text");
         write(
             &root.join(".agents/grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
@@ -147,32 +117,55 @@ mod tests_workspace_members {
 
         let section = render_workspace_members_section(&api_target, Some("service"), None, "§", true);
 
-        assert!(section.contains("- [`service`](AGENTS.md)"));
-        assert!(
-            !section.contains("`api`"),
-            "the basename fallback must not leak into the generated block"
-        );
+        assert!(!section.contains("`service`"), "pending self alias leaked into: {section}");
+        assert!(!section.contains("`api`"), "self basename leaked into: {section}");
+        assert!(section.contains("- [`root`](../../) *(not yet initialized)*"));
     }
 
-    /// §FS-init.2.3.4.15: `include_root = false` drops the root row entirely;
-    /// the section still emits when there is at least one member to list.
+    /// §FS-init.2.3.4.15: a target reached through a symlink still omits the
+    /// resolved project whose canonical root it names.
+    #[cfg(unix)]
+    #[test]
+    fn workspace_members_self_identity_follows_target_symlink() {
+        let root = test_root("workspace_members_self_identity_follows_target_symlink");
+        write(
+            &root.join(".agents/grund.toml"),
+            "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
+        );
+        std::fs::create_dir_all(root.join("apps/api")).expect("create api");
+        std::os::unix::fs::symlink("apps/api", root.join("api-link"))
+            .expect("symlink api target");
+
+        let section =
+            render_workspace_members_section(&root.join("api-link"), None, None, "§", true);
+
+        assert!(!section.contains("`api`"), "canonical self row leaked into: {section}");
+        assert!(section.contains("- [`root`](../../) *(not yet initialized)*"));
+    }
+
+    /// §FS-init.2.3.4.15: `include_root = false` still drops the root from a
+    /// member entrypoint; self is also omitted, while another foreign member
+    /// keeps the section present.
     #[test]
     fn workspace_members_omits_root_when_include_root_false() {
         let root = test_root("workspace_members_omits_root_when_include_root_false");
         write(
             &root.join(".agents/grund.toml"),
-            "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\ninclude_root = false\n",
+            "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\", \"apps/web\"]\ninclude_root = false\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
+        std::fs::create_dir_all(root.join("apps/web")).expect("create web");
 
-        let section = render_workspace_members_section(&root, None, None, "§", true);
+        let section =
+            render_workspace_members_section(&root.join("apps/api"), None, None, "§", true);
 
         assert!(section.contains("### Workspace members"));
-        assert!(section.contains("`api`"));
+        assert!(!section.contains("`api`"), "self row leaked into: {section}");
         assert!(
             !section.contains("`root`"),
             "include_root = false should suppress the root row entirely"
         );
+        assert!(section.contains("- [`web`](../web/) *(not yet initialized)*"));
     }
 
     /// §FS-init.2.3.4.15 + §FS-workspace.6: a configured-but-misconfigured
@@ -241,18 +234,16 @@ mod tests_workspace_members {
         assert!(section.contains(
             "- [`core`](packages/core/): Core domain library *(not yet initialized)*"
         ));
-        // Root row: description from the root config.
-        assert!(section.contains("- [`root`](AGENTS.md): Workspace root: shared specs"));
+        // Self and its description are omitted together.
+        assert!(!section.contains("`root`"), "self description row leaked into: {section}");
         // No config ⇒ no description ⇒ bullet unchanged.
         assert!(section.contains("- [`ui`](packages/ui/) *(not yet initialized)*"));
     }
 
-    /// §FS-init.2.3.4.15: when a member has no local config yet, its self row
-    /// uses the pending `project_description` from `--description`, mirroring
-    /// the pending `project_name` behavior.
+    /// §FS-init.2.3.4.15: pending self metadata never creates a local row.
     #[test]
-    fn workspace_members_member_init_uses_pending_description_for_self_row() {
-        let root = test_root("workspace_members_member_init_uses_pending_description_for_self_row");
+    fn workspace_members_member_init_omits_pending_self_description() {
+        let root = test_root("workspace_members_member_init_omits_pending_self_description");
         write(
             &root.join(".agents/grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
@@ -268,14 +259,15 @@ mod tests_workspace_members {
             true,
         );
 
-        assert!(section.contains("- [`service`](AGENTS.md): Billing service"));
+        assert!(!section.contains("service"), "pending self alias leaked into: {section}");
+        assert!(!section.contains("Billing service"), "pending self description leaked into: {section}");
+        assert!(section.contains("- [`root`](../../) *(not yet initialized)*"));
     }
 
     /// §FS-init.2.3.4.15 + §FS-workspace.6.1: in a nested workspace the search
     /// climbs to the *outermost* root, so a member three levels down is taught
-    /// every alias CI can resolve — not just its enclosing group's. Rows carry
-    /// the whole alias path, the grouping node is itself a row, and link
-    /// targets stay relative to the entrypoint being written.
+    /// every foreign alias CI can resolve — not just its enclosing group's.
+    /// Rows carry whole alias paths and links stay relative to the entrypoint.
     #[test]
     fn workspace_members_nested_workspace_lists_the_whole_tree() {
         let root = test_root("workspace_members_nested_workspace_lists_the_whole_tree");
@@ -296,10 +288,7 @@ mod tests_workspace_members {
 
         let section = render_workspace_members_section(&alpha_target, None, None, "§", true);
 
-        assert!(
-            section.contains("- [`group/alpha`](AGENTS.md)"),
-            "self row carries its whole alias path: {section}"
-        );
+        assert!(!section.contains("`group/alpha`"), "self row leaked into: {section}");
         assert!(
             section.contains("- [`group`](../) *(not yet initialized)*"),
             "the grouping node is a project of its own: {section}"
@@ -339,7 +328,7 @@ mod tests_workspace_members {
             section.contains("- [`group/alpha`](group/alpha/)"),
             "the leaf keeps its `group/` segment even though `group` is not a project: {section}"
         );
-        assert!(section.contains("- [`root`](AGENTS.md)"), "root row: {section}");
+        assert!(!section.contains("`root`"), "root self row leaked into: {section}");
         assert!(!section.contains("`group`]"), "grouping node must not be a row: {section}");
     }
 
@@ -365,10 +354,7 @@ mod tests_workspace_members {
 
         let section = render_workspace_members_section(&root.join("repo"), None, None, "§", true);
 
-        assert!(
-            section.contains("- [`root`](AGENTS.md)"),
-            "the repository's own root is the self row: {section}"
-        );
+        assert!(!section.contains("`root`"), "repository self row leaked into: {section}");
         assert!(
             section.contains("- [`api`](api/) *(not yet initialized)*"),
             "its member is listed relative to the entrypoint: {section}"
@@ -399,10 +385,7 @@ mod tests_workspace_members {
 
         let section = render_workspace_members_section(&root.join("stray"), None, None, "§", true);
 
-        assert!(
-            section.contains("- [`stray`](AGENTS.md)"),
-            "the unlisted group is its own root: {section}"
-        );
+        assert!(!section.contains("`stray`"), "workspace self row leaked into: {section}");
         assert!(
             section.contains("- [`leaf`](leaf/) *(not yet initialized)*"),
             "its member keeps the one segment its own scope gives it: {section}"

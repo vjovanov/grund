@@ -436,10 +436,10 @@ fn init_docs_existing_implicit_legacy_config_uses_legacy_fs_home() {
 }
 
 #[test]
-fn init_workspace_companion_only_marks_missing_self_agents_and_uses_marker() {
-    // §FS-init.2.3.4.15: a companion-only workspace init must not point the self
-    // row at a missing AGENTS.md, and its grammar hint must use the local marker.
-    let root = workdir("init_workspace_companion_only_marks_missing_self_agents_and_uses_marker");
+fn init_workspace_companion_only_omits_self_and_uses_marker() {
+    // §FS-init.2.3.4.15: a companion-only workspace init omits self just like
+    // canonical init, retains foreign rows, and uses the local citation marker.
+    let root = workdir("init_workspace_companion_only_omits_self_and_uses_marker");
     fs::create_dir_all(root.join(".agents")).expect("create root config dir");
     fs::write(
         root.join(".agents/grund.toml"),
@@ -471,12 +471,12 @@ fn init_workspace_companion_only_marks_missing_self_agents_and_uses_marker() {
         "workspace citation hint should use the configured marker:\n{claude}"
     );
     assert!(
-        claude.contains("- [`api`](./) *(not yet initialized)*"),
-        "self row should link to the project directory until AGENTS.md exists:\n{claude}"
+        !claude.contains("`api`"),
+        "companion-only init must omit its canonical self project:\n{claude}"
     );
     assert!(
-        !claude.contains("- [`api`](AGENTS.md)"),
-        "companion-only init must not link to a missing AGENTS.md:\n{claude}"
+        claude.contains("- [`root`](../../) *(not yet initialized)*"),
+        "the foreign root row should retain its relative link and annotation:\n{claude}"
     );
 }
 
