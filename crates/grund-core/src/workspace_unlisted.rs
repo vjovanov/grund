@@ -184,6 +184,13 @@ fn is_project_root_of_run(config: &Config, canonical: &Path) -> bool {
 /// somebody meant, and calling it "no block" would silence the finding on the very
 /// config that is most confused. An unreadable file declares nothing this run can
 /// see and says nothing.
+///
+/// Reading the header exactly as the parser reads one is the deliberate half, and
+/// the identity with `ancestor_member_entries` is worth more than being cleverer
+/// here: a textual read also sees a header-shaped line nobody meant as a header —
+/// one inside a multi-line value — in a config `parse_config_file` already
+/// rejects, and two readers of one file that disagreed about what a section header
+/// is would be the worse bug (§FS-workspace.6.1).
 fn workspace_table_line(config_path: &Path) -> Option<usize> {
     let text = fs::read_to_string(config_path).ok()?;
     text.lines().enumerate().find_map(|(idx, raw_line)| {
