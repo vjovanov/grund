@@ -136,9 +136,9 @@ fn qualify_alias(prefix: &str, alias: &str) -> String {
 /// walk.
 fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjectEntry>> {
     let members = expand_workspace_member_list(root_config)?;
-    // §FS-check.4.8: no warning here. `apply_workspace_boundary` already asked
-    // this block, on every route a walk takes (§AR-workspace.5.1), and this line
-    // only repopulates what it set — asking again would say it twice.
+    // §FS-check.4.8: no warning here. Every route in asks this block first —
+    // `resolve_workspace_config` (§AR-workspace.5.1), or `find_init_workspace_root`
+    // for `init` — so this only repopulates that boundary; asking again says it twice.
     root_config.workspace_boundary_roots = members.iter().map(|m| m.root.clone()).collect();
 
     let mut entries: Vec<WorkspaceProjectEntry> = Vec::new();

@@ -74,10 +74,11 @@ pub fn canonical_template_text(template: &str) -> String {
 /// kinds show up in the kind set, and so on. Everything *not* substituted here is
 /// fixed for the block version. `{ID_SHAPE_SEC}` is listed before `{ID_SHAPE}`
 /// only for readability; neither placeholder is a substring of the other.
-/// `target` is the directory being initialized; it's the anchor for the
-/// `{WORKSPACE_MEMBERS}` walk-up and for the relative path rendering inside that
-/// section (§FS-init.2.3.4.15). Canonical target identity omits self regardless
-/// of whether this run selected the canonical `AGENTS.md` or only a companion.
+/// `workspace_members` arrives already rendered (§FS-init.2.3.4.15): it is the
+/// one substitution that reads the tree rather than the config, it does not vary
+/// by surface, and its walk-up must run once per `init` invocation rather than
+/// once per entrypoint file — see [`agents_workspace_members_section`]. Which is
+/// also why nothing here needs the target directory any more.
 ///
 /// Why the worked citation example is escaped: a live marker would make the
 /// generated block fail the host repo's own `grund check` as a dangling
@@ -85,8 +86,7 @@ pub fn canonical_template_text(template: &str) -> String {
 fn agents_template_substitutions(
     name: &str,
     config: &Config,
-    target: &Path,
-    canonical_agent_entrypoint_selected: bool,
+    workspace_members: &str,
     surface: ConversationSurface,
 ) -> Vec<(&'static str, String)> {
     let sep = config.section_separator.as_str();
@@ -130,20 +130,36 @@ fn agents_template_substitutions(
             "{CLICKABLE_CITATIONS}",
             clickable_citations_section(config, surface),
         ),
-        (
-            "{WORKSPACE_MEMBERS}",
-            render_workspace_members_section(
-                target,
-                Some(name),
-                // Collect effective pending metadata. The renderer omits self
-                // (and its description); the pending name still participates
-                // in alias validation (§FS-init.2.3.4.15).
-                config.project_description.as_deref(),
-                marker,
-                canonical_agent_entrypoint_selected,
-            ),
-        ),
+        ("{WORKSPACE_MEMBERS}", workspace_members.to_string()),
     ]
+}
+
+/// The `### Workspace members` section one `init` run renders (§FS-init.2.3.4.15),
+/// built here rather than inside [`agents_template_substitutions`] so it is built
+/// **once**. It does not vary by [`ConversationSurface`], and a run that writes
+/// both `AGENTS.md` and a `CLAUDE.md` companion renders two blocks from one
+/// invocation — so a per-block build would repeat the walk-up's I/O and, worse,
+/// ask every block in the workspace twice whether its members swallowed its scan,
+/// against §FS-check.4.8's once per block per run.
+///
+/// Canonical target identity omits self regardless of whether this run selected
+/// the canonical `AGENTS.md` or only a companion.
+fn agents_workspace_members_section(
+    name: &str,
+    config: &Config,
+    target: &Path,
+    canonical_agent_entrypoint_selected: bool,
+) -> String {
+    render_workspace_members_section(
+        target,
+        Some(name),
+        // Collect effective pending metadata. The renderer omits self (and its
+        // description); the pending name still participates in alias validation
+        // (§FS-init.2.3.4.15).
+        config.project_description.as_deref(),
+        config.marker.as_str(),
+        canonical_agent_entrypoint_selected,
+    )
 }
 
 fn section_heading_note(config: &Config, marker: &str) -> String {
@@ -348,26 +364,39 @@ fn row(label: &str, home: &str, title: &str) -> String {
 /// The managed block — just the H2 section that `init` appends to, or replaces
 /// inside, an existing `AGENTS.md` (§FS-init.2.3). The template *is* the block;
 /// the H2 line carrying the version is its own begin marker (§FS-init.2.3.1).
-/// `target` is the directory being initialized — the anchor for the
-/// workspace-members walk-up (§FS-init.2.3.4.15).
+/// `workspace_members` is the §FS-init.2.3.4.15 section, rendered once per `init`
+/// invocation by [`agents_workspace_members_section`] against the directory being
+/// initialized and handed to every surface that block is written to.
 fn render_agents_append_block(
+    name: &str,
+    config: &Config,
+    workspace_members: &str,
+    surface: ConversationSurface,
+) -> String {
+    let mut rendered = canonical_template_text(AGENTS_TEMPLATE);
+    for (placeholder, value) in
+        agents_template_substitutions(name, config, workspace_members, surface)
+    {
+        rendered = rendered.replace(placeholder, &value);
+    }
+    rendered
+}
+
+/// [`render_agents_append_block`] with the §FS-init.2.3.4.15 section rendered for
+/// it — the shape `command_init` had before the section was hoisted out of the
+/// substitutions, kept for the tests that render one block from a target and have
+/// no second surface for the walk-up to be repeated by.
+#[cfg(test)]
+fn render_agents_append_block_at(
     name: &str,
     config: &Config,
     target: &Path,
     canonical_agent_entrypoint_selected: bool,
     surface: ConversationSurface,
 ) -> String {
-    let mut rendered = canonical_template_text(AGENTS_TEMPLATE);
-    for (placeholder, value) in agents_template_substitutions(
-        name,
-        config,
-        target,
-        canonical_agent_entrypoint_selected,
-        surface,
-    ) {
-        rendered = rendered.replace(placeholder, &value);
-    }
-    rendered
+    let workspace_members =
+        agents_workspace_members_section(name, config, target, canonical_agent_entrypoint_selected);
+    render_agents_append_block(name, config, &workspace_members, surface)
 }
 
 /// The full generated `AGENTS.md` for a fresh repo — the H1 scaffolding line
@@ -382,7 +411,7 @@ fn render_agents_md(
     target: &Path,
     canonical_agent_entrypoint_selected: bool,
 ) -> String {
-    let block = render_agents_append_block(
+    let block = render_agents_append_block_at(
         name,
         config,
         target,

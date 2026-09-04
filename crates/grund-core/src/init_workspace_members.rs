@@ -124,7 +124,14 @@ fn find_init_workspace_root(target: &Path) -> Option<Config> {
             Err(_) => return None,
         }
     }
-    config.workspace_declared.then_some(config)
+    if !config.workspace_declared {
+        return None;
+    }
+    // §FS-check.4.8: the one route to `expand_workspace_tree` that does not come
+    // through `resolve_workspace_config`, and the expansion asks every block but
+    // this one — so without this, `init` says nothing about the block it is on.
+    apply_workspace_boundary(&mut config).ok()?;
+    Some(config)
 }
 
 /// Render the §FS-init.2.3.4.15 Workspace Members section, or the empty string
