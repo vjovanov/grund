@@ -50,6 +50,7 @@ include!("show.rs");
 include!("show_render.rs");
 include!("show_body.rs");
 include!("never_rewrite.rs");
+include!("fmt_complete_findings.rs");
 include!("fmt.rs");
 include!("fmt_suppress.rs");
 include!("fmt_error.rs");

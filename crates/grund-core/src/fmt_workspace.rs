@@ -33,7 +33,7 @@ fn fmt_workspace_projects(
             write: perform_writes,
             render,
             workspace: Some(context),
-            precomputed_findings: usable_findings(project),
+            precomputed_findings: project.complete_findings(),
             // §FS-fmt.6.1: check previews the same index carve-out write applies.
             index_cross_refs: true,
         };
