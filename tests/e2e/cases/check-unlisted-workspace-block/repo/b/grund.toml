@@ -1,0 +1,11 @@
+grund_config_version = 1
+project_name = "b"
+
+[id]
+format = "{kind}-{slug}"
+
+[workspace]
+members = ["c"]
+
+[scan]
+include = ["docs"]
