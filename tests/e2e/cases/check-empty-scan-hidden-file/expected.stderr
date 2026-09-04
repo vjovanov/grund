@@ -1,0 +1,1 @@
+warning: nothing to scan — `tests/e2e/cases/check-empty-scan-hidden-file/repo/docs/.notes.md` is a hidden file. grund reads no file whose own name begins with `.`, whatever `[scan] extensions` says. Rename it, or move what needs checking into a file that is not hidden.
