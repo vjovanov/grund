@@ -1,0 +1,11 @@
+grund_config_version = 1
+project_name = "root"
+
+[id]
+format = "{kind}-{slug}"
+
+[workspace]
+members = ["a"]
+
+[scan]
+include = ["docs", "b"]

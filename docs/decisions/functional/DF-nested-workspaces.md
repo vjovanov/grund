@@ -122,8 +122,13 @@ the enclosing namespace, a run started **at** it names itself from itself, and
 the two disagree. The projects under it may themselves be reached by the chain — a
 multi-segment entry (`grp/inner`) hops the block — and a run started there
 re-spells them regardless, so a citation can pass that block's check and fail the
-run CI does. Diagnosing that needs a walk for config files no pass performs, so it
-is recorded as a known limitation there rather than designed around here.
+run CI does. The disagreement is not designed around here — the naming model is what
+it is, and an unclaimed block is outside it — but it is no longer left silent: a run
+whose own walk meets the block says so, and names the two config edits that put it
+back in the chain ([§FS-check.4.9](../../functional-spec/FS-check.md#49-unlisted-workspace-block),
+[§DF-unlisted-workspace-block](DF-unlisted-workspace-block.md#df-unlisted-workspace-block-an-unlisted-workspace-block-is-reported-by-the-walk-that-meets-it)).
+A block the walk never reaches is still unreported, and stays the known limitation
+recorded there.
 
 ### 3.5 The intermediate node reuses `include_root`, and defaults to a project
 
