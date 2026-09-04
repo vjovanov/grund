@@ -147,6 +147,17 @@ fn load_resolved_workspace_context(
     // `include_root = true` (the helper always emits the root first).
     let current = root_config.workspace_include_root.then_some(0);
     let projects = load_workspace_projects_with_overlays(&mut root_config, overlays)?;
+    // §FS-check.4.8: the query surfaces have no report to carry the finding, so the
+    // same text goes straight to stderr here — the one place every command that
+    // walks and is not `check` passes through (§DF-unlisted-workspace-block.2.3).
+    for project in &projects {
+        print_unlisted_workspace_block_warnings(
+            &project.config,
+            &render_config,
+            Some(&project.alias),
+            &project.findings.walked_dirs,
+        );
+    }
     Ok(WorkspaceContext {
         projects,
         current,
@@ -173,6 +184,10 @@ fn single_project_context(
         scan_tree_with_workspace_overlays(&config, Some(path), path_provided, &[], overlays)?;
     let render_root = config.root.clone();
     let render_config = config.clone();
+    // §FS-check.4.8: the same finding for the runs that loaded one project — a
+    // narrowed scope inside a workspace, or a repository with no `[workspace]` block
+    // of its own that still walks into one.
+    print_unlisted_workspace_block_warnings(&config, &render_config, None, &findings.walked_dirs);
     Ok(WorkspaceContext {
         projects: vec![WorkspaceProject {
             alias: String::new(),

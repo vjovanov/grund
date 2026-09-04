@@ -431,6 +431,26 @@ pub fn print_config_warnings(config: &Config) {
     }
 }
 
+/// §FS-check.4.8, §DF-unlisted-workspace-block.2.4: the unlisted-`[workspace]`
+/// finding on the five surfaces that have no report to carry it — `list`, `refs`,
+/// `cover`, `fmt` and the ID read. One CLI-level `warning:` per block on stderr
+/// (§FS-errors.2.2), the identical text `check` puts in `report.warnings`, so what
+/// a consumer greps for does not depend on which command produced it.
+///
+/// Here rather than beside the rule for the reason `print_config_warnings` above is
+/// here: rendering belongs to the output category, and `workspace_unlisted.rs`
+/// builds the message and prints nothing (§AR-core-module-layout.1, §AR-bindings.2).
+fn print_unlisted_workspace_block_warnings(
+    config: &Config,
+    render: &Config,
+    alias: Option<&str>,
+    walked_dirs: &[PathBuf],
+) {
+    for warning in unlisted_workspace_block_warnings(config, render, alias, walked_dirs) {
+        eprintln!("warning: {}", warning.message);
+    }
+}
+
 /// §FS-check.4.3: the warning for a config root holding both discovery names —
 /// the bare `grund.toml` won, and the `.agents/grund.toml` beside it is read by
 /// nothing (§FS-config.1.1). `line`-less, so it prints as a CLI-level `warning:`

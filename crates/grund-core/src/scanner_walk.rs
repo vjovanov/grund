@@ -30,6 +30,12 @@ struct WalkedTree {
     /// `fmt --write` is the caller that treats them differently, because
     /// rewriting one edits a file the project does not own (§FS-fmt.2.3.2).
     outside_root: BTreeSet<PathBuf>,
+    /// Every directory the walk descended into, scan roots included, sorted and
+    /// deduplicated (§FS-errors.4). Carried out rather than asked about here: the
+    /// scanner never asks "am I in a workspace?" (§AR-workspace.1), and the one
+    /// caller of this list — the unlisted-`[workspace]` rule of §FS-check.4.8 —
+    /// probes each directory for a config and answers the claim above the walk.
+    dirs: Vec<PathBuf>,
 }
 
 /// The tree walk (§AR-scanner.1): from each scan root, descend skipping hidden and
@@ -74,6 +80,10 @@ fn walk_scannable_files_reporting(
     let mut aliasable = BTreeSet::new();
     let mut files = Vec::new();
     let mut errors = Vec::new();
+    // §FS-check.4.8: the directories the walk met, for the rule that asks which of
+    // them carries a `[workspace]` block nothing claims. Collected here because the
+    // entries are already being enumerated — no second traversal (§GOAL-fast-feedback).
+    let mut dirs = Vec::new();
     // Where this project physically is, for every comparison below that reads a
     // resolved path. Equal to `config.root` for the roots `grund` discovers, which
     // are canonical already (§FS-config.1) — one `stat` per run either way.
@@ -167,6 +177,15 @@ fn walk_scannable_files_reporting(
                     continue;
                 }
             };
+            // §FS-check.4.8: a directory is not a scannable file, so it falls out
+            // one line below. Its path is what the unlisted-`[workspace]` rule needs,
+            // and the scan root itself — the entry at depth 0 — is one of them.
+            if entry
+                .file_type()
+                .is_some_and(|file_type| file_type.is_dir())
+            {
+                dirs.push(entry.path().to_path_buf());
+            }
             if !entry
                 .file_type()
                 .is_some_and(|file_type| file_type.is_file())
@@ -240,10 +259,16 @@ fn walk_scannable_files_reporting(
         })
         .cloned()
         .collect();
+    // §FS-errors.4: overlapping roots — and `--full`, which walks every `include`
+    // root beside the config root containing it — meet the same directory once per
+    // root, so one sort and one dedup make the candidate list a set.
+    dirs.sort_by_key(|path| sort_path_key(path));
+    dirs.dedup();
     Ok(WalkedTree {
         files,
         errors,
         outside_root,
+        dirs,
     })
 }
 

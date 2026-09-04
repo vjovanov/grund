@@ -208,6 +208,11 @@ pub struct Findings {
     /// §DF-require-grounding). Files that failed to read are not here; they are in
     /// the walk's `ScanError` list instead.
     pub scanned_files: Vec<PathBuf>,
+    /// Every directory the walk descended into (§AR-scanner.1), scan roots
+    /// included — the candidate set the unlisted-`[workspace]` rule of
+    /// §FS-check.4.8 probes. Carried rather than judged here: the walk knows what
+    /// it reached, and nothing about workspaces (§AR-workspace.1).
+    pub walked_dirs: Vec<PathBuf>,
     /// Per-file heading and doc-comment structure, for the files a grounding
     /// unit finer than the file is asked of (§AR-scanner.2.7, §FS-check.3.6.2).
     /// Empty — and never collected — unless `Config::grounding_units` is set.

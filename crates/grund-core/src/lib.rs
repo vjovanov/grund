@@ -44,6 +44,7 @@ include!("workspace_scope.rs");
 include!("workspace_members.rs");
 include!("workspace_context.rs");
 include!("workspace_expand.rs");
+include!("workspace_unlisted.rs");
 include!("output.rs");
 include!("show.rs");
 include!("show_render.rs");
