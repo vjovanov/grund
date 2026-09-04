@@ -131,15 +131,12 @@ fn find_init_workspace_root(target: &Path) -> Option<Config> {
 /// when `target` is not inside a workspace. The leading `\n\n` is the
 /// separator from the preceding namespace guidance block, so an empty value
 /// leaves the surrounding spacing unchanged.
-///
-/// Why the self row's link is gated on `canonical_agent_entrypoint_selected`:
-/// companion-only init must not link to a missing `AGENTS.md`.
 fn render_workspace_members_section(
     target: &Path,
     pending_project_name: Option<&str>,
     pending_project_description: Option<&str>,
     citation_marker: &str,
-    canonical_agent_entrypoint_selected: bool,
+    _canonical_agent_entrypoint_selected: bool,
 ) -> String {
     let Some(projects) = find_init_workspace_context(
         target,
@@ -157,13 +154,13 @@ fn render_workspace_members_section(
     };
     let mut bullets = Vec::with_capacity(projects.len());
     for project in &projects {
-        let is_self = project.project_root == target_canonical;
+        // §FS-init.2.3.4.15: the canonical init target is the local namespace,
+        // so this cross-project list contains only foreign projects.
+        if project.project_root == target_canonical {
+            continue;
+        }
         let agents_md_path = project.project_root.join("AGENTS.md");
-        // §FS-init.2.3.4.15 self exception: the self project counts as
-        // initialized before the write completes only when this init run is
-        // actually writing the canonical AGENTS.md.
-        let initialized =
-            agents_md_path.exists() || (is_self && canonical_agent_entrypoint_selected);
+        let initialized = agents_md_path.exists();
         let link = if initialized {
             relative_link_path(&target_canonical, &agents_md_path)
         } else {
