@@ -1,0 +1,5 @@
+grund_config_version = 1
+project_name = "inner"
+
+[id]
+format = "{kind}-{slug}"

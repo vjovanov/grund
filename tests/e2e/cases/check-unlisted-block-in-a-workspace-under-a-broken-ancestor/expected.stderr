@@ -1,0 +1,2 @@
+warning: ../grund.toml: cannot read [workspace] members (`members` is not a list of strings); alias paths below it may be missing a segment
+warning: a/blk/grund.toml:7: this [workspace] is listed by no enclosing workspace — the projects under it are absorbed into `a` instead of named under their own alias path; add "blk" to [workspace] members in a/grund.toml, or keep it out of that project's [scan] — an unlisted [workspace] becomes an error in grund 0.14.0

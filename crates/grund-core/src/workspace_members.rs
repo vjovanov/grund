@@ -379,6 +379,15 @@ struct AncestorWorkspaces {
     /// relative to its own root, and `.agents/grund.toml:16` then named a
     /// same-shaped file in the reader's own directory (§FS-errors.4).
     report_base: PathBuf,
+    /// Whether a `members` value this climb cannot read is said out loud
+    /// ([`warn_undecidable_ancestor_claim`]). True for a climb whose answer
+    /// *names* the tree below it — an alias path is built from it, so a segment
+    /// that may be missing is the reader's business. False for a climb that only
+    /// asks whether some directory is claimed and treats "cannot say" as "no
+    /// answer" (§FS-check.4.8): there is no alias path to protect, and the
+    /// sentence about one would be printed into runs that never asked the chain
+    /// anything (§FS-workspace.6.1).
+    warn_undecidable: bool,
     blocks: BTreeMap<PathBuf, Option<AncestorBlock>>,
 }
 
@@ -386,7 +395,17 @@ impl AncestorWorkspaces {
     fn for_run_at(root: &Path) -> Self {
         Self {
             report_base: root.to_path_buf(),
+            warn_undecidable: true,
             blocks: BTreeMap::new(),
+        }
+    }
+
+    /// The same cache for a climb that asks its question quietly — see
+    /// [`Self::warn_undecidable`].
+    fn quiet_for_run_at(root: &Path) -> Self {
+        Self {
+            warn_undecidable: false,
+            ..Self::for_run_at(root)
         }
     }
 
@@ -412,7 +431,12 @@ impl AncestorWorkspaces {
         cli_base: &Path,
     ) -> Result<Option<&Config>> {
         if !self.blocks.contains_key(dir) {
-            let block = read_ancestor_workspace_block(dir, cli_base, &self.report_base);
+            let block = read_ancestor_workspace_block(
+                dir,
+                cli_base,
+                &self.report_base,
+                self.warn_undecidable,
+            );
             self.blocks.insert(dir.to_path_buf(), block);
         }
         let Some(block) = self.blocks.get_mut(dir).and_then(Option::as_mut) else {
@@ -446,19 +470,24 @@ impl AncestorWorkspaces {
 /// The `[workspace]` block `dir` holds, as far as deciding a claim needs it.
 /// `None` when nothing here can claim this child: no config file, no
 /// `[workspace] members` entries — or a `members` value that could not be read
-/// at all, which warns and is then treated as no claim, because this walk climbs
-/// to the filesystem root and a stray broken `grund.toml` above a repository
-/// must not break every run beneath it (§FS-workspace.6.1, §AR-workspace.6.1).
+/// at all, which is treated as no claim, because this walk climbs to the
+/// filesystem root and a stray broken `grund.toml` above a repository must not
+/// break every run beneath it (§FS-workspace.6.1, §AR-workspace.6.1). Whether
+/// that last case is also *said* is the caller's, through `warn_undecidable`:
+/// only a climb that spells the tree below it owes the reader the sentence.
 fn read_ancestor_workspace_block(
     dir: &Path,
     cli_base: &Path,
     report_base: &Path,
+    warn_undecidable: bool,
 ) -> Option<AncestorBlock> {
     let config_path = config_file_in(dir)?;
     let entries = match ancestor_member_entries(&config_path) {
         Ok(entries) => entries,
         Err(reason) => {
-            warn_undecidable_ancestor_claim(&config_path, report_base, &reason);
+            if warn_undecidable {
+                warn_undecidable_ancestor_claim(&config_path, report_base, &reason);
+            }
             return None;
         }
     };

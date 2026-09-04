@@ -1,0 +1,8 @@
+grund_config_version = 1
+project_name = "a"
+
+[id]
+format = "{kind}-{slug}"
+
+[scan]
+include = ["docs", "blk"]
