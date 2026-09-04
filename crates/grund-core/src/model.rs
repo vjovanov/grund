@@ -210,7 +210,7 @@ pub struct Findings {
     pub scanned_files: Vec<PathBuf>,
     /// Every directory the walk descended into (§AR-scanner.1), scan roots
     /// included — the candidate set the unlisted-`[workspace]` rule of
-    /// §FS-check.4.8 probes. Carried rather than judged here: the walk knows what
+    /// §FS-check.4.9 probes. Carried rather than judged here: the walk knows what
     /// it reached, and nothing about workspaces (§AR-workspace.1).
     pub walked_dirs: Vec<PathBuf>,
     /// Per-file heading and doc-comment structure, for the files a grounding

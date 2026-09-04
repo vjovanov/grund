@@ -191,7 +191,7 @@ fn run_check(
     report
         .warnings
         .extend(full_scope_ignored_warning(&config, path, path_provided, full));
-    // §FS-check.4.8: the blocks this walk met that no enclosing one lists. A report
+    // §FS-check.4.9: the blocks this walk met that no enclosing one lists. A report
     // warning, not a line printed past it: that is what stands it in place of
     // `success` (§FS-check.2.1) and makes §DF-unlisted-workspace-block.2.1's ramp work.
     report.warnings.extend(unlisted_workspace_block_warnings(
@@ -301,7 +301,7 @@ fn run_workspace_check(
                 .extend(deprecated_kind_prefix_warning(&project.config));
         }
     }
-    // §FS-check.4.8: per project — the candidates are what *that* walk reached, and
+    // §FS-check.4.9: per project — the candidates are what *that* walk reached, and
     // the absorbing namespace is its own. Rendered against the workspace root like
     // every other message here (§FS-workspace.8.1).
     for project in &projects {

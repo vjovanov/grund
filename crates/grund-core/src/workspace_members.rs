@@ -384,7 +384,7 @@ struct AncestorWorkspaces {
     /// *names* the tree below it — an alias path is built from it, so a segment
     /// that may be missing is the reader's business. False for a climb that only
     /// asks whether some directory is claimed and treats "cannot say" as "no
-    /// answer" (§FS-check.4.8): there is no alias path to protect, and the
+    /// answer" (§FS-check.4.9): there is no alias path to protect, and the
     /// sentence about one would be printed into runs that never asked the chain
     /// anything (§FS-workspace.6.1).
     warn_undecidable: bool,
