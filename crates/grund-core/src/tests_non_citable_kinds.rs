@@ -181,7 +181,7 @@ mod tests_non_citable_kinds {
             "# Review skill\n\nSee §FS-001-login.\n",
         );
         let config = load_config(&root).expect("load config");
-        let block = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
+        let block = render_agents_append_block_at("demo", &config, &root, true, ConversationSurface::Plain);
         assert!(
             block.contains("- [skills/](skills): Agent skills"),
             "map row by place: {block}"
@@ -418,7 +418,7 @@ mod tests_non_citable_kinds {
         );
         let config = load_config(&root).expect("load config");
         let block =
-            render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
+            render_agents_append_block_at("demo", &config, &root, true, ConversationSurface::Plain);
         assert!(
             !block.contains("- [src]") && !block.contains("- `src`"),
             "the complement of every home is not a place to link: {block}"

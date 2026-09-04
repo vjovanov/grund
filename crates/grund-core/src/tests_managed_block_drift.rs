@@ -18,7 +18,7 @@ mod tests_managed_block_drift {
         let config = load_config(&root).expect("load config");
 
         // A fresh block carries the matching section → no drift finding.
-        let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
+        let fresh = render_agents_append_block_at("demo", &config, &root, true, ConversationSurface::Plain);
         write(&root.join("AGENTS.md"), &format!("# demo\n\n{fresh}"));
         let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
         let report = check_findings(&findings, &config);
@@ -50,7 +50,7 @@ mod tests_managed_block_drift {
         let config = load_config(&root).expect("load config");
 
         // Block rendered without the opinion → no drift while the key is absent.
-        let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
+        let fresh = render_agents_append_block_at("demo", &config, &root, true, ConversationSurface::Plain);
         write(&root.join("AGENTS.md"), &format!("# demo\n\n{fresh}"));
         let (findings, _) = scan_tree(&config, Some(&root), true).expect("scan");
         let report = check_findings(&findings, &config);
@@ -76,7 +76,7 @@ mod tests_managed_block_drift {
         );
 
         // `grund init`'s re-render clears the drift.
-        let refreshed = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
+        let refreshed = render_agents_append_block_at("demo", &config, &root, true, ConversationSurface::Plain);
         assert!(refreshed.contains("plain `path:line` text"));
         write(&root.join("AGENTS.md"), &format!("# demo\n\n{refreshed}"));
         let report = check_findings(&findings, &config);
@@ -119,7 +119,7 @@ mod tests_managed_block_drift {
             "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
-        let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
+        let fresh = render_agents_append_block_at("demo", &config, &root, true, ConversationSurface::Plain);
         let stale = fresh.replace("**tests/e2e/** must cite FS", "**tests/e2e/** should cite GOAL");
         let expected = citation_directions_section(&config);
         write(
@@ -148,7 +148,7 @@ mod tests_managed_block_drift {
             "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
-        let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
+        let fresh = render_agents_append_block_at("demo", &config, &root, true, ConversationSurface::Plain);
         let expected = citation_directions_section(&config);
         let stale = fresh.replace(
             &expected,
@@ -178,7 +178,7 @@ mod tests_managed_block_drift {
             "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
-        let fresh = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
+        let fresh = render_agents_append_block_at("demo", &config, &root, true, ConversationSurface::Plain);
         let crlf = format!("# demo\n\n{fresh}").replace('\n', "\r\n");
         write(&root.join("AGENTS.md"), &crlf);
 

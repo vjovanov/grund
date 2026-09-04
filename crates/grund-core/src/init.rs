@@ -220,17 +220,19 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         return Err(InitError::new(message));
     }
 
-    // Render the managed block once and reuse it for both surfaces: the
-    // workspace-members walk-up (§FS-init.2.3.4.15) is non-trivial I/O, and the
-    // two surfaces differ in one sentence only (§FS-init.2.3.4.17).
+    // §FS-init.2.3.4.15, §FS-check.4.8: walked once and handed to both surfaces —
+    // the section does not vary by surface, and this walk is where every block is
+    // asked whether its members swallowed its scan, once per run.
+    let workspace_members = agents_workspace_members_section(
+        &resolved_name,
+        &init_config,
+        &target,
+        agent_entrypoints.canonical,
+    );
+    // Render the managed block once and reuse it for both surfaces: the two
+    // surfaces differ in one sentence only (§FS-init.2.3.4.17).
     let render_block = |surface| {
-        render_agents_append_block(
-            &resolved_name,
-            &init_config,
-            &target,
-            agent_entrypoints.canonical,
-            surface,
-        )
+        render_agents_append_block(&resolved_name, &init_config, &workspace_members, surface)
     };
     let agents_block = render_block(ConversationSurface::Plain);
     let claude_block = agent_entrypoints

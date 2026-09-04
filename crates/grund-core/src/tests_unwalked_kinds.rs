@@ -91,7 +91,7 @@ mod tests_unwalked_kinds {
             "[citations]\n[citations.FS]\nshould = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
-        let block = render_agents_append_block("demo", &config, &root, true, ConversationSurface::Plain);
+        let block = render_agents_append_block_at("demo", &config, &root, true, ConversationSurface::Plain);
         assert!(
             block.contains("- [templates/](templates): Scaffold templates"),
             "map row by place: {block}"

@@ -179,7 +179,7 @@ mod tests_support {
     }
 
     pub(crate) fn current_block() -> String {
-        render_agents_append_block(
+        render_agents_append_block_at(
             "demo",
             &Config::default_for(PathBuf::from(".")),
             Path::new("."),
