@@ -94,6 +94,51 @@ either discovery form, `.agents/grund.toml` or a bare `grund.toml`
 canonical defaults apply with the member directory as the config root. Root and
 members choose independently, so a workspace may mix the two forms.
 
+### 2.1 A member that swallows the block's own scan
+
+A member root may sit anywhere strictly inside the block that lists it, and that
+includes on top of the paths the block itself scans. When it covers **all** of
+them the block's own project reads nothing: every one of its walk roots lies
+under a member boundary (§6), so its declarations reach no catalog and its
+dangling citations pass [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration). That is the same consequence
+§6.1 gives as the reason a member root may not be an *ancestor* of its own
+block, one step weaker — here the root is strictly inside the block and still
+covers everything the block had to read.
+
+So `grund` says so. Take the block's **default scope** — the roots `[scan]
+include` and the walked `[[kinds]]` homes give it (§FS-config.3.5), which is the
+set §6's boundary prunes — and keep the ones that exist on disk, since a root
+that is not there is read by nobody and rescues nothing. When at least one such
+root remains and **every** one of them is at or inside an expanded member root,
+the block earns one warning at its `members` line, naming each covered root and
+the member entry it is inside ([§FS-check.4.8](FS-check.md#48-a-workspace-member-swallows-the-blocks-own-scan)). Roots and member entries are
+compared as canonical paths, the way the walk's own prune compares them, so a
+member reached through a symlink or a glob covers what it actually lands on.
+
+Four neighbouring shapes are deliberately *not* this finding:
+
+- **A partly covered scope is specified behaviour.** §6 already says the root
+  scan stops at a member "even if the root project's `[scan] include` names a
+  path inside a member", so one covered entry beside a surviving one is the
+  boundary working as designed and stays silent.
+- **`include_root = false` has nothing to lose.** That block is not a project
+  (§6.1), so it has no scan of its own to be covered. What its files cost is
+  §6.1's own subject.
+- **A block with no `[scan] include` key never earns it.** Its only walk root is
+  the block root, and every member root is strictly inside that (§2), so a root
+  always survives.
+- **`--full` does not silence it** ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)). The flag adds the config
+  root as a walk root, but the member boundary still prunes, so the absorbed
+  tree is no more readable with it than without. The question is therefore asked
+  of the default scope whatever the flag says: this is a property of the
+  configuration, not of one walk.
+
+The repair is a judgement rather than a command `grund` can run — point `[scan]
+include` at a directory that is not also a member, or say `include_root = false`
+and mean it — which is why the finding arrives as a warning on the deprecation
+path of [§REQ-backwards-compatibility.2](../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) rather than as an error
+([§DF-absorbed-scan-warning](../decisions/functional/DF-absorbed-scan-warning.md#df-absorbed-scan-warning-a-scan-its-own-members-swallowed-is-a-warning-with-a-named-release-not-an-error)).
+
 ## 3. Aliases
 
 The root alias is the root config's `project_name`, or `root` when omitted.
@@ -177,7 +222,10 @@ their descendants, even if the root project's `[scan] include` names a path
 inside a member. The member is scanned separately under its own config and alias.
 
 This prevents a child project declaration from accidentally becoming a duplicate
-or dependency of the root namespace.
+or dependency of the root namespace. It also has a limit: a `members` list that
+prunes *every* one of the block's own walk roots leaves that block reading
+nothing at all, which is a misconfiguration rather than a boundary, and §2.1 is
+where the run says so.
 
 **The boundary is mutual, and it belongs to the directory rather than to the path
 that reaches it.** A member's own scan stops at every *other* project in the

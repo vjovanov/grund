@@ -546,6 +546,24 @@ The line-oriented opt-out held in reserve while the warning was new was never ne
 
 - **Code:** `declaration-near-miss` ([§FS-errors.5](FS-errors.md#5-json-format)).
 
+### 4.8 A workspace member swallows the block's own scan
+
+A `[workspace]` block every one of whose walk roots lies inside one of its own members ([§FS-workspace.2.1](FS-workspace.md#21-a-member-that-swallows-the-blocks-own-scan)) reads nothing at all, and said nothing about it: `grund list` completed silently and exited `0`, and `check` offered only the empty-scan caution of §2.2 — which names `[scan] include`, the key that is usually already correct, so the one message the run did produce pointed away from the entry that caused it.
+
+`grund` emits one CLI-level `warning:` line (§2.1.1) on **stderr**, carrying the block's `members` line as its breadcrumb the way a config error does ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)), then each covered root and the member entry it is inside — both **as the config wrote them**, in config order, since a resolved root renders as nothing or as an absolute path and neither is something an author can edit ([§FS-errors.4](FS-errors.md#4-determinism)):
+
+```
+warning: grund.toml:16: [workspace] members swallows this project's whole scan — every scan root is inside a member: `docs` in `docs` — so its declarations are unreachable and its citations are never checked. Point [scan] include at a directory that is not a member, or set include_root = false. This becomes an error in grund 0.14.0.
+```
+
+**Every command that walks says it, not just `check`.** The question is asked where a run populates a block's member boundary, so `grund check`, `list`, `refs`, `cover`, `fmt`, and every other command that resolves that boundary carry it. A silent-scan defect only `check` reports is half-reported: the other surfaces are exactly where the repository looks fine. It is emitted **once per block per run**, ahead of any finding, and asked of every block in a nested tree against that block's own `members` line — rendered, like every diagnostic from a block above the run's root, against the root this run was launched at ([§FS-errors.4](FS-errors.md#4-determinism)).
+
+**It stands beside the empty-scan caution rather than in place of it.** §2.2 is about a walk that read nothing; this is about a configuration that can read nothing. A `check` over an absorbed block prints both, this one first, and §2.2's text is unchanged — it is stable phrasing ([§FS-errors.3](FS-errors.md#3-message-text)) and a repository grepping for it keeps what it had.
+
+**It is a launch-time diagnostic, so it keeps its text under `--format json`** ([§FS-errors.5](FS-errors.md#5-json-format)), like the undecidable-ancestor warning of [§FS-workspace.6.1](FS-workspace.md#61-nested-workspaces) and every other message emitted before a report exists. It therefore carries no JSON `code`: it is never one of the report's diagnostics. Like every warning it leaves the exit code alone (§2), and like every warning it stands in place of the `success` marker (§2.1).
+
+**A warning in this release, an error in the next.** No `grund` command repairs it — the fix is a choice between repointing `[scan] include` and declaring the block no project — so [§REQ-backwards-compatibility.3](../requirements/REQ-backwards-compatibility.md#3-loud-mechanical-migrations)'s single-release licence does not apply and [§REQ-backwards-compatibility.2](../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path)'s deprecation path does: the message names the release the finding becomes an error in. That release is [§RM-workspace-absorbed-scan-error](../roadmap.md#rm-workspace-absorbed-scan-error-flip-the-absorbed-scan-warning-to-an-error), and a test holds it ahead of the running version so the deadline cannot pass unnoticed — the same guard §4.6 carries, for the same reason. Decided in [§DF-absorbed-scan-warning](../decisions/functional/DF-absorbed-scan-warning.md#df-absorbed-scan-warning-a-scan-its-own-members-swallowed-is-a-warning-with-a-named-release-not-an-error).
+
 ## 5. What grund does not check
 
 See [§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) — in particular [§FS-non-goals.1](FS-non-goals.md#1-markdown-link-validation) (markdown links / URLs), [§FS-non-goals.2](FS-non-goals.md#2-spelling-grammar-prose-quality) (spelling/grammar), and the convention that ID numbers are stable handles, not ordinal positions.
