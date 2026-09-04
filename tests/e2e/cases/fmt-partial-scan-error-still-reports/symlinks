@@ -1,0 +1,5 @@
+# The scope holds no Markdown, so the cross-reference pass does not turn itself
+# on and no rewrite here needs the whole declaration set. That is the partial
+# path: the run rewrites what it could read and still owes an account of what it
+# could not, with no `nothing was rewritten: ` prefix — the tree *was* touched.
+src/gone.rs -> nowhere-at-all
