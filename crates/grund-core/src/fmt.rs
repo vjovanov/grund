@@ -33,11 +33,14 @@ struct FmtRunOpts<'a> {
     /// run's output.
     render: &'a Config,
     workspace: Option<&'a WorkspaceContext>,
-    /// Whole-project findings, when the caller has already produced them
-    /// (workspace-root `fmt` reuses each project's `WorkspaceContext` scan).
-    /// `None` falls back to a complete `scan_tree` inside `fmt_tree`, whose
-    /// errors become one structured strict abort rather than a partial result.
-    precomputed_findings: Option<&'a Findings>,
+    /// Whole-project findings the caller has already produced, carrying the
+    /// proof that the scan making them met no error (§FS-fmt.7.4) — a
+    /// workspace-root `fmt` reuses each project's `WorkspaceContext` scan this
+    /// way. There is no way to put an unproven set here, which is the point:
+    /// see `complete_findings`. `None` falls back to a complete scan inside
+    /// `fmt_tree`, whose errors become one structured strict abort rather than
+    /// a partial result.
+    precomputed_findings: Option<CompleteFindings<'a>>,
     /// §FS-fmt.6.1 / §DF-index-always-linkified: run the cross-reference pass on
     /// a kind's index file even where `[fmt.cross_refs] enabled = false` turned
     /// `cross_refs` off. It decides *which files* the pass touches when the pass
@@ -89,7 +92,7 @@ fn fmt_tree(
     let cross_refs = opts.cross_refs;
     let write = opts.write;
     let workspace = opts.workspace;
-    let precomputed_findings = opts.precomputed_findings;
+    let precomputed_findings = opts.precomputed_findings.map(CompleteFindings::findings);
     // §FS-fmt.6.3: the link pass needs the whole project's declarations, because
     // a wrap's URL comes from a home file that may sit outside the rewrite scope.
     // §FS-fmt.2.4's scan is deferred instead, to the first shorthand candidate.
@@ -109,12 +112,12 @@ fn fmt_tree(
         !index_files.is_empty() && walked.files.iter().any(|path| index_files.contains(path));
     let link_pass = cross_refs || index_in_scope;
     let owned_findings = if link_pass && precomputed_findings.is_none() {
-        Some(fmt_findings_or_abort(config, opts.render)?)
+        Some(CompleteScan::of_tree_or_abort(config, opts.render)?)
     } else {
         None
     };
     let mut findings: Option<&Findings> = if link_pass {
-        precomputed_findings.or(owned_findings.as_ref())
+        precomputed_findings.or(owned_findings.as_ref().map(CompleteScan::findings))
     } else {
         precomputed_findings
     };
@@ -125,7 +128,7 @@ fn fmt_tree(
     // Holds the scan the shorthand pass triggers, so the borrow in `findings`
     // outlives the file that asked for it.
     #[allow(unused_assignments)]
-    let mut shorthand_findings: Option<Findings> = None;
+    let mut shorthand_findings: Option<CompleteScan> = None;
     // §FS-fmt.2.4: built once for the whole walk, not once per line — see
     // `ShorthandTargets`. Rebuilt at most once, when the deferred scan lands.
     let mut shorthand_targets = ShorthandTargets::new(findings, workspace);
@@ -180,8 +183,8 @@ fn fmt_tree(
         // then redo *this* file — every file already walked is final, because
         // having no candidate is exactly why the scan had not happened by then.
         if rewritten.saw_shorthand_candidate && findings.is_none() {
-            shorthand_findings = Some(fmt_findings_or_abort(config, opts.render)?);
-            findings = shorthand_findings.as_ref();
+            shorthand_findings = Some(CompleteScan::of_tree_or_abort(config, opts.render)?);
+            findings = shorthand_findings.as_ref().map(CompleteScan::findings);
             shorthand_targets = ShorthandTargets::new(findings, workspace);
             changes.truncate(file_changes_start);
             rewritten = rewrite_file(&original, &path, config, is_md, &FmtLineOpts {
@@ -207,31 +210,6 @@ fn fmt_tree(
         scan_errors,
         refused_writes,
     })
-}
-
-
-/// The whole project's declarations for a run that cannot rewrite anything
-/// without them — `--cross-refs`, or a shorthand to expand (§FS-fmt.2.4) — with
-/// every unreadable path fatal up front and preserved for reporting (§FS-fmt.3).
-///
-/// Every refusal line names itself. Both `fmt` failures exit `2`, but the
-/// partial-scan one means every readable file was rewritten and this one means
-/// nothing was, and `--write` reaches this path in the ordinary case rather
-/// than the exceptional one — it turns `--cross-refs` on by itself wherever
-/// the scope holds Markdown (§FS-fmt.6.6). Paths are rendered against the run's
-/// config, like every other path `fmt` prints.
-fn fmt_findings_or_abort(config: &Config, render: &Config) -> Result<Findings> {
-    let (findings, errors) = scan_tree(config, None, false)?;
-    if !errors.is_empty() {
-        return Err(FmtScanAbort {
-            scan_errors: errors
-                .into_iter()
-                .map(|(path, message)| api_scan_error(render, &path, &message))
-                .collect(),
-        }
-        .into());
-    }
-    Ok(findings)
 }
 
 /// One file's rewritten lines plus what the walk needs to decide afterwards:

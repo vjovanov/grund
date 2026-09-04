@@ -1391,7 +1391,7 @@ pub fn format_references(opts: FmtOpts) -> Result<FmtOutput> {
         let reusable_findings = (!opts.path_provided)
             .then(|| context.current_project())
             .flatten()
-            .and_then(usable_findings);
+            .and_then(WorkspaceProject::complete_findings);
         let auto_cross_refs =
             auto_cross_refs_for_scope(&config, Some(&opts.path), opts.path_provided)?;
         let run_opts = FmtRunOpts {

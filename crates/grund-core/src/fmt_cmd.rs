@@ -30,18 +30,6 @@ fn scope_contains_markdown(
         .any(|path| path.extension().and_then(|ext| ext.to_str()) == Some("md")))
 }
 
-/// A project's already-computed findings from `load_workspace_context`,
-/// reusable as `fmt_tree`'s `precomputed_findings` only when the scan that
-/// produced them met no error (§FS-fmt.3). Resolving a cross-reference or a
-/// shorthand against a partial declaration set can name the wrong
-/// declaration — the hazard `fmt_findings_or_abort` already guards a fresh
-/// scan against — so a caller that reuses a scan instead of running one must
-/// check the same field a fresh scan would have failed on, not just borrow
-/// the `Findings` beside it.
-fn usable_findings(project: &WorkspaceProject) -> Option<&Findings> {
-    project.scan_errors.is_empty().then_some(&project.findings)
-}
-
 /// Run the `fmt` command: parse the flags, walk each project in scope, print the
 /// report, and map the exit code.
 ///
@@ -53,8 +41,9 @@ fn usable_findings(project: &WorkspaceProject) -> Option<&Findings> {
 ///
 /// Why each project's findings are passed through: `fmt --cross-refs` would
 /// otherwise re-scan every project. Where a project's set is withheld — its scan
-/// met an error — `fmt_tree` falls back to a fresh scan and hits the same
-/// `fmt_findings_or_abort` refusal an explicit path already gets on this tree.
+/// met an error, so `complete_findings` yields no proof of completeness
+/// (§FS-fmt.7.4) — `fmt_tree` falls back to a fresh scan and hits the same
+/// `CompleteScan::of_tree_or_abort` refusal an explicit path already gets here.
 ///
 /// Why a scope-narrowed run does not reuse the context's findings: a scope-narrow
 /// scan is too thin for cross-file wrap targets, so `fmt_tree` scans the project
