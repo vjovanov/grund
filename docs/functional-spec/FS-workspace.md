@@ -115,7 +115,7 @@ the member entry it is inside ([§FS-check.4.8](FS-check.md#48-a-workspace-membe
 compared as canonical paths, the way the walk's own prune compares them, so a
 member reached through a symlink or a glob covers what it actually lands on.
 
-Four neighbouring shapes are deliberately *not* this finding:
+Three neighbouring shapes are deliberately *not* this finding:
 
 - **A partly covered scope is specified behaviour.** §6 already says the root
   scan stops at a member "even if the root project's `[scan] include` names a
@@ -124,14 +124,19 @@ Four neighbouring shapes are deliberately *not* this finding:
 - **`include_root = false` has nothing to lose.** That block is not a project
   (§6.1), so it has no scan of its own to be covered. What its files cost is
   §6.1's own subject.
-- **A block with no `[scan] include` key never earns it.** Its only walk root is
-  the block root, and every member root is strictly inside that (§2), so a root
-  always survives.
 - **`--full` does not silence it** ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)). The flag adds the config
   root as a walk root, but the member boundary still prunes, so the absorbed
   tree is no more readable with it than without. The question is therefore asked
   of the default scope whatever the flag says: this is a property of the
   configuration, not of one walk.
+
+**An absent `[scan] include` key is not one of them.** The key carries a
+materialized default — `requirements.md`, `docs`, `e2e`, `src`
+([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)) — so a block that omits it has *those* roots rather than
+only the block root, and the rule above is asked of them as it is of any other
+block's: when the ones that exist on disk are all inside members, that block
+reads nothing and is told so. The remedy the warning names is still the one to take, since adding
+the key pointed somewhere that is not a member is exactly the repair.
 
 The repair is a judgement rather than a command `grund` can run — point `[scan]
 include` at a directory that is not also a member, or say `include_root = false`
