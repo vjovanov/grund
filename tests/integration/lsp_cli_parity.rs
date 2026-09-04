@@ -6,7 +6,10 @@
 //! engine behind a different transport (§AR-lsp) and not a second one that can
 //! drift. Cases the CLI refuses (exit `2`) and fixtures with no config at their
 //! root are skipped and counted, never silently, and a floor on the number of
-//! compared cases keeps the sweep from shrinking unnoticed.
+//! compared cases keeps the sweep from shrinking unnoticed. A CLI-level
+//! `warning:` or `error:` line (§FS-errors.2.2) is stepped over rather than
+//! compared: it is settled before a report exists, so neither surface can carry
+//! it as a diagnostic.
 
 #[path = "binaries.rs"]
 mod binaries;
@@ -27,6 +30,14 @@ use support::{send_message, start_server, wait_for_exit};
 /// corpus compares well over a hundred, and no rewrite of a handful of cases
 /// into other commands should trip it.
 const MIN_COMPARED_CASES: usize = 80;
+
+/// The two CLI-level message prefixes of §FS-errors.2.2. A launch-time
+/// diagnostic keeps its raw text on stderr under `--format json` as well
+/// (§FS-errors.5), so the reduction below has to step over one — and over
+/// nothing else: any other line on either stream is output this sweep does not
+/// understand, and a harness that swallowed it would stop being the guard it is
+/// here to be.
+const CLI_LEVEL_PREFIXES: [&str; 2] = ["error: ", "warning: "];
 
 /// One located finding, in the shape both surfaces can be reduced to.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -53,6 +64,15 @@ fn cli_findings(grund: &Path, root: &Path) -> Option<BTreeSet<Finding>> {
     for stream in [&output.stdout, &output.stderr] {
         for line in String::from_utf8_lossy(stream).lines() {
             let Ok(value) = serde_json::from_str::<Value>(line) else {
+                // §FS-errors.2.2: a CLI-level message is settled before a report
+                // exists, so neither surface carries it as a finding — §FS-check.4.8's
+                // and §FS-workspace.6.1's warnings both arrive here. Nothing else may.
+                if CLI_LEVEL_PREFIXES
+                    .iter()
+                    .any(|prefix| line.starts_with(prefix))
+                {
+                    continue;
+                }
                 panic!(
                     "non-JSON line from grund check --format json in {}: {line}",
                     root.display()
