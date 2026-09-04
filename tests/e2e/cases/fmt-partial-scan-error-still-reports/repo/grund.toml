@@ -1,0 +1,8 @@
+grund_config_version = 1
+
+[scan]
+include = ["src"]
+extensions = ["md", "rs"]
+
+[fmt.cross_refs]
+enabled = true
