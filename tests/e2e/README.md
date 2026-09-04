@@ -101,7 +101,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - `fmt --write` trigger-to-marker mutation path
 - `fmt --marker --check` bare-to-marker report
 - `fmt` idempotence
-- `fmt` skips declaration headings and fenced Markdown
+- `fmt` skips declaration headings and fenced Markdown, the never-rewrite boundary [§FS-fmt.2.3](../../docs/functional-spec/FS-fmt.md#23-what-is-never-rewritten) draws for every pass that edits
 - `show` full Markdown declaration
 - `show` Markdown section extraction
 - `show` lead default
@@ -124,6 +124,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - stub-link target is a directory
 - stub-link target has an unsupported extension
 - skipped output/hidden directories
+- the hidden-**file** skip [§FS-config.3.5](../../docs/functional-spec/FS-config.md#35-scan--what-gets-walked) declares, pinned here so it cannot drift either way: a `docs/.notes.md` carrying a dangling citation is invisible to `check` and to `check --full` alike, and stays invisible when `[scan] include` names the file itself — the one skip a walk root does not outrun ([§FS-check.1.3](../../docs/functional-spec/FS-check.md#13-the-full-tree-scope---full)) — while a run handed that file by name says *hidden* rather than blaming `[scan] extensions` ([§FS-check.2.2](../../docs/functional-spec/FS-check.md#22-empty-scan))
 - a symlinked Markdown file whose target sits outside `[scan] include`: its dangling citation reported at the link path, and the in-tree declaration it cites no longer reported unused
 - a symlinked directory, with the dangling citation inside it reported under the link's name
 - a workspace where a link inside one member reaches a sibling project and another reaches the root project's docs: neither crosses, while a link to content no project owns is still followed
