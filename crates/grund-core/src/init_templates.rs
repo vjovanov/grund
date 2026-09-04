@@ -76,9 +76,8 @@ pub fn canonical_template_text(template: &str) -> String {
 /// only for readability; neither placeholder is a substring of the other.
 /// `target` is the directory being initialized; it's the anchor for the
 /// `{WORKSPACE_MEMBERS}` walk-up and for the relative path rendering inside that
-/// section (§FS-init.2.3.4.15). `canonical_agent_entrypoint_selected` records
-/// whether this run is writing/updating `target/AGENTS.md`; companion-only init
-/// must not pretend that missing file exists.
+/// section (§FS-init.2.3.4.15). Canonical target identity omits self regardless
+/// of whether this run selected the canonical `AGENTS.md` or only a companion.
 ///
 /// Why the worked citation example is escaped: a live marker would make the
 /// generated block fail the host repo's own `grund check` as a dangling
@@ -136,9 +135,9 @@ fn agents_template_substitutions(
             render_workspace_members_section(
                 target,
                 Some(name),
-                // The pending effective config carries the `--description`
-                // value when `init` is about to write a fresh config; with an
-                // existing config the walk-up reloads it (§FS-init.2.3.4.15).
+                // Collect effective pending metadata. The renderer omits self
+                // (and its description); the pending name still participates
+                // in alias validation (§FS-init.2.3.4.15).
                 config.project_description.as_deref(),
                 marker,
                 canonical_agent_entrypoint_selected,
