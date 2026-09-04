@@ -191,6 +191,15 @@ fn run_check(
     report
         .warnings
         .extend(full_scope_ignored_warning(&config, path, path_provided, full));
+    // §FS-check.4.8: the blocks this walk met that no enclosing one lists. A report
+    // warning, not a line printed past it: that is what stands it in place of
+    // `success` (§FS-check.2.1) and makes §DF-unlisted-workspace-block.2.1's ramp work.
+    report.warnings.extend(unlisted_workspace_block_warnings(
+        &config,
+        &config,
+        None,
+        &findings.walked_dirs,
+    ));
     // §FS-check.3.14, after the scope caution above (§FS-check.2.2, §FS-check.4.5):
     // a `--full` run whose *configured* scope read or recognized nothing still earns
     // that caution — the tier says where the citations are, the config was not told.
@@ -291,6 +300,17 @@ fn run_workspace_check(
                 .warnings
                 .extend(deprecated_kind_prefix_warning(&project.config));
         }
+    }
+    // §FS-check.4.8: per project — the candidates are what *that* walk reached, and
+    // the absorbing namespace is its own. Rendered against the workspace root like
+    // every other message here (§FS-workspace.8.1).
+    for project in &projects {
+        report.warnings.extend(unlisted_workspace_block_warnings(
+            &project.config,
+            &root_config,
+            Some(&project.alias),
+            &project.findings.walked_dirs,
+        ));
     }
     report.errors.extend(out_of_scope);
     sort_diagnostics(&mut report.errors);
