@@ -119,6 +119,7 @@ include!("tests_workspace_message_paths.rs");
 include!("tests_workspace_nested.rs");
 include!("tests_workspace_claims.rs");
 include!("tests_workspace_claim_answers.rs");
+include!("tests_workspace_absorbed_scan.rs");
 include!("tests_alias_hints.rs");
 include!("tests_workspace_members.rs");
 include!("tests_cover_workspace.rs");
