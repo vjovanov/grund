@@ -185,6 +185,12 @@ jobs:
       - name: Check registry names
         run: bash scripts/check-registry-names.sh
 
+      # §FS-distribution.4.2: the only gate on this path that sees the bumped
+      # tree — the helpers bump on a candidate branch CI does not run on, and
+      # no step here runs the test suite.
+      - name: Check release ramps
+        run: python3 scripts/check_release_ramps.py "${{ steps.version.outputs.version }}"
+
   prepare-release-ref:
     name: prepare release tag
     needs: verify
