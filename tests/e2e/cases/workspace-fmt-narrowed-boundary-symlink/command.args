@@ -1,0 +1,1 @@
+fmt --write --marker {repo_copy}/docs

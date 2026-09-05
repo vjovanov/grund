@@ -1,0 +1,13 @@
+grund_config_version = 1
+
+[workspace]
+members = ["vendored"]
+
+[scan]
+include = ["docs"]
+
+[reference]
+strict = false
+
+[fmt.cross_refs]
+enabled = false

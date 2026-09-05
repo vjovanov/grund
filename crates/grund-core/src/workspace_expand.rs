@@ -337,14 +337,19 @@ fn collect_workspace_members(
         // under different parents may share a segment — their alias paths still
         // differ — so the check is per sibling set, not per tree.
         if let Some(first) = siblings.get(&alias) {
-            return Err(workspace_members_error(
-                parent_config,
-                format!(
-                    "duplicate workspace project alias `{}` ({})",
-                    qualify_alias(prefix, &alias),
-                    duplicate_alias_sites(top_config, first, member_root)
-                ),
-            ));
+            let message = format!(
+                "duplicate workspace project alias `{}` ({})",
+                qualify_alias(prefix, &alias),
+                duplicate_alias_sites(top_config, first, member_root)
+            );
+            // §FS-errors.4: at the line of the list this member was written on — the
+            // second claimant is as often an optional entry, and a block that lists
+            // only optional members has no `members` line to carry the location.
+            return Err(if member.optional {
+                workspace_optional_members_error(parent_config, message)
+            } else {
+                workspace_members_error(parent_config, message)
+            });
         }
         siblings.insert(alias.clone(), member_root.clone());
         let qualified = qualify_alias(prefix, &alias);
