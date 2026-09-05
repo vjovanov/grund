@@ -12,7 +12,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARCHITECTURE = REPO_ROOT / "docs" / "architecture"
 PATH_TOKEN = re.compile(
-    r"`((?:crates|scripts|tests|docs|templates|skills|editor|examples|\.github|\.agents)/[^`\s]+)`"
+    r"`((?:crates|scripts|tests|docs|templates|skills|editor|examples|\.github|\.agents"
+    r"|\.agent-grounds)/[^`\s]+)`"
 )
 FENCE = re.compile(r"^(?: {0,3})(`{3,}|~{3,}).*?^(?: {0,3})\1[ \t]*$", re.M | re.S)
 

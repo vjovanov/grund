@@ -64,7 +64,7 @@ jobs:
         run: |
           python -m pip install pre-commit
           cargo install lychee --version 0.23.0 --locked
-          cargo install fissile --version 0.7.0 --locked
+          cargo install fissile --version 0.8.3 --locked
 
       # `.pre-commit-config.yaml` is the local gate; CI runs it directly so every
       # pre-commit hook remains enforced remotely (§AR-ci.1).
