@@ -267,6 +267,24 @@ mod tests_kind_index {
         );
     }
 
+    /// Ordering only, so the `-dev` suffix is dropped rather than modelled: a
+    /// test that needs to tell `0.12.4-dev` from `0.12.4` reads the suffix
+    /// itself, because both land here as the same triple.
+    fn version(text: &str) -> (u64, u64, u64) {
+        let mut parts = text.split('.').map(|part| {
+            part.split(|ch: char| !ch.is_ascii_digit())
+                .next()
+                .unwrap_or("0")
+                .parse::<u64>()
+                .unwrap_or_else(|_| panic!("not a version: {text}"))
+        });
+        (
+            parts.next().unwrap_or(0),
+            parts.next().unwrap_or(0),
+            parts.next().unwrap_or(0),
+        )
+    }
+
     /// §DF-index-compatibility-ramp.2.3: the releases §FS-check.3.17's message
     /// names are literals in message text, and the version they are measured
     /// against is bumped at release time rather than when the work lands
@@ -277,21 +295,6 @@ mod tests_kind_index {
     /// reporting. §FS-check.3.18's own deadline literal is gone with its ramp.
     #[test]
     fn index_rule_releases_are_ordered_and_behind_us() {
-        fn version(text: &str) -> (u64, u64, u64) {
-            let mut parts = text.split('.').map(|part| {
-                part.split(|ch: char| !ch.is_ascii_digit())
-                    .next()
-                    .unwrap_or("0")
-                    .parse::<u64>()
-                    .unwrap_or_else(|_| panic!("not a version: {text}"))
-            });
-            (
-                parts.next().unwrap_or(0),
-                parts.next().unwrap_or(0),
-                parts.next().unwrap_or(0),
-            )
-        }
-
         let current = version(env!("CARGO_PKG_VERSION"));
         let prior = version(INDEX_RULE_PRIOR_RELEASE);
         let arrival = version(INDEX_RULE_RELEASE);
@@ -305,6 +308,33 @@ mod tests_kind_index {
             arrival <= current,
             "§FS-check.3.17 says the rule is an error as of {INDEX_RULE_RELEASE}, which has to be a release that happened rather than one still ahead (this tree is {})",
             env!("CARGO_PKG_VERSION")
+        );
+    }
+
+    /// §REQ-backwards-compatibility.2, §FS-check.3.18: the deprecation path lets
+    /// the old verdict die "no earlier than `N+1`", and every run of `0.12.x`
+    /// said which release that was. Arriving early breaks that promise exactly as
+    /// letting the date slip breaks it — a `0.12.x` patch carrying this error
+    /// would fail a repository one minor before the tool told it to expect it.
+    /// The patch helper derives its version from the last tag rather than from
+    /// anything a human chose (§FS-distribution.4), so a test on the bumped tree
+    /// is where the refusal has to live.
+    ///
+    /// A `-dev` tree is exempt because it is never published (§FS-distribution.4.1),
+    /// and the exemption reads the suffix rather than the numbers: `0.12.4-dev`
+    /// and the `0.12.4` this must refuse are the same triple.
+    #[test]
+    fn the_index_entry_error_is_not_published_before_the_release_it_named() {
+        let current = env!("CARGO_PKG_VERSION");
+        if current.contains('-') {
+            return;
+        }
+        assert!(
+            version(current) >= version(INDEX_ENTRY_ERROR_RELEASE),
+            "this tree is {current}, a release before the {INDEX_ENTRY_ERROR_RELEASE} \
+             §FS-check.3.18's warning named as the one it becomes an error in. Publishing \
+             the error here breaks §REQ-backwards-compatibility.2 from the early side. Cut \
+             {INDEX_ENTRY_ERROR_RELEASE} rather than a patch off the release that announced it."
         );
     }
 

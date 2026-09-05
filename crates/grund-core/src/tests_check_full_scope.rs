@@ -155,6 +155,7 @@ mod tests_check_full_scope {
             &root.join("api/docs/functional-spec/FS-002-api.md"),
             "# FS-002-api: Api spec\n\nCites §root/FS-001-root.\n",
         );
+        // The member owes its own entry for the same reason as the root above.
         write(
             &root.join("api/docs/functional-spec/README.md"),
             "# Functional spec\n\n- [§FS-002-api](FS-002-api.md#fs-002-api-api-spec)\n",
@@ -236,6 +237,12 @@ mod tests_check_full_scope {
                 &root.join("docs/functional-spec/FS-001-login.md"),
                 "# FS-001-login: A user can log in\n\nBody.\n",
             );
+            // The default config indexes `FS`, so the fixture owes the entry
+            // (§FS-check.3.18) or the run is red for a reason this case is not about.
+            write(
+                &root.join("docs/functional-spec/README.md"),
+                "# Functional spec\n\n- [§FS-001-login](FS-001-login.md#fs-001-login-a-user-can-log-in)\n",
+            );
             write(&root.join(dir).join("notes.md"), "# Notes\n\nCites §FS-999-missing.\n");
 
             let scoped = check_run(&root, false);
@@ -303,6 +310,12 @@ mod tests_check_full_scope {
         write(
             &root.join("docs/functional-spec/FS-001-login.md"),
             "# FS-001-login: A user can log in\n\nCited by §FS-001-login.\n",
+        );
+        // The default config indexes `FS`, so the fixture owes the entry
+        // (§FS-check.3.18) or the run is red for a reason this case is not about.
+        write(
+            &root.join("docs/functional-spec/README.md"),
+            "# Functional spec\n\n- [§FS-001-login](FS-001-login.md#fs-001-login-a-user-can-log-in)\n",
         );
 
         for full in [false, true] {

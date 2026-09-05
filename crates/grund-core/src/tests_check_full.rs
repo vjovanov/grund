@@ -124,6 +124,12 @@ mod tests_check_full {
             &root.join("docs/functional-spec/FS-001-alpha.md"),
             "# FS-001-alpha: Alpha\n\nCites the shorthand §FS-042.\n",
         );
+        // The default config indexes `FS`, so the fixture owes the entry
+        // (§FS-check.3.18) or the run is red for a reason this case is not about.
+        write(
+            &root.join("docs/functional-spec/README.md"),
+            "# Functional spec\n\n- [§FS-001-alpha](FS-001-alpha.md#fs-001-alpha-alpha)\n",
+        );
         // The only declaration the shorthand could name lives outside `include`.
         write(
             &root.join("sim/login.py"),
