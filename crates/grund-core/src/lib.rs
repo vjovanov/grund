@@ -43,6 +43,7 @@ include!("checker_cmd.rs");
 include!("workspace_scope.rs");
 include!("workspace_members.rs");
 include!("workspace_context.rs");
+include!("workspace_id_candidates.rs");
 include!("workspace_expand.rs");
 include!("workspace_unlisted.rs");
 include!("output.rs");

@@ -175,9 +175,13 @@ fn render_show_error(
             }
         }
     } else if message.starts_with("ID not found:") {
-        eprintln!(
-            "hint: run `grund list` to see every declared ID, or `grund id <KIND> \"<title>\"` to propose a new one"
-        );
+        // §FS-show.3: the hint gives way where the line already names the
+        // project that declares the ID (§FS-workspace.8.1.1).
+        if !names_member_id_candidate(message) {
+            eprintln!(
+                "hint: run `grund list` to see every declared ID, or `grund id <KIND> \"<title>\"` to propose a new one"
+            );
+        }
     } else if message.starts_with("section not found:") {
         let base_id = effective_config(path)
             .ok()

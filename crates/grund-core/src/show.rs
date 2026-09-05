@@ -283,6 +283,9 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(err) => {
+            // §FS-workspace.8.1.1: the same builder the shipped CLI's path
+            // uses, so this mirror carries the identical candidate clause.
+            let err = with_member_id_candidates(err, &context, alias.as_deref(), raw_id);
             let message = format!("{err:#}");
             if format == "json" {
                 // §FS-errors.5: this mirror's diagnostic carries the same sites the
@@ -296,9 +299,13 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
             } else {
                 eprintln!("{message}");
                 if message.starts_with("ID not found:") {
-                    eprintln!(
-                        "hint: run `grund list` to see every declared ID, or `grund id <KIND> \"<title>\"` to propose a new one"
-                    );
+                    // §FS-show.3: the hint gives way where the line already
+                    // names the project declaring the ID (§FS-workspace.8.1.1).
+                    if !names_member_id_candidate(&message) {
+                        eprintln!(
+                            "hint: run `grund list` to see every declared ID, or `grund id <KIND> \"<title>\"` to propose a new one"
+                        );
+                    }
                 } else if message.starts_with("section not found:") {
                     eprintln!(
                         "hint: run `grund {} --toc` to print the lead with the section map",

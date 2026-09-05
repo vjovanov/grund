@@ -15,8 +15,8 @@ use grund_core::{
     InitAgentEntrypointSelection, InitFsHome, InitNext, InitOpts, InitOutput, ListEntry, ListOpts,
     NamespaceMatch, RefHit, RefsOpts, Report, ShowFormat, ShowMode, ShowOpts, ShowQueryError,
     canonical_template_text, check_with_opts, complete_ids, cover, effective_config,
-    format_references, init, list, print_config_warnings, propose_id, refs,
-    render_finding_sites_json, run_integrations, show_with_scope, validate_config,
+    format_references, init, list, names_member_id_candidate, print_config_warnings, propose_id,
+    refs, render_finding_sites_json, run_integrations, show_with_scope, validate_config,
 };
 
 const SUBCOMMANDS: &[&str] = &[
