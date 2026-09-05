@@ -201,7 +201,7 @@ Stdout carries the body (or, with `--format=json`, the result object — one JSO
 
 A failed query (`1`) prints the bare result line and, where the next step is obvious, one extra `hint:` line on stderr below it — never on stdout. With `--format=json`, stderr instead carries one diagnostic JSON object per [§FS-errors.5](FS-errors.md#5-json-format), with `path` and `line` set to `null` because the failure has no single source location:
 
-- `ID not found: <ID>` → `hint: run \`grund list\` to see every declared ID, or \`grund id <KIND> "<title>"\` to propose a new one`
+- `ID not found: <ID>` → `hint: run \`grund list\` to see every declared ID, or \`grund id <KIND> "<title>"\` to propose a new one` — withheld in the one case where the result line already names the answer, a workspace run whose refusal carries a `did you mean <alias>/<ID>?` clause ([§FS-workspace.8.1.1](FS-workspace.md#811-an-unqualified-id-another-project-declares))
 - `section not found: <ID>.<s>` → `hint: run \`grund <ID> --toc\` to print the lead with the section map`
 - a `<ID>` argument that does not match the configured `[id] format` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) is rejected before the scan with `invalid ID \`<arg>\``, followed by `hint: this repo's [id] format is \`<format>\` (run \`grund config show\`); \`grund list\` shows the IDs that exist` — this is the common surprise in a repo whose format differs from the `{kind}-{slug}` `grund` itself uses.
 

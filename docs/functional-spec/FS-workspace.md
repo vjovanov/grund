@@ -426,6 +426,60 @@ Ambiguity within a project is unchanged ([§FS-show.2.2.1](FS-show.md#221-ambigu
 two *different* projects is not ambiguous — they are two declarations in two
 namespaces, and the alias picks one.
 
+#### 8.1.1 An unqualified ID another project declares
+
+`grund <ID>` resolves against the current project alone (§4), so an ID that only
+a *member* declares comes back not found — while `grund list`, in the same
+invocation, can say exactly which project has it. In a workspace run the refusal
+therefore names the projects that do declare it, before it gives up:
+
+```text
+ID not found: SPEC-007-shipping; did you mean vendored/SPEC-007-shipping?
+```
+
+**It still refuses**: exit `1`, stdout empty, no body printed. The unqualified
+form is not resolved into the member, because §4 is what `grund check` enforces
+and an unqualified cross-namespace citation is an error at its site — a query
+command that printed the body would teach the reader to write a citation CI
+rejects, and one resolver across `check` and the query commands is the direction
+[§DF-subproject-namespaces.3.7](../decisions/functional/DF-subproject-namespaces.md#37-check-comes-first-query-commands-follow) states. Naming the qualified form gets the reader
+the same fact in one step *and* the spelling that resolves. `grund show <ID>`
+and the bare `grund <ID>` that defaults to it ([§FS-cli.1](FS-cli.md#1-the-default-subcommand)) print the one line.
+
+The shape is [§FS-check.3.8](FS-check.md#38-cross-project-citation-failure)'s `unknown project alias`, which settles these same
+questions one level up, for alias paths rather than for IDs:
+
+- **The candidate is appended**, after the ID, so the line still opens
+  `ID not found: <ID>`. That prefix is the diagnostic's identity — it is what
+  selects the `not-found` code (§8.7, [§FS-errors.5](FS-errors.md#5-json-format)) — so a candidate written
+  ahead of it would trade that class away for a few characters of prominence.
+- **Several candidates are listed, never chosen.** Two projects declaring one ID
+  is not an `ambiguous ID` error — §8.1: they are two declarations in two
+  namespaces — and picking one would be a guess
+  ([§REQ-no-wrong-citation.1](../requirements/REQ-no-wrong-citation.md#1-no-wrong-resolution)). They are joined as [§FS-check.3.8](FS-check.md#38-cross-project-citation-failure) joins
+  its own — `did you mean left/FS-shipping or right/FS-shipping?` — sorted, and
+  cut at three: `grund list` is the catalogue, a diagnostic is not.
+- **Each project is asked in its own grammar.** The written ID text is re-parsed
+  with the candidate project's `[id]` config and rendered back with it, the way
+  a qualified citation already is (§1, §4). In a mixed-format workspace one text
+  is a different ID in each project, so carrying the current project's parse
+  across the boundary would find nothing and report no candidate at all.
+- **A narrowed run offers none.** A member-local run, a standalone repo, or a
+  `<path>` that resolves inside a member holds one project (§5, §8): there is no
+  second project to name, and the bare line is printed unchanged.
+- **The section is not carried.** `grund SPEC-007-shipping.2` could not find the
+  ID, so the candidate names the ID — `did you mean vendored/SPEC-007-shipping?`
+  — and the reader asks that project for the section. Suggesting a coordinate
+  this run never looked for would be the one part of the line that is a guess.
+- **The `grund list` hint gives way.** Where a candidate is named, the
+  `ID not found` hint line of [§FS-show.3](FS-show.md#3-outputs) is not printed: it sends the reader to
+  the catalogue this line has already searched, and its other half — propose a
+  new ID — is advice for an ID that does not exist. Where there is no candidate
+  the hint prints exactly as before.
+- **`--format json` keeps its shape.** The diagnostic still carries
+  `"code":"not-found"`, with the candidate inside `message` ([§FS-errors.5](FS-errors.md#5-json-format)). The
+  hint line has no JSON form under either branch.
+
 ### 8.2 `grund refs`
 
 `grund refs <alias>/<ID>` lists every citation of that qualified declaration,
