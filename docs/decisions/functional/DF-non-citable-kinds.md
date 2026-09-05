@@ -50,6 +50,8 @@ Under the rename, prefix-freedom becomes a *derived* property of citable kinds r
 
 The cost is a stutter — `[[kinds]] kind = "skill"`. `name` avoids it and was the runner-up, but it is generic where `kind` is the term the schema is already committed to: the stutter is paid once at authoring time, the mismatch on every read of the three surfaces above. `prefix` still loads through the deprecation window of [§REQ-backwards-compatibility.2](../../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) ([§FS-config.3.4.6](../../functional-spec/FS-config.md#346-prefix-the-former-spelling-of-kind-removed-in-0130)) — one match arm and a "both set" error, which is cheaper than invoking the pre-1.0 licence of [§REQ-backwards-compatibility.4](../../requirements/REQ-backwards-compatibility.md#4-what-was-never-a-promise).
 
+Consequence: that window closed. `prefix` stopped loading in 0.13.0, the match arm and the "both set" error went with it, and [§FS-config.3.4.6](../../functional-spec/FS-config.md#346-prefix-the-former-spelling-of-kind-removed-in-0130) is now the record of a removed key.
+
 ### 2.5 Obligations get a per-file unit, and grounding follows the home
 
 `must` / `should` are checked per declaration, so on a kind with none they would have yielded zero units and passed vacuously — the rule would have been accepted by the config validator and then never fired. The unit is therefore every scanned file in the home that carries a citation, **`.md` included** ([§FS-check.3.11](../../functional-spec/FS-check.md#311-missing-required-citation)).

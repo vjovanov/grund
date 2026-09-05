@@ -269,7 +269,8 @@ pub struct ShowSection {
 pub struct KindConfig {
     /// The `kind` key (§FS-config.3.4) — the name `[citations.<kind>]` keys on,
     /// and, for a citable kind, the literal prefix of every ID in it. Spelled
-    /// `prefix` in configs written before that key was renamed.
+    /// `prefix` before the rename; that spelling stopped loading in 0.13.0
+    /// (§FS-config.3.4.6).
     pub kind: String,
     pub folder: Option<String>,
     pub file: Option<String>,
@@ -449,10 +450,6 @@ pub struct Config {
     /// (§FS-check.4.3); read by nothing else. Same report-path base as
     /// [`Config::config_file`].
     pub redundant_config_file: Option<PathBuf>,
-    /// Where the deprecated `[[kinds]] prefix` spelling was read, if it was
-    /// (§FS-config.3.4, §FS-config.4.1). The first entry that uses it, so the
-    /// run carries one deprecation warning per config rather than one per row.
-    pub deprecated_kind_prefix: Option<ConfigLocation>,
     pub project_name: Option<String>,
     pub project_name_source: Option<ConfigLocation>,
     /// Optional one-line description rendered beside the project's alias in
@@ -648,7 +645,6 @@ impl Config {
             root,
             config_file: None,
             redundant_config_file: None,
-            deprecated_kind_prefix: None,
             project_name: None,
             project_name_source: None,
             project_description: None,

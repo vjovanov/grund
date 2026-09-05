@@ -94,20 +94,14 @@ fn default_kind_title(kind: &str) -> Option<&'static str> {
     }
 }
 
-/// The release the deprecated `[[kinds]] prefix` spelling stops loading in
-/// (§FS-config.3.4, §REQ-backwards-compatibility.2). Named in the warning, and
-/// held ahead of the running version by a unit test, so the window cannot expire
-/// unnoticed the way an undated deprecation does.
-const KIND_PREFIX_KEY_REMOVAL_RELEASE: &str = "0.13.0";
-
 /// One `[[kinds]]` entry as the parser has it so far: the entry itself, the line
 /// its `[[kinds]]` header sat on (what an entry-level error anchors at), and
-/// which key spelled its name — `kind`, or the deprecated `prefix`
-/// (§FS-config.3.4), which the warning in §FS-config.4.1 names.
+/// whether the entry has already named its kind — the one thing "sets `kind`
+/// twice" needs to know (§FS-config.3.4).
 struct ParsedKind {
     config: KindConfig,
     header_line: usize,
-    name_key: Option<(&'static str, usize)>,
+    named: bool,
     /// The row's `require_grounding` / `grounding_level`, each with the line it
     /// was written on (§FS-config.3.4.8) — read by `config_grounding.rs`, which
     /// owns both keys and every rule about them.
@@ -129,7 +123,7 @@ impl ParsedKind {
                 grounding_level: None,
             },
             header_line,
-            name_key: None,
+            named: false,
             grounding: ParsedGrounding::default(),
         }
     }
@@ -146,10 +140,18 @@ fn parse_kinds_key(
     current_kind: &mut Option<ParsedKind>,
 ) -> Result<bool> {
     match key {
-        // §FS-config.3.4: `kind` is the name. `prefix` is the same key under the
-        // name it carried before non-citable kinds made "prefix" wrong for half the
-        // table, accepted through §REQ-backwards-compatibility.2's deprecation window.
-        "kind" | "prefix" => {
+        // §FS-config.3.4.6: `prefix` stopped loading in 0.13.0. Refused at its own
+        // line ahead of any name bookkeeping, so the anchor follows the key rather
+        // than the order a row that also sets `kind` happens to spell the two in.
+        "prefix" => {
+            return bail_config(
+                path,
+                line_no,
+                "[[kinds]] `prefix` was removed in grund 0.13.0 — rename it to `kind`".to_string(),
+            );
+        }
+        // §FS-config.3.4: `kind` is the name every entry declares.
+        "kind" => {
             let name = parse_string(path, line_no, value)?;
             // §FS-config.3.2: a citable kind's name is the leading component of
             // every ID in it, so a `/` here lands in the ID as surely as one in
@@ -163,16 +165,10 @@ fn parse_kinds_key(
                 bail_config(path, line_no, format!("`{key}` outside of [[kinds]] block"))?;
                 unreachable!();
             };
-            if let Some((seen, _)) = slot.name_key {
-                let message = if seen == key {
-                    format!("[[kinds]] sets `{key}` twice")
-                } else {
-                    "[[kinds]] sets both `kind` and `prefix`, which name the same thing (keep `kind`)"
-                        .to_string()
-                };
-                bail_config(path, line_no, message)?;
+            if slot.named {
+                bail_config(path, line_no, format!("[[kinds]] sets `{key}` twice"))?;
             }
-            slot.name_key = Some((if key == "kind" { "kind" } else { "prefix" }, line_no));
+            slot.named = true;
             slot.config.kind = name;
         }
         // §FS-config.3.4: `citable = false` makes the entry a place rather than
@@ -321,8 +317,7 @@ fn kind_index_name_error(name: &str) -> Option<String> {
 ///
 /// It also resolves the per-name `index` defaults, so a declared kind and a
 /// built-in one of the same name agree about what `index` is when the key is
-/// absent (§FS-config.3.4), and records where the deprecated `prefix` spelling
-/// was used, so the run can say so (§FS-config.4.1).
+/// absent (§FS-config.3.4).
 ///
 /// Why the `index` default is resolved here: `[[kinds]]` replaces the built-in list
 /// rather than merging into it, so without that step the same block `grund init` writes
@@ -469,20 +464,6 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
             }
         }
     }
-    // §FS-config.4.1 / §REQ-backwards-compatibility.2: the old spelling still
-    // loads, and the run says where it is and when it stops working. Anchored at
-    // the first entry that uses it — one warning per config, not one per row.
-    config.deprecated_kind_prefix = parsed
-        .iter()
-        .filter_map(|entry| match entry.name_key {
-            Some(("prefix", line)) => Some(line),
-            _ => None,
-        })
-        .min()
-        .map(|line| ConfigLocation {
-            path: path.to_path_buf(),
-            line,
-        });
     config.kinds = kinds;
     Ok(())
 }
