@@ -66,10 +66,8 @@ def generate_fixture(
     if root.exists():
         shutil.rmtree(root)
 
-    (root / ".agents").mkdir(parents=True)
-    (root / ".agents" / "grund.toml").write_text(
-        fixture_config(citations), encoding="utf-8"
-    )
+    root.mkdir(parents=True)
+    (root / "grund.toml").write_text(fixture_config(citations), encoding="utf-8")
 
     for index in range(1, file_count + 1):
         component = (index - 1) % component_count
