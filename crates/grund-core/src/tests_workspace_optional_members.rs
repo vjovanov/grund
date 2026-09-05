@@ -172,6 +172,116 @@ mod tests_workspace_optional_members {
         );
     }
 
+    /// §FS-workspace.2.2: the same refusal in the checkout that does *not* have the
+    /// directory. Behind the `is_dir` test it could only fire where the member was
+    /// present, and the other checkout was told to list the entry in
+    /// `optional_members` — where the author had already put it. What is wrong is
+    /// the pair of lists, and the pair reads the same in every checkout.
+    #[test]
+    fn an_entry_in_both_lists_is_refused_with_the_member_absent_too() {
+        let root = test_root("an_entry_in_both_lists_is_refused_with_the_member_absent_too");
+        root_config(
+            &root,
+            "[workspace]\nmembers = [\"vendored\"]\noptional_members = [\"vendored\"]",
+        );
+
+        let Err(err) = expand(&root) else {
+            panic!("an entry in both lists must be refused whether or not it is there");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "grund.toml:6: `vendored` is listed in both [workspace] members and optional_members",
+            "the same sentence at the same line as the checkout that has the member"
+        );
+    }
+
+    /// §FS-workspace.3: an absent entry's alias is unique among its siblings like
+    /// any other. Left out of the check, this config both reports a dangling
+    /// reference *in* namespace `vendored` and announces that `vendored` was not
+    /// checked — and the announcement is worth nothing if it can be false.
+    #[test]
+    fn an_absent_entry_may_not_take_a_present_siblings_alias() {
+        let root = test_root("an_absent_entry_may_not_take_a_present_siblings_alias");
+        root_config(
+            &root,
+            "[workspace]\nmembers = [\"present\"]\noptional_members = [\"gone/vendored\"]",
+        );
+        member_config(&root, "present", Some("vendored"));
+
+        let Err(err) = expand(&root) else {
+            panic!("an absent entry may not claim an alias a present member already has");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "grund.toml:5: duplicate workspace project alias `vendored` (workspace members \
+             `gone/vendored` and `present`)"
+        );
+    }
+
+    /// §FS-workspace.3: the root project and the top-level members share one level,
+    /// so an absent entry may not name the root's own namespace either — a run that
+    /// announced `acme` unverified while checking `acme` would contradict itself.
+    #[test]
+    fn an_absent_entry_may_not_take_the_root_alias() {
+        let root = test_root("an_absent_entry_may_not_take_the_root_alias");
+        root_config(&root, "[workspace]\noptional_members = [\"acme\"]");
+
+        let Err(err) = expand(&root) else {
+            panic!("an absent entry may not claim the root's alias");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "grund.toml:5: duplicate workspace project alias `acme` (workspace root and \
+             workspace member `acme`)"
+        );
+    }
+
+    /// §FS-workspace.3: and not another absent entry's, which is the shape with no
+    /// project on either side — two entries, two announcements, one namespace.
+    #[test]
+    fn two_absent_entries_may_not_share_an_alias() {
+        let root = test_root("two_absent_entries_may_not_share_an_alias");
+        root_config(
+            &root,
+            "[workspace]\noptional_members = [\"a/vendored\", \"b/vendored\"]",
+        );
+
+        let Err(err) = expand(&root) else {
+            panic!("two absent entries may not claim one alias");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "grund.toml:5: duplicate workspace project alias `vendored` (workspace members \
+             `a/vendored` and `b/vendored`)"
+        );
+    }
+
+    /// §FS-workspace.3, §FS-errors.4: one entry written twice is one directory, so
+    /// the message says that rather than naming two colliding members and sending
+    /// the reader to look for a second one.
+    #[test]
+    fn one_optional_entry_listed_twice_says_so() {
+        let root = test_root("one_optional_entry_listed_twice_says_so");
+        root_config(
+            &root,
+            "[workspace]\noptional_members = [\"vendored\", \"vendored\"]",
+        );
+
+        let Err(err) = expand(&root) else {
+            panic!("one entry listed twice must be refused");
+        };
+
+        assert_eq!(
+            format!("{err:#}"),
+            "grund.toml:5: duplicate workspace project alias `vendored` \
+             (`vendored` is listed twice)"
+        );
+    }
+
     /// §FS-workspace.2.2.2: the segment has to be a valid alias in its own right.
     /// An entry whose last segment is not a lowercase slug can name a namespace in
     /// neither checkout, so it is refused before any directory is looked for —

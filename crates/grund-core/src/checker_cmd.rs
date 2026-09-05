@@ -220,6 +220,16 @@ fn run_check(
 /// Why the root is skipped in the per-project warning loop at the end: with
 /// `include_root = true` the root is itself a `projects` entry, so warning once per
 /// project would name the root's directory twice.
+///
+/// §FS-check.4.10: the announcement of every namespace the run did not read is one
+/// located warning each, on stdout, at the `optional_members` entry that made the
+/// skip legal. It is what buys the green exit — the exit code says nothing about
+/// coverage here, so the report must — and it withholds `success` like any other
+/// warning (§FS-check.2.1). §FS-workspace.2.2: the block those entries left with no
+/// project at all is not an error either, but a run with nothing to read still says
+/// so beside them (§FS-check.2.2). The LSP builds both from
+/// `check_workspace_context`, which is the same decision made from the same place
+/// (§FS-lsp.4).
 fn run_workspace_check(
     mut root_config: Config,
     force_require_grounding: bool,
@@ -286,23 +296,11 @@ fn run_workspace_check(
             project.scan_errors.is_empty() && !project_has_findings,
         ));
     }
-    // §FS-workspace.2.2: a block whose only members may be absent contributes no
-    // project, which is not an error — but a run left with nothing to read still
-    // says so, beside the announcement below (§FS-check.2.2).
-    if projects.is_empty() {
-        report.warnings.extend(scan_scope_caution(
-            &root_config,
-            &Findings::default(),
-            &root_config.root,
-            true,
-            true,
-        ));
-    }
-    // §FS-check.4.10: the namespaces this run did not read, one located warning
-    // each on stdout at the `optional_members` entry that made the skip legal. It
-    // is what buys the green exit — the exit code says nothing about coverage here,
-    // so the report must — and it withholds `success` like any other warning
-    // (§FS-check.2.1).
+    // §FS-workspace.2.2, §FS-check.4.10: the caution and the announcements — see
+    // this function's docs.
+    report
+        .warnings
+        .extend(absent_only_workspace_caution(&root_config, projects.is_empty()));
     report
         .warnings
         .extend(absent_optional_member_warnings(&root_config));

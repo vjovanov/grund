@@ -31,6 +31,11 @@ enum GroundingSubject {
 /// carry a citation to a declared ID — or, in a source file outside a
 /// non-citable home, declare one inline (a spec home is grounded in the spec it
 /// *is*).
+///
+/// §FS-workspace.4: a citation into an absent optional namespace grounds its unit.
+/// It cannot be resolved here, but it resolves in the checkout that has the member
+/// — and a unit that lost its grounding to a missing directory would be a finding
+/// at the site the run is required to say nothing about.
 fn check_grounding(
     findings: &Findings,
     config: &Config,
@@ -46,10 +51,7 @@ fn check_grounding(
     // (§GOAL-fast-feedback).
     let mut cited: BTreeMap<&Path, Vec<usize>> = BTreeMap::new();
     for cite in &findings.citations {
-        // §FS-workspace.4: a citation into an absent optional namespace grounds its
-        // unit. It cannot be resolved here, but it resolves in the checkout that has
-        // the member — and a unit that lost its grounding to a missing directory
-        // would be a finding at the site the run is required to say nothing about.
+        // §FS-workspace.4: unverified grounds the unit — see this function's docs.
         let unverified = cite
             .namespace
             .as_deref()

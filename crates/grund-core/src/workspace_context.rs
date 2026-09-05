@@ -40,6 +40,12 @@ struct WorkspaceContext {
     /// root workspace config even when `include_root = false`; commands use it
     /// for output format and path rendering without pretending it is a loaded
     /// project.
+    ///
+    /// It is the config **after** the workspace walk, so it carries what the walk
+    /// learned about the tree as well as how to spell it — `workspace_absent_optional`
+    /// in particular, which is where [`check_workspace_context`] reads the
+    /// §FS-check.4.10 announcement from and which no loaded project can supply when
+    /// every project in the block was the absent one (§FS-lsp.4).
     render_config: Config,
 }
 
@@ -142,11 +148,13 @@ fn load_resolved_workspace_context(
 
     let mut root_config = config;
     let render_root = root_config.root.clone();
-    let render_config = root_config.clone();
     // §FS-workspace.8 intro: the current project is the root iff
     // `include_root = true` (the helper always emits the root first).
     let current = root_config.workspace_include_root.then_some(0);
     let projects = load_workspace_projects_with_overlays(&mut root_config, overlays)?;
+    // Cloned *after* the expansion, not before: what the walk learns about the
+    // tree is what the report is rendered from (§FS-check.4.10).
+    let render_config = root_config.clone();
     // §FS-check.4.9: the query surfaces have no report to carry the finding, so the
     // same text goes straight to stderr here — the one place every command that
     // walks and is not `check` passes through (§DF-unlisted-workspace-block.2.3).
