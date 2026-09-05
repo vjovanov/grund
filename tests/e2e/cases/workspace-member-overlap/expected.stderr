@@ -1,1 +1,1 @@
-error: .agents/grund.toml:16: workspace members overlap: `apps/api` contains `apps/api/sub`
+error: grund.toml:16: workspace members overlap: `apps/api` contains `apps/api/sub`

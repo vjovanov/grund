@@ -1,1 +1,1 @@
-error: .agents/grund.toml:4: unknown [reference] inline_note_layout `citation-first` (expected any or citation-first-colon)
+error: grund.toml:4: unknown [reference] inline_note_layout `citation-first` (expected any or citation-first-colon)

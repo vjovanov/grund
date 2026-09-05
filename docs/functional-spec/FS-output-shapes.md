@@ -128,7 +128,7 @@ hint: this repo's [id] format is `{kind}-{number}-{slug}` (run `grund config sho
 ```
 
 ```text
-error: .agents/grund.toml:2: unknown config key `strcit`
+error: grund.toml:2: unknown config key `strcit`
 ```
 
 The invalid-ID example exits `2` for list-like query commands such as `refs`; the config validation example exits `1` for `grund config validate` and `2` when the same invalid config blocks another subcommand.

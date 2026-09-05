@@ -1,1 +1,1 @@
-warning: .agents/grund.toml:4: [[kinds]] `prefix` is deprecated — rename it to `kind`; `prefix` stops loading in grund 0.13.0
+warning: grund.toml:4: [[kinds]] `prefix` is deprecated — rename it to `kind`; `prefix` stops loading in grund 0.13.0

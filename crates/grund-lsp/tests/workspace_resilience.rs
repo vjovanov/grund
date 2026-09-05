@@ -19,7 +19,7 @@ fn write(path: &Path, text: &str) {
 
 fn write_project(root: &Path, source_name: &str) -> (PathBuf, PathBuf) {
     write(
-        &root.join(".agents/grund.toml"),
+        &root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"src\"]\n\
          extensions = [\"md\", \"java\"]\n",
     );
@@ -94,7 +94,7 @@ fn a_temporarily_invalid_config_keeps_its_snapshot_while_other_projects_refresh(
     ));
 
     write(
-        &first.join(".agents/grund.toml"),
+        &first.join("grund.toml"),
         "grund_config_version = 1\n[scan\n",
     );
     write(&second_source, "final class SecondUse {}\n");
@@ -136,7 +136,7 @@ fn a_scanned_sibling_does_not_give_another_project_ownership() {
     let second = base.join("nested/second");
     let shared = base.join("shared");
     write(
-        &first.join(".agents/grund.toml"),
+        &first.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"../shared\"]\n\
          extensions = [\"md\"]\n",
     );
@@ -147,7 +147,7 @@ fn a_scanned_sibling_does_not_give_another_project_ownership() {
     let user = shared.join("user.md");
     write(&user, "See §FS-001-example.\n");
     write(
-        &second.join(".agents/grund.toml"),
+        &second.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"../../shared\"]\n\
          extensions = [\"java\"]\n",
     );
@@ -178,7 +178,7 @@ fn two_external_scan_claims_are_rejected_as_ambiguous() {
     let second = base.join("nested/second");
     let shared = base.join("shared");
     write(
-        &first.join(".agents/grund.toml"),
+        &first.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"../shared\"]\n\
          extensions = [\"md\"]\n",
     );
@@ -187,7 +187,7 @@ fn two_external_scan_claims_are_rejected_as_ambiguous() {
         "# FS-001-example: First\n\nFirst project body.\n",
     );
     write(
-        &second.join(".agents/grund.toml"),
+        &second.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"../../shared\"]\n\
          extensions = [\"md\"]\n",
     );
@@ -220,7 +220,7 @@ fn an_external_unreadable_file_still_publishes_its_scan_error() {
     let root = base.join("repo");
     let shared = base.join("shared");
     write(
-        &root.join(".agents/grund.toml"),
+        &root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"../shared\"]\nextensions = [\"md\"]\n",
     );
     fs::create_dir_all(&shared).expect("create shared include");

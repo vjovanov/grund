@@ -13,11 +13,10 @@ use std::sync::mpsc;
 use support::*;
 
 fn write_project(root: &Path, citation_name: &str) -> (PathBuf, PathBuf) {
-    fs::create_dir_all(root.join(".agents")).expect("create config dir");
     fs::create_dir_all(root.join("docs")).expect("create docs dir");
     fs::create_dir_all(root.join("src")).expect("create source dir");
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"src\"]\n\
          extensions = [\"md\", \"java\"]\n",
     )

@@ -10,7 +10,7 @@ mod tests_workspace_members {
     #[test]
     fn workspace_members_empty_when_no_workspace_declared() {
         let root = test_root("workspace_members_empty_when_no_workspace_declared");
-        // No `.agents/grund.toml` at all — fall through to defaults.
+        // No `grund.toml` at all — fall through to defaults.
         assert_eq!(render_workspace_members_section(&root, None, None, "§", true), "");
         // And the rendered AGENTS.md contains neither the section heading nor
         // the discoverability line.
@@ -28,7 +28,7 @@ mod tests_workspace_members {
     fn workspace_members_root_init_omits_self_and_preserves_foreign_rows() {
         let root = test_root("workspace_members_root_init_omits_self_and_preserves_foreign_rows");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\", \"packages/*\"]\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
@@ -51,7 +51,7 @@ mod tests_workspace_members {
     fn workspace_members_member_init_omits_self_and_preserves_foreign_rows() {
         let root = test_root("workspace_members_member_init_omits_self_and_preserves_foreign_rows");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\", \"packages/*\"]\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
@@ -74,7 +74,7 @@ mod tests_workspace_members {
     fn workspace_members_companion_only_init_omits_self() {
         let root = test_root("workspace_members_companion_only_init_omits_self");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
@@ -92,7 +92,7 @@ mod tests_workspace_members {
     fn workspace_members_discoverability_line_uses_configured_marker() {
         let root = test_root("workspace_members_discoverability_line_uses_configured_marker");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
@@ -109,7 +109,7 @@ mod tests_workspace_members {
     fn workspace_members_self_identity_is_canonical_not_pending_alias_text() {
         let root = test_root("workspace_members_self_identity_is_canonical_not_pending_alias_text");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
@@ -129,7 +129,7 @@ mod tests_workspace_members {
     fn workspace_members_self_identity_follows_target_symlink() {
         let root = test_root("workspace_members_self_identity_follows_target_symlink");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
@@ -150,7 +150,7 @@ mod tests_workspace_members {
     fn workspace_members_omits_root_when_include_root_false() {
         let root = test_root("workspace_members_omits_root_when_include_root_false");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\", \"apps/web\"]\ninclude_root = false\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
@@ -176,7 +176,7 @@ mod tests_workspace_members {
     fn workspace_members_silently_skipped_on_workspace_config_error() {
         let root = test_root("workspace_members_silently_skipped_on_workspace_config_error");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
         );
         // `apps/api` directory missing — `expand_workspace_members` errors,
@@ -192,7 +192,7 @@ mod tests_workspace_members {
     fn workspace_members_suppresses_duplicate_aliases() {
         let root = test_root("workspace_members_suppresses_duplicate_aliases");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\", \"services/api\"]\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create apps/api");
@@ -209,19 +209,19 @@ mod tests_workspace_members {
     fn workspace_members_renders_configured_descriptions() {
         let root = test_root("workspace_members_renders_configured_descriptions");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\nproject_description = \"Workspace root: shared specs\"\n\n[workspace]\nmembers = [\"apps/api\", \"packages/*\"]\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
         std::fs::create_dir_all(root.join("packages/core")).expect("create core");
         std::fs::create_dir_all(root.join("packages/ui")).expect("create ui");
         write(
-            &root.join("apps/api/.agents/grund.toml"),
+            &root.join("apps/api/grund.toml"),
             "project_name = \"api\"\nproject_description = \"Payment API service\"\n",
         );
         write(&root.join("apps/api/AGENTS.md"), "## existing block\n");
         write(
-            &root.join("packages/core/.agents/grund.toml"),
+            &root.join("packages/core/grund.toml"),
             "project_name = \"core\"\nproject_description = \"Core domain library\"\n",
         );
 
@@ -245,7 +245,7 @@ mod tests_workspace_members {
     fn workspace_members_member_init_omits_pending_self_description() {
         let root = test_root("workspace_members_member_init_omits_pending_self_description");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
@@ -272,15 +272,15 @@ mod tests_workspace_members {
     fn workspace_members_nested_workspace_lists_the_whole_tree() {
         let root = test_root("workspace_members_nested_workspace_lists_the_whole_tree");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"group\", \"apps/api\"]\n",
         );
         write(
-            &root.join("group/.agents/grund.toml"),
+            &root.join("group/grund.toml"),
             "project_name = \"group\"\n\n[workspace]\nmembers = [\"alpha\"]\n",
         );
         write(
-            &root.join("group/alpha/.agents/grund.toml"),
+            &root.join("group/alpha/grund.toml"),
             "project_name = \"alpha\"\n",
         );
         std::fs::create_dir_all(root.join("apps/api")).expect("create api");
@@ -310,15 +310,15 @@ mod tests_workspace_members {
     fn workspace_members_nested_grouping_node_without_include_root_has_no_row() {
         let root = test_root("workspace_members_nested_grouping_node_without_include_root_has_no_row");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"group\"]\n",
         );
         write(
-            &root.join("group/.agents/grund.toml"),
+            &root.join("group/grund.toml"),
             "project_name = \"group\"\n\n[workspace]\nmembers = [\"alpha\"]\ninclude_root = false\n",
         );
         write(
-            &root.join("group/alpha/.agents/grund.toml"),
+            &root.join("group/alpha/grund.toml"),
             "project_name = \"alpha\"\n",
         );
 
@@ -342,12 +342,12 @@ mod tests_workspace_members {
     fn workspace_members_ignores_an_ancestor_workspace_that_does_not_claim_the_target() {
         let root = test_root("workspace_members_ignores_an_ancestor_workspace_that_does_not_claim_the_target");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"outer\"\n\n[workspace]\nmembers = [\"unrelated\"]\n",
         );
         std::fs::create_dir_all(root.join("unrelated")).expect("create unrelated");
         write(
-            &root.join("repo/.agents/grund.toml"),
+            &root.join("repo/grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"api\"]\n",
         );
         std::fs::create_dir_all(root.join("repo/api")).expect("create api");
@@ -373,12 +373,12 @@ mod tests_workspace_members {
     fn workspace_members_at_a_group_its_parent_does_not_list_names_its_own_tree() {
         let root = test_root("workspace_members_at_a_group_its_parent_does_not_list_names_its_own_tree");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"root\"\n\n[workspace]\nmembers = [\"listed\"]\n",
         );
         std::fs::create_dir_all(root.join("listed")).expect("create listed");
         write(
-            &root.join("stray/.agents/grund.toml"),
+            &root.join("stray/grund.toml"),
             "project_name = \"stray\"\n\n[workspace]\nmembers = [\"leaf\"]\n",
         );
         std::fs::create_dir_all(root.join("stray/leaf")).expect("create leaf");

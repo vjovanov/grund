@@ -35,7 +35,7 @@ citable = false
     /// `[citations]`, never the tree.
     fn render(name: &str, config: &str) -> String {
         let root = test_root(name);
-        write(&root.join(".agents/grund.toml"), config);
+        write(&root.join("grund.toml"), config);
         citation_directions_section(&load_config(&root).expect("load config"))
     }
 
@@ -461,7 +461,7 @@ should = ["FS"]
         // three homes needed to give those tables their configured meanings;
         // the citation fragment itself is read verbatim from the page above.
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             &format!(
                 "[[kinds]]\nkind = \"GOAL\"\nfile = \"docs/goals.md\"\n\n[[kinds]]\nkind = \"FS\"\nfolder = \"docs/functional-spec\"\n\n[[kinds]]\nkind = \"AR\"\nfolder = \"docs/architecture\"\n\n[[kinds]]\nkind = \"DA\"\nfolder = \"docs/decisions/architectural\"\n\n[[kinds]]\nkind = \"skill\"\nfolder = \"skills\"\ncitable = false\n\n{documented_config}"
             ),

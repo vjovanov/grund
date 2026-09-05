@@ -91,7 +91,7 @@ When the managed block and config are already current, `init` is a no-op on disk
 
 ```text
 exists AGENTS.md
-exists .agents/grund.toml
+exists grund.toml
 ```
 
 The `next:` block is suppressed in this case ([§FS-init.2.2](FS-init.md#22-stdout--stderr)) — every reported path is `exists `, so the user already has a complete grund setup and there is no next step to teach.
@@ -103,7 +103,7 @@ appended AGENTS.md
 wrote grund.toml
 ```
 
-When `AGENTS.md` exists and `--force` is passed, `init` rewrites the canonical file and reports `wrote AGENTS.md`. When a config already exists, `init --force` still preserves it and reports it with `exists ` under the name it was found at — `exists .agents/grund.toml` for the fixture below; config is never clobbered once present, in either discovery form ([§FS-config.1](FS-config.md#1-file-location-and-discovery)).
+When `AGENTS.md` exists and `--force` is passed, `init` rewrites the canonical file and reports `wrote AGENTS.md`. When a config already exists, `init --force` still preserves it and reports it with `exists ` under the name it was found at — `exists grund.toml` for the fixture below; config is never clobbered once present, in either discovery form ([§FS-config.1](FS-config.md#1-file-location-and-discovery)).
 
 ## 4. Target and flag failures
 
@@ -131,7 +131,7 @@ These fixtures together cover [§FS-init.2.3.4.15](FS-init.md#23415-workspace-me
 
 ### 6.1 Workspace root init
 
-Precondition: `{repo_copy}` exists with `.agents/grund.toml`:
+Precondition: `{repo_copy}` exists with `grund.toml`:
 
 ```toml
 project_name = "root"
@@ -143,7 +143,7 @@ members = ["apps/api", "packages/*"]
 and the on-disk layout:
 
 ```text
-.agents/grund.toml
+grund.toml
 apps/api/AGENTS.md
 packages/core/
 packages/ui/
@@ -197,7 +197,7 @@ The generated `AGENTS.md` contains no `### Workspace members` section anywhere. 
 
 ### 6.4 Workspace member descriptions
 
-Same shape as §6.1, but the root and two members carry `project_description` metadata ([§FS-config.3](FS-config.md#3-schema), [§FS-workspace.3](FS-workspace.md#3-aliases), [§DF-workspace-member-descriptions](../decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists)). Precondition: `{repo_copy}` exists with `.agents/grund.toml`:
+Same shape as §6.1, but the root and two members carry `project_description` metadata ([§FS-config.3](FS-config.md#3-schema), [§FS-workspace.3](FS-workspace.md#3-aliases), [§DF-workspace-member-descriptions](../decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists)). Precondition: `{repo_copy}` exists with `grund.toml`:
 
 ```toml
 project_name = "root"
@@ -207,7 +207,7 @@ project_description = "Workspace root: shared specs and tooling"
 members = ["apps/api", "packages/*"]
 ```
 
-`apps/api/.agents/grund.toml` sets `project_name = "api"` and `project_description = "Payment API service"`, and `apps/api/AGENTS.md` exists from a prior member-side `grund init`. `packages/core/.agents/grund.toml` sets `project_name = "core"` and `project_description = "Core domain library"` but `packages/core/AGENTS.md` does not exist. `packages/ui/` is a real directory with no config and no `AGENTS.md`.
+`apps/api/grund.toml` sets `project_name = "api"` and `project_description = "Payment API service"`, and `apps/api/AGENTS.md` exists from a prior member-side `grund init`. `packages/core/grund.toml` sets `project_name = "core"` and `project_description = "Core domain library"` but `packages/core/AGENTS.md` does not exist. `packages/ui/` is a real directory with no config and no `AGENTS.md`.
 
 Command: `grund init {repo_copy}`.
 

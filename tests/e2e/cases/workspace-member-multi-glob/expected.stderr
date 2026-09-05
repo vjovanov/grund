@@ -1,1 +1,1 @@
-error: .agents/grund.toml:16: invalid [workspace] member `packages/*/inner` (expected relative path or trailing /* glob)
+error: grund.toml:16: invalid [workspace] member `packages/*/inner` (expected relative path or trailing /* glob)

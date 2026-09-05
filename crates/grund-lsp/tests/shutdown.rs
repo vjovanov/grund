@@ -46,7 +46,7 @@ fn shutdown_exit_terminates_stdio_server() {
 fn navigation_covers_source_comment_citations_and_stub_titles() {
     let root = test_root("navigation");
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"src\"]\n\
          extensions = [\"md\", \"rs\"]\n",
     )
@@ -425,7 +425,7 @@ fn diagnostic_anchors_on_offending_citation_token() {
 fn line_anchored_diagnostic_does_not_overlap_dangling_citation() {
     let root = test_root("diagnostic-line-anchor-no-citation-overlap");
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"src\"]\n\
          extensions = [\"md\", \"rs\"]\n[reference]\nrequire_grounding = true\n\
          [id]\nformat = \"{kind}-{slug}\"\nslug_pattern = \"[a-z][a-z0-9-]*\"\n",
@@ -493,7 +493,7 @@ fn document_links_cover_python_docstring_citation_columns() {
     // still cover the original editor columns (§AR-scanner.4 §FS-lsp.1.3.2).
     let root = test_root("python-docstring-links");
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"src\"]\n\
          extensions = [\"md\", \"py\"]\n",
     )
@@ -749,7 +749,7 @@ fn forbidden_citation_surfaces_as_diagnostic() {
     // same diagnostic. The snapshot classifies citing sides for this to work.
     let root = test_root("forbidden-citation");
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n\
          [scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n\n\
          [citations]\ndefault = \"may\"\n\n\

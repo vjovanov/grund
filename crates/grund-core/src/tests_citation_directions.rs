@@ -103,7 +103,7 @@ mod tests_citation_directions {
         // `{kind}-{slug}` grammar, so these fixture tokens stay inert when the
         // grund tree self-scans `tests.rs`.
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"project_name = "scratch"
 [[kinds]]
 kind = "GOAL"
@@ -175,7 +175,7 @@ must = ["FS"]
     fn citation_directions_code_obligations_exempt_markdown() {
         let root = test_root("citation_directions_code_obligations_exempt_markdown");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"project_name = "scratch"
 [scan]
 include = ["docs", "README.md"]
@@ -211,7 +211,7 @@ must = ["FS"]
     fn citation_directions_e2e_must_is_not_vacuous_without_scanned_files() {
         let root = test_root("citation_directions_e2e_must_is_not_vacuous_without_scanned_files");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"project_name = "scratch"
 [[kinds]]
 kind = "FS"
@@ -252,7 +252,7 @@ must = ["FS"]
     fn citation_directions_e2e_spec_refs_satisfy_must() {
         let root = test_root("citation_directions_e2e_spec_refs_satisfy_must");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"project_name = "scratch"
 [[kinds]]
 kind = "FS"
@@ -316,7 +316,7 @@ must = ["FS"]
     fn empty_folder_obligations_warn_once_with_each_entry_rule() {
         let root = test_root("empty_folder_obligations_warn_once_with_each_entry_rule");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"grund_config_version = 1
 
 [[kinds]]
@@ -388,7 +388,7 @@ must = ["FS"]
     fn empty_folder_obligation_warning_negative_matrix() {
         let root = test_root("empty_folder_obligation_warning_negative_matrix");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"grund_config_version = 1
 
 [[kinds]]
@@ -472,7 +472,7 @@ must = ["FS"]
     fn empty_folder_obligation_warning_coexists_with_other_findings() {
         let root = test_root("empty_folder_obligation_warning_coexists_with_other_findings");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"grund_config_version = 1
 
 [[kinds]]
@@ -511,7 +511,7 @@ must = ["FS"]
     fn empty_folder_obligation_warning_is_isolated_per_workspace_member() {
         let root = test_root("empty_folder_obligation_warning_is_isolated_per_workspace_member");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"grund_config_version = 1
 project_name = "root"
 
@@ -577,7 +577,7 @@ must = ["FS"]
         };
 
         // `*/AR` (any) overlaps a bare local `AR` at the opposing level → error.
-        write(&root.join(".agents/grund.toml"), &cfg("should = [\"AR\"]\nmust-not = [\"*/AR\"]\n"));
+        write(&root.join("grund.toml"), &cfg("should = [\"AR\"]\nmust-not = [\"*/AR\"]\n"));
         match load_config(&root) {
             Ok(_) => panic!("overlapping namespace polarities must be rejected"),
             Err(err) => assert!(
@@ -588,7 +588,7 @@ must = ["FS"]
 
         // A local `AR` permitted while a pinned `root/AR` is forbidden is fine —
         // the matchers are disjoint.
-        write(&root.join(".agents/grund.toml"), &cfg("may = [\"AR\"]\nmust-not = [\"root/AR\"]\n"));
+        write(&root.join("grund.toml"), &cfg("may = [\"AR\"]\nmust-not = [\"root/AR\"]\n"));
         load_config(&root).expect("disjoint namespaces must load");
     }
 
@@ -606,7 +606,7 @@ must = ["FS"]
         // §FS-config.3.9.3: config diagnostics use citation-target vocabulary,
         // name the kind and identify the first invalid qualifier segment.
         let diagnostic = |target: &str| {
-            write(&root.join(".agents/grund.toml"), &cfg(target));
+            write(&root.join("grund.toml"), &cfg(target));
             let err = match load_config(&root) {
                 Ok(_) => panic!("malformed citation namespace qualifier must fail"),
                 Err(err) => format!("{err:#}"),
@@ -638,14 +638,14 @@ must = ["FS"]
             "citation target `group/*/FS`: invalid namespace qualifier segment `*` in `group/*` before kind `FS` (expected [a-z][a-z0-9-]*, one segment per workspace level); `*` may only be the whole qualifier"
         );
 
-        write(&root.join(".agents/grund.toml"), &cfg("*/AR"));
+        write(&root.join("grund.toml"), &cfg("*/AR"));
         load_config(&root).expect("whole-qualifier wildcard must load");
-        write(&root.join(".agents/grund.toml"), &cfg("root/AR"));
+        write(&root.join("grund.toml"), &cfg("root/AR"));
         load_config(&root).expect("valid namespace qualifier must load");
 
         // §FS-workspace.6.1: the kind is the last segment, so a nested member is
         // pinned by its whole alias path — the same spelling a citation uses.
-        write(&root.join(".agents/grund.toml"), &cfg("group/api/AR"));
+        write(&root.join("grund.toml"), &cfg("group/api/AR"));
         let config = load_config(&root).expect("a nested alias qualifier must load");
         let target = &config.citations.per_kind["FS"].must_not[0].targets[0];
         assert_eq!(target.kind, "AR");

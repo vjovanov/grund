@@ -1,1 +1,1 @@
-error: .agents/grund.toml:3: unknown config key `prefxi`
+error: grund.toml:3: unknown config key `prefxi`

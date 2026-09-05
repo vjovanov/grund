@@ -1,1 +1,1 @@
-error: .agents/grund.toml:4: reference.inline_note_suggested_lines must be <= inline_note_max_lines
+error: grund.toml:4: reference.inline_note_suggested_lines must be <= inline_note_max_lines

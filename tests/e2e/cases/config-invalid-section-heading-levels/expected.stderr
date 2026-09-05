@@ -1,1 +1,1 @@
-error: .agents/grund.toml:2: unknown [id] section_heading_levels `none` (expected strict, warn, or loose)
+error: grund.toml:2: unknown [id] section_heading_levels `none` (expected strict, warn, or loose)

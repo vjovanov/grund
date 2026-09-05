@@ -71,7 +71,7 @@ mod tests_config_scan {
     fn parallel_workspace_scan_matches_sequential_project_scans() {
         let root = test_root("parallel_workspace_scan_matches_sequential_project_scans");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"[workspace]
 members = ["packages/*"]
 "#,

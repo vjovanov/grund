@@ -1,1 +1,1 @@
-error: .agents/grund.toml:15: expected `[workspace]` (table)
+error: grund.toml:15: expected `[workspace]` (table)

@@ -9,7 +9,7 @@ mod tests_clickable_citations {
     #[test]
     fn clickable_citations_section_is_fixed_without_opinion() {
         let root = test_root("clickable_citations_section_is_fixed_without_opinion");
-        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(&root.join("grund.toml"), "grund_config_version = 1\n");
         let config = load_config(&root).expect("load config");
         let rendered = clickable_citations_section(&config, ConversationSurface::Plain);
         assert_eq!(
@@ -25,7 +25,7 @@ mod tests_clickable_citations {
     fn clickable_citations_section_renders_conversation_opinion() {
         let root = test_root("clickable_citations_section_renders_conversation_opinion");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[reference]\nconversation = \"link\"\n",
         );
         let config = load_config(&root).expect("load config");
@@ -60,7 +60,7 @@ mod tests_clickable_citations {
     fn clickable_citations_section_renders_the_configured_marker() {
         let root = test_root("clickable_citations_section_renders_the_configured_marker");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[reference]\nmarker = \"@\"\nconversation = \"link\"\n",
         );
         let config = load_config(&root).expect("load config");
@@ -87,7 +87,7 @@ mod tests_clickable_citations {
     fn repository_config_rejects_non_link_conversation() {
         let root = test_root("repository_config_rejects_non_link_conversation");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[reference]\nconversation = \"plain\"\n",
         );
         let error = match load_config(&root) {
@@ -106,7 +106,7 @@ mod tests_clickable_citations {
     fn repository_config_rejects_the_retired_render_links_section() {
         let root = test_root("repository_config_rejects_the_retired_render_links_section");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[render.links]\nconversation = \"plain\"\n",
         );
         let error = match load_config(&root) {

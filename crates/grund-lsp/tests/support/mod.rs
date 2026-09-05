@@ -37,10 +37,9 @@ pub fn test_root(name: &str) -> PathBuf {
         std::thread::current().id()
     ));
     let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(dir.join(".agents")).expect("create config dir");
     fs::create_dir_all(dir.join("docs")).expect("create docs dir");
     fs::write(
-        dir.join(".agents/grund.toml"),
+        dir.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
     )
     .expect("write config");

@@ -1,1 +1,1 @@
-error: .agents/grund.toml: [citations.E2E] names an unknown kind `E2E`
+error: grund.toml: [citations.E2E] names an unknown kind `E2E`

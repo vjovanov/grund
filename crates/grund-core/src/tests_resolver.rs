@@ -18,7 +18,7 @@ mod tests_resolver {
         std::fs::create_dir_all(&bin).expect("create mock bin");
         // The resolver walks up for the config root before doing anything else
         // (§FS-integrations.3.1), so the fixture has to look like a grund repo.
-        write(&root.join(".agents/grund.toml"), "[project]\n");
+        write(&root.join("grund.toml"), "[project]\n");
         let pwned = root.join("pwned");
         let capture = root.join("opened-argument");
         let mock_grund = bin.join("grund");

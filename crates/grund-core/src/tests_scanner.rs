@@ -212,7 +212,7 @@ mod tests_scanner {
     fn diagnostics_render_custom_id_format() {
         let root = test_root("diagnostics_render_custom_id_format");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"grund_config_version = 1
 
 [id]

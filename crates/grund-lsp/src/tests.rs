@@ -142,7 +142,7 @@ fn nonempty_virtual_workspace_folders_do_not_fall_back_to_root_uri() {
 fn on_type_formatting_accepts_configured_id_punctuation() {
     let root = test_root("on_type_formatting_accepts_configured_id_punctuation");
     write(
-        &root.join(".agents/grund.toml"),
+        &root.join("grund.toml"),
         "grund_config_version = 1\n[id]\nformat = \"{kind}:{slug}\"\n",
     );
     let path = root.join("src/lib.rs");
@@ -170,12 +170,12 @@ fn on_type_formatting_accepts_configured_id_punctuation() {
 fn on_type_formatting_uses_member_trigger_and_marker() {
     let root = test_root("on_type_formatting_uses_member_trigger_and_marker");
     write(
-        &root.join(".agents/grund.toml"),
+        &root.join("grund.toml"),
         "grund_config_version = 1\n[reference]\ntrigger = \"$$\"\nmarker = \"§\"\n\
          [workspace]\nmembers = [\"packages/app\"]\n",
     );
     write(
-        &root.join("packages/app/.agents/grund.toml"),
+        &root.join("packages/app/grund.toml"),
         "grund_config_version = 1\n[reference]\ntrigger = \"%%\"\nmarker = \"@\"\n",
     );
     let path = root.join("packages/app/src/lib.rs");

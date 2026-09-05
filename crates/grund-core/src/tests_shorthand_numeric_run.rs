@@ -325,7 +325,7 @@ mod tests_shorthand_numeric_run {
     fn on_type_refuses_a_run_already_on_the_line() {
         let root = test_root("on_type_refuses_a_run_already_on_the_line");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[id]\nformat = \"{kind}-{number}-{slug}\"\n",
         );
         let path = root.join("docs/notes.md");

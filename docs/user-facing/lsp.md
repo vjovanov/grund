@@ -26,7 +26,7 @@ grund-lsp --version
 
 `grund-lsp` speaks LSP over stdio. Configure your editor to launch `grund-lsp` from the workspace root; there is no daemon, socket, or long-running service outside the editor process ([§FS-lsp.2.2](../functional-spec/FS-lsp.md#22-lifecycle)).
 
-Use the same file types you scan in `.agents/grund.toml`. Markdown is the usual minimum; add Rust, Python, Go, JavaScript, TypeScript, or any other source languages in your `[scan] extensions`.
+Use the same file types you scan in `grund.toml`. Markdown is the usual minimum; add Rust, Python, Go, JavaScript, TypeScript, or any other source languages in your `[scan] extensions`.
 
 ## VSCode / VSCodium
 
@@ -79,7 +79,7 @@ vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
     vim.lsp.start({
       name = "grund-lsp",
       cmd = { "grund-lsp" },
-      root_dir = vim.fs.root(args.buf, { ".agents/grund.toml", "AGENTS.md", ".git" }),
+      root_dir = vim.fs.root(args.buf, { "grund.toml", ".agents/grund.toml", "AGENTS.md", ".git" }),
     })
   end,
 })
@@ -181,7 +181,7 @@ Install the Sublime `LSP` package, then add a client configuration for `grund-ls
 }
 ```
 
-Adjust the selector to match the syntaxes you scan in `.agents/grund.toml`.
+Adjust the selector to match the syntaxes you scan in `grund.toml`.
 
 ## Check the wiring
 

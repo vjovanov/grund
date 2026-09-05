@@ -6,7 +6,7 @@ cite back to the root, and the root cites into each member. Every citation
 that crosses a project boundary writes the target alias before the ID.
 
 ```toml
-# repo/.agents/grund.toml
+# repo/grund.toml
 project_name = "root"
 
 [workspace]
