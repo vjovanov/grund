@@ -274,10 +274,34 @@ fn sort_path_key(path: &Path) -> String {
     format_path(path)
 }
 
+/// Whether the path `check` was handed is a **file** that the hidden-name rule
+/// alone kept out of the walk (§FS-check.2.2): its own name begins with `.`, and
+/// its extension is one `[scan] extensions` lists — so the extension list is the
+/// one rule that did *not* decide, and the message must not send the reader there.
+///
+/// Both halves are load-bearing. A hidden file whose extension is *also* unlisted
+/// has two reasons and keeps the extension message, because naming one of two
+/// causes is its own misdirection. And the `is_file` test keeps this to files: a
+/// hidden **directory** handed explicitly is walked (§FS-config.3.5), so an empty
+/// one really did match no extensions.
+fn handed_a_hidden_file(config: &Config, path: &Path) -> bool {
+    path.is_file()
+        && path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with('.'))
+        && path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| config.extensions.iter().any(|allowed| allowed == ext))
+}
+
 /// The CLI-level warning `check` reports when the tree walk matched no files
 /// (§FS-check.2.2): a scan that read nothing is almost always a misconfigured
 /// scope, so we say so instead of printing nothing and exiting `0`. This is a
-/// warning — it never changes the exit code.
+/// warning — it never changes the exit code. Which of the three messages it
+/// carries is a question about *why* nothing was read, so the hidden file is
+/// asked first: it was skipped before either of the arms below could decide.
 fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diagnostic {
     // `grund`, `grund check .`, and `grund check <repo-root>` all walk `[scan] include`
     // relative to the config root — so the "looked under include" message is the
@@ -289,6 +313,14 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
             .map(|p| p == config.root)
             .unwrap_or(false);
     let message = match (&config.include, scoped_to_root) {
+        // §FS-check.2.2: name the hidden-name rule that actually skipped the file,
+        // rather than the `include` list or the extensions that never got to answer.
+        _ if handed_a_hidden_file(config, path) => format!(
+            "nothing to scan — `{}` is a hidden file. grund reads no file whose own name \
+             begins with `.`, whatever `[scan] extensions` says. Rename it, or move what \
+             needs checking into a file that is not hidden.",
+            format_path(path)
+        ),
         (Some(dirs), true) => format!(
             "nothing to scan — grund looked under [scan] include = [{}] and found no files. Run \
              `grund init --docs` to scaffold the canonical requirements.md, docs/, and e2e/ \
