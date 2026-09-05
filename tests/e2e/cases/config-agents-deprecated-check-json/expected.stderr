@@ -1,0 +1,1 @@
+{"severity":"warning","path":null,"line":null,"code":"deprecated-config-location","message":".agents/grund.toml is a deprecated config location — move it to grund.toml","sites":null}

@@ -1,7 +1,8 @@
 /// Test module: where the config file is found — the two names probed at every
-/// level of the upward walk, the tie-break between them, and the redundant-pair
-/// warning that names the loser (§FS-config.1, §FS-config.1.1, §FS-check.4.3,
-/// §DF-config-file-location).
+/// level of the upward walk, the tie-break between them, the redundant-pair
+/// warning that names the loser, and the deprecation line a run earns for having
+/// read the `.agents/` name at all (§FS-config.1, §FS-config.1.1, §FS-config.1.2,
+/// §FS-check.4.3, §FS-check.4.12, §DF-config-file-location).
 #[cfg(test)]
 mod tests_config_discovery {
     use super::*;
@@ -79,24 +80,63 @@ mod tests_config_discovery {
         );
     }
 
-    // §FS-check.4.3: one config is not a pair. A repository on either form alone
-    // must stay silent, or the warning would fire on every well-formed project.
+    // §FS-check.4.3: one config is not a pair, and the home path is not the
+    // deprecated one (§FS-config.1.2) — a repository on the bare form alone is
+    // silent on both counts, or a warning would fire on every well-formed project.
     #[test]
-    fn a_single_config_warns_about_nothing() {
-        for (name, rel) in [
-            ("single_config_bare", "grund.toml"),
-            ("single_config_agents", ".agents/grund.toml"),
-        ] {
-            let root = test_root(name);
-            write(&root.join(rel), MARKER_AT);
+    fn the_bare_form_alone_warns_about_nothing() {
+        let root = test_root("the_bare_form_alone_warns_about_nothing");
+        write(&root.join("grund.toml"), MARKER_AT);
 
-            let config = load_config(&root).expect("load single config");
+        let config = load_config(&root).expect("load single config");
 
-            assert!(
-                config_warnings(&config).is_empty(),
-                "{rel} alone must not warn"
-            );
-        }
+        assert!(
+            config_warnings(&config).is_empty(),
+            "the home path alone must not warn"
+        );
+    }
+
+    /// §FS-config.1.2 / §FS-check.4.12: the config this run read is on the
+    /// deprecated path, so the run says so — naming the file it read and the bare
+    /// `grund.toml` beside it that should hold it instead. The file is still read:
+    /// deprecated is a location the tool asks you to leave, not one it refuses.
+    #[test]
+    fn a_config_read_from_the_agents_location_is_reported_as_deprecated() {
+        let root = test_root("a_config_read_from_the_agents_location_is_reported_as_deprecated");
+        write(&root.join(".agents/grund.toml"), MARKER_AT);
+
+        let config = load_config(&root).expect("load .agents config");
+
+        assert_eq!(config.marker, "@", "the deprecated file still governs");
+        assert_eq!(
+            config_warnings(&config),
+            vec![
+                ".agents/grund.toml is a deprecated config location — move it to grund.toml"
+                    .to_string()
+            ]
+        );
+    }
+
+    /// §FS-check.4.12 / §FS-config.1.1: the pair earns the pair's warning and no
+    /// other. The run read the bare file, so nothing about the config in force is
+    /// deprecated — two lines here would name one move twice and disagree about
+    /// which of the two files is the problem.
+    #[test]
+    fn the_redundant_pair_earns_no_deprecation_line() {
+        let root = test_root("the_redundant_pair_earns_no_deprecation_line");
+        write(&root.join("grund.toml"), MARKER_AT);
+        write(&root.join(".agents/grund.toml"), MARKER_HASH);
+
+        let config = load_config(&root).expect("load tied config");
+
+        assert_eq!(
+            config_warnings(&config),
+            vec![
+                ".agents/grund.toml is ignored — grund.toml takes precedence; delete one"
+                    .to_string()
+            ],
+            "the pair is §FS-check.4.3's finding, never §FS-check.4.12's"
+        );
     }
 
     /// §DF-config-file-location.2.1: both names are probed at *every* level before
@@ -168,6 +208,10 @@ mod tests_config_discovery {
         assert_eq!(config.config_file, None);
         assert_eq!(config.redundant_config_file, None);
         assert_eq!(config.marker, "§", "§FS-config.2: the built-in default");
+        assert!(
+            config_warnings(&config).is_empty(),
+            "§FS-config.1.2: no file was read, so there is no location to deprecate"
+        );
     }
 
     // §FS-init.2.4: `init` generates the bare form, and probes both before it

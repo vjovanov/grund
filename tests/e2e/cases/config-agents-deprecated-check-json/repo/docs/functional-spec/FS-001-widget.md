@@ -1,0 +1,5 @@
+# FS-001-widget: A widget does one thing
+
+The widget does it, and it is declared here so the run has something to
+recognize — the case is about which file the config came from, not about
+what the walk found.

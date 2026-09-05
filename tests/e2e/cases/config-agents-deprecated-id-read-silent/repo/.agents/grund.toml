@@ -1,0 +1,6 @@
+grund_config_version = 1
+
+[reference]
+marker = "§"
+trigger = "$$"
+strict = true

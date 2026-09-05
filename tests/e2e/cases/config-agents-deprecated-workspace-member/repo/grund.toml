@@ -1,0 +1,10 @@
+grund_config_version = 1
+project_name = "root"
+
+[reference]
+marker = "§"
+trigger = "$$"
+strict = true
+
+[workspace]
+members = ["packages/alpha", "packages/beta"]
