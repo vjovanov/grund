@@ -92,7 +92,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - an unwalked kind (`scan = false`, [§FS-config.3.4.7](../../docs/functional-spec/FS-config.md#347-scan--a-place-that-is-listed-not-walked)): its home listed in the Project map with no directions bullet, its files unread by the ordinary run — a citation-free Markdown file earns no grounding finding and a `§` inside dangles nowhere — and reached by `check --full` as out-of-scope territory; and the three refused combinations: on a citable kind, without a home, and named as the citing kind by `[citations]`
 - a project that names the homeless kind (`kind = "src"`, `citable = false`, no home): a citation outside every home resolves to that name, `[citations.src]` governs it, and the per-file obligation still anchors at the source file it is about
 - a configured kind home outside `[scan] include`, walked because it is a home: its dangling citation is reported rather than invisible
-- the deprecated `[[kinds]] prefix` key: it still loads and earns one warning naming the release it stops in, while spelling both `kind` and `prefix` on one entry is refused
+- the removed `[[kinds]] prefix` key: a config that still spells it is refused at that row's own line with an error naming `kind`, whether the row carries `prefix` alone or beside `kind`
 - `index` set on a non-citable kind, and `--kind` / `grund id` handed one: refused with the reason rather than as an unknown kind
 - config include/exclude/extensions
 - explicit `check` subcommand

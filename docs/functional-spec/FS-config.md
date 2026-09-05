@@ -299,9 +299,15 @@ A project that overrides this list replaces the defaults entirely — there is n
 
 **`code` is reserved to the homeless kind** (§3.9.2). It is the default name of the complement of every configured home, so a row may take it only by *being* that complement — `citable = false`, no `folder`, no `file`. Any other row wearing it would collide with the kind every citation outside a home resolves to.
 
-#### 3.4.6 `prefix`, the former spelling of `kind` *(deprecated)*
+#### 3.4.6 `prefix`, the former spelling of `kind` *(removed in 0.13.0)*
 
-`prefix` was this key's name while every kind declared IDs and its name really was one. It still loads, and a config that uses it earns one warning naming the release it stops loading in ([§FS-config.4.1](FS-config.md#41-grund-config-validate-path), [§REQ-backwards-compatibility.2](../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path)). That release is [§RM-kind-prefix-removal](../roadmap.md#rm-kind-prefix-removal-stop-loading-the-deprecated-kinds-prefix-key), and a unit test holds it ahead of the running version so the deadline cannot pass unnoticed. Setting both `kind` and `prefix` on one entry is a config error: they name the same thing, and a config that spells it twice has no single answer if the two disagree.
+`prefix` was this key's name while every kind declared IDs and its name really was one. It stopped loading in grund **0.13.0**, at the end of the deprecation window [§REQ-backwards-compatibility.2](../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) asks of a renamed config key: 0.12.0 shipped `kind` beside it and warned every config that still spelled it, naming this release. A config that still spells it is **refused**, not read with the key ignored — an ignored name leaves a `[[kinds]]` row with no kind, which changes what the configuration means without saying so. The refusal is an ordinary config error (§4.3) that names `kind` as the key to write instead, anchored at the line `prefix` is written on. An entry that sets both `kind` and `prefix` earns that same error at that same line: with one of the two names gone there is nothing left to disambiguate, so the pair is no longer a rule of its own.
+
+```text
+error: grund.toml:4: [[kinds]] `prefix` was removed in grund 0.13.0 — rename it to `kind`
+```
+
+The migration is that rename, and the error names the line to make it on. A grund before 0.13.0 did it in one command — `config show` printed every entry under the canonical spelling whichever the file used, so `grund config show > grund.toml` rewrote the file — but from 0.13.0 nothing that has to load the config can help.
 
 The rename is what `citable = false` forces. `prefix` was accurate for every row of the table and stopped being accurate for half of it; *kind* is what the rest of grund already calls this value — the `{kind}` placeholder of `[id] format` (§3.2), the `--kind <KIND>` selector of [§FS-list.1](FS-list.md#1-inputs), and the `[citations.<kind>]` table key (§3.9). Under the new name, prefix-ness is a *derived* property of citable kinds (§3.4.5) rather than the schema's word for the whole concept. Decided in [§DF-non-citable-kinds.2.4](../decisions/functional/DF-non-citable-kinds.md#24-the-field-is-a-kind-not-a-prefix).
 
@@ -566,21 +572,13 @@ The table is optional and defaults to the empty list, which is what every config
 
 Loads the config discovered by walking up from `path` (or `.` when omitted), checks the schema, and reports problems. Exits 0 on success, 1 on validation errors — the error in the same `error: <path>:<line>: <message>` shape §4.3 defines. No tree scan is performed. A redundant config pair at the config root is reported as a `warning:` here too (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)); it is a warning, so it does not change the exit code.
 
-A `[[kinds]]` entry spelled with the deprecated `prefix` key (§3.4.6) is warned about on the same channel, once per config file, anchored at the first entry that uses it and naming the release the spelling stops loading in:
-
-```text
-warning: grund.toml:26: [[kinds]] `prefix` is deprecated — rename it to `kind`; `prefix` stops loading in grund 0.13.0
-```
-
-Like the redundant-pair warning it is a fact about the file the run read rather than about a site in the tree, so it carries its `path:line` inside the message and reaches `grund check` as well ([§FS-check.4.3](FS-check.md#43-redundant-config-pair) is the sibling case). One warning per config, not one per row: the fix is a whole-file rename.
-
 #### 4.1.1 At a workspace root
 
 When the discovered config declares `[workspace]` ([§3.8](#38-workspace--sub-project-namespaces), [§FS-workspace.2](FS-workspace.md#2-workspace-configuration)), `config validate` also expands `members` and loads every member config the run would load — nested workspaces included ([§FS-workspace.6.1](FS-workspace.md#61-nested-workspaces)) — the same launch-time pass `grund check` runs before it scans anything. The first problem, whether a member config that does not load or a `members` entry that cannot be resolved, is reported once in the same `error: <path>:<line>: <message>` line `grund check` prints for it, paths rendered from the workspace root ([§FS-workspace.5](FS-workspace.md#5-command-scope)), exit 1 (§4.3). No tree scan is performed. A path inside a member validates that member alone, as `grund check <member>` does ([§FS-workspace.5](FS-workspace.md#5-command-scope)). `config show` is unchanged: it prints the discovered project's effective config (§4.2).
 
 ### 4.2 `grund config show [path]`
 
-Prints the **effective** configuration — defaults merged with the config discovered by walking up from `path` (or `.` when omitted), plus CLI flags — as TOML. Every `[[kinds]]` entry is printed under the canonical `kind` key whichever spelling the file used (§3.4.6), and `citable` is printed **only where it is `false`**: absence *is* `citable = true`, and the printed config has to load back as itself. `require_grounding` and `grounding_level` follow the same rule for the same reason, one scope down: a row prints either key only where its effective value differs from the effective global, which is printed under `[reference]` (§3.4.8). A row that inherits both prints neither, and the config that comes out loads back to the same effective values it went in with. Useful for debugging "why did grund recognize this citation" or "what does my config actually evaluate to." A redundant config pair at the config root is reported as a `warning:` on stderr before the TOML (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)), so the answer to "why is this key not taking effect" is on screen next to the effective value.
+Prints the **effective** configuration — defaults merged with the config discovered by walking up from `path` (or `.` when omitted), plus CLI flags — as TOML. Every `[[kinds]]` entry is printed under the canonical `kind` key, and `citable` is printed **only where it is `false`**: absence *is* `citable = true`, and the printed config has to load back as itself. `require_grounding` and `grounding_level` follow the same rule for the same reason, one scope down: a row prints either key only where its effective value differs from the effective global, which is printed under `[reference]` (§3.4.8). A row that inherits both prints neither, and the config that comes out loads back to the same effective values it went in with. Useful for debugging "why did grund recognize this citation" or "what does my config actually evaluate to." A redundant config pair at the config root is reported as a `warning:` on stderr before the TOML (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)), so the answer to "why is this key not taking effect" is on screen next to the effective value.
 
 ### 4.3 Invalid config behavior
 

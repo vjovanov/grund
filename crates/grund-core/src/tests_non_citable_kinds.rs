@@ -337,6 +337,55 @@ mod tests_non_citable_kinds {
         );
     }
 
+    /// The one line §FS-config.3.4.6 fences. Byte-stable under §FS-errors.3, so
+    /// the goldens and these assertions copy it rather than build it.
+    const PREFIX_REMOVED: &str =
+        "[[kinds]] `prefix` was removed in grund 0.13.0 — rename it to `kind`";
+
+    /// §FS-config.3.4.6: the key stopped loading, and the refusal names `kind`
+    /// at the line `prefix` is written on rather than dropping the row's name.
+    #[test]
+    fn the_removed_prefix_key_is_refused_at_its_own_line() {
+        let root = test_root("the_removed_prefix_key_is_refused_at_its_own_line");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n\
+             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n",
+        );
+        assert_eq!(
+            config_error(&root),
+            format!("grund.toml:4: {PREFIX_REMOVED}"),
+            "the `prefix` line, not the [[kinds]] header above it"
+        );
+    }
+
+    /// §FS-config.3.4.6: a row that sets both earns the same error at the same
+    /// line, whichever order it spells them in — the anchor follows `prefix`,
+    /// not whichever key the parser reached second.
+    #[test]
+    fn the_removed_prefix_key_is_refused_beside_kind_in_either_order() {
+        for (name, body, line) in [
+            (
+                "the_removed_prefix_key_after_kind",
+                "grund_config_version = 1\n\n[[kinds]]\nkind = \"FS\"\nprefix = \"FS\"\nfolder = \"docs\"\n",
+                5,
+            ),
+            (
+                "the_removed_prefix_key_before_kind",
+                "grund_config_version = 1\n\n[[kinds]]\nprefix = \"FS\"\nkind = \"FS\"\nfolder = \"docs\"\n",
+                4,
+            ),
+        ] {
+            let root = test_root(name);
+            write(&root.join("grund.toml"), body);
+            assert_eq!(
+                config_error(&root),
+                format!("grund.toml:{line}: {PREFIX_REMOVED}"),
+                "{name}: anchored at the `prefix` line"
+            );
+        }
+    }
+
     /// A repo whose complement kind is named, rather than left as `code`.
     fn named_homeless_repo(name: &str, citations: &str) -> PathBuf {
         let root = test_root(name);
