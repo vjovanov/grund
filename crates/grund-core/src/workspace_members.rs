@@ -24,18 +24,31 @@ fn canonical_workspace_path(path: &Path) -> PathBuf {
 struct WorkspaceMember {
     written: String,
     root: PathBuf,
+    /// §FS-workspace.2.2: whether the entry came from `optional_members`. Every
+    /// rule below treats it the same — it is present, so it is an ordinary member
+    /// — but its alias is the entry's last segment rather than its `project_name`
+    /// (§FS-workspace.2.2.2), and only the entry knows which list it was written in.
+    optional: bool,
+}
+
+/// One `[workspace]` block expanded: the member roots it names, and the optional
+/// entries this checkout does not have (§FS-workspace.2.2).
+struct ExpandedMembers {
+    members: Vec<WorkspaceMember>,
+    absent: Vec<AbsentOptionalNamespace>,
 }
 
 /// The canonical roots of an expanded member list — the boundary-root form, for
 /// the callers that only need to know where a scan stops (§AR-workspace.6).
 fn expand_workspace_members(config: &Config) -> Result<Vec<PathBuf>> {
     Ok(expand_workspace_member_list(config)?
+        .members
         .into_iter()
         .map(|member| member.root)
         .collect())
 }
 
-fn expand_workspace_member_list(config: &Config) -> Result<Vec<WorkspaceMember>> {
+fn expand_workspace_member_list(config: &Config) -> Result<ExpandedMembers> {
     let mut roots = Vec::new();
     for member in &config.workspace_members {
         if let Some(glob_parent) = member.strip_suffix("/*") {
@@ -89,24 +102,46 @@ fn expand_workspace_member_list(config: &Config) -> Result<Vec<WorkspaceMember>>
                 // A glob child is written by the glob: `packages/*` names
                 // `packages/api`, which is the form a diagnostic can point at.
                 let written = format!("{glob_parent}/{}", entry.file_name().to_string_lossy());
-                let root = workspace_member_root(config, &written, &path)?;
-                roots.push(WorkspaceMember { written, root });
+                let root = workspace_member_root(
+                    config,
+                    config.workspace_members_source.as_ref(),
+                    &written,
+                    &path,
+                )?;
+                roots.push(WorkspaceMember {
+                    written,
+                    root,
+                    optional: false,
+                });
             }
         } else {
-            let root = workspace_member_root(config, member, &config.root.join(member))?;
+            let root = workspace_member_root(
+                config,
+                config.workspace_members_source.as_ref(),
+                member,
+                &config.root.join(member),
+            )?;
             roots.push(WorkspaceMember {
                 written: member.clone(),
                 root,
+                optional: false,
             });
         }
     }
+    // §FS-workspace.2.2: the second list joins here, ahead of the invariants below,
+    // so a present optional member is subject to every one of them — the dedup, the
+    // overlap rule, and the strict containment `workspace_member_root` enforces.
+    let absent = expand_optional_members(config, &mut roots)?;
     roots.sort_by_key(|member| sort_path_key(&member.root));
     // §FS-workspace.6.1: two entries naming one root are one member — a glob is
     // allowed to name what an explicit entry also names — so dedup by root, and
     // keep the earlier entry's spelling for any diagnostic below.
     roots.dedup_by(|later, earlier| later.root == earlier.root);
     reject_overlapping_workspace_members(config, &roots)?;
-    Ok(roots)
+    Ok(ExpandedMembers {
+        members: roots,
+        absent,
+    })
 }
 
 fn reject_overlapping_workspace_members(config: &Config, members: &[WorkspaceMember]) -> Result<()> {
@@ -242,12 +277,26 @@ fn absorbed_scan_warning(covered: &[String]) -> String {
 /// root that is an *ancestor* of its own block scans nothing at all, because every
 /// scan root lies under its own member boundary, so the project's declarations
 /// vanish and its dangling citations pass (§GOAL-no-dangling-refs).
-fn workspace_member_root(config: &Config, written: &str, lexical: &Path) -> Result<PathBuf> {
+///
+/// `source` is the line the entry was written on, passed in rather than read off
+/// `config`, because §FS-workspace.2.2 gave the block two lists that reach here and
+/// a reader sent to the wrong one of them has nothing to edit (§FS-errors.4).
+fn workspace_member_root(
+    config: &Config,
+    source: Option<&ConfigLocation>,
+    written: &str,
+    lexical: &Path,
+) -> Result<PathBuf> {
+    let located = |message: String| config_location_error(source, message);
     if !lexical.is_dir() {
-        return Err(workspace_members_error(
-            config,
-            format!("workspace member does not exist: {written}"),
-        ));
+        // §FS-workspace.2.2: the default does not move — a `members` entry that is
+        // not there is the same fatal config error it has always been, at the same
+        // line. Only the sentence grows, by the one clause that stops a CI author
+        // having to guess an escape hatch exists (§FS-config.4.3).
+        return Err(located(format!(
+            "workspace member does not exist: {written} — list it in \
+             [workspace] optional_members if it may be legitimately absent"
+        )));
     }
     let root = fs::canonicalize(lexical).unwrap_or_else(|_| lexical.to_path_buf());
     let block_root = canonical_workspace_path(&config.root);
@@ -255,10 +304,9 @@ fn workspace_member_root(config: &Config, written: &str, lexical: &Path) -> Resu
     // escape, and the two differ only in the preposition the message needs.
     if root == block_root || !root.starts_with(&block_root) {
         let landing = if root == block_root { "to" } else { "outside" };
-        return Err(workspace_members_error(
-            config,
-            format!("workspace member `{written}` resolves {landing} the workspace root that lists it"),
-        ));
+        return Err(located(format!(
+            "workspace member `{written}` resolves {landing} the workspace root that lists it"
+        )));
     }
     Ok(root)
 }
@@ -311,10 +359,19 @@ fn member_claims(root: &Path, entries: &[String]) -> Vec<MemberClaim> {
         .collect()
 }
 
-/// The `[workspace] members` entries of a config, read from the file text **on
-/// its own**: the parser's own line and section rules applied to that one key,
-/// and nothing else — no other key, no shape rule (§FS-workspace.2), no grammar
-/// rebuild (§FS-workspace.6.1).
+/// The `[workspace] members` and `optional_members` entries of a config, read
+/// from the file text **on its own**: the parser's own line and section rules
+/// applied to those two keys, and nothing else — no other key, no shape rule
+/// (§FS-workspace.2), no grammar rebuild (§FS-workspace.6.1).
+///
+/// §FS-workspace.2.2: both lists claim, by the same entry-text rule. An optional
+/// entry claims the directory below it exactly as a `members` entry does, so a run
+/// started inside a *present* one reads its alias path out of that claim and
+/// spells itself the way the workspace root does; an absent entry claims a
+/// directory no run can be started inside, so including it costs nothing. Reading
+/// only `members` here left a present optional member's subtree named from a
+/// directory nothing lists, which is the disagreement §FS-workspace.6.1 exists to
+/// prevent.
 ///
 /// The ancestor climb needs the claim answerable for a config that does not
 /// *load*, because the key that decides the claim is the very one a load error
@@ -327,6 +384,7 @@ fn ancestor_member_entries(config_path: &Path) -> Result<Vec<String>, String> {
     let text = fs::read_to_string(config_path).map_err(|err| err.to_string())?;
     let mut in_workspace = false;
     let mut entries = Vec::new();
+    let mut optional = Vec::new();
     for (idx, raw_line) in text.lines().enumerate() {
         let line = strip_comment(raw_line).trim();
         if line.is_empty() {
@@ -343,13 +401,21 @@ fn ancestor_member_entries(config_path: &Path) -> Result<Vec<String>, String> {
         let Some((key, value)) = line.split_once('=') else {
             continue;
         };
-        if !in_workspace || key.trim() != "members" {
+        if !in_workspace {
             continue;
         }
-        // Last assignment wins, exactly as it does in a full parse.
-        entries = parse_string_list(config_path, idx + 1, value.trim())
-            .map_err(|_| "`members` is not a list of strings".to_string())?;
+        // Last assignment wins, exactly as it does in a full parse. Each key names
+        // itself in the residue, because the sentence that reports one is what tells
+        // the reader which line to open (§FS-check.4.9).
+        let (slot, name) = match key.trim() {
+            "members" => (&mut entries, "members"),
+            "optional_members" => (&mut optional, "optional_members"),
+            _ => continue,
+        };
+        *slot = parse_string_list(config_path, idx + 1, value.trim())
+            .map_err(|_| format!("`{name}` is not a list of strings"))?;
     }
+    entries.extend(optional);
     Ok(entries)
 }
 

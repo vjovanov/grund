@@ -286,6 +286,26 @@ fn run_workspace_check(
             project.scan_errors.is_empty() && !project_has_findings,
         ));
     }
+    // §FS-workspace.2.2: a block whose only members may be absent contributes no
+    // project, which is not an error — but a run left with nothing to read still
+    // says so, beside the announcement below (§FS-check.2.2).
+    if projects.is_empty() {
+        report.warnings.extend(scan_scope_caution(
+            &root_config,
+            &Findings::default(),
+            &root_config.root,
+            true,
+            true,
+        ));
+    }
+    // §FS-check.4.10: the namespaces this run did not read, one located warning
+    // each on stdout at the `optional_members` entry that made the skip legal. It
+    // is what buys the green exit — the exit code says nothing about coverage here,
+    // so the report must — and it withholds `success` like any other warning
+    // (§FS-check.2.1).
+    report
+        .warnings
+        .extend(absent_optional_member_warnings(&root_config));
     // §FS-check.4.3: the root's pair plus every member's, each named at the path
     // that project's config was loaded under. The root is skipped in the loop
     // below, because the warning is about one directory, not one scope.

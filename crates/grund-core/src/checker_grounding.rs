@@ -46,7 +46,15 @@ fn check_grounding(
     // (§GOAL-fast-feedback).
     let mut cited: BTreeMap<&Path, Vec<usize>> = BTreeMap::new();
     for cite in &findings.citations {
-        if citation_resolves(cite, findings, config, workspace) {
+        // §FS-workspace.4: a citation into an absent optional namespace grounds its
+        // unit. It cannot be resolved here, but it resolves in the checkout that has
+        // the member — and a unit that lost its grounding to a missing directory
+        // would be a finding at the site the run is required to say nothing about.
+        let unverified = cite
+            .namespace
+            .as_deref()
+            .is_some_and(|namespace| namespace_is_unverified(config, namespace));
+        if unverified || citation_resolves(cite, findings, config, workspace) {
             cited.entry(cite.file.as_path()).or_default().push(cite.line);
         }
     }

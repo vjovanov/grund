@@ -52,8 +52,14 @@ fn enclosing_alias_prefix(config: &Config) -> Result<String> {
         };
         // A claimed directory is a member of `parent`, so its alias is derived
         // and located exactly as the outer run derives and locates it — the same
-        // error text, from the same line (§AR-workspace.5.3).
-        let alias = member_alias(child_config, &child_config.root, &parent, &parent)?;
+        // error text, from the same line (§AR-workspace.5.3). §FS-workspace.2.2.2:
+        // which of the two lists claimed it decides where the alias comes from, so
+        // a present optional member reads its own segment here rather than its
+        // `project_name` — the same answer the outer run reads for it.
+        let alias = match optional_entry_naming(&parent, &child_config.root) {
+            Some(entry) => optional_member_alias(child_config, &parent, entry)?,
+            None => member_alias(child_config, &child_config.root, &parent, &parent)?,
+        };
         segments.push(alias);
         climbed = Some(parent);
     }
@@ -166,7 +172,8 @@ fn expand_workspace_tree_with_report_base(
     root_config: &mut Config,
     report_base: &Path,
 ) -> Result<Vec<WorkspaceProjectEntry>> {
-    let members = expand_workspace_member_list(root_config)?;
+    let expanded = expand_workspace_member_list(root_config)?;
+    let members = expanded.members;
     // §FS-check.4.9: no warning here. Every route in asks this block first —
     // `resolve_workspace_config` (§AR-workspace.5.1), or `find_init_workspace_root`
     // for `init` — so this only repopulates that boundary; asking again says it twice.
@@ -181,6 +188,10 @@ fn expand_workspace_tree_with_report_base(
     // the outermost workspace. Empty unless the run was narrowed to a subtree — and
     // that is what keeps a narrowed run resolving a subset of the same paths.
     let self_path = enclosing_alias_prefix(root_config)?;
+    // §FS-check.4.10: the namespaces this walk did not read, gathered as it goes and
+    // named by the whole alias path the run spells them with — this block's under
+    // the run's own path, each nested block's under that block's.
+    let mut absent_optional = qualify_absent_optional(expanded.absent, &self_path);
     if root_config.workspace_include_root {
         let alias = if self_path.is_empty() {
             derive_alias(root_config, None, RootMode::Root).map_err(|err| {
@@ -211,8 +222,14 @@ fn expand_workspace_tree_with_report_base(
         &mut siblings,
         &mut visited,
         &mut entries,
+        &mut absent_optional,
     )?;
-    if entries.is_empty() {
+    // §FS-workspace.2.2: "at least one project in scope" is read from the config
+    // text — a non-empty `optional_members` list names members, and whether they are
+    // present is a fact about the checkout rather than about the config. So a block
+    // that loses its last project to an absence is not the empty block §6.1 refuses;
+    // failing on a checkout is the verdict this key exists to remove.
+    if entries.is_empty() && root_config.workspace_optional_members.is_empty() {
         return Err(empty_workspace_error(root_config));
     }
     // §AR-workspace.6: every project the run loaded learns where the others are.
@@ -225,11 +242,17 @@ fn expand_workspace_tree_with_report_base(
     // §FS-check.3.8: every project the run loaded carries the run's own scope, so
     // the diagnostic that would re-spell a citation knows whether it is looking at
     // the whole tree or a slice of it.
+    // §FS-workspace.4: and the namespaces it did not read, because resolution asks
+    // that of the project the citing file belongs to, wherever in the tree that is.
     for entry in &mut entries {
         entry.config.workspace_scope_path = self_path.clone();
         entry.config.workspace_project_roots = project_roots.clone();
+        entry.config.workspace_absent_optional = absent_optional.clone();
     }
     root_config.workspace_project_roots = project_roots;
+    // §FS-check.4.10: the root config is what the report is rendered from, so it is
+    // where the announcement is read back off (`run_workspace_check`).
+    root_config.workspace_absent_optional = absent_optional;
     Ok(entries)
 }
 
@@ -260,6 +283,7 @@ fn collect_workspace_members(
     siblings: &mut BTreeMap<String, PathBuf>,
     visited: &mut Vec<PathBuf>,
     entries: &mut Vec<WorkspaceProjectEntry>,
+    absent_optional: &mut Vec<AbsentOptionalNamespace>,
 ) -> Result<()> {
     for member in members {
         let member_root = &member.root;
@@ -282,7 +306,15 @@ fn collect_workspace_members(
         // The alias is derived whether or not the member turns out to be a
         // project: a member that is itself a workspace still contributes its
         // segment to every alias path below it (§FS-workspace.6.1).
-        let alias = member_alias(&member_config, member_root, parent_config, top_config)?;
+        // §FS-workspace.2.2.2: an optional entry's alias is its own last segment,
+        // and a `project_name` that disagrees is refused here rather than accepted
+        // as a second name — one citation text has to name one namespace in a full
+        // checkout and in a partial one.
+        let alias = if member.optional {
+            optional_member_alias(&member_config, parent_config, &member.written)?
+        } else {
+            member_alias(&member_config, member_root, parent_config, top_config)?
+        };
         // §FS-workspace.3: uniqueness is a property of one level. Two projects
         // under different parents may share a segment — their alias paths still
         // differ — so the check is per sibling set, not per tree.
@@ -312,8 +344,13 @@ fn collect_workspace_members(
         // §FS-check.4.9: a block below the run's root is populated here and
         // nowhere else, so this is where it is asked — once, at its own
         // `members` line (§FS-errors.4).
-        warn_if_members_absorb_scan(&member_config, &nested);
-        member_config.workspace_boundary_roots = nested.iter().map(|m| m.root.clone()).collect();
+        warn_if_members_absorb_scan(&member_config, &nested.members);
+        member_config.workspace_boundary_roots =
+            nested.members.iter().map(|m| m.root.clone()).collect();
+        // §FS-check.4.10: and its absent optional entries, at its own
+        // `optional_members` line, under the alias path this run reaches it by —
+        // there is no outermost-block privilege in either direction.
+        absent_optional.extend(qualify_absent_optional(nested.absent, &qualified));
         let before = entries.len();
         if member_config.workspace_include_root {
             entries.push(WorkspaceProjectEntry {
@@ -322,7 +359,7 @@ fn collect_workspace_members(
             });
         }
         collect_workspace_members(
-            &nested,
+            &nested.members,
             &member_config,
             top_config,
             report_base,
@@ -330,8 +367,11 @@ fn collect_workspace_members(
             &mut BTreeMap::new(),
             visited,
             entries,
+            absent_optional,
         )?;
-        if entries.len() == before {
+        // §FS-workspace.2.2: the same reading one block down — a nested block whose
+        // only members may be absent named members, so it is not an empty block.
+        if entries.len() == before && member_config.workspace_optional_members.is_empty() {
             return Err(empty_workspace_error(&member_config));
         }
     }

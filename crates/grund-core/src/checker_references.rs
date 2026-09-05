@@ -231,6 +231,13 @@ fn check_citation_resolution(
                 .namespace
                 .as_deref()
                 .expect("resolver only returns None for qualified citations");
+            // §FS-workspace.4: an alias path into an absent optional member is
+            // neither resolved nor unknown — it is *unverified*, and the run says so
+            // once at the entry that made the skip legal rather than here
+            // (§FS-check.4.10). Every other unknown alias still errors.
+            if namespace_is_unverified(config, namespace) {
+                continue;
+            }
             report.errors.push(Diagnostic {
                 code: "unknown-project",
                 path: Some(cite.file.clone()),
