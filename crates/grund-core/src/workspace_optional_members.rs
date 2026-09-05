@@ -119,6 +119,15 @@ fn both_member_lists_message(entry: &str) -> String {
 /// §FS-workspace.2.2's "one entry belongs to one list" silently, by dropping one of
 /// the two entries the author wrote.
 ///
+/// That dedup is also why a repeated *absent* entry is collapsed here rather than
+/// left to [`register_absent_optional_aliases`]: it runs over the expanded member
+/// list, so it reaches every repeat that became a member and none that did not.
+/// One entry written twice would otherwise be a duplicate-alias error in the
+/// checkout without the directory and accepted in the checkout with it — one
+/// config with two verdicts, which is the checkout-dependent answer
+/// §FS-workspace.2.2 exists to remove. Collapsed, the two lists agree:
+/// `members = ["vendored", "vendored"]` is one member too (§FS-workspace.6.1).
+///
 /// §FS-workspace.2.2.1: absent is `is_dir` and nothing more. The empty directory git
 /// leaves for an uninitialized submodule is *present*, and deliberately so —
 /// widening the test would put a typo'd directory on the unverified path and move
@@ -135,11 +144,20 @@ fn expand_optional_members(
     // two spellings of one directory. Read now; see this function's docs.
     let plain: Vec<PathBuf> = members.iter().map(|member| member.root.clone()).collect();
     let mut absent = Vec::new();
+    let mut absent_roots: Vec<PathBuf> = Vec::new();
     for entry in &config.workspace_optional_members {
         let lexical = config.root.join(entry);
         // §FS-workspace.2.2.1: absent is `is_dir` and nothing more — an empty
         // directory is *present*. See this function's docs.
         if !lexical.is_dir() {
+            // §FS-workspace.6.1: two entries naming one root are one member, and the
+            // dedup below the merge reaches only the present ones — see this
+            // function's docs.
+            let root = canonical_workspace_path(&lexical);
+            if absent_roots.contains(&root) {
+                continue;
+            }
+            absent_roots.push(root);
             absent.push(AbsentOptionalNamespace {
                 written: entry.clone(),
                 alias_path: optional_member_alias_segment(entry).to_string(),
@@ -177,10 +195,16 @@ fn expand_optional_members(
 /// anything if it is true, so the alias it names has to be the run's alone.
 ///
 /// Registered **before** this block's present members, which is what makes the
-/// three collisions read the right way round: against the root alias or another
-/// absent entry the error lands here, at the `optional_members` line that wrote
-/// it; against a present sibling it lands where that member is derived, at the
-/// `members` line, because that is the entry that arrived second.
+/// collisions read the right way round: against the root alias or another absent
+/// entry the error lands here, at the `optional_members` line that wrote it;
+/// against a present sibling it lands where that member is derived, at the line
+/// of the list *that* entry was written on, because it is the one that arrived
+/// second (§FS-errors.4).
+///
+/// One entry written twice never reaches here as a collision: [`expand_optional_members`]
+/// folds a repeated absent entry the way expansion folds a repeated present one
+/// (§FS-workspace.2.2), so the two aliases this compares always come from two
+/// directories.
 fn register_absent_optional_aliases(
     block: &Config,
     top_config: &Config,
@@ -194,18 +218,12 @@ fn register_absent_optional_aliases(
         // an absent path has nothing to resolve and stays lexical.
         let root = canonical_workspace_path(&block.root.join(&namespace.written));
         if let Some(first) = siblings.get(&alias) {
-            // One directory written twice is not two colliding members, and saying
-            // so twice would send the reader looking for a second one (§FS-errors.4).
-            let sites = if first == &root {
-                format!("`{}` is listed twice", namespace.written)
-            } else {
-                duplicate_alias_sites(top_config, first, &root)
-            };
             return Err(workspace_optional_members_error(
                 block,
                 format!(
-                    "duplicate workspace project alias `{}` ({sites})",
-                    qualify_alias(prefix, &alias)
+                    "duplicate workspace project alias `{}` ({})",
+                    qualify_alias(prefix, &alias),
+                    duplicate_alias_sites(top_config, first, &root)
                 ),
             ));
         }

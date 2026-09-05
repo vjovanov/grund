@@ -1,0 +1,6 @@
+# Into the member: `vendored` owns those files, so the root project's narrowed
+# walk stops here and `--write` never reaches them.
+docs/member.md -> ../vendored/docs/FS-002-beta.md
+# Into a directory no project owns: not a boundary, so this one is walked and
+# rewritten — which is what isolates the cause to ownership, not to symlinks.
+docs/loose.md -> ../outside/notes.md

@@ -214,6 +214,17 @@ wrote. Roots are compared the way §6.1 compares them, canonically, so a glob in
 `members` that expands onto an optional entry is the same collision and is
 reported the same way.
 
+**One entry written twice is one member, whether or not it is there.** §6.1
+compares members as canonical paths and makes two entries of one list that
+resolve to one root the same member — deduped rather than rejected — and an
+absent entry is deduped by that same comparison, taken from the entry text before
+anything is announced. A repeat is redundant rather than ambiguous: it names one
+directory, one alias, and one namespace, and there is nothing for grund to
+discard by folding it. Refusing it only in the checkout that lacks the directory
+would be worse than either answer, because the same config would then be rejected
+by CI and accepted by the developer holding the member — the checkout-dependent
+verdict this section exists to remove.
+
 **Every `[workspace]` block reads the key, at every depth.** A nested block's
 `optional_members` are paths under *that* block's config root, expanded and
 validated by the rules here exactly as its `members` are (§6.1), and its absent

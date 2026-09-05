@@ -260,25 +260,70 @@ mod tests_workspace_optional_members {
         );
     }
 
-    /// §FS-workspace.3, §FS-errors.4: one entry written twice is one directory, so
-    /// the message says that rather than naming two colliding members and sending
-    /// the reader to look for a second one.
+    /// §FS-workspace.2.2, §FS-workspace.6.1: one entry written twice is one member
+    /// in *either* checkout. Folding it only where the directory is present would
+    /// have made the same config a launch-time error for CI and a green run for the
+    /// developer holding the member — the checkout-dependent verdict this key
+    /// exists to remove.
     #[test]
-    fn one_optional_entry_listed_twice_says_so() {
-        let root = test_root("one_optional_entry_listed_twice_says_so");
+    fn one_optional_entry_listed_twice_is_one_member_in_either_checkout() {
+        let root = test_root("one_optional_entry_listed_twice_is_one_member");
         root_config(
             &root,
             "[workspace]\noptional_members = [\"vendored\", \"vendored\"]",
         );
 
+        let mut absent = load_config(&root).expect("the config must load with the member absent");
+        let aliases: Vec<String> = expand_workspace_tree(&mut absent)
+            .expect("a repeated absent entry must not fail the load")
+            .into_iter()
+            .map(|entry| entry.alias)
+            .collect();
+
+        assert_eq!(aliases, vec!["acme".to_string()], "only the root is a project here");
+        assert_eq!(
+            absent
+                .workspace_absent_optional
+                .iter()
+                .map(|namespace| namespace.written.clone())
+                .collect::<Vec<_>>(),
+            vec!["vendored".to_string()],
+            "one directory is one namespace, announced once"
+        );
+
+        member_config(&root, "vendored", Some("vendored"));
+
+        assert_eq!(
+            expand(&root).expect("a repeated present entry must load"),
+            vec!["acme".to_string(), "vendored".to_string()],
+            "and the checkout that has the member reaches the same verdict"
+        );
+    }
+
+    /// §FS-errors.4: the collision is reported at the line of the list the second
+    /// claimant was written on. A *present* optional member reported at the
+    /// `members` line sends the reader to the other list — and a block that lists
+    /// no plain members at all has no such line, so the sentence lost its location
+    /// entirely.
+    #[test]
+    fn a_present_optional_claimant_reports_at_the_optional_members_line() {
+        let root = test_root("a_present_optional_claimant_reports_at_the_optional_members_line");
+        root_config(
+            &root,
+            "[workspace]\nmembers = [\"m\"]\noptional_members = [\"x/vendored\", \"y/vendored\"]",
+        );
+        member_config(&root, "m", None);
+        member_config(&root, "x/vendored", None);
+        member_config(&root, "y/vendored", None);
+
         let Err(err) = expand(&root) else {
-            panic!("one entry listed twice must be refused");
+            panic!("two present optional members may not claim one alias");
         };
 
         assert_eq!(
             format!("{err:#}"),
-            "grund.toml:5: duplicate workspace project alias `vendored` \
-             (`vendored` is listed twice)"
+            "grund.toml:6: duplicate workspace project alias `vendored` (workspace members \
+             `x/vendored` and `y/vendored`)"
         );
     }
 
