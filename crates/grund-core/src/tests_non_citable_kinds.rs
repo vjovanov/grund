@@ -327,6 +327,24 @@ mod tests_non_citable_kinds {
         }
     }
 
+    /// §FS-config.3.4: with one of the two spellings gone, the only name a row
+    /// can repeat is `kind`, and repeating it is still refused at the second
+    /// line — the branch the removal rewrote, and the last thing left in it.
+    #[test]
+    fn a_kinds_entry_that_sets_kind_twice_is_refused_at_the_second_line() {
+        let root = test_root("a_kinds_entry_that_sets_kind_twice_is_refused_at_the_second_line");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n\
+             [[kinds]]\nkind = \"FS\"\nkind = \"AR\"\nfolder = \"docs\"\n",
+        );
+        assert_eq!(
+            config_error(&root),
+            "grund.toml:5: [[kinds]] sets `kind` twice",
+            "the repeat, not the first spelling above it"
+        );
+    }
+
     /// A repo whose complement kind is named, rather than left as `code`.
     fn named_homeless_repo(name: &str, citations: &str) -> PathBuf {
         let root = test_root(name);
