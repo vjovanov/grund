@@ -20,12 +20,11 @@ use support::*;
 
 /// A project whose spec declares `FS-001-example` and whose source cites it.
 fn write_project(root: &Path, citation_name: &str) -> (PathBuf, PathBuf) {
-    fs::write(
-        root.join("grund.toml"),
+    write(
+        &root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"src\"]\n\
          extensions = [\"md\", \"java\"]\n",
-    )
-    .expect("write config");
+    );
     let spec = root.join("docs/FS-001-example.md");
     let source = root.join(format!("src/{citation_name}.java"));
     write(&spec, "# FS-001-example: Example\n\nLead.\n");
@@ -149,11 +148,10 @@ fn a_symlinked_include_root_outside_the_project_still_answers() {
     let _ = fs::remove_dir_all(&base);
     let root = base.join("repo");
     let outside = base.join("outside-docs");
-    fs::write(
-        root.join("grund.toml"),
+    write(
+        &root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
-    )
-    .expect("write config");
+    );
     write(
         &outside.join("FS-001-example.md"),
         "# FS-001-example: Example\n\nLead.\n",
@@ -199,11 +197,10 @@ fn a_parent_relative_include_root_still_answers() {
     let _ = fs::remove_dir_all(&base);
     let root = base.join("repo");
     let shared = base.join("shared");
-    fs::write(
-        root.join("grund.toml"),
+    write(
+        &root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"../shared\"]\nextensions = [\"md\"]\n",
-    )
-    .expect("write config");
+    );
     write(
         &root.join("docs/FS-001-example.md"),
         "# FS-001-example: Example\n\nLead.\n",
@@ -288,11 +285,10 @@ fn a_virtual_workspace_folder_is_skipped_not_fatal() {
     // (§FS-lsp.2.2, §REQ-never-crashes).
     let root = std::env::temp_dir().join(format!("grund-lsp-virtual-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
-    fs::write(
-        root.join("grund.toml"),
+    write(
+        &root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
-    )
-    .expect("write config");
+    );
     write(
         &root.join("docs/FS-001-example.md"),
         "# FS-001-example: Example\n\nLead.\n",
@@ -342,11 +338,10 @@ fn a_folder_whose_config_will_not_load_leaves_the_others_serving() {
     let _ = fs::remove_dir_all(&root);
     let good = root.join("good");
     let bad = root.join("bad");
-    fs::write(
-        good.join("grund.toml"),
+    write(
+        &good.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
-    )
-    .expect("write config");
+    );
     write(
         &good.join("docs/FS-001-example.md"),
         "# FS-001-example: Example\n\nLead.\n",
