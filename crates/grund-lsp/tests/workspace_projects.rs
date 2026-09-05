@@ -355,10 +355,7 @@ fn a_folder_whose_config_will_not_load_leaves_the_others_serving() {
         &good.join("docs/FS-002-user.md"),
         "# FS-002-user: User\n\nSee §FS-001-example.\n",
     );
-    write(
-        &bad.join("grund.toml"),
-        "grund_config_version = 1\n[scan\n",
-    );
+    write(&bad.join("grund.toml"), "grund_config_version = 1\n[scan\n");
 
     let (mut child, mut stdin, receiver) = start_server_with_initialize(
         &root,

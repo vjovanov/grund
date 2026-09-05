@@ -176,9 +176,8 @@ fn run_check(
         report_is_silent,
     ));
     // What the config itself carries (§FS-check.4.3, §FS-check.4.12,
-    // §FS-config.4.1), after the scope caution above and deliberately outside
-    // `report_is_silent`: the two are independent, and a repository mid-migration
-    // must not lose the scope diagnostic just because it also has a config pair.
+    // §FS-config.4.1), outside `report_is_silent`: a repository mid-migration
+    // must not lose the scope caution just because it also has a config pair.
     report.warnings.extend(config_diagnostics(&config));
     // §FS-check.1.3, also after the scope caution: `--full` cancels `[scan] include`,
     // and an explicit path other than the config root already bypasses that key — so
@@ -299,11 +298,9 @@ fn run_workspace_check(
     report
         .warnings
         .extend(absent_optional_member_warnings(&root_config));
-    // §FS-check.4.3, §FS-check.4.12: the root's pair and its location plus every
-    // member's, each named at the path that project's config was loaded under.
-    // The root is skipped in the loop below, because both are about one config,
-    // not one scope — a workspace may mix the two forms (§FS-workspace.2), so a
-    // member on the old path earns its own line and a bare one earns none.
+    // §FS-check.4.3, §FS-check.4.12: the root's config and every member's, each
+    // named where that project loaded it — one config, not one scope, and a
+    // workspace may mix the two discovery forms (§FS-workspace.2).
     report.warnings.extend(config_diagnostics(&root_config));
     for project in &projects {
         if project.config.root != root_config.root {
