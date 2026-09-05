@@ -376,11 +376,17 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             validate_workspace_member(&source.path, source.line, member)?;
         }
     }
-    // §FS-workspace.2.2: the same shape check, plus the two refusals the optional
-    // list adds — no glob, and a last segment that can be an alias.
+    // §FS-workspace.2.2: the same shape check, plus the three refusals the optional
+    // list adds — no glob, a last segment that can be an alias, and no entry that
+    // `members` already carries.
     if let Some(source) = &config.workspace_optional_members_source {
         for member in &config.workspace_optional_members {
-            validate_optional_workspace_member(&source.path, source.line, member)?;
+            validate_optional_workspace_member(
+                &source.path,
+                source.line,
+                member,
+                &config.workspace_members,
+            )?;
         }
     }
     // §FS-config.3.9.5: validate `[citations]` after the kind set is final.

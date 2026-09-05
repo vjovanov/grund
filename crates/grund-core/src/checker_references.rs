@@ -208,6 +208,11 @@ fn tag_out_of_scope(mut diagnostic: Diagnostic) -> Diagnostic {
 /// pass to sites *outside* that scope — the out-of-scope tier's one difference in
 /// what it looks at (§FS-check.3.14); the ordinary run passes `None` and judges
 /// every site the walk found.
+///
+/// §FS-workspace.4: an alias path into an absent optional member is neither
+/// resolved nor unknown — it is *unverified*, and the run says so once at the entry
+/// that made the skip legal rather than at every site (§FS-check.4.10). Every other
+/// unknown alias still errors here.
 fn check_citation_resolution(
     findings: &Findings,
     config: &Config,
@@ -231,10 +236,7 @@ fn check_citation_resolution(
                 .namespace
                 .as_deref()
                 .expect("resolver only returns None for qualified citations");
-            // §FS-workspace.4: an alias path into an absent optional member is
-            // neither resolved nor unknown — it is *unverified*, and the run says so
-            // once at the entry that made the skip legal rather than here
-            // (§FS-check.4.10). Every other unknown alias still errors.
+            // §FS-workspace.4: unverified, not unknown — see this function's docs.
             if namespace_is_unverified(config, namespace) {
                 continue;
             }

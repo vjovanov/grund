@@ -848,6 +848,17 @@ fn normalized_overlays(overlays: BTreeMap<PathBuf, String>) -> TextOverlays {
         .collect()
 }
 
+/// §FS-lsp.4: the report the editor shows, decided here so that an editor and a
+/// terminal over one tree say the same thing — this is `grund check`'s workspace
+/// arm (`run_workspace_check`) for a surface that has no CLI.
+///
+/// §FS-check.4.10: the announcement of every namespace the run did not read is a
+/// **located** report finding, so it is one of the diagnostics the editor must
+/// mirror. It belongs to the run rather than to a project, which is why it is read
+/// off the render config outside the loop below and survives a block whose every
+/// project was the absent one — and why that config is cloned after the workspace
+/// walk (`load_resolved_workspace_context`). §FS-check.2.2: the caution for that
+/// same block rides beside it.
 fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: bool) -> CheckReport {
     let workspace = context
         .projects
@@ -899,6 +910,15 @@ fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: 
             project.scan_errors.is_empty() && !project_has_findings,
         ));
     }
+    // §FS-check.4.10, §FS-check.2.2: the announcements and the caution — see this
+    // function's docs.
+    report
+        .warnings
+        .extend(absent_optional_member_warnings(context.render_config()));
+    report.warnings.extend(absent_only_workspace_caution(
+        context.render_config(),
+        context.projects.is_empty(),
+    ));
     sort_diagnostics(&mut report.errors);
     sort_diagnostics(&mut report.warnings);
     report

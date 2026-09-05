@@ -281,6 +281,11 @@ fn absorbed_scan_warning(covered: &[String]) -> String {
 /// `source` is the line the entry was written on, passed in rather than read off
 /// `config`, because §FS-workspace.2.2 gave the block two lists that reach here and
 /// a reader sent to the wrong one of them has nothing to edit (§FS-errors.4).
+///
+/// §FS-workspace.2.2: the default does not move. A `members` entry that is not
+/// there is the same fatal config error it has always been, at the same line; only
+/// the sentence grows, by the one clause that stops a CI author having to guess an
+/// escape hatch exists (§FS-config.4.3).
 fn workspace_member_root(
     config: &Config,
     source: Option<&ConfigLocation>,
@@ -289,10 +294,7 @@ fn workspace_member_root(
 ) -> Result<PathBuf> {
     let located = |message: String| config_location_error(source, message);
     if !lexical.is_dir() {
-        // §FS-workspace.2.2: the default does not move — a `members` entry that is
-        // not there is the same fatal config error it has always been, at the same
-        // line. Only the sentence grows, by the one clause that stops a CI author
-        // having to guess an escape hatch exists (§FS-config.4.3).
+        // §FS-workspace.2.2: the unchanged default, one clause longer.
         return Err(located(format!(
             "workspace member does not exist: {written} — list it in \
              [workspace] optional_members if it may be legitimately absent"

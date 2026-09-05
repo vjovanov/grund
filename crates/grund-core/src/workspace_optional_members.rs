@@ -29,13 +29,36 @@ pub struct AbsentOptionalNamespace {
     pub source: ConfigLocation,
 }
 
-/// §FS-workspace.2.2 / §FS-workspace.2.2.2: the three refusals `optional_members`
-/// adds to the shape rules `members` already carries. All three are properties of
+/// §FS-workspace.2.2 / §FS-workspace.2.2.2: the four refusals `optional_members`
+/// adds to the shape rules `members` already carries. All four are properties of
 /// the entry text alone, which is why they are taken at config load — before any
 /// directory is looked for, so the same config is rejected in the checkout that
 /// has the member and in the checkout that does not.
-fn validate_optional_workspace_member(path: &Path, line: usize, member: &str) -> Result<()> {
+///
+/// The both-lists refusal is here for that reason above all. Behind the `is_dir`
+/// test it could only fire in the checkout that *has* the member, and the other
+/// checkout — where the `members` entry fails first — was told to list the entry
+/// in `optional_members`, which is where the author had already put it
+/// (§FS-config.4.3). What is wrong is the pair of lists, and the pair reads the
+/// same in every checkout. The canonical comparison in [`expand_optional_members`]
+/// stays for the collisions no entry text shows: a `members` glob that expands
+/// onto this entry, or two paths that resolve to one directory.
+fn validate_optional_workspace_member(
+    path: &Path,
+    line: usize,
+    member: &str,
+    plain: &[String],
+) -> Result<()> {
     validate_workspace_member(path, line, member)?;
+    // §FS-workspace.2.2 "one entry belongs to one list": compared as paths, so a
+    // trailing slash is the same entry rather than a second one.
+    if plain.iter().any(|entry| Path::new(entry) == Path::new(member)) {
+        return Err(anyhow!(
+            "{}:{line}: {}",
+            format_path(path),
+            both_member_lists_message(member),
+        ));
+    }
     // §FS-workspace.2.2: an absent parent directory names no namespaces, so a
     // glob here would appear to work and do nothing. The message names the shape
     // that works, because a user who has just been refused needs the form to write.
@@ -77,11 +100,29 @@ fn workspace_optional_members_error(config: &Config, message: String) -> anyhow:
     config_location_error(config.workspace_optional_members_source.as_ref(), message)
 }
 
+/// §FS-workspace.2.2 "one entry belongs to one list": one sentence for the two
+/// places that can catch the contradiction — the entry text at config load and the
+/// canonical roots at expansion — because it is one rule, and which of the two saw
+/// it is not something the author has to know.
+fn both_member_lists_message(entry: &str) -> String {
+    format!("`{entry}` is listed in both [workspace] members and optional_members")
+}
+
 /// §FS-workspace.2.2: fold this block's `optional_members` into the expanded
 /// member list `members` already holds. A present entry becomes an ordinary
 /// member — every §FS-workspace.2 invariant below applies to it unchanged; an
 /// absent one is returned for the report to announce (§FS-check.4.10) and costs
 /// the run nothing else.
+///
+/// The canonical roots `members` expanded to are read *before* the two lists are
+/// merged, because the dedup at the end of expansion would otherwise resolve
+/// §FS-workspace.2.2's "one entry belongs to one list" silently, by dropping one of
+/// the two entries the author wrote.
+///
+/// §FS-workspace.2.2.1: absent is `is_dir` and nothing more. The empty directory git
+/// leaves for an uninitialized submodule is *present*, and deliberately so —
+/// widening the test would put a typo'd directory on the unverified path and move
+/// the blind spot's edge somewhere no line of the repository records.
 fn expand_optional_members(
     config: &Config,
     members: &mut Vec<WorkspaceMember>,
@@ -89,21 +130,15 @@ fn expand_optional_members(
     let Some(source) = config.workspace_optional_members_source.clone() else {
         return Ok(Vec::new());
     };
-    // §FS-workspace.2.2 "one entry belongs to one list": the roots `members`
-    // already expanded to, read before the two lists are merged. Canonical, the
-    // way §FS-workspace.6.1 compares roots, so a glob in `members` that expands
-    // onto an optional entry is the same collision — and read *now*, because the
-    // dedup at the end of expansion would otherwise resolve the contradiction
-    // silently by dropping one of the two entries the author wrote.
+    // §FS-workspace.2.2 "one entry belongs to one list", for the collisions the
+    // entry text cannot show — a `members` glob that expanded onto this entry, or
+    // two spellings of one directory. Read now; see this function's docs.
     let plain: Vec<PathBuf> = members.iter().map(|member| member.root.clone()).collect();
     let mut absent = Vec::new();
     for entry in &config.workspace_optional_members {
         let lexical = config.root.join(entry);
-        // §FS-workspace.2.2.1: absent is `is_dir` and nothing more. The empty
-        // directory git leaves for an uninitialized submodule is *present*, and
-        // deliberately so — widening the test would put a typo'd directory on the
-        // unverified path and move the blind spot's edge somewhere no line of the
-        // repository records.
+        // §FS-workspace.2.2.1: absent is `is_dir` and nothing more — an empty
+        // directory is *present*. See this function's docs.
         if !lexical.is_dir() {
             absent.push(AbsentOptionalNamespace {
                 written: entry.clone(),
@@ -116,7 +151,7 @@ fn expand_optional_members(
         if plain.contains(&root) {
             return Err(workspace_optional_members_error(
                 config,
-                format!("`{entry}` is listed in both [workspace] members and optional_members"),
+                both_member_lists_message(entry),
             ));
         }
         members.push(WorkspaceMember {
@@ -126,6 +161,57 @@ fn expand_optional_members(
         });
     }
     Ok(absent)
+}
+
+/// §FS-workspace.3: put each absent entry's alias into its block's sibling set,
+/// so the uniqueness rule reaches it. What `optional_members` is exempt from is
+/// where the alias *comes from* (§FS-workspace.2.2.2) — not whether the alias
+/// occupies a level, which it must, because it is the name every citation into
+/// the namespace writes and the name the announcement prints.
+///
+/// Left out, an absent entry claims a namespace nothing else is checked against
+/// and one run says two opposite things: a dangling reference reported *in*
+/// namespace `vendored`, and one line later the announcement that `vendored` was
+/// not checked — while a third citation resolved silently against whichever
+/// project really holds the alias. §FS-check.4.10's announcement is only worth
+/// anything if it is true, so the alias it names has to be the run's alone.
+///
+/// Registered **before** this block's present members, which is what makes the
+/// three collisions read the right way round: against the root alias or another
+/// absent entry the error lands here, at the `optional_members` line that wrote
+/// it; against a present sibling it lands where that member is derived, at the
+/// `members` line, because that is the entry that arrived second.
+fn register_absent_optional_aliases(
+    block: &Config,
+    top_config: &Config,
+    prefix: &str,
+    absent: &[AbsentOptionalNamespace],
+    siblings: &mut BTreeMap<String, PathBuf>,
+) -> Result<()> {
+    for namespace in absent {
+        let alias = optional_member_alias_segment(&namespace.written).to_string();
+        // Canonical, like every other root this rule compares (§FS-workspace.6.1);
+        // an absent path has nothing to resolve and stays lexical.
+        let root = canonical_workspace_path(&block.root.join(&namespace.written));
+        if let Some(first) = siblings.get(&alias) {
+            // One directory written twice is not two colliding members, and saying
+            // so twice would send the reader looking for a second one (§FS-errors.4).
+            let sites = if first == &root {
+                format!("`{}` is listed twice", namespace.written)
+            } else {
+                duplicate_alias_sites(top_config, first, &root)
+            };
+            return Err(workspace_optional_members_error(
+                block,
+                format!(
+                    "duplicate workspace project alias `{}` ({sites})",
+                    qualify_alias(prefix, &alias)
+                ),
+            ));
+        }
+        siblings.insert(alias, root);
+    }
+    Ok(())
 }
 
 /// §FS-workspace.2.2.2: the alias of a **present** optional member. Still the
@@ -223,6 +309,33 @@ fn absent_optional_member_message(written: &str, alias_path: &str) -> String {
         "optional workspace member `{written}` is absent — citations into namespace \
          `{alias_path}` were not checked, so this run does not cover it"
     )
+}
+
+/// §FS-workspace.2.2 / §FS-check.2.2: the empty-scan caution for a block that put
+/// no project in scope because every member it has is absent. Reachable only
+/// there: a block with `include_root = true` contributes its own root, a present
+/// member contributes itself, and a block with neither and no optional entry is
+/// the empty block §FS-workspace.6.1 refuses outright.
+///
+/// It earns the caution — a run that read nothing must say so, and the
+/// announcements beside it name namespaces rather than the scope — but not either
+/// of §FS-check.2.2's other two messages, both of which would be false: the walk
+/// never reached `[scan] include`, so it did not look there and find nothing, and
+/// the `grund init --docs` tree it would offer to scaffold is not what is missing.
+/// A checkout is, and that is not grund's to ask for (§FS-check.4.10).
+fn absent_only_workspace_caution(config: &Config, no_projects: bool) -> Option<Diagnostic> {
+    (no_projects && !config.workspace_absent_optional.is_empty()).then(|| Diagnostic {
+        code: "empty-scan",
+        path: None,
+        line: None,
+        column: None,
+        message: "nothing to scan — this [workspace] block put no project in scope: \
+                  include_root = false and every member it has is an absent optional one, \
+                  each named in the report. Nothing is misconfigured; a fuller checkout is \
+                  what changes it."
+            .to_string(),
+        sites: Vec::new(),
+    })
 }
 
 /// §FS-workspace.4: whether an alias path names, or descends into, a namespace
