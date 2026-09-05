@@ -210,8 +210,11 @@
 /// only the wrapper shape; only external enrollment compares the destination to
 /// the one `fmt` derives (§FS-fmt.6.2, §DF-index-entry-form.2.7).
 ///
-/// A missing entry is a warning anchored at the declaration; a bare one is an
-/// error anchored at its line in the index. The same pass owns the carve-out
+/// Both halves of the entry contract are errors, each anchored where its own fix
+/// is: a missing entry at the declaration, a bare one at its line in the index.
+/// They arrived at that verdict by different routes — the bare entry on arrival,
+/// the missing one at the end of a ramp (§DF-index-compatibility-ramp.3) — and
+/// the anchors are what still tells them apart. The same pass owns the carve-out
 /// that keeps §2.6 honest: an index entry is not an inbound citation, so the
 /// unused warning still fires for a declaration only its own index names
 /// (§DF-index-not-an-inbound-citation). The finding pass lives in
