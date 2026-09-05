@@ -111,29 +111,6 @@ fn walk_scannable_files_reporting(
             }
             continue;
         }
-        let mut builder = WalkBuilder::new(&scan_root);
-        builder.hidden(false);
-        // §FS-config.3.5.1: a symlink is part of the tree at the path it occupies, so
-        // the walk reads through it — a linked file as the file, a linked directory by
-        // descending; the entry keeps its in-tree path either way.
-        builder.follow_links(true);
-        if !config.respect_gitignore {
-            builder
-                .ignore(false)
-                .git_ignore(false)
-                .git_global(false)
-                .git_exclude(false)
-                .parents(false);
-        }
-        // §AR-workspace.6: precompute the boundary path components once, expressed
-        // relative to the canonical scan root, so the walker filter is a single
-        // component-suffix compare — no per-entry `canonicalize`, no allocation.
-        let boundary_suffixes: Vec<PathBuf> = config
-            .workspace_boundary_roots
-            .iter()
-            .filter_map(|root| root.strip_prefix(&canonical_scan_root).ok())
-            .map(Path::to_path_buf)
-            .collect();
         // The directory links the filter met, shared with the loop below: a file
         // under one of them is reached under a spelling that is not its own, the
         // same as a file that is a link itself (§AR-scanner.1).
@@ -142,29 +119,17 @@ fn walk_scannable_files_reporting(
         // report to be raised from without the descent the walker would need to
         // notice them (§AR-scanner.1).
         let looping_links = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let filter = WalkDirFilter {
-            scan_root: scan_root.clone(),
-            canonical_scan_root: canonical_scan_root.clone(),
-            boundary_suffixes,
-            boundary_roots: config.workspace_boundary_roots.clone(),
-            excluded: config.exclude.clone(),
-            e2e_cases_root: config
-                .kinds
-                .iter()
-                .find(|kind| kind.kind == "E2E" && kind.citable)
-                .and_then(|kind| kind.folder.as_deref())
-                .map(|folder| config.root.join(folder)),
-            physical_root: physical_root.clone(),
-            unwalked_homes: walk_pruned_home_keys(config, &scan_root, &physical_root),
-            config: config.clone(),
-            link_roots: std::sync::Arc::clone(&link_roots),
-            looping_links: std::sync::Arc::clone(&looping_links),
-        };
-        builder.filter_entry(move |entry| filter.keep(entry));
+        let walker = scannable_walker(
+            config,
+            &scan_root,
+            &canonical_scan_root,
+            &physical_root,
+            &link_roots,
+            &looping_links,
+        );
         // A root that resolves elsewhere reaches every one of its files under a
         // spelling that is not the file's own, so all of them can alias (§FS-check.1.3).
         let root_is_aliased = canonical_scan_root != scan_root;
-        let walker = builder.build();
         let mut root_files = Vec::new();
         for entry in walker {
             let entry = match entry {
@@ -269,6 +234,119 @@ fn walk_scannable_files_reporting(
         errors,
         outside_root,
         dirs,
+    })
+}
+
+/// The walker one scan root is traversed with (§AR-scanner.1): the hidden-name and
+/// ignore-file rules the builder carries, and the workspace boundary, `[scan]
+/// exclude`, unwalked-home and E2E-case prunes [`WalkDirFilter`] carries.
+///
+/// Built apart from the walk above so [`walk_reads_any_file`] traverses through the
+/// same one. That is not a tidiness point: §FS-check.4.10 reports a tree *because*
+/// no scan reads it, so a probe that pruned differently from the scan would caution
+/// a repository about content the scan would have skipped anyway — the one outcome
+/// that finding cannot afford (§DF-unread-opted-out-block).
+///
+/// `link_roots` and `looping_links` are the filter's two outputs and belong to the
+/// caller, because the reporting walk reads both after the traversal.
+fn scannable_walker(
+    config: &Config,
+    scan_root: &Path,
+    canonical_scan_root: &Path,
+    physical_root: &Path,
+    link_roots: &std::sync::Arc<std::sync::Mutex<Vec<PathBuf>>>,
+    looping_links: &std::sync::Arc<std::sync::Mutex<Vec<(PathBuf, PathBuf)>>>,
+) -> ignore::Walk {
+    let mut builder = WalkBuilder::new(scan_root);
+    builder.hidden(false);
+    // §FS-config.3.5.1: a symlink is part of the tree at the path it occupies, so
+    // the walk reads through it — a linked file as the file, a linked directory by
+    // descending; the entry keeps its in-tree path either way.
+    builder.follow_links(true);
+    if !config.respect_gitignore {
+        builder
+            .ignore(false)
+            .git_ignore(false)
+            .git_global(false)
+            .git_exclude(false)
+            .parents(false);
+    }
+    // §AR-workspace.6: precompute the boundary path components once, expressed
+    // relative to the canonical scan root, so the walker filter is a single
+    // component-suffix compare — no per-entry `canonicalize`, no allocation.
+    let boundary_suffixes: Vec<PathBuf> = config
+        .workspace_boundary_roots
+        .iter()
+        .filter_map(|root| root.strip_prefix(canonical_scan_root).ok())
+        .map(Path::to_path_buf)
+        .collect();
+    let filter = WalkDirFilter {
+        scan_root: scan_root.to_path_buf(),
+        canonical_scan_root: canonical_scan_root.to_path_buf(),
+        boundary_suffixes,
+        boundary_roots: config.workspace_boundary_roots.clone(),
+        excluded: config.exclude.clone(),
+        e2e_cases_root: config
+            .kinds
+            .iter()
+            .find(|kind| kind.kind == "E2E" && kind.citable)
+            .and_then(|kind| kind.folder.as_deref())
+            .map(|folder| config.root.join(folder)),
+        physical_root: physical_root.to_path_buf(),
+        unwalked_homes: walk_pruned_home_keys(config, scan_root, physical_root),
+        config: config.clone(),
+        link_roots: std::sync::Arc::clone(link_roots),
+        looping_links: std::sync::Arc::clone(looping_links),
+    };
+    builder.filter_entry(move |entry| filter.keep(entry));
+    builder.build()
+}
+
+/// §FS-check.4.10: whether a walk of `scan_root` under this config would read a
+/// file — the same builder, the same filter and the same `is_scannable` test the
+/// reporting walk applies, stopped at the first hit.
+///
+/// The question a `[workspace]` block that opted out of being a project is asked
+/// about its own tree, and it is asked of the scanner rather than of the spec text
+/// so the two cannot drift apart. `Walk` is a lazy iterator, so `any` *is* the
+/// early exit: the cost is "is there one file here", not the size of the tree, and
+/// only a block that opted out ever pays it (§GOAL-fast-feedback).
+///
+/// A root that is not a directory takes `is_scannable` directly, which is the same
+/// answer the walk above gives a file root — including that a hidden *file* is
+/// skipped even as a root, while a walk root is never pruned by `exclude`, an
+/// ignore file, or the hidden-directory rule (§FS-config.3.5).
+///
+/// A path the walk cannot read is not an error here the way it is in
+/// [`walk_scannable_files_reporting`]: no run is scanning this tree, so there is no
+/// report to raise it into, and the question — would a project have read something
+/// — is answered by the files that can be read.
+fn walk_reads_any_file(config: &Config, scan_root: &Path) -> bool {
+    if !scan_root.exists() {
+        return false;
+    }
+    if scan_root.is_file() {
+        return is_scannable(scan_root, config);
+    }
+    let canonical_scan_root =
+        fs::canonicalize(scan_root).unwrap_or_else(|_| scan_root.to_path_buf());
+    let physical_root = canonical_config_root(config);
+    let link_roots = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let looping_links = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    scannable_walker(
+        config,
+        scan_root,
+        &canonical_scan_root,
+        &physical_root,
+        &link_roots,
+        &looping_links,
+    )
+    .filter_map(Result::ok)
+    .any(|entry| {
+        entry
+            .file_type()
+            .is_some_and(|file_type| file_type.is_file())
+            && is_scannable(entry.path(), config)
     })
 }
 

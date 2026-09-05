@@ -38,15 +38,16 @@ fn resolve_workspace_config(path: &Path) -> Result<Config> {
 /// roots. The boundary is the same list that `run_workspace_check`
 /// computes; setting it on the Config makes the scanner skip those subtrees.
 ///
-/// §FS-check.4.9: it is also where the block a run is rooted at is asked whether
-/// that boundary leaves it anything to read. Every command that walks resolves
-/// its config through here, so asking at this one point is what puts the warning
-/// on `list`, `refs`, `cover` and `fmt` rather than on `check` alone — and asking
-/// it *here* rather than on the expansion below is what keeps it to once per
-/// block per run, since a workspace-wide run expands the same block a second
-/// time. A run narrowed inside a member never populates the parent block's
-/// boundary (`config_for_member_scope` rewrites first), so it stays silent about
-/// a block it is not reading through.
+/// §FS-check.4.9, §FS-check.4.10: it is also where the block a run is rooted at is
+/// asked what that boundary leaves it — anything to read, and anything it reads
+/// that nobody else will. Every command that walks resolves its config through
+/// here, so asking at this one point is what puts both warnings on `list`, `refs`,
+/// `cover` and `fmt` rather than on `check` alone — and asking them *here* rather
+/// than on the expansion below is what keeps each to once per block per run, since
+/// a workspace-wide run expands the same block a second time. A run narrowed inside
+/// a member never populates the parent block's boundary
+/// (`config_for_member_scope` rewrites first), so it stays silent about a block it
+/// is not reading through.
 fn apply_workspace_boundary(config: &mut Config) -> Result<()> {
     if !config.workspace_declared {
         return Ok(());
@@ -56,6 +57,10 @@ fn apply_workspace_boundary(config: &mut Config) -> Result<()> {
     // spelled with, which only the expansion walk composes (`expand_workspace_tree`).
     let members = expand_workspace_member_list(config)?.members;
     warn_if_members_absorb_scan(config, &members);
+    // §FS-check.4.10: counted onto the run's own config, which is the one `check`
+    // still holds when it decides whether to print `success` (§FS-check.2.1).
+    let unread = warn_if_no_project_scans_the_block(config, &members);
+    config.unread_opted_out_blocks += unread;
     config.workspace_boundary_roots = members.into_iter().map(|member| member.root).collect();
     Ok(())
 }

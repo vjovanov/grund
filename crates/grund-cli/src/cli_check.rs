@@ -65,7 +65,7 @@ fn command_check(args: &[String]) -> ExitCode {
     if format == "json" {
         render_check_json(&output.report);
     } else {
-        render_check_text(&output.report);
+        render_check_text(&output.report, output.unread_opted_out_blocks);
     }
     if output.had_scan_errors {
         ExitCode::from(2)
@@ -106,11 +106,19 @@ fn sorted_findings(report: &Report) -> Vec<(&'static str, &Finding)> {
     findings
 }
 
-fn render_check_text(report: &Report) {
+/// `unread_opted_out_blocks` is the §FS-check.4.10 lines the run already printed on
+/// stderr, before this report existed. They are not findings, so nothing in
+/// `report` records them — and a run that says its citations are unchecked must not
+/// also say `success` (§FS-check.2.1).
+fn render_check_text(report: &Report, unread_opted_out_blocks: usize) {
     // §FS-check.2.3: suggestions never suppress `success`, but when present
     // (caller passed --suggestions) they are printed, so the marker only stands
     // in for a run with nothing at all to show.
-    if report.errors.is_empty() && report.warnings.is_empty() && report.suggestions.is_empty() {
+    if unread_opted_out_blocks == 0
+        && report.errors.is_empty()
+        && report.warnings.is_empty()
+        && report.suggestions.is_empty()
+    {
         println!("success");
         return;
     }

@@ -230,7 +230,10 @@ fn expand_workspace_tree_with_report_base(
         &absent_optional,
         &mut siblings,
     )?;
-    collect_workspace_members(
+    // §FS-check.4.11: every block below the run's root is asked down there, and the
+    // count comes back here because the run's own config is what `check` still holds
+    // when it decides whether to print `success` (§FS-check.2.1).
+    let unread = collect_workspace_members(
         &members,
         root_config,
         root_config,
@@ -241,6 +244,7 @@ fn expand_workspace_tree_with_report_base(
         &mut entries,
         &mut absent_optional,
     )?;
+    root_config.unread_opted_out_blocks += unread;
     // §FS-workspace.2.2: read from the config text — see this function's docs.
     if entries.is_empty() && root_config.workspace_optional_members.is_empty() {
         return Err(empty_workspace_error(root_config));
@@ -292,6 +296,9 @@ fn expand_workspace_tree_with_report_base(
 /// a `project_name` that disagrees with it is refused rather than accepted as a
 /// second name — one citation text has to name one namespace in a full checkout and
 /// in a partial one.
+///
+/// Returns how many §FS-check.4.11 lines this subtree printed, so the run's own
+/// config can carry the count back to `check` (§FS-check.2.1).
 #[allow(clippy::too_many_arguments)]
 fn collect_workspace_members(
     members: &[WorkspaceMember],
@@ -303,7 +310,8 @@ fn collect_workspace_members(
     visited: &mut Vec<PathBuf>,
     entries: &mut Vec<WorkspaceProjectEntry>,
     absent_optional: &mut Vec<AbsentOptionalNamespace>,
-) -> Result<()> {
+) -> Result<usize> {
+    let mut unread = 0;
     for member in members {
         let member_root = &member.root;
         // §FS-workspace.6.1: an **unreachable backstop**, kept because it is the one
@@ -368,6 +376,10 @@ fn collect_workspace_members(
         // nowhere else, so this is where it is asked — once, at its own
         // `members` line (§FS-errors.4).
         warn_if_members_absorb_scan(&member_config, &nested.members);
+        // §FS-check.4.11: and whether its own tree holds anything unread, at
+        // the same line — there is no outermost-block privilege in either
+        // direction.
+        unread += warn_if_no_project_scans_the_block(&member_config, &nested.members);
         member_config.workspace_boundary_roots =
             nested.members.iter().map(|m| m.root.clone()).collect();
         // §FS-check.4.10: and its absent optional entries, at its own
@@ -392,7 +404,7 @@ fn collect_workspace_members(
                 config: member_config.clone(),
             });
         }
-        collect_workspace_members(
+        unread += collect_workspace_members(
             &nested.members,
             &member_config,
             top_config,
@@ -409,7 +421,7 @@ fn collect_workspace_members(
             return Err(empty_workspace_error(&member_config));
         }
     }
-    Ok(())
+    Ok(unread)
 }
 
 /// §AR-workspace.5.3: a member's alias, with the error anchored where the bad

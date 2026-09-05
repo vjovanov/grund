@@ -6,7 +6,11 @@ fn print_report(config: &Config, report: &CheckReport, include_suggestions: bool
     // §FS-check.2.3: the `success` marker keys off errors and warnings only — a
     // suggestion is not a finding about well-formedness, so it never suppresses
     // `success`, and without `--suggestions` it is not printed at all.
-    if report.errors.is_empty()
+
+    // §FS-check.4.10: a warning printed before this report existed, so the marker
+    // asks the config too — else stderr says unchecked and stdout says `success`.
+    if config.unread_opted_out_blocks == 0
+        && report.errors.is_empty()
         && report.warnings.is_empty()
         && (!include_suggestions || report.suggestions.is_empty())
     {
