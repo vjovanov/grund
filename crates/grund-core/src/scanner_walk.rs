@@ -312,6 +312,15 @@ fn scannable_walker(
 /// early exit: the cost is "is there one file here", not the size of the tree, and
 /// only a block that opted out ever pays it (§GOAL-fast-feedback).
 ///
+/// Every root is **gated first**, exactly as the reporting walk gates it: a canonical
+/// root inside one of this config's boundary roots, or one another project of the run
+/// owns, is that project's tree rather than this block's (§FS-workspace.6). The gate
+/// has to be applied to the root by hand, because the filter below is never asked
+/// about it — a walk root is never pruned at depth zero (§FS-config.3.5), and a file
+/// root reaches no filter at all. That is the direction a member list cannot see: a
+/// scope root that is *itself* a link into another project, which without this earns
+/// the caution over a tree that project reads.
+///
 /// A root that is not a directory takes `is_scannable` directly, which is the same
 /// answer the walk above gives a file root — including that a hidden *file* is
 /// skipped even as a root, while a walk root is never pruned by `exclude`, an
@@ -325,12 +334,22 @@ fn walk_reads_any_file(config: &Config, scan_root: &Path) -> bool {
     if !scan_root.exists() {
         return false;
     }
-    if scan_root.is_file() {
-        return is_scannable(scan_root, config);
-    }
     let canonical_scan_root =
         fs::canonicalize(scan_root).unwrap_or_else(|_| scan_root.to_path_buf());
     let physical_root = canonical_config_root(config);
+    // §FS-workspace.6: the reporting walk's own scan-root gate, ahead of the branch
+    // below, because neither a file root nor a walk root ever reaches the filter.
+    if config
+        .workspace_boundary_roots
+        .iter()
+        .any(|root| canonical_scan_root.starts_with(root))
+        || owned_by_another_project(config, &physical_root, &canonical_scan_root)
+    {
+        return false;
+    }
+    if scan_root.is_file() {
+        return is_scannable(scan_root, config);
+    }
     let link_roots = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let looping_links = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     scannable_walker(
