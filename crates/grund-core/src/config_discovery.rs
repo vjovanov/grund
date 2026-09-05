@@ -41,6 +41,24 @@ fn redundant_config_file_in(dir: &Path) -> Option<PathBuf> {
     config_files_in(dir).nth(1)
 }
 
+/// Where a config read from the deprecated `.agents/` location belongs — the
+/// bare `grund.toml` beside the directory that holds it — or `None` when the
+/// file the run read is the home form already (§FS-config.1.2).
+///
+/// Here rather than beside the message it feeds (§FS-check.4.12) because only
+/// this module knows there are two names (§AR-core-module-layout.1), and the
+/// answer is a fact about the pair of names rather than about how it reads. The
+/// directory two components up is the config root, which the move leaves where
+/// it is: relative paths never resolved against `.agents/` (§FS-config.1).
+fn home_form_of(config_file: &Path) -> Option<PathBuf> {
+    let deprecated: PathBuf = CONFIG_NAMES[1].iter().collect();
+    if !config_file.ends_with(deprecated) {
+        return None;
+    }
+    let home: PathBuf = CONFIG_NAMES[0].iter().collect();
+    Some(config_file.parent()?.parent()?.join(home))
+}
+
 /// Discover and load the effective config: walk upward from `start` for the
 /// nearest directory carrying either config name (§FS-config.1), parse it over
 /// the defaults (§FS-config.2), or fall back to the pure defaults if none is

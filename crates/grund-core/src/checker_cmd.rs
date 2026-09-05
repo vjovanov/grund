@@ -175,16 +175,11 @@ fn run_check(
         path_provided,
         report_is_silent,
     ));
-    // §FS-check.4.3, after the scope caution above and deliberately outside
+    // What the config itself carries (§FS-check.4.3, §FS-check.4.12,
+    // §FS-config.4.1), after the scope caution above and deliberately outside
     // `report_is_silent`: the two are independent, and a repository mid-migration
     // must not lose the scope diagnostic just because it also has a config pair.
-    report.warnings.extend(redundant_config_warning(&config));
-    // §FS-config.4.1: the deprecated `[[kinds]] prefix` spelling, named once per
-    // config and on the same channel — it is a fact about the file this run
-    // read, and the run is where a repository notices it.
-    report
-        .warnings
-        .extend(deprecated_kind_prefix_warning(&config));
+    report.warnings.extend(config_diagnostics(&config));
     // §FS-check.1.3, also after the scope caution: `--full` cancels `[scan] include`,
     // and an explicit path other than the config root already bypasses that key — so
     // the flag changed nothing, and the caller who typed it wanted a wider search.
@@ -304,19 +299,15 @@ fn run_workspace_check(
     report
         .warnings
         .extend(absent_optional_member_warnings(&root_config));
-    // §FS-check.4.3: the root's pair plus every member's, each named at the path
-    // that project's config was loaded under. The root is skipped in the loop
-    // below, because the warning is about one directory, not one scope.
-    report.warnings.extend(redundant_config_warning(&root_config));
-    report
-        .warnings
-        .extend(deprecated_kind_prefix_warning(&root_config));
+    // §FS-check.4.3, §FS-check.4.12: the root's pair and its location plus every
+    // member's, each named at the path that project's config was loaded under.
+    // The root is skipped in the loop below, because both are about one config,
+    // not one scope — a workspace may mix the two forms (§FS-workspace.2), so a
+    // member on the old path earns its own line and a bare one earns none.
+    report.warnings.extend(config_diagnostics(&root_config));
     for project in &projects {
         if project.config.root != root_config.root {
-            report.warnings.extend(redundant_config_warning(&project.config));
-            report
-                .warnings
-                .extend(deprecated_kind_prefix_warning(&project.config));
+            report.warnings.extend(config_diagnostics(&project.config));
         }
     }
     // §FS-check.4.9: per project — the candidates are what *that* walk reached, and
