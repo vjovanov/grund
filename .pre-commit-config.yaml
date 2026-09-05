@@ -1,6 +1,6 @@
 # Run the CI-equivalent local gate before every commit, and re-run the Rust test
 # suite before every push (§AR-ci.3). With
-# `[reference] require_grounding = true` in `.agents/grund.toml`, `grund check` also
+# `[reference] require_grounding = true` in `grund.toml`, `grund check` also
 # enforces the grounding floor (§FS-check.3.6): every source file under
 # `[scan] include` must cite a declared ID. It runs with `--full`
 # (§FS-check.1.3), so a citation in a file *outside* `[scan] include` — this
