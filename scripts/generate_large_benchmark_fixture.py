@@ -69,15 +69,25 @@ def generate_fixture(
     root.mkdir(parents=True)
     (root / "grund.toml").write_text(fixture_config(citations), encoding="utf-8")
 
+    # §FS-check.3.18: the FS kind's default index requires every declaration to
+    # be listed as a link, or `grund check` errors on this fixture instead of
+    # measuring it — so every generated declaration gets a matching entry here.
+    index_lines = ["# Functional spec\n\n"]
+
     for index in range(1, file_count + 1):
         component = (index - 1) % component_count
         directory = root / "docs" / "functional-spec" / f"component-{component:03d}"
         directory.mkdir(parents=True, exist_ok=True)
-        path = directory / f"{id_for(index)}.md"
+        ident = id_for(index)
+        path = directory / f"{ident}.md"
         path.write_text(
             declaration_body(index, file_count, component_count),
             encoding="utf-8",
         )
+        index_lines.append(f"- [§{ident}](component-{component:03d}/{ident}.md)\n")
+
+    index_path = root / "docs" / "functional-spec" / "README.md"
+    index_path.write_text("".join(index_lines), encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
