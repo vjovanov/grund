@@ -1,0 +1,1 @@
+error: grund.toml:5: workspace member does not exist: vendored — list it in [workspace] optional_members if it may be legitimately absent

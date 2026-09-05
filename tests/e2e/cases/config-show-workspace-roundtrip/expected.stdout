@@ -91,6 +91,7 @@ anchor_format = "github"
 
 [workspace]
 members = ["apps/api"]
+optional_members = ["vendored"]
 include_root = false
 
 [citations]

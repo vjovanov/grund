@@ -1,0 +1,1 @@
+error: grund.toml:5: optional workspace member `vendored` declares project_name `warehouse`, but its alias is the entry's last segment `vendored` — make the two agree

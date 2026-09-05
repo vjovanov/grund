@@ -451,11 +451,14 @@ The full contract for this block — what `enabled` does, the named `anchor_form
 
 ```toml
 [workspace]
-members      = ["apps/api", "packages/*"]
-include_root = true
+members          = ["apps/api", "packages/*"]
+optional_members = ["vendored"]
+include_root     = true
 ```
 
-`members` and `include_root` are specified by [§FS-workspace](FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace). The table is optional; without it the repository is a single project exactly as before. Unknown keys under `[workspace]` are errors like any other config typo.
+`members`, `optional_members` and `include_root` are specified by [§FS-workspace](FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace). The table is optional; without it the repository is a single project exactly as before. Unknown keys under `[workspace]` are errors like any other config typo.
+
+`optional_members` is purely additive — a config that omits it behaves exactly as it did before the key existed — so `grund_config_version` stays `1` (§5), and a binary older than the key refuses it through the unknown-key rule above rather than ignoring it, which is the loud failure §5 asks of a config a binary cannot honour.
 
 ### 3.9 `[citations]` — citation direction rules
 

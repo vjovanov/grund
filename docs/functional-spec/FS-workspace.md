@@ -144,11 +144,188 @@ and mean it — which is why the finding arrives as a warning on the deprecation
 path of [§REQ-backwards-compatibility.2](../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) rather than as an error
 ([§DF-absorbed-scan-warning](../decisions/functional/DF-absorbed-scan-warning.md#df-absorbed-scan-warning-a-scan-its-own-members-swallowed-is-a-warning-with-a-named-release-not-an-error)).
 
+### 2.2 A member that may be legitimately absent
+
+§2 makes a missing member path a config error, and for a `members` entry that is
+right: a member the repository says it has and does not have is a broken
+workspace, and the alias every citation into it depends on is a promise this
+checkout cannot keep.
+
+It is the wrong answer for a member the repository *knows* may be missing — a
+private submodule CI never fetches, a sparse checkout, a sibling repository
+vendored in only for release builds. Such a repository had no run at all. Leaving
+the entry in `members` is the config error above; taking it out unregisters the
+alias, so every citation into that namespace becomes an unknown-alias error at
+its own site (§4, [§FS-check.3.8](FS-check.md#38-cross-project-citation-failure)) — thousands of lines in a tree that cites the
+namespace widely. One path refuses to start and the other calls the whole tree
+broken, and neither is a run.
+
+`optional_members` is the third path. It is a sibling of `members` under
+`[workspace]`, with the same grammar:
+
+```toml
+[workspace]
+members          = ["apps/api", "packages/*"]
+optional_members = ["vendored"]
+```
+
+An entry there is a member the repository has declared **may be legitimately
+absent**. Present, it is an ordinary member: every rule in §2 applies to it
+unchanged — relative path, no `.` or `..`, resolving strictly inside the block
+that lists it, overlapping no other member root — and it is scanned under its own
+config and citable at its own alias like any other. Absent (§2.2.1), the block
+loads without it and the run continues; the namespace it would have contributed
+is **unverified**, a third state beside resolved and unknown (§4), and the run
+names it ([§FS-check.4.10](FS-check.md#410-a-workspace-member-declared-optional-is-absent)).
+
+This is an opt-out, not a softer default. A member listed in `members` and
+missing still fails, at the same line and with the same verdict; the message
+gains one clause naming the key that would have made the absence legal, because a
+CI author meeting the refusal should not have to guess that an escape hatch exists
+([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)). What `optional_members` buys is a recorded intent, in the
+config, next to the entry it describes — which is what a per-run flag could not
+be, since a flag records nothing for the next reader and excuses *every* missing
+member rather than the one that was meant ([§DF-optional-workspace-members](../decisions/functional/DF-optional-workspace-members.md#df-optional-workspace-members-an-absent-member-is-declared-in-a-sibling-list-and-the-run-announces-the-namespace-it-did-not-check)).
+
+What it costs is a blind spot, and [§REQ-no-missed-citation.2](../requirements/REQ-no-missed-citation.md#2-every-blind-spot-is-declared-and-bounded) is what makes that
+affordable rather than free: a region nobody wrote down is a hole, a region the
+repository declared and every run announces is a bounded skip. The declaration is
+this key, the announcement is [§FS-check.4.10](FS-check.md#410-a-workspace-member-declared-optional-is-absent), and the bound is that nothing else
+moves — an alias that is not an optional member is unknown exactly as before, and
+a namespace that *is* present is checked to the letter.
+
+**A trailing `/*` glob may not be optional.** A glob names namespaces by reading
+its parent directory, so an absent parent names none: `hardware/*` in a checkout
+without the submodule expands to nothing, contributes no alias, and leaves every
+`§hardware/…` citation as unknown as deleting the entry would: the key would
+appear to work and do nothing, which is worse than refusing it. An entry ending
+in `/*` is therefore a config error at the `optional_members` line, and the
+message names the shape to write instead — one concrete entry per namespace,
+`hardware/sprayer` and `hardware/pod` rather than `hardware/*` — because a user
+who has just been refused needs the form that works, not only the form that does
+not. That is the whole cost of the rule: a tree that spells its members with a
+glob expands it by hand for the ones that may go missing.
+
+**One entry belongs to one list.** An entry naming a root that a `members` entry
+of the same block also names is a config error at the `optional_members` line: the
+two lists state opposite intents about one directory, and grund resolving the
+contradiction in either direction would silently discard half of what the author
+wrote. Roots are compared the way §6.1 compares them, canonically, so a glob in
+`members` that expands onto an optional entry is the same collision and is
+reported the same way.
+
+**Every `[workspace]` block reads the key, at every depth.** A nested block's
+`optional_members` are paths under *that* block's config root, expanded and
+validated by the rules here exactly as its `members` are (§6.1), and its absent
+entries are announced at its own `optional_members` line, rendered against the
+root this run was launched at like every other diagnostic from a block the run
+did not start in ([§FS-errors.4](FS-errors.md#4-determinism)). There is no outermost-block privilege in either
+direction: a nested block may declare an optional member whose parent block knows
+nothing about it, and an absent one below the run's root costs the same one line
+as an absent one at the top. §6.1's ancestor climb reads `optional_members` beside
+`members`, from the entry text by the same rule and for the same reason — an
+optional entry claims the directory below it, so a run started *inside* a present
+one reads its alias path out of that claim and spells itself the way the
+workspace root does. An absent entry claims a directory no run can be started
+inside.
+
+**A block whose last project goes missing is not an empty block.** §6.1 requires
+every block to put at least one project in scope, so `include_root = false` with
+no members is a config error at that block's line. That test is read from the
+config text, before any path is looked at: a non-empty `optional_members` list
+names members, so the block is not empty, and whether they are present is a fact
+about the checkout rather than about the config. A block that loses its last
+project to an absence therefore does not fail — failing on a checkout is the
+verdict this section exists to remove — it contributes no project, its absent
+members are announced ([§FS-check.4.10](FS-check.md#410-a-workspace-member-declared-optional-is-absent)), and a run left with nothing to
+read still earns the empty-scan caution beside them ([§FS-check.2.2](FS-check.md#22-empty-scan)). §6.1's
+glob rule is not the precedent and reads the other way for a reason: a glob that
+matches no directories is a mistake in every checkout, while an absent optional
+member is a state one checkout has and another does not.
+
+#### 2.2.1 What "absent" means
+
+Absent means **the path is not a directory**, which is the test §2 already
+applies to every member and nothing more. A path that does not exist is absent;
+so is one that exists as a file, and so is a symlink that does not resolve to
+one.
+
+The temptation is to widen it, and the case that tempts is the motivating one.
+Git materializes an uninitialized submodule as an **empty directory**, so a
+repository whose member *is* the submodule (`members = ["hardware"]`, `hardware`
+the gitlink) has a member that exists: it loads under the canonical defaults
+(§2), contributes zero declarations, and turns citations into it into "declaration
+not found" errors ([§FS-check.3.1](FS-check.md#31-dangling-citation)) rather than unknown aliases. That is a
+different symptom from the one this section fixes, and the repository meeting it
+has the ordinary repair — name the namespaces under the submodule rather than the
+submodule directory, `optional_members = ["hardware/sprayer"]`, which *is* absent
+when the submodule is not initialized.
+
+Widening "absent" to "exists but is empty" is refused for two reasons. It would
+put a typo'd or half-created directory on the unverified path, which is the
+failure class [§FS-check.4.10](FS-check.md#410-a-workspace-member-declared-optional-is-absent) and [§REQ-no-missed-citation.2](../requirements/REQ-no-missed-citation.md#2-every-blind-spot-is-declared-and-bounded) exist to prevent: a
+directory empty by accident and one empty by a submodule's design are identical
+on disk, and grund would be guessing which it had. And it would put the boundary
+of the blind spot somewhere a reader cannot see: `optional_members = ["hardware"]`
+would mean "skipped" or "checked and found empty" depending on a fact no line of
+the repository records. The simple rule is the one an author can plan around, and
+the announcement is what keeps even its odd cases honest — a stray file where a
+member was expected is skipped, but it is never skipped quietly. Whether the
+empty-directory case deserves an answer of its own is a separate question, and
+it is not decided here.
+
+#### 2.2.2 The alias of an optional member
+
+An absent member has no config to read, so §3's rule — the alias is the member's
+`project_name`, or the directory basename when omitted — has nothing to read it
+from. The only name recoverable from the block that lists it is the entry's own
+text. So **the alias of an optional member is the entry's last path segment**:
+`vendored` for `vendored`, `sprayer` for `hardware/sprayer`. It is that segment
+whether the member is present or not.
+
+That last clause is the load-bearing half. A citation's text has to mean the same
+thing in a full checkout and a partial one; if it did not, `<§>hardware/sprayer/FS-nozzle`
+would resolve in the tree that has the submodule and quietly stop naming anything
+in the tree that does not — a trap strictly worse than the one this section
+removes, because it appears only in the checkout least equipped to notice. So a
+**present** optional member whose `project_name` disagrees with its entry's last
+segment is a config error at the `optional_members` line, naming both the
+configured name and the segment every citation would otherwise have to use. It is
+not resolved in grund's favour in either direction, because either name may be
+the one the existing citations already write; the repository picks, by renaming
+the directory or by setting `project_name` to match.
+
+The segment has to be a valid alias in its own right (§3): an entry whose last
+segment is not a lowercase slug can never name a namespace in either checkout, so
+it is the same config error at the same line, said before any directory is looked
+for.
+
+**An absent optional namespace absorbs the alias paths beneath it.** A member may
+itself declare `[workspace]` (§6.1), and an absent one may have declared
+anything; the run cannot know how many levels it had or what they were called. So
+a citation whose alias path *begins* with an absent optional member's segment, at
+that member's level, is unverified whatever follows it — `<§>hardware/AR-bus` and
+`<§>hardware/sprayer/FS-nozzle` alike when `hardware` is the absent entry. That is
+what lets one entry stand for a submodule contributing a whole subtree of
+namespaces, and it is why listing one entry per namespace (the shape the glob
+refusal above asks for) is a choice rather than an obligation: name the subtree's
+root when the submodule directory is itself a member, name the namespaces when it
+is not.
+
+Recognizing such a citation uses the fixed `KIND[-NUM]-SLUG` fallback shape of
+§5, not the target's `[id] format`, for exactly the reason §5 gives: the target's
+grammar is unreachable. A qualified tail that does not match the fallback is no
+more a citation here than at member scope, and the run over a checkout that
+*has* the member stays the place every shape is caught.
+
 ## 3. Aliases
 
 The root alias is the root config's `project_name`, or `root` when omitted.
 A member alias is the member config's `project_name`, or the member directory's
-basename when omitted.
+basename when omitted. A member listed in `optional_members` is the one exception,
+and it is an exception in both checkouts: its alias is the entry's last path
+segment, and a `project_name` that disagrees with that segment is a config error
+rather than a second name (§2.2.2).
 
 Aliases must match the lowercase slug grammar in §1 and must be unique **among
 siblings** — the root project and the top-level members share one level, and
@@ -174,11 +351,23 @@ During `grund check`:
 - `<§>alias/ID.section` additionally requires that the target declaration contain
   the cited section.
 - an unknown alias is an error at the citation site;
-- a known alias with no matching declaration is an error at the citation site.
+- a known alias with no matching declaration is an error at the citation site;
+- an alias path that names, or descends into, an **absent optional member**
+  (§2.2) is neither: the citation is *unverified*, and nothing is reported at
+  its site.
 - diagnostics for a known alias render the `<ID>` and section separator with the
   target project's `[id]` config, not the citing project's config. The literal
   source token remains the scanner's evidence, but the diagnostic names the same
   target that resolution attempted.
+
+Unverified is the third state, and it is reported once per namespace rather than
+once per site. The run names the namespace at the `optional_members` entry that
+made the skip legal ([§FS-check.4.10](FS-check.md#410-a-workspace-member-declared-optional-is-absent)) and says nothing where the citations are,
+because there is nothing true to say there: the citation may be perfect and the
+checkout merely partial, and a tree that cites an absent namespace widely would
+pay thousands of lines to be told one fact it can be told once. What must not
+happen is the third possibility — that the run says nothing anywhere. That is the
+trade [§REQ-no-missed-citation.2](../requirements/REQ-no-missed-citation.md#2-every-blind-spot-is-declared-and-bounded) licenses and [§FS-check.4.10](FS-check.md#410-a-workspace-member-declared-optional-is-absent) is the price of.
 
 Cross-project references are deliberately never resolved by path syntax such as
 `../FS-login` or `packages/api/FS-login`; aliases are the stable handles.

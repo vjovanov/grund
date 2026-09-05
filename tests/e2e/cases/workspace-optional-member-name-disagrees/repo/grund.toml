@@ -1,0 +1,21 @@
+grund_config_version = 1
+project_name = "acme"
+
+[workspace]
+optional_members = ["vendored"]
+
+[reference]
+marker = "§"
+strict = true
+
+[id]
+format = "{kind}-{number}-{slug}"
+
+[[kinds]]
+kind = "SPEC"
+file = "docs/spec.md"
+title = "What the service does"
+
+[scan]
+include = ["docs"]
+extensions = ["md"]
