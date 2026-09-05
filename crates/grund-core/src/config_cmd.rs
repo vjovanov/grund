@@ -212,6 +212,12 @@ fn command_config(args: &[String]) -> ExitCode {
                         "members = {}",
                         format_toml_string_list(&config.workspace_members)
                     );
+                    // §FS-config.3.8, §FS-workspace.2.2: the same order as the
+                    // published CLI's `config show`, which this mirrors.
+                    println!(
+                        "optional_members = {}",
+                        format_toml_string_list(&config.workspace_optional_members)
+                    );
                     println!("include_root = {}", config.workspace_include_root);
                 }
                 if config.citations.declared {

@@ -315,6 +315,16 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                     line: line_no,
                 });
             }
+            // §FS-config.3.8, §FS-workspace.2.2: the sibling list, read by the same
+            // parser as `members` — which is what keeps `grund_config_version` at 1
+            // and a binary older than the key refusing it rather than ignoring it.
+            ("workspace", "optional_members") => {
+                config.workspace_optional_members = parse_string_list(path, line_no, value)?;
+                config.workspace_optional_members_source = Some(ConfigLocation {
+                    path: path.to_path_buf(),
+                    line: line_no,
+                });
+            }
             ("workspace", "include_root") => {
                 config.workspace_include_root = parse_bool(path, line_no, value)?;
             }
@@ -364,6 +374,13 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
     if let Some(source) = &config.workspace_members_source {
         for member in &config.workspace_members {
             validate_workspace_member(&source.path, source.line, member)?;
+        }
+    }
+    // §FS-workspace.2.2: the same shape check, plus the two refusals the optional
+    // list adds — no glob, and a last segment that can be an alias.
+    if let Some(source) = &config.workspace_optional_members_source {
+        for member in &config.workspace_optional_members {
+            validate_optional_workspace_member(&source.path, source.line, member)?;
         }
     }
     // §FS-config.3.9.5: validate `[citations]` after the kind set is final.

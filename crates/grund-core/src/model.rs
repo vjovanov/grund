@@ -529,6 +529,20 @@ pub struct Config {
     pub workspace_declared: bool,
     pub workspace_members: Vec<String>,
     pub workspace_members_source: Option<ConfigLocation>,
+    /// `[workspace] optional_members` (§FS-workspace.2.2) — the members this
+    /// repository has declared **may be legitimately absent** from a checkout. A
+    /// sibling of `members` with the same grammar less the glob: present, an entry
+    /// here is an ordinary member; absent, the block loads without it and the
+    /// namespace it would have contributed goes unverified (§FS-workspace.4).
+    pub workspace_optional_members: Vec<String>,
+    pub workspace_optional_members_source: Option<ConfigLocation>,
+    /// §FS-check.4.10: the optional members this run found absent, named by the
+    /// whole alias path it spells their namespaces with. Not a `grund.toml` key and
+    /// never read from one — like `workspace_boundary_roots`, it is what expansion
+    /// learned about this checkout — and stamped onto every project the run loaded,
+    /// because both readers need it: the report announces each one once, and
+    /// resolution asks whether a citation lands in one (§FS-workspace.4).
+    pub workspace_absent_optional: Vec<AbsentOptionalNamespace>,
     /// Where the `[workspace]` table header itself was written (§FS-config.4.3).
     /// The anchor for an error about the *block* rather than about one key — a
     /// block with no `members` key at all still has to say which of a tree's many
@@ -677,6 +691,9 @@ impl Config {
             workspace_declared: false,
             workspace_members: Vec::new(),
             workspace_members_source: None,
+            workspace_optional_members: Vec::new(),
+            workspace_optional_members_source: None,
+            workspace_absent_optional: Vec::new(),
             workspace_section_source: None,
             workspace_scope_path: String::new(),
             workspace_include_root: true,

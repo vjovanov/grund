@@ -42,7 +42,9 @@ mod tests_workspace_claim_answers {
         };
         let err = format!("{err:#}");
         assert_eq!(
-            err, "../grund.toml:4: workspace member does not exist: missing",
+            err,
+            "../grund.toml:4: workspace member does not exist: missing — list it in \
+             [workspace] optional_members if it may be legitimately absent",
             "the enclosing block's own error, at the file that holds the line: \
              rendered against the root this run was launched at, so it climbs out \
              of the subtree with `..` instead of naming a same-shaped file inside it"
@@ -412,7 +414,8 @@ mod tests_workspace_claim_answers {
         };
         assert_eq!(
             format!("{err:#}"),
-            "../grund.toml:4: workspace member does not exist: missing"
+            "../grund.toml:4: workspace member does not exist: missing — list it in \
+             [workspace] optional_members if it may be legitimately absent"
         );
     }
 }

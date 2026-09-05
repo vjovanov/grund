@@ -51,7 +51,10 @@ fn apply_workspace_boundary(config: &mut Config) -> Result<()> {
     if !config.workspace_declared {
         return Ok(());
     }
-    let members = expand_workspace_member_list(config)?;
+    // §FS-check.4.10: the absent optional entries are dropped here on purpose. This
+    // is the boundary pass; the announcement needs the alias path each namespace is
+    // spelled with, which only the expansion walk composes (`expand_workspace_tree`).
+    let members = expand_workspace_member_list(config)?.members;
     warn_if_members_absorb_scan(config, &members);
     config.workspace_boundary_roots = members.into_iter().map(|member| member.root).collect();
     Ok(())
@@ -86,10 +89,15 @@ fn config_scope_start(path: &Path) -> PathBuf {
     fs::canonicalize(start).unwrap_or_else(|_| start.to_path_buf())
 }
 
+/// §FS-workspace.2.2: both lists are read here. Present, an optional member is an
+/// ordinary member, so a scope inside one is member-local exactly as a scope inside
+/// a `members` entry is — and an absent one matches nothing, because there is no
+/// directory to stand in.
 fn configured_member_root_for_scope(config: &Config, scope: &Path) -> Option<PathBuf> {
     config
         .workspace_members
         .iter()
+        .chain(config.workspace_optional_members.iter())
         .filter_map(|member| configured_member_root_candidate(config, member, scope))
         .max_by_key(|root| root.components().count())
 }
@@ -204,8 +212,6 @@ fn derive_alias(
     if is_valid_project_alias(&alias) {
         Ok(alias)
     } else {
-        Err(format!(
-            "invalid workspace project alias `{alias}` (expected [a-z][a-z0-9-]*)"
-        ))
+        Err(invalid_project_alias_message(&alias))
     }
 }
