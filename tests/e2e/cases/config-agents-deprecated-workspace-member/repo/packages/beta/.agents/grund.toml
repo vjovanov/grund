@@ -1,0 +1,7 @@
+grund_config_version = 1
+project_name = "beta"
+
+[reference]
+marker = "§"
+trigger = "$$"
+strict = true

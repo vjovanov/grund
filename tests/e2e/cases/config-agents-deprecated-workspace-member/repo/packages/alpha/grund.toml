@@ -1,0 +1,7 @@
+grund_config_version = 1
+project_name = "alpha"
+
+[reference]
+marker = "§"
+trigger = "$$"
+strict = true

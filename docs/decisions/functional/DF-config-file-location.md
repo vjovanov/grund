@@ -126,6 +126,14 @@ cannot buy back is discoverability across a set of projects, and that is what th
 optimizes for ([§GOAL-friendliness-first](../../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible) — the same argument as loud config errors, applied one
 step earlier, to finding out there is a config at all).
 
+### 2.5 The `.agents/` form is deprecated and never removed
+
+§2.1 reads the two names as equals and §2.3 makes the bare one the form `init` writes. Between them sits the case neither decides: a repository already on `.agents/grund.toml`, doing nothing wrong, that will never move because nothing ever tells it to. §2.4 is the reason to move, and an argument that lives only in a decision record is one no repository hears. So the fallback is **deprecated** — still read, still governing, and named on every run that reads it ([§FS-config.1.2](../../functional-spec/FS-config.md#12-the-agents-location-is-deprecated), [§FS-check.4.12](../../functional-spec/FS-check.md#412-config-read-from-the-deprecated-agents-location)). That is the whole of the change: one line on `check`, `config validate` and `config show`, and nothing else about the run different.
+
+Deprecated with **no removal**, which is not the usual shape and is therefore argued rather than assumed. The default path ships a deprecation warning naming the release the old form stops working in ([§REQ-backwards-compatibility.2](../../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path)); this one names none, and never will. A named release is a promise to break something, and the thing it would break is not broken: every repository grounded before §2.1 is on `.agents/`, and §2.1's own uniform rule is that a directory picks the form that suits it. The second probe costs one `is_file()` per level of a walk that has already stat'd the directory, so removal would buy back nothing measurable and cost every such repository a migration it never asked for. What deprecation is doing here is the one job §2.4's argument could not do on its own — being audible from inside the repository, at the moment somebody runs the tool — and it is finished the moment it is heard.
+
+**No `.agent-grounds/grund.toml`.** `fissile`, `rhei` and `ephor` are moving their own configuration out of `.agents/` into `.agent-grounds/`, because `codex` mounts `.agents/` read-only inside a checkout and an agent therefore cannot maintain a file kept there ([vjovanov/fissile#61](https://github.com/vjovanov/fissile/issues/61), [vjovanov/rhei#184](https://github.com/vjovanov/rhei/issues/184), [vjovanov/ephor#71](https://github.com/vjovanov/ephor/issues/71)). `grund` has that problem too — an `.agents/grund.toml` is a config an agent cannot edit under that runtime — and it already has the answer, because its config left the agent directory in §2.1 and for the stronger reason: §2.4's visibility holds under every runtime, while read-only mounts are one runtime's convention. Following the siblings would add a third name to a rule §2.1 built on there being two, buy a repository nothing the root file does not already give it, and put the config back in a hidden directory the same release this decision recommends leaving one. What the siblings' move does change is the timing rather than the destination: with three neighbouring tools writing new paths into repositories at once, this is the release in which `grund` saying which of *its* paths is the home will actually be read.
+
 ## 3. Consequences
 
 - **No `grund_config_version` bump.** Discovery gains a second probe; no existing key changes
@@ -153,6 +161,7 @@ step earlier, to finding out there is a config at all).
   decision, paid once per such consumer, and the reason §2.1 fixes the probe order rather than
   leaving it to a search. Note that it does not undo §2.4: a *search* getting harder is a cost to
   tooling, while what §2.4 buys is an answer with no search at all.
+- **Every repository still on `.agents/` gains one line, and a clean run stops printing `success`.** A warning stands in place of the success marker ([§FS-check.2.1](../../functional-spec/FS-check.md#21-report-format)), so a green repository on the old path prints the deprecation line where it printed `success` — a verdict change [§REQ-backwards-compatibility.1](../../requirements/REQ-backwards-compatibility.md#1-what-is-covered) governs and permits, since the exit code does not move. This repository pays it in its own e2e corpus: the fixtures that were on `.agents/` for no reason move to the bare form, and the ones that stay are the ones whose subject is discovery itself.
 - **A grounded project is identifiable without running anything.** `ls` across a set of checkouts
   now separates the grounded ones from the rest (§2.4). Repositories that keep the `.agents/` form
   keep the old invisibility — that is their choice to make, and `grund check` still tells anyone who
@@ -177,6 +186,8 @@ step earlier, to finding out there is a config at all).
   every one of them is an artifact of a form that was never live, not a case of a user writing the
   file on purpose. Going forward the bare file is the deliberate one, `check` reports the pair
   either way (§2.2), and the cost of this order is a rule that contradicts the tool's own default.
+- **Adding `.agent-grounds/grund.toml` as a third location.** Rejected in §2.5: the siblings move there to escape a read-only mount, and `grund`'s config already left `.agents/` for the stronger reason, so a third name would re-hide the file §2.4 exists to make visible.
+- **Deprecating `.agents/` with a removal release, the [§REQ-backwards-compatibility.2](../../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) shape.** Rejected in §2.5: a named release promises to break configurations that are correct under §2.1, in exchange for a uniformity no rule in the spec requires.
 - **Erroring on the redundant pair.** Rejected in favor of warning, for the migration reason in
   §2.2. Revisitable if the pair turns out to arise from anything other than a move in progress.
 - **Keeping `init` on `.agents/` while supporting both.** Rejected: it makes the supported bare form
