@@ -327,7 +327,7 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             }
             ("workspace", "include_root") => {
                 config.workspace_include_root = parse_bool(path, line_no, value)?;
-                // §FS-check.4.11: the key that decides is the line to open, so it
+                // §FS-check.4.10: the key that decides is the line to open, so it
                 // is located like `members` above rather than left to the block's
                 // own `[workspace]` header.
                 config.workspace_include_root_source = Some(ConfigLocation {

@@ -105,7 +105,7 @@ fn retain_findings_in_scope(findings: &mut Findings, scope: Option<&ScanScope>) 
     findings
         .escaped_citations
         .retain(|cite| scope.contains(&cite.file));
-    // §FS-check.4.7 asks a question about the configured scope, so a `--full`
+    // §FS-check.4.6 asks a question about the configured scope, so a `--full`
     // walk's extra files are dropped with the rest: `--full` widens the
     // *reference* tier (§FS-check.3.14) and nothing else.
     findings
@@ -211,7 +211,7 @@ fn tag_out_of_scope(mut diagnostic: Diagnostic) -> Diagnostic {
 ///
 /// §FS-workspace.4: an alias path into an absent optional member is neither
 /// resolved nor unknown — it is *unverified*, and the run says so once at the entry
-/// that made the skip legal rather than at every site (§FS-check.4.10). Every other
+/// that made the skip legal rather than at every site (§FS-check.4.9). Every other
 /// unknown alias still errors here.
 fn check_citation_resolution(
     findings: &Findings,

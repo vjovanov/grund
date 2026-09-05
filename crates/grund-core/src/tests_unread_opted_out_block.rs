@@ -1,5 +1,5 @@
 /// Test module: a `[workspace]` block that opted out of being a project and
-/// whose own tree still holds files a scan would have read (§FS-check.4.11,
+/// whose own tree still holds files a scan would have read (§FS-check.4.10,
 /// §FS-workspace.6.1).
 ///
 /// The behaviour itself is pinned end to end, in `tests/e2e/cases/`, because the
@@ -52,7 +52,7 @@ mod tests_unread_opted_out_block {
         std::fs::read_to_string(repo_file(relative)).ok()
     }
 
-    /// §FS-check.4.11: the message the spec shows and the message the binary
+    /// §FS-check.4.10: the message the spec shows and the message the binary
     /// prints are one string. Without this the wording could be corrected in the
     /// golden and left stale in the document a reader reaches by citation, and
     /// every e2e case would still be green — the goldens compare the binary
@@ -95,7 +95,7 @@ mod tests_unread_opted_out_block {
     }
 
     /// How many blocks the run cautioned about, which is the finding itself
-    /// (§FS-check.4.11) counted rather than read off stderr — the count is what
+    /// (§FS-check.4.10) counted rather than read off stderr — the count is what
     /// decides the `success` marker, so it cannot be right while the lines are
     /// wrong.
     ///
@@ -111,7 +111,7 @@ mod tests_unread_opted_out_block {
         .unread_opted_out_blocks
     }
 
-    /// §FS-check.4.11, §FS-workspace.6: the block's only scope root **is** a
+    /// §FS-check.4.10, §FS-workspace.6: the block's only scope root **is** a
     /// link into the enclosing project's own `docs`. Those files are read — by
     /// the root project — so the answer to "would this block have read
     /// something, had it been a project?" is no, and the caution must not fire.
@@ -128,7 +128,7 @@ mod tests_unread_opted_out_block {
         assert_eq!(cautioned_blocks(&root), 0);
     }
 
-    /// §FS-check.4.11, §FS-workspace.6: the same, for a scope root that is a
+    /// §FS-check.4.10, §FS-workspace.6: the same, for a scope root that is a
     /// **file**. It reaches the probe without a directory anywhere in it, so a
     /// gate written into the walk alone would miss it — and `requirements.md` is
     /// a default `[scan] include` entry, so no configuration has to ask for this
@@ -143,7 +143,7 @@ mod tests_unread_opted_out_block {
         assert_eq!(cautioned_blocks(&root), 0);
     }
 
-    /// §FS-check.4.11: the other direction, and the one that makes the two above
+    /// §FS-check.4.10: the other direction, and the one that makes the two above
     /// evidence rather than a way of never firing — a link out of the block to
     /// content **no project of the run owns** is content nobody reads, so the
     /// caution is exactly right there.

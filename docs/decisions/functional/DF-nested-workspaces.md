@@ -125,7 +125,7 @@ re-spells them regardless, so a citation can pass that block's check and fail th
 run CI does. The disagreement is not designed around here — the naming model is what
 it is, and an unclaimed block is outside it — but it is no longer left silent: a run
 whose own walk meets the block says so, and names the two config edits that put it
-back in the chain ([§FS-check.4.9](../../functional-spec/FS-check.md#49-unlisted-workspace-block),
+back in the chain ([§FS-check.4.8](../../functional-spec/FS-check.md#48-unlisted-workspace-block),
 [§DF-unlisted-workspace-block](DF-unlisted-workspace-block.md#df-unlisted-workspace-block-an-unlisted-workspace-block-is-reported-by-the-walk-that-meets-it)).
 A block the walk never reaches is still unreported, and stays the known limitation
 recorded there.

@@ -45,7 +45,7 @@ fn redundant_config_file_in(dir: &Path) -> Option<PathBuf> {
 /// bare `grund.toml` beside the directory that holds it — or `None` when the
 /// file the run read is the home form already (§FS-config.1.2).
 ///
-/// Here rather than beside the message it feeds (§FS-check.4.12) because only
+/// Here rather than beside the message it feeds (§FS-check.4.11) because only
 /// this module knows there are two names (§AR-core-module-layout.1), and the
 /// answer is a fact about the pair of names rather than about how it reads. The
 /// directory two components up is the config root, which the move leaves where

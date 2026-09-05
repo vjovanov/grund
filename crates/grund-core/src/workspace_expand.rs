@@ -159,7 +159,7 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
 }
 
 /// [`expand_workspace_tree`] with the base every block's config path is rendered
-/// against named explicitly (§FS-check.4.9, §FS-errors.4).
+/// against named explicitly (§FS-check.4.8, §FS-errors.4).
 ///
 /// One run renders every block against one base, and that base is the root the
 /// run was launched at — the same one [`AncestorWorkspaces::for_run_at`] carries
@@ -176,7 +176,7 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
 /// narrowed directory a *different* `grund.toml` exists, so that spelling names a
 /// real file that is the wrong one.
 ///
-/// §FS-check.4.11 is asked at the end rather than where each block is met, because
+/// §FS-check.4.10 is asked at the end rather than where each block is met, because
 /// the answer depends on `workspace_project_roots` and this is where the run first
 /// has it: a probe that did not stop where the scan stops would report a directory
 /// another project of this run reads, which is the false positive the finding's
@@ -185,7 +185,7 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
 /// the run is rooted at has already had its turn in `apply_workspace_boundary`. Two
 /// consequences worth stating: the count reaches `check` on the run's own config
 /// either way (§FS-check.2.1), and a tree whose expansion fails is never cautioned
-/// about, which is the same line §FS-check.4.11 already draws around a block the
+/// about, which is the same line §FS-check.4.10 already draws around a block the
 /// run refuses outright.
 fn expand_workspace_tree_with_report_base(
     root_config: &mut Config,
@@ -193,7 +193,7 @@ fn expand_workspace_tree_with_report_base(
 ) -> Result<Vec<WorkspaceProjectEntry>> {
     let expanded = expand_workspace_member_list(root_config)?;
     let members = expanded.members;
-    // §FS-check.4.9: no warning here. Every route in asks this block first —
+    // §FS-check.4.8: no warning here. Every route in asks this block first —
     // `resolve_workspace_config` (§AR-workspace.5.1), or `find_init_workspace_root`
     // for `init` — so this only repopulates that boundary; asking again says it twice.
     root_config.workspace_boundary_roots = members.iter().map(|m| m.root.clone()).collect();
@@ -207,7 +207,7 @@ fn expand_workspace_tree_with_report_base(
     // the outermost workspace. Empty unless the run was narrowed to a subtree — and
     // that is what keeps a narrowed run resolving a subset of the same paths.
     let self_path = enclosing_alias_prefix(root_config)?;
-    // §FS-check.4.10: the namespaces this walk did not read, gathered as it goes and
+    // §FS-check.4.9: the namespaces this walk did not read, gathered as it goes and
     // named by the whole alias path the run spells them with — this block's under
     // the run's own path, each nested block's under that block's.
     let mut absent_optional = qualify_absent_optional(expanded.absent, &self_path);
@@ -242,7 +242,7 @@ fn expand_workspace_tree_with_report_base(
         &absent_optional,
         &mut siblings,
     )?;
-    // §FS-check.4.11: every block below the run's root is posed the question down
+    // §FS-check.4.10: every block below the run's root is posed the question down
     // there and answered below, once this run knows where its projects are.
     let unread_blocks = collect_workspace_members(
         &members,
@@ -278,10 +278,10 @@ fn expand_workspace_tree_with_report_base(
         entry.config.workspace_absent_optional = absent_optional.clone();
     }
     root_config.workspace_project_roots = project_roots;
-    // §FS-check.4.10: the root config is what the report is rendered from, so it is
+    // §FS-check.4.9: the root config is what the report is rendered from, so it is
     // where the announcement is read back off (`run_workspace_check`).
     root_config.workspace_absent_optional = absent_optional;
-    // §FS-check.4.11: the blocks that opted out, asked now that `project_roots`
+    // §FS-check.4.10: the blocks that opted out, asked now that `project_roots`
     // exists — see this function's docs for why it is here and not where they were
     // found.
     let unread: usize = unread_blocks
@@ -315,7 +315,7 @@ fn expand_workspace_tree_with_report_base(
 /// second name — one citation text has to name one namespace in a full checkout and
 /// in a partial one.
 ///
-/// Returns the §FS-check.4.11 blocks this subtree found, in the order it reached
+/// Returns the §FS-check.4.10 blocks this subtree found, in the order it reached
 /// them, for the caller to ask once it knows where the run's projects are — and
 /// then to carry the count back to `check` (§FS-check.2.1).
 #[allow(clippy::too_many_arguments)]
@@ -391,17 +391,17 @@ fn collect_workspace_members(
         // contributes its whole subtree, and `include_root` on *its* block
         // decides whether the grouping directory is one of the projects.
         let nested = expand_workspace_member_list(&member_config)?;
-        // §FS-check.4.9: a block below the run's root is populated here and
+        // §FS-check.4.8: a block below the run's root is populated here and
         // nowhere else, so this is where it is asked — once, at its own
         // `members` line (§FS-errors.4).
         warn_if_members_absorb_scan(&member_config, &nested.members);
-        // §FS-check.4.11: and whether its own tree holds anything unread, at
+        // §FS-check.4.10: and whether its own tree holds anything unread, at
         // the same line — there is no outermost-block privilege in either
         // direction.
         unread.extend(unread_block_probe(&member_config, &nested.members));
         member_config.workspace_boundary_roots =
             nested.members.iter().map(|m| m.root.clone()).collect();
-        // §FS-check.4.10: and its absent optional entries, at its own
+        // §FS-check.4.9: and its absent optional entries, at its own
         // `optional_members` line, under the alias path this run reaches it by —
         // there is no outermost-block privilege in either direction.
 

@@ -1,7 +1,7 @@
 /// Test module: `[workspace] optional_members` — the member a repository has
 /// declared may be legitimately absent (§FS-workspace.2.2, §FS-workspace.2.2.1,
 /// §FS-workspace.2.2.2), and the announcement an absent one earns
-/// (§FS-check.4.10).
+/// (§FS-check.4.9).
 ///
 /// What lives here is what member-list expansion decides on its own: whether an
 /// entry is accepted at all, what alias it carries, and whether an absent one
@@ -71,7 +71,7 @@ mod tests_workspace_optional_members {
         assert_eq!(aliases, vec!["acme".to_string(), "vendored".to_string()]);
     }
 
-    /// §FS-workspace.2.2, §FS-check.4.10: the default does not move. A member
+    /// §FS-workspace.2.2, §FS-check.4.9: the default does not move. A member
     /// listed in `members` and missing is the same fatal config error it has
     /// always been, at the same line — and the message now names the key that
     /// would have made the absence legal, so a CI author is not left guessing

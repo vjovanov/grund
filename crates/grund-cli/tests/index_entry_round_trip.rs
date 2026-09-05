@@ -76,7 +76,7 @@ fn build_fixture_with_home(name: &str, strict: bool, index_body: &str, home: &st
     dir
 }
 
-/// §FS-check.4.6 / §FS-list.2 / §FS-show.2.3: the issue #133 shape. The index
+/// §FS-check.3.18 / §FS-list.2 / §FS-show.2.3: the issue #133 shape. The index
 /// directly enrolls the source declaration, with no Markdown stub to become a
 /// second scanner record or a query home.
 fn build_external_inline_fixture() -> PathBuf {

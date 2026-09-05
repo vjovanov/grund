@@ -15,7 +15,7 @@ The rule that follows has to be narrow. `docs/functional-spec/README.md` groups 
 
 ### 2.1 The entry is a recognized citation of the ID, written as a full Markdown link
 
-Two conditions, and either one unmet is a finding ([§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index), [§FS-check.3.17](../../functional-spec/FS-check.md#317-index-entry-is-not-a-link)). The index is a *file* index: its job is to get a reader from the folder to the declaration, and a bare `§<ID>` in it is a promise the reader cannot follow.
+Two conditions, and either one unmet is a finding ([§FS-check.3.18](../../functional-spec/FS-check.md#318-declaration-missing-from-its-kinds-index), [§FS-check.3.17](../../functional-spec/FS-check.md#317-index-entry-is-not-a-link)). The index is a *file* index: its job is to get a reader from the folder to the declaration, and a bare `§<ID>` in it is a promise the reader cannot follow.
 
 ### 2.2 "Full link" is the link `fmt` would write here, not "has an anchor"
 
@@ -27,7 +27,7 @@ Naming `fmt`'s output as the target also keeps the anchor algorithm in one comma
 
 An ID is satisfied by its first full link; every other occurrence in the index is untouched and is never a finding. `docs/architecture/README.md` explains the stub convention in prose and mentions `§AR-scanner.4` and `§AR-checker` in inline code spans, which `fmt` deliberately never wraps ([§FS-fmt.6.4](../../functional-spec/FS-fmt.md#64-what-is-never-wrapped)). Demanding every occurrence would report a paragraph that is right as written and that the fix command cannot touch.
 
-For the same reason a citation *inside* an inline code span is not an entry at all: it neither satisfies [§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index) nor triggers [§FS-check.3.17](../../functional-spec/FS-check.md#317-index-entry-is-not-a-link). Counting it as a bare entry would produce an error whose fix command declines to act — the state [§FS-check.3.13](../../functional-spec/FS-check.md#313-number-only-shorthand-citation) already refuses to create for the number-only shorthand.
+For the same reason a citation *inside* an inline code span is not an entry at all: it neither satisfies [§FS-check.3.18](../../functional-spec/FS-check.md#318-declaration-missing-from-its-kinds-index) nor triggers [§FS-check.3.17](../../functional-spec/FS-check.md#317-index-entry-is-not-a-link). Counting it as a bare entry would produce an error whose fix command declines to act — the state [§FS-check.3.13](../../functional-spec/FS-check.md#313-number-only-shorthand-citation) already refuses to create for the number-only shorthand.
 
 And inline code is not the only such place, which is why the rule is stated as the predicate and not as a list of exemptions. **A citation is a bare entry exactly when the next `grund fmt --write` would wrap it**, and the cross-reference pass wraps a marker-prefixed citation ([§FS-fmt.6.5](../../functional-spec/FS-fmt.md#65-interaction-with---marker)), in a `.md` file ([§FS-fmt.6.1](../../functional-spec/FS-fmt.md#61-scope)), outside [§FS-fmt.2.3](../../functional-spec/FS-fmt.md#23-what-is-never-rewritten)'s never-rewrite zones and [§FS-fmt.6.4](../../functional-spec/FS-fmt.md#64-what-is-never-wrapped)'s exemptions. Two configurations reach the difference, and each of them was a permanent error under the list-of-exemptions reading:
 
@@ -38,7 +38,7 @@ An ordinary Markdown link whose destination happens to have an ID-shaped file na
 
 `Citation::shorthand_rewritable` is the same predicate, written for the same reason one rule earlier; the index rules reuse the machinery under it rather than growing a second copy that could drift.
 
-The predicate runs one way only. It withholds the *error*; it does not withhold credit for an entry that is already a link. A hand-written `[FS-login](FS-login.md)` around an unmarked token is a link a reader can follow, `fmt` would leave it alone, and [§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index) is satisfied by it.
+The predicate runs one way only. It withholds the *error*; it does not withhold credit for an entry that is already a link. A hand-written `[FS-login](FS-login.md)` around an unmarked token is a link a reader can follow, `fmt` would leave it alone, and [§FS-check.3.18](../../functional-spec/FS-check.md#318-declaration-missing-from-its-kinds-index) is satisfied by it.
 
 ### 2.4 Layout is free
 
@@ -56,7 +56,7 @@ An **unlinked entry** is anchored at *the citation's line in the index*. That fi
 
 ### 2.7 A canonical bare-ID link enrolls an external inline declaration
 
-An inline declaration of the indexed kind whose only home is a non-Markdown source file outside `folder` may join the kind's index without a stub. Its enrollment is the exact link `grund fmt --cross-refs` writes for a marker-prefixed, unqualified citation of the bare ID from that index to the source home ([§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index), [§FS-fmt.6.2](../../functional-spec/FS-fmt.md#62-form)). The link is both membership and entry. It creates no declaration, so `show`, `list`, duplicate detection, and every other declaration consumer keep the source doc-comment as the canonical home.
+An inline declaration of the indexed kind whose only home is a non-Markdown source file outside `folder` may join the kind's index without a stub. Its enrollment is the exact link `grund fmt --cross-refs` writes for a marker-prefixed, unqualified citation of the bare ID from that index to the source home ([§FS-check.3.18](../../functional-spec/FS-check.md#318-declaration-missing-from-its-kinds-index), [§FS-fmt.6.2](../../functional-spec/FS-fmt.md#62-form)). The link is both membership and entry. It creates no declaration, so `show`, `list`, duplicate detection, and every other declaration consumer keep the source doc-comment as the canonical home.
 
 This is intentionally stricter than §2.1's entry for a declaration already under `folder`, where `check` requires the wrapper shape and leaves the target to `fmt`. Here the target is the discriminator: without exact equality to `fmt`'s derived destination, a same-kind citation in surrounding index prose would silently become structural membership. The citation must name the whole ID rather than a section, must be unqualified, and must carry the marker; section references, cross-project references, custom links, and links to external Markdown declarations stay ordinary references. A bare marker-prefixed whole-ID mention becomes enrollment if a formatting pass writes the canonical wrapper around it — the persisted canonical link, not guessed layout or prose intent, is the signal.
 

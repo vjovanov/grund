@@ -1,4 +1,4 @@
-/// Test module: the declaration near-miss warning (§FS-check.4.7) — a heading
+/// Test module: the declaration near-miss warning (§FS-check.4.6) — a heading
 /// that opens like a declaration and parses as none.
 #[cfg(test)]
 mod tests_declaration_near_miss {
@@ -17,7 +17,7 @@ mod tests_declaration_near_miss {
         root
     }
 
-    /// §FS-check.4.7: the classic stumble — the `-NNN-` left out under the
+    /// §FS-check.4.6: the classic stumble — the `-NNN-` left out under the
     /// default numbered format.
     #[test]
     fn a_heading_missing_the_number_is_reported() {
@@ -35,7 +35,7 @@ mod tests_declaration_near_miss {
         assert_eq!(finding.line, Some(1));
     }
 
-    /// §FS-check.4.7 read from the other side: a heading that *does* match
+    /// §FS-check.4.6 read from the other side: a heading that *does* match
     /// gets none.
     #[test]
     fn a_heading_that_matches_is_not_reported() {

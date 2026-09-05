@@ -7,7 +7,7 @@ fn print_report(config: &Config, report: &CheckReport, include_suggestions: bool
     // suggestion is not a finding about well-formedness, so it never suppresses
     // `success`, and without `--suggestions` it is not printed at all.
 
-    // §FS-check.4.11: a warning printed before this report existed, so the marker
+    // §FS-check.4.10: a warning printed before this report existed, so the marker
     // asks the config too — else stderr says unchecked and stdout says `success`.
     if config.unread_opted_out_blocks == 0
         && report.errors.is_empty()
@@ -370,7 +370,7 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
 /// two runs over one config print one string (§FS-errors.4).
 ///
 /// The closing sentence offers both readings because the run cannot tell them
-/// apart without judging a line, which is §FS-check.4.7's job: a tree
+/// apart without judging a line, which is §FS-check.4.6's job: a tree
 /// written to another format and a `grund init` scaffold nobody has declared in
 /// yet produce the identical fact, and naming only the first would send a fresh
 /// adopter to look for a bug in a config that is fine.
@@ -450,7 +450,7 @@ pub fn print_config_warnings(config: &Config) {
     }
 }
 
-/// §FS-check.4.9, §DF-unlisted-workspace-block.2.4: the unlisted-`[workspace]`
+/// §FS-check.4.8, §DF-unlisted-workspace-block.2.4: the unlisted-`[workspace]`
 /// finding on the five surfaces that have no report to carry it — `list`, `refs`,
 /// `cover`, `fmt` and the ID read. One CLI-level `warning:` per block on stderr
 /// (§FS-errors.2.2), the identical text `check` puts in `report.warnings`, so what
@@ -491,7 +491,7 @@ fn redundant_config_warning(config: &Config) -> Option<Diagnostic> {
     })
 }
 
-/// §FS-check.4.12: the warning for a config the run read from the deprecated
+/// §FS-check.4.11: the warning for a config the run read from the deprecated
 /// `.agents/` location — the file still governs the project, so the message
 /// names the move a reader can type rather than a fault (§FS-config.1.2).
 /// `line`-less for §4.3's reason, which this finding shares whole: the subject
@@ -519,7 +519,7 @@ fn deprecated_config_location_warning(config: &Config) -> Option<Diagnostic> {
 }
 
 /// The findings a loaded config carries on its own — the redundant discovery
-/// pair (§FS-check.4.3) and the deprecated `.agents/` location (§FS-check.4.12).
+/// pair (§FS-check.4.3) and the deprecated `.agents/` location (§FS-check.4.11).
 /// Both are known from the file the run read rather than from the walk, which is
 /// why they arrive together.
 ///

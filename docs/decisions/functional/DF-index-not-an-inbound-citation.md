@@ -5,7 +5,7 @@
 
 ## 1. Context
 
-An index row is an ordinary recognized citation. So the moment a kind's index is required to name every declaration in its folder ([§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index)), every one of those declarations acquires an inbound citation — by construction, from a file whose whole job is to name them.
+An index row is an ordinary recognized citation. So the moment a kind's index is required to name every declaration in its folder ([§FS-check.3.18](../../functional-spec/FS-check.md#318-declaration-missing-from-its-kinds-index)), every one of those declarations acquires an inbound citation — by construction, from a file whose whole job is to name them.
 
 The unused-declaration warning ([§FS-check.4.1](../../functional-spec/FS-check.md#41-unused-declaration)) and `grund list --unused` ([§FS-list.1](../../functional-spec/FS-list.md#1-inputs)) both answer "who points at this?" by counting inbound citations. Left alone, they would answer "the index does" for every ID in every indexed folder, which is the same as answering nothing. That signal is the one [§RM-gap-report](../../roadmap.md#rm-gap-report-orphan-and-uncovered-id-reports) is being built to sharpen, and this feature would have quietly emptied it.
 
@@ -21,7 +21,7 @@ For the unused-declaration warning and for `grund list --unused` only. `grund re
 
 A citation in an index file of an ID whose home lies *outside* that folder is ordinarily a reference and counts like any other. `docs/architecture/README.md` cites [§GOAL-fast-feedback](../../goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible) in the row for the benchmark harness; that is a reference to a goal, made in prose the author chose to write, and nothing about the file it sits in makes it navigation. The exception is the exact canonical bare-ID link that enrolls an external inline declaration ([§DF-index-entry-form.2.7](DF-index-entry-form.md#27-a-canonical-bare-id-link-enrolls-an-external-inline-declaration)): that one site is the entry, while another citation of the same ID on the same page remains ordinary use.
 
-This is the narrow reading of the same fact [§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-missing-from-its-kinds-index) states in the other direction: location alone never turns a citation into navigation. Folder membership or the external enrollment form decides it, and the latter is tracked by exact site rather than by ID so it does not swallow surrounding references.
+This is the narrow reading of the same fact [§FS-check.3.18](../../functional-spec/FS-check.md#318-declaration-missing-from-its-kinds-index) states in the other direction: location alone never turns a citation into navigation. Folder membership or the external enrollment form decides it, and the latter is tracked by exact site rather than by ID so it does not swallow surrounding references.
 
 ### 2.3 `refs` in `grund list --format json` stays the total
 

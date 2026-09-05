@@ -21,7 +21,7 @@ mod tests_nothing_recognized {
     /// `{kind}-{number}-{slug}` declares nothing, cites nothing, and used to print
     /// the same word as a tree that checked clean.
     ///
-    /// §FS-check.4.7 now answers this tree per heading, so the caution is
+    /// §FS-check.4.6 now answers this tree per heading, so the caution is
     /// withheld under its own "any other finding" rule — the specific fact
     /// displaces the general one. What the test pins is unchanged: the run stops
     /// saying `success`, and the exit code is untouched either way.
@@ -35,7 +35,7 @@ mod tests_nothing_recognized {
         let run = check_run(&root, false);
         assert!(
             caution(&run).is_none(),
-            "§FS-check.4.7 named the headings, so the caution has nothing left to add: {:?}",
+            "§FS-check.4.6 named the headings, so the caution has nothing left to add: {:?}",
             findings(&run)
         );
         let named = run
@@ -52,7 +52,7 @@ mod tests_nothing_recognized {
     }
 
     /// §FS-check.4.5: the caution's own remaining ground — a tree whose headings
-    /// are not kind-shaped at all, where §FS-check.4.7 has nothing to say and the
+    /// are not kind-shaped at all, where §FS-check.4.6 has nothing to say and the
     /// run still has to stop printing `success`.
     #[test]
     fn a_tree_with_no_near_miss_still_earns_the_caution() {
@@ -110,7 +110,7 @@ mod tests_nothing_recognized {
     fn the_caution_proposes_no_id() {
         let root = test_root("the_caution_proposes_no_id");
         write(&root.join("grund.toml"), DEFAULT_CONFIG);
-        // Not kind-shaped, so §FS-check.4.7 stays silent and the caution speaks.
+        // Not kind-shaped, so §FS-check.4.6 stays silent and the caution speaks.
         write(&root.join("docs/alpha.md"), "# The alpha spec\n");
 
         let message = caution(&check_run(&root, false))

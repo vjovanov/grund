@@ -2,7 +2,7 @@
 /// level of the upward walk, the tie-break between them, the redundant-pair
 /// warning that names the loser, and the deprecation line a run earns for having
 /// read the `.agents/` name at all (§FS-config.1, §FS-config.1.1, §FS-config.1.2,
-/// §FS-check.4.3, §FS-check.4.12, §DF-config-file-location).
+/// §FS-check.4.3, §FS-check.4.11, §DF-config-file-location).
 #[cfg(test)]
 mod tests_config_discovery {
     use super::*;
@@ -96,7 +96,7 @@ mod tests_config_discovery {
         );
     }
 
-    /// §FS-config.1.2 / §FS-check.4.12: the config this run read is on the
+    /// §FS-config.1.2 / §FS-check.4.11: the config this run read is on the
     /// deprecated path, so the run says so — naming the file it read and the bare
     /// `grund.toml` beside it that should hold it instead. The file is still read:
     /// deprecated is a location the tool asks you to leave, not one it refuses.
@@ -117,7 +117,7 @@ mod tests_config_discovery {
         );
     }
 
-    /// §FS-check.4.12 / §FS-config.1.1: the pair earns the pair's warning and no
+    /// §FS-check.4.11 / §FS-config.1.1: the pair earns the pair's warning and no
     /// other. The run read the bare file, so nothing about the config in force is
     /// deprecated — two lines here would name one move twice and disagree about
     /// which of the two files is the problem.
@@ -135,7 +135,7 @@ mod tests_config_discovery {
                 ".agents/grund.toml is ignored — grund.toml takes precedence; delete one"
                     .to_string()
             ],
-            "the pair is §FS-check.4.3's finding, never §FS-check.4.12's"
+            "the pair is §FS-check.4.3's finding, never §FS-check.4.11's"
         );
     }
 

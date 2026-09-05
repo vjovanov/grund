@@ -143,7 +143,7 @@ pub struct Grammar {
     /// match; this regex never has two modes.
     citation_re: Regex,
     id_input_re: Regex,
-    /// The near-miss patterns (§FS-check.4.7): a heading that opens with a
+    /// The near-miss patterns (§FS-check.4.6): a heading that opens with a
     /// configured kind and the literal an ID puts after it, without parsing as
     /// an ID. `None` where `[id] format` puts no literal between `{kind}` and
     /// what follows — there "looks like a declaration" cannot be told from prose
@@ -443,7 +443,7 @@ fn python_docstring_quote(line: &str) -> Option<&'static str> {
     }
 }
 
-/// The near-miss half of the compiled [`Grammar`] (§FS-check.4.7): the
+/// The near-miss half of the compiled [`Grammar`] (§FS-check.4.6): the
 /// declaration patterns with the ID grammar replaced by "a configured kind, the
 /// separator an ID puts after it, and whatever follows". Two of them for the
 /// same reason the declaration pair has two — a Python docstring line carries no
@@ -483,7 +483,7 @@ impl NearMissGrammar {
     /// stopping at a backtick likewise keeps an inline-code mention
     /// (`` `FS-login`: ``) from being one, and keeps the quoted token as written.
     fn build(kind_alt: &str, comment_prefix: &str, after_kind: &str) -> Self {
-        // §FS-check.4.7 reads only the shape it names, `<KIND>-…: <title>`: the
+        // §FS-check.4.6 reads only the shape it names, `<KIND>-…: <title>`: the
         // trailing `:` is the discriminator, and the token stops at whitespace, at
         // the colon, and at a backtick.
         let near = format!(
@@ -569,7 +569,7 @@ fn first_declaration_bytes(comment_prefix: &str) -> Vec<u8> {
     bytes
 }
 
-/// The heading token §FS-check.4.7 reports, or `None` when this line is not one.
+/// The heading token §FS-check.4.6 reports, or `None` when this line is not one.
 /// Asked only where [`declaration_captures`] already declined, so a hit is by
 /// construction a heading that came close and missed.
 fn near_miss_heading<'a>(

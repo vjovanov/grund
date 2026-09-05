@@ -42,7 +42,7 @@ optional_members = ["vendored"]
 An entry that is present is an ordinary member. An entry that is absent is
 skipped, its namespace is recorded as unverified rather than unknown, and the run
 names it in the report and withholds `success`. The contract lives in
-[§FS-workspace.2.2](../../functional-spec/FS-workspace.md#22-a-member-that-may-be-legitimately-absent), [§FS-workspace.4](../../functional-spec/FS-workspace.md#4-resolution) and [§FS-check.4.10](../../functional-spec/FS-check.md#410-a-workspace-member-declared-optional-is-absent); the blind spot it creates
+[§FS-workspace.2.2](../../functional-spec/FS-workspace.md#22-a-member-that-may-be-legitimately-absent), [§FS-workspace.4](../../functional-spec/FS-workspace.md#4-resolution) and [§FS-check.4.9](../../functional-spec/FS-check.md#49-a-workspace-member-declared-optional-is-absent); the blind spot it creates
 is enrolled in [§REQ-no-missed-citation.2](../../requirements/REQ-no-missed-citation.md#2-every-blind-spot-is-declared-and-bounded). The third option ships regardless: the
 `workspace member does not exist` refusal now names the key.
 
@@ -113,7 +113,7 @@ opt-in, it is declared in the config, and every run announces it.
 
 The announcement therefore carries the weight, and it is specified as a **located
 warning on stdout** rather than as the CLI-level stderr caution its two nearest
-neighbours use ([§FS-check.4.10](../../functional-spec/FS-check.md#410-a-workspace-member-declared-optional-is-absent)). The argument is in that section; the decision it
+neighbours use ([§FS-check.4.9](../../functional-spec/FS-check.md#49-a-workspace-member-declared-optional-is-absent)). The argument is in that section; the decision it
 rests on is that this is the one finding in grund whose subject is the *coverage
 of the report itself*, in the one case where an incomplete run still exits `0`.
 With the exit code carrying nothing, an announcement on the stream a quieted log
@@ -145,7 +145,7 @@ half-created directory on the unverified path and move the boundary of the blind
 spot somewhere no line of the repository records. The repository meeting that
 case names the namespaces under the submodule instead.
 
-**A stderr `warning:` for the announcement, matching [§FS-check.4.8](../../functional-spec/FS-check.md#48-a-workspace-member-swallows-the-blocks-own-scan) and §4.9.**
+**A stderr `warning:` for the announcement, matching [§FS-check.4.7](../../functional-spec/FS-check.md#47-a-workspace-member-swallows-the-blocks-own-scan) and §4.8.**
 Rejected on §2.4. It is the consistent shape for a fact about a `[workspace]`
 block, and consistency is a real argument; it loses to the author's condition
 that the announcement survive whatever quieting a CI log applies, which a stderr

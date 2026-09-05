@@ -123,7 +123,7 @@ fn print_effective_config(config: &Config) {
         }
         // §FS-config.3.4: the effective index, spelled out — a folder kind
         // either has one or has opted out, and which it is decides a verdict
-        // (§FS-check.4.6).
+        // (§FS-check.3.18).
         if let Some(index) = kind.index_toml_value() {
             println!("index = {index}");
         }

@@ -1,5 +1,5 @@
 /// Test module: an index canonically enrolls an external inline declaration
-/// without a stub (§FS-check.4.6, §DF-index-entry-form.2.7). These cases pin the
+/// without a stub (§FS-check.3.18, §DF-index-entry-form.2.7). These cases pin the
 /// discriminator and the exact-site unused accounting; the CLI test pins the
 /// `show` / `list` surface.
 #[cfg(test)]
@@ -45,7 +45,7 @@ mod tests_kind_index_enrollment {
         (config, findings, entries)
     }
 
-    /// §FS-check.4.6: the canonical bare-ID source link is membership and entry
+    /// §FS-check.3.18: the canonical bare-ID source link is membership and entry
     /// at once. With no other citation, §FS-check.4.1 still reports the source
     /// declaration unused — proof that the link is navigation rather than use.
     #[test]
@@ -147,7 +147,7 @@ mod tests_kind_index_enrollment {
         assert!(!entries.is_index_entry(&findings.citations[0]));
     }
 
-    /// §FS-check.4.6: the exception is for inline source declarations only. A
+    /// §FS-check.3.18: the exception is for inline source declarations only. A
     /// canonical link to a Markdown declaration outside the configured folder is
     /// still ordinary prose and does not redefine the kind home.
     #[test]
@@ -305,7 +305,7 @@ mod tests_kind_index_enrollment {
         assert!(!entries.is_index_entry(&findings.citations[0]));
     }
 
-    /// §FS-check.4.6: a citation nested in another Markdown link's destination
+    /// §FS-check.3.18: a citation nested in another Markdown link's destination
     /// is in a never-rewrite zone, not an entry, even when its inner wrapper and
     /// destination otherwise spell the canonical enrollment form.
     #[test]
