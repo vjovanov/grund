@@ -25,7 +25,7 @@ class GenerateLargeBenchmarkFixtureTests(unittest.TestCase):
 
             markdown_files = sorted((root / "docs").rglob("*.md"))
             self.assertEqual(len(markdown_files), 12)
-            self.assertTrue((root / ".agents" / "grund.toml").exists())
+            self.assertTrue((root / "grund.toml").exists())
             self.assertEqual(
                 markdown_files[0].relative_to(root).as_posix(),
                 "docs/functional-spec/component-000/FS-00001-feature-00001.md",
