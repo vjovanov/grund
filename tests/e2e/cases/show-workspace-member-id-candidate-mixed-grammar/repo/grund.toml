@@ -9,7 +9,7 @@ strict = true
 format = "{kind}-{slug}"
 
 [[kinds]]
-prefix = "SPEC"
+kind = "SPEC"
 file = "docs/spec.md"
 title = "What the service does"
 

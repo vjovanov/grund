@@ -1,8 +1,9 @@
 /// Test module: kinds that declare no IDs (§FS-config.3.4.1) — the `citable`
 /// key, the rules a non-citable home is subject to instead of the declaration
-/// rules, and the two selectors that refuse one. The `kind` / `prefix` rename
-/// (§FS-config.3.4.6) lives here too: it is the same change seen from the
-/// config file, and a reader chasing either one wants both.
+/// rules, and the two selectors that refuse one. The removal of `prefix`, the
+/// name this key carried before that rename (§FS-config.3.4.6), lives here too:
+/// it is the same change seen from the config file, and a reader chasing either
+/// one wants both.
 #[cfg(test)]
 mod tests_non_citable_kinds {
     use super::tests_support::*;
@@ -274,66 +275,6 @@ mod tests_non_citable_kinds {
             config_error(&root)
                 .contains("names a non-citable target kind `skill`"),
             "a configured kind with no IDs is not an unknown kind"
-        );
-    }
-
-    /// §FS-config.3.4.6: the old spelling loads, and the run says where it is and
-    /// when it stops working.
-    #[test]
-    fn the_deprecated_prefix_key_loads_and_warns() {
-        let root = test_root("the_deprecated_prefix_key_loads_and_warns");
-        write(
-            &root.join("grund.toml"),
-            "grund_config_version = 1\n\n\
-             [[kinds]]\nprefix = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n\n\
-             [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\nindex = false\n",
-        );
-        let config = load_config(&root).expect("the old spelling still loads");
-        assert_eq!(config.kinds[0].kind, "FS");
-        let warnings = config_warnings(&config);
-        assert_eq!(
-            warnings,
-            vec![format!(
-                "grund.toml:4: [[kinds]] `prefix` is deprecated — rename it to `kind`; \
-                 `prefix` stops loading in grund {KIND_PREFIX_KEY_REMOVAL_RELEASE}"
-            )],
-            "one warning per config, anchored at the first entry that uses it"
-        );
-    }
-
-    /// §FS-config.3.4.6: they name the same thing, so a file that spells both has
-    /// no answer if the two disagree.
-    #[test]
-    fn kind_and_prefix_together_are_a_config_error() {
-        let root = test_root("kind_and_prefix_together_are_a_config_error");
-        write(
-            &root.join("grund.toml"),
-            "grund_config_version = 1\n\n[[kinds]]\nkind = \"FS\"\nprefix = \"FS\"\nfolder = \"docs\"\n",
-        );
-        assert!(
-            config_error(&root)
-                .contains("sets both `kind` and `prefix`"),
-            "one entry, one name"
-        );
-    }
-
-    /// §REQ-backwards-compatibility.2: the deprecation names a release, and a
-    /// named release that has already passed is a promise grund broke. Held
-    /// ahead of the running version so the window cannot expire unnoticed.
-    #[test]
-    fn the_prefix_deprecation_release_is_still_ahead() {
-        let parse = |version: &str| {
-            version
-                .split('.')
-                .map(|part| part.parse::<u32>().unwrap_or(0))
-                .collect::<Vec<_>>()
-        };
-        assert!(
-            parse(env!("CARGO_PKG_VERSION")) < parse(KIND_PREFIX_KEY_REMOVAL_RELEASE),
-            "this tree is {}, which has reached the release §FS-config.3.4.6 promised \
-             `prefix` would stop loading in ({KIND_PREFIX_KEY_REMOVAL_RELEASE}). Remove the \
-             key rather than moving the date.",
-            env!("CARGO_PKG_VERSION")
         );
     }
 

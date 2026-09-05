@@ -527,11 +527,10 @@ pub fn validate_config(path: &Path) -> Result<Config> {
 }
 
 /// The CLI-level `warning:` texts a loaded config carries: the redundant
-/// discovery pair (§FS-config.1.1, §FS-check.4.3), the deprecated `.agents/`
-/// location (§FS-config.1.2, §FS-check.4.12), and the deprecated `[[kinds]]
-/// prefix` key (§FS-config.4.1). Message text only, so `grund config validate`
-/// and `grund config show` print the same sentences `grund check` does without
-/// depending on the checker's report type.
+/// discovery pair (§FS-config.1.1, §FS-check.4.3) and the deprecated `.agents/`
+/// location (§FS-config.1.2, §FS-check.4.12). Message text only, so
+/// `grund config validate` and `grund config show` print the same sentences
+/// `grund check` does without depending on the checker's report type.
 pub fn config_warnings(config: &Config) -> Vec<String> {
     config_diagnostics(config)
         .map(|diagnostic| diagnostic.message)

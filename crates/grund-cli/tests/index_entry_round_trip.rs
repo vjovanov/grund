@@ -89,7 +89,7 @@ fn build_external_inline_fixture() -> PathBuf {
     fs::write(
         dir.join("grund.toml"),
         "grund_config_version = 1\nproject_name = \"external-inline\"\n\n\
-         [[kinds]]\nprefix = \"AR\"\nfolder = \"docs/architecture\"\n\n\
+         [[kinds]]\nkind = \"AR\"\nfolder = \"docs/architecture\"\n\n\
          [scan]\ninclude = [\"docs\", \"src\"]\n",
     )
     .expect("write grund.toml");

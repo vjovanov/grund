@@ -396,29 +396,6 @@ fn nothing_recognized_warning(config: &Config, scanned_files: usize) -> Diagnost
     }
 }
 
-/// §FS-config.4.1 / §REQ-backwards-compatibility.2: the warning a config earns
-/// for spelling a `[[kinds]]` name with the deprecated `prefix` key. It names
-/// the release the old spelling stops loading in, because a deprecation that
-/// does not name its deadline is a rename with extra steps. `line`-less like the
-/// redundant-pair warning, with the `path:line` inside the text: it is a fact
-/// about the config file, not about the tree the run walked.
-fn deprecated_kind_prefix_warning(config: &Config) -> Option<Diagnostic> {
-    let site = config.deprecated_kind_prefix.as_ref()?;
-    Some(Diagnostic {
-        code: "deprecated-config-key",
-        path: None,
-        line: None,
-        column: None,
-        message: format!(
-            "{}:{}: [[kinds]] `prefix` is deprecated — rename it to `kind`; \
-             `prefix` stops loading in grund {KIND_PREFIX_KEY_REMOVAL_RELEASE}",
-            format_path(&site.path),
-            site.line
-        ),
-        sites: Vec::new(),
-    })
-}
-
 /// §FS-check.1.3: the caution a `--full` run earns when the caller also typed a
 /// path that is not the config root. `--full` cancels `[scan] include`, and an
 /// explicit path already bypasses that key, so the flag has nothing left to
@@ -542,12 +519,11 @@ fn deprecated_config_location_warning(config: &Config) -> Option<Diagnostic> {
 }
 
 /// The findings a loaded config carries on its own — the redundant discovery
-/// pair (§FS-check.4.3), the deprecated `.agents/` location (§FS-check.4.12) and
-/// the deprecated `[[kinds]] prefix` key (§FS-config.4.1). All three are known
-/// from the file the run read rather than from the walk, which is why they
-/// arrive together.
+/// pair (§FS-check.4.3) and the deprecated `.agents/` location (§FS-check.4.12).
+/// Both are known from the file the run read rather than from the walk, which is
+/// why they arrive together.
 ///
-/// One list rather than three calls at each site: `grund check` names them per
+/// One list rather than a call each at each site: `grund check` names them per
 /// project and `grund config validate` and `grund config show` name them for
 /// one, and a finding that reached only some of those surfaces would be a
 /// finding a repository can hide from by choosing a command.
@@ -555,7 +531,6 @@ fn config_diagnostics(config: &Config) -> impl Iterator<Item = Diagnostic> {
     redundant_config_warning(config)
         .into_iter()
         .chain(deprecated_config_location_warning(config))
-        .chain(deprecated_kind_prefix_warning(config))
 }
 
 /// `a`, `b`, `c`, or `d` — a list spelled the way the message reads, joined by

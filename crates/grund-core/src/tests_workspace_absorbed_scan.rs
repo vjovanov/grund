@@ -58,7 +58,7 @@ mod tests_workspace_absorbed_scan {
     /// bump that reaches the deadline fails the build rather than shipping a
     /// message the binary is behind — the guard §RM-workspace-absorbed-scan-error
     /// is spent against, the same one `index_entry_ramp_releases_are_ordered`
-    /// and `the_prefix_deprecation_release_is_still_ahead` keep for their ramps.
+    /// keeps for its ramp.
     #[test]
     fn the_absorbed_scan_error_release_is_still_ahead() {
         let Some(golden) = repo_text(GOLDEN) else {
