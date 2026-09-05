@@ -244,7 +244,7 @@ The e2e goldens carry the release as literal bytes and a unit test asserts it is
 
 ### 3. Measurable
 
-A `[workspace]` block whose members cover every one of its walk roots fails to load with a `members`-line error and exits `2` on every walking command, no message in the tree names a release the running binary is already past, and `grund check --full` over this repository stays green. The e2e cases that pin the warning today (`workspace-member-absorbs-scan-list`, `workspace-member-absorbs-scan-check`, `workspace-member-absorbs-scan-full`, `workspace-member-absorbs-scan-glob-symlink`, `workspace-member-absorbs-scan-nested`) move to `expected.exit` `2`, and the four that pin its boundaries stay green untouched.
+A `[workspace]` block whose members cover every one of its walk roots fails to load with a `members`-line error and exits `2` on every walking command, no message in the tree still promises a release the running binary has reached, and `grund check --full` over this repository stays green. The e2e cases that pin the warning today (`workspace-member-absorbs-scan-list`, `workspace-member-absorbs-scan-check`, `workspace-member-absorbs-scan-full`, `workspace-member-absorbs-scan-glob-symlink`, `workspace-member-absorbs-scan-nested`) move to `expected.exit` `2`, and the four that pin its boundaries stay green untouched.
 
 ## RM-unlisted-workspace-error: flip the unlisted-workspace warning to an error
 
@@ -266,4 +266,4 @@ The deadline unit test asserts the release named in the warning is still ahead o
 
 ### 3. Measurable
 
-`grund check` at the root of a tree holding a `[workspace]` block no enclosing block lists exits `1`, not `0`; the same tree with the block listed as a member, or excluded from `[scan]`, still exits `0`; and no message in the tree names a release the running binary is already past. The e2e cases that pin the warning today move to `expected.exit` `1` where the warning was their only finding, and `grund check --full` over this repository stays green.
+`grund check` at the root of a tree holding a `[workspace]` block no enclosing block lists exits `1`, not `0`; the same tree with the block listed as a member, or excluded from `[scan]`, still exits `0`; and no message in the tree still promises a release the running binary has reached. The e2e cases that pin the warning today move to `expected.exit` `1` where the warning was their only finding, and `grund check --full` over this repository stays green.

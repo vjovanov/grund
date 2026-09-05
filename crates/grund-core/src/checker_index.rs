@@ -397,7 +397,7 @@ fn check_kind_indexes(
                         column: None,
                         // §FS-distribution.4.2: the deadline clause is spent, and
                         // what replaces it reports the release the flip landed in
-                        // — the past-tense form that gate reads.
+                        // — the past-tense form the gate reads.
                         message: format!(
                             "{} is not listed in {index_display}{absent} — became an error in grund 0.13.0",
                             render_id(config, id)

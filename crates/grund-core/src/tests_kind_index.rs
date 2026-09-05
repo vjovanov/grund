@@ -10,9 +10,10 @@ mod tests_kind_index {
 
     /// §FS-check.3.18: the folder has an index and the index does not name the
     /// declaration. The finding is an **error**, anchored at the declaration's own
-    /// heading and naming the index file — and naming nothing else, because the
-    /// ramp §REQ-backwards-compatibility.2 opened ended in this release and a
-    /// deadline that has arrived is not news the message can still carry.
+    /// heading and naming the index file — and then the release the flip landed
+    /// in, because the ramp §REQ-backwards-compatibility.2 opened ended here: the
+    /// deadline is spent, and what reports in its place is the past-tense form
+    /// §FS-distribution.4.2 defines and the release gate reads.
     #[test]
     fn a_declaration_the_index_does_not_name_is_an_error_at_the_declaration() {
         let root = kind_index_repo("a_declaration_the_index_does_not_name_is_an_error_at_the_declaration");
