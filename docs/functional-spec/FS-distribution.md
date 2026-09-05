@@ -126,6 +126,24 @@ All artifacts must succeed for a full ecosystem release to be considered complet
 
 A release leaves `main` holding the version it just published, so every build from `main` until the next release reports the tag it is already ahead of. Nothing then distinguishes a binary built from `main` from the released one, and a fix that is merged but not installed looks exactly like one that is installed. So the release advances `main` as its last act: after publishing `X.Y.Z` both helpers commit `X.Y.(Z+1)-dev`. The suffix is what makes `grund --version` say which side of the tag a build came from. A `-dev` manifest is never publishable — `release.yml` still verifies that the selected commit carries the exact version being released, and the helpers set that clean version on their candidate branch — so the rule that a released version matches its tag is unchanged.
 
+### 4.2 A release may not contradict the releases the tree's own messages name
+
+A ramp is a promise written into a message: a warning names the release it becomes an error in, and once the ramp lands the error that replaced it names the release the change was made in ([§REQ-backwards-compatibility.2](../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path)). Both halves are claims about a version, and each is false at the wrong one. A pending warning shipped *at* its deadline breaks the promise it makes; a landed change shipped *below* the release its own message names is worse, because it puts a breaking change in a release whose version says there is none. A unit test can hold the first half — the bump that reaches a deadline bumps the running version, and a test can read it — but nothing could hold the second, because the helpers bump the version on a candidate branch that is neither `main` nor a pull request and no test suite runs between that bump and the publish.
+
+So the release path asks it directly. `scripts/check_release_ramps.py <version>` reads the release each message names out of the tree's own message text — the Rust sources under `crates/`, and the checked `expected.stdout` and `expected.stderr` goldens under `tests/e2e/cases/` that pin the bytes a user sees — and refuses a version that contradicts one:
+
+| clause | what the line claims | the version being cut |
+|---|---|---|
+| `becomes an error in <release>` | the change has not been made yet | must be **below** that release |
+| `became an error in <release>` | the change has been made | must be **at or above** it |
+| `was removed in <release>` | the change has been made | must be **at or above** it |
+| `stopped loading in <release>` | the change has been made | must be **at or above** it |
+| `unchecked in <release>` | the change has been made | must be **at or above** it |
+
+The vocabulary is closed on purpose: it is the wording the warnings and errors already use, so a ramp written in it is seen and a ramp written outside it names no release this gate can read. The check asks the general question rather than naming any one ramp, so a ramp that lands later is covered the day its message is written. The refusal names every line that disagrees and the window of releases the tree may still be cut as — which can be empty, when a tree has landed one ramp and still promises another at the same release, and an empty window is itself the answer: nothing may be published until the rest of that release's ramps land.
+
+`release.yml`'s verify job runs the check on the version it is about to publish, which is every publication path — a `vX.Y.Z` tag push, a manual dispatch, and the non-publishing dry run both bump helpers wait on before they touch `main`. `auto-bump.yml` and `release-minor.yml` run it again on the version they compute, beside their existing gates, so a bump that could not be published fails before it pushes a candidate branch rather than after.
+
 ## 5. What we do not promise
 
 - 100% identical APIs across languages. Each binding is idiomatic to its host (camelCase for Node, snake_case for Python, `Result<T,E>` for Rust). The *behavior* is identical; the surface fits each ecosystem.

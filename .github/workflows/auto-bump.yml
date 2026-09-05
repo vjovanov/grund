@@ -119,6 +119,14 @@ jobs:
           fi
           echo "CI on $sha is green."
 
+      # §FS-distribution.4.2: a landed ramp reddens no test at a version below
+      # the release its own error names, and a patch bump is that direction.
+      # release.yml asks again on the candidate; here nothing is pushed yet.
+      - name: Gate — the tree can be released as this version
+        if: steps.gate_substantive.outputs.ok == 'true'
+        shell: bash
+        run: python3 scripts/check_release_ramps.py "${{ steps.versions.outputs.next }}"
+
       - name: Install Rust toolchain
         if: steps.gate_substantive.outputs.ok == 'true'
         uses: dtolnay/rust-toolchain@stable
