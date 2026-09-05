@@ -176,7 +176,7 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
 /// narrowed directory a *different* `grund.toml` exists, so that spelling names a
 /// real file that is the wrong one.
 ///
-/// §FS-check.4.10 is asked at the end rather than where each block is met, because
+/// §FS-check.4.11 is asked at the end rather than where each block is met, because
 /// the answer depends on `workspace_project_roots` and this is where the run first
 /// has it: a probe that did not stop where the scan stops would report a directory
 /// another project of this run reads, which is the false positive the finding's
@@ -185,7 +185,7 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
 /// the run is rooted at has already had its turn in `apply_workspace_boundary`. Two
 /// consequences worth stating: the count reaches `check` on the run's own config
 /// either way (§FS-check.2.1), and a tree whose expansion fails is never cautioned
-/// about, which is the same line §FS-check.4.10 already draws around a block the
+/// about, which is the same line §FS-check.4.11 already draws around a block the
 /// run refuses outright.
 fn expand_workspace_tree_with_report_base(
     root_config: &mut Config,

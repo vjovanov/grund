@@ -142,7 +142,7 @@ pub struct CheckOutput {
     pub output_format: String,
     pub report: Report,
     pub had_scan_errors: bool,
-    /// §FS-check.4.10: how many `[workspace]` blocks this run already told the
+    /// §FS-check.4.11: how many `[workspace]` blocks this run already told the
     /// reader no project scans, on stderr, before the report existed. Not a
     /// finding — the report carries none for it — but a caller that prints the
     /// `success` marker has to know stderr is not empty (§FS-check.2.1).

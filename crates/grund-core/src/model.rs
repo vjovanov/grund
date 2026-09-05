@@ -550,13 +550,13 @@ pub struct Config {
     pub workspace_section_source: Option<ConfigLocation>,
     pub workspace_include_root: bool,
     /// Where `include_root` was written (§FS-config.4.3). The breadcrumb
-    /// §FS-check.4.10 wears: the key that took the block's files out of every
+    /// §FS-check.4.11 wears: the key that took the block's files out of every
     /// scan is the line the reader should open, which neither the `members` line
     /// nor the `[workspace]` header is. `None` where the key is absent, and the
     /// default `true` makes that unreachable for the one finding that reads it.
     pub workspace_include_root_source: Option<ConfigLocation>,
     pub workspace_boundary_roots: Vec<PathBuf>,
-    /// §FS-check.4.10: how many `[workspace]` blocks this run has already told
+    /// §FS-check.4.11: how many `[workspace]` blocks this run has already told
     /// the reader no project scans. Accumulated on the config the run was
     /// launched with, by the two points a run populates a block's member
     /// boundary, and read where `check` decides whether to print `success`

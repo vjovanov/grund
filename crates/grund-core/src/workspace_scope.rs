@@ -38,7 +38,7 @@ fn resolve_workspace_config(path: &Path) -> Result<Config> {
 /// roots. The boundary is the same list that `run_workspace_check`
 /// computes; setting it on the Config makes the scanner skip those subtrees.
 ///
-/// §FS-check.4.9, §FS-check.4.10: it is also where the block a run is rooted at is
+/// §FS-check.4.9, §FS-check.4.11: it is also where the block a run is rooted at is
 /// asked what that boundary leaves it — anything to read, and anything it reads
 /// that nobody else will. Every command that walks resolves its config through
 /// here, so asking at this one point is what puts both warnings on `list`, `refs`,
@@ -49,7 +49,7 @@ fn resolve_workspace_config(path: &Path) -> Result<Config> {
 /// (`config_for_member_scope` rewrites first), so it stays silent about a block it
 /// is not reading through.
 ///
-/// §FS-check.4.10 is answered *here*, unlike the blocks below, which are held until
+/// §FS-check.4.11 is answered *here*, unlike the blocks below, which are held until
 /// the expansion knows where the run's projects are. It can be, and the reason is
 /// what makes this block different: it is the run's root and it is no project, so
 /// every project the run goes on to load lies inside one of the members expanded
