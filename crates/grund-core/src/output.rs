@@ -275,17 +275,23 @@ fn sort_path_key(path: &Path) -> String {
 }
 
 /// Whether the path `check` was handed is a **file** that the hidden-name rule
-/// alone kept out of the walk (§FS-check.2.2): its own name begins with `.`, and
-/// its extension is one `[scan] extensions` lists — so the extension list is the
-/// one rule that did *not* decide, and the message must not send the reader there.
+/// alone kept out of the walk (§FS-check.2.2): the caller really handed a path,
+/// its own name begins with `.`, and its extension is one `[scan] extensions`
+/// lists — so the extension list is the one rule that did *not* decide, and the
+/// message must not send the reader there.
 ///
-/// Both halves are load-bearing. A hidden file whose extension is *also* unlisted
-/// has two reasons and keeps the extension message, because naming one of two
-/// causes is its own misdirection. And the `is_file` test keeps this to files: a
-/// hidden **directory** handed explicitly is walked (§FS-config.3.5), so an empty
-/// one really did match no extensions.
-fn handed_a_hidden_file(config: &Config, path: &Path) -> bool {
-    path.is_file()
+/// Every term is load-bearing. Without `path_provided` a library caller pairing a
+/// hidden `path` with `path_provided: false` would be told a file the run never
+/// looked at was skipped, since that run walks `[scan] include` and ignores `path`
+/// entirely. A hidden file whose extension is *also* unlisted has two reasons and
+/// keeps the extension message, because naming one of two causes is its own
+/// misdirection. And the `is_file` test keeps this to files: a hidden **directory**
+/// handed explicitly is walked (§FS-config.3.5), so an empty one really did match
+/// no extensions — and a directory whose only content is hidden keeps the extension
+/// message too, a boundary §FS-check.2.2 states rather than leaves to be found.
+fn handed_a_hidden_file(config: &Config, path: &Path, path_provided: bool) -> bool {
+    path_provided
+        && path.is_file()
         && path
             .file_name()
             .and_then(|name| name.to_str())
@@ -315,7 +321,7 @@ fn empty_scan_warning(config: &Config, path: &Path, path_provided: bool) -> Diag
     let message = match (&config.include, scoped_to_root) {
         // §FS-check.2.2: name the hidden-name rule that actually skipped the file,
         // rather than the `include` list or the extensions that never got to answer.
-        _ if handed_a_hidden_file(config, path) => format!(
+        _ if handed_a_hidden_file(config, path, path_provided) => format!(
             "nothing to scan — `{}` is a hidden file. grund reads no file whose own name \
              begins with `.`, whatever `[scan] extensions` says. Rename it, or move what \
              needs checking into a file that is not hidden.",
