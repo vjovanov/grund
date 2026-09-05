@@ -11,7 +11,7 @@
 fissile_config_version = 1
 
 [scan]
-# Mirrors the reasoning in `.agents/grund.toml` [scan]: the e2e fixture trees
+# Mirrors the reasoning in `grund.toml` [scan]: the e2e fixture trees
 # under `tests/e2e/cases/*/` are test inputs, not this project's code, and `assets/`
 # holds generated payload that is byte-identical to its source by test
 # (§FS-init.5) — splitting either is not a legal move, so neither is measured.
