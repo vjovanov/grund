@@ -205,10 +205,11 @@ fn declarations_under_folder(
 /// they still say what they mean (§FS-distribution.4), and
 /// `index_rule_releases_are_ordered_and_behind_us` below holds them to it.
 ///
-/// §FS-check.3.18 named a third release here until its own ramp completed; its
-/// message names none, because the deadline it carried has arrived
-/// (§DF-index-compatibility-ramp.3). That literal outlives the message it was
-/// printed in, in the opposite role: `INDEX_ENTRY_ERROR_RELEASE` below.
+/// §FS-check.3.18's message names a third, the release its own ramp ended in.
+/// That one is written into the message text rather than kept here, the way the
+/// `[[kinds]] prefix` removal writes its own (§FS-config.3.4.6): a landed
+/// release is read back out of the line a user sees, by the release gate that
+/// refuses a version contradicting it (§FS-distribution.4.2).
 
 /// The last release before `check` knew anything about a kind's index — the
 /// "from" half of the pair §REQ-backwards-compatibility.3 requires a
@@ -218,17 +219,6 @@ const INDEX_RULE_PRIOR_RELEASE: &str = "0.11.0";
 /// The release the kind-index rules arrive in, and in which §FS-check.3.17 is an
 /// error on arrival — the "to" half of that pair.
 const INDEX_RULE_RELEASE: &str = "0.12.0";
-
-/// The release §FS-check.3.18's warning named, and so the earliest release that
-/// may carry the error: §REQ-backwards-compatibility.2 lets the old verdict die
-/// "no earlier than `N+1`", and shipping the flip in a patch off `0.12.x` breaks
-/// that promise from the other side just as letting the date slip broke it from
-/// this one. Unlike the pair above it names no message — that is the whole point
-/// of the ramp having ended — so nothing but the guard reads it, and
-/// `the_index_entry_error_is_not_published_before_the_release_it_named` is what a
-/// version bump has to get past (§FS-distribution.4).
-#[cfg(test)]
-const INDEX_ENTRY_ERROR_RELEASE: &str = "0.13.0";
 
 /// §AR-checker.2.16 — the kind-index rule (§FS-check.3.18, §FS-check.3.17). One
 /// pass per configured index: read the file once, classify the citations the
@@ -405,10 +395,11 @@ fn check_kind_indexes(
                         path: Some(decl.file.clone()),
                         line: Some(decl.line),
                         column: None,
-                        // The ramp ended here, so no deadline is named: one that
-                        // has arrived is not news a reader can act on.
+                        // §FS-distribution.4.2: the deadline clause is spent, and
+                        // what replaces it reports the release the flip landed in
+                        // — the past-tense form that gate reads.
                         message: format!(
-                            "{} is not listed in {index_display}{absent}",
+                            "{} is not listed in {index_display}{absent} — became an error in grund 0.13.0",
                             render_id(config, id)
                         ),
                         sites: Vec::new(),
