@@ -1,1 +1,1 @@
-{"severity":"error","path":"docs/functional-spec/FS-002-session.md","line":1,"code":"missing-index-entry","message":"FS-002-session is not listed in docs/functional-spec/README.md","sites":null}
+{"severity":"error","path":"docs/functional-spec/FS-002-session.md","line":1,"code":"missing-index-entry","message":"FS-002-session is not listed in docs/functional-spec/README.md — became an error in grund 0.13.0","sites":null}

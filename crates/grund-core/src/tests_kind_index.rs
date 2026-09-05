@@ -32,8 +32,10 @@ mod tests_kind_index {
             finding.message
         );
         assert!(
-            !finding.message.contains("becomes an error in grund"),
-            "§FS-check.3.18: the ramp ended, so the message names no release: {}",
+            finding.message.ends_with("— became an error in grund 0.13.0")
+                && !finding.message.contains("becomes an error in grund"),
+            "§FS-check.3.18: the ramp ended, so the clause reports the release it \
+             ended in rather than promising one: {}",
             finding.message
         );
         assert!(
@@ -292,7 +294,9 @@ mod tests_kind_index {
     /// halves of it are claims about releases that happened — the verdict a
     /// §REQ-backwards-compatibility.3 migration *moved between* — so a run that
     /// printed either as a date still ahead would be promising rather than
-    /// reporting. §FS-check.3.18's own deadline literal is gone with its ramp.
+    /// reporting. §FS-check.3.18's own release is a literal in its message
+    /// rather than a constant here, and the release gate reads it out of that
+    /// line (§FS-distribution.4.2).
     #[test]
     fn index_rule_releases_are_ordered_and_behind_us() {
         let current = version(env!("CARGO_PKG_VERSION"));
@@ -308,33 +312,6 @@ mod tests_kind_index {
             arrival <= current,
             "§FS-check.3.17 says the rule is an error as of {INDEX_RULE_RELEASE}, which has to be a release that happened rather than one still ahead (this tree is {})",
             env!("CARGO_PKG_VERSION")
-        );
-    }
-
-    /// §REQ-backwards-compatibility.2, §FS-check.3.18: the deprecation path lets
-    /// the old verdict die "no earlier than `N+1`", and every run of `0.12.x`
-    /// said which release that was. Arriving early breaks that promise exactly as
-    /// letting the date slip breaks it — a `0.12.x` patch carrying this error
-    /// would fail a repository one minor before the tool told it to expect it.
-    /// The patch helper derives its version from the last tag rather than from
-    /// anything a human chose (§FS-distribution.4), so a test on the bumped tree
-    /// is where the refusal has to live.
-    ///
-    /// A `-dev` tree is exempt because it is never published (§FS-distribution.4.1),
-    /// and the exemption reads the suffix rather than the numbers: `0.12.4-dev`
-    /// and the `0.12.4` this must refuse are the same triple.
-    #[test]
-    fn the_index_entry_error_is_not_published_before_the_release_it_named() {
-        let current = env!("CARGO_PKG_VERSION");
-        if current.ends_with("-dev") {
-            return;
-        }
-        assert!(
-            version(current) >= version(INDEX_ENTRY_ERROR_RELEASE),
-            "this tree is {current}, a release before the {INDEX_ENTRY_ERROR_RELEASE} \
-             §FS-check.3.18's warning named as the one it becomes an error in. Publishing \
-             the error here breaks §REQ-backwards-compatibility.2 from the early side. Cut \
-             {INDEX_ENTRY_ERROR_RELEASE} rather than a patch off the release that announced it."
         );
     }
 

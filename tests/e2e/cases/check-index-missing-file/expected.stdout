@@ -1,2 +1,2 @@
-docs/functional-spec/FS-001-login.md:1: FS-001-login is not listed in docs/functional-spec/README.md (the index file does not exist)
-docs/functional-spec/FS-002-session.md:1: FS-002-session is not listed in docs/functional-spec/README.md (the index file does not exist)
+docs/functional-spec/FS-001-login.md:1: FS-001-login is not listed in docs/functional-spec/README.md (the index file does not exist) — became an error in grund 0.13.0
+docs/functional-spec/FS-002-session.md:1: FS-002-session is not listed in docs/functional-spec/README.md (the index file does not exist) — became an error in grund 0.13.0

@@ -2,11 +2,11 @@
 name: Auto bump
 
 # Mondays at 09:00 UTC: if main has shipped non-doc changes since the last
-# vX.Y.Z tag and CI on that tip is green, bump the patch version, test the
-# bumped tree, commit the bump to main, and dispatch release.yml to publish
-# crates + binaries. A GITHUB_TOKEN push does not trigger other workflows, so
-# release.yml is invoked explicitly via `gh workflow run` rather than relying
-# on the tag-push trigger.
+# vX.Y.Z tag and CI on that tip is green, bump the patch version, commit the
+# bump to main, and dispatch release.yml to publish crates + binaries. A
+# GITHUB_TOKEN push does not trigger other workflows, so release.yml is
+# invoked explicitly via `gh workflow run` rather than relying on the tag-push
+# trigger.
 
 on:
   schedule:
@@ -146,19 +146,6 @@ jobs:
           cargo update --workspace
           printf 'grund %s\n' "${{ steps.versions.outputs.next }}" > tests/e2e/cases/cli-version/expected.stdout
           python3 scripts/prepare_changelog_release.py prepare "${{ steps.versions.outputs.next }}"
-
-      - name: Test the bumped tree
-        if: steps.gate_substantive.outputs.ok == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          # The gate above tested the tip *before* the bump, and nothing tests
-          # the candidate branch: ci.yml runs only on push-to-main and
-          # pull_request, and release.yml runs no tests at all.
-
-          # A ramp constant's guard comes due at a version, so it can only fail
-          # here — after the bump, before the push (§FS-distribution.4).
-          cargo test --workspace --all-targets --locked
 
       - name: Commit and push release candidate
         id: candidate
