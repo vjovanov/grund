@@ -26,8 +26,11 @@
 /// no deadline to guard and no version constant for a golden to disagree with.
 #[cfg(test)]
 mod tests_unread_opted_out_block {
-    use super::tests_support::*;
     use std::path::{Path, PathBuf};
+    // Only the three symlink cases build a fixture on disk, and all three are
+    // `cfg(unix)`; what is left on Windows compares two files in the repository.
+    #[cfg(unix)]
+    use super::tests_support::*;
 
     /// The case whose golden holds the shipped message byte for byte.
     const GOLDEN: &str =
@@ -71,6 +74,9 @@ mod tests_unread_opted_out_block {
     /// two `[workspace]` blocks, so the block's scope is `[scan] include`'s own
     /// — `requirements.md` and `docs` among them, which is what puts a **file**
     /// root in reach of these tests without configuring one.
+    ///
+    /// Unix only: every caller is a symlink case and so `#[cfg(unix)]` too.
+    #[cfg(unix)]
     fn opted_out_block(name: &str) -> PathBuf {
         let root = test_root(name);
         write(
@@ -92,6 +98,9 @@ mod tests_unread_opted_out_block {
     /// (§FS-check.4.11) counted rather than read off stderr — the count is what
     /// decides the `success` marker, so it cannot be right while the lines are
     /// wrong.
+    ///
+    /// Unix only: every caller is a symlink case and so `#[cfg(unix)]` too.
+    #[cfg(unix)]
     fn cautioned_blocks(root: &Path) -> usize {
         crate::check_with_opts(crate::CheckOpts {
             path: root.to_path_buf(),
