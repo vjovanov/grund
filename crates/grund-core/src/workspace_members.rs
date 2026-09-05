@@ -21,6 +21,7 @@ fn canonical_workspace_path(path: &Path) -> PathBuf {
 /// renders as the empty string when it equals the render base and as an absolute
 /// path when it lies outside it, and neither is something an author can act on
 /// (§FS-errors.4, §FS-workspace.6.1).
+#[derive(Clone)]
 struct WorkspaceMember {
     written: String,
     root: PathBuf,
@@ -300,6 +301,36 @@ fn absorbed_scan_warning(covered: &[String]) -> String {
     )
 }
 
+/// §FS-check.4.10: one block that opted out of being a project, kept with the
+/// members that bound it until the run can be asked where its projects are.
+///
+/// The finding is settled where a run populates a block's member boundary, and for
+/// a block *below* the run's root that is one step too early to answer it: the
+/// expansion assigns `workspace_project_roots` only once it has reached every
+/// block, so the question is posed there and answered by
+/// [`warn_unread_block`] afterwards. Holding the block rather than the answer is
+/// what keeps the order the two sites print in — the run's own block first, then
+/// the blocks below it as the run reaches them (§FS-check.4.10).
+struct UnreadBlockProbe {
+    config: Config,
+    members: Vec<WorkspaceMember>,
+}
+
+/// §FS-check.4.10: the block to ask, or `None` when this one is not the finding's
+/// subject at all — cheap enough to run at every boundary population, because it
+/// reads two config fields and touches no disk.
+///
+/// **A block with no member in scope is not this finding.** `include_root = false`
+/// with no members is already a config error at that block's own line
+/// (§FS-workspace.6.1), and a configuration the run refuses is not one it also
+/// cautions about — the caution's two remedies are not the repair that block needs.
+fn unread_block_probe(config: &Config, members: &[WorkspaceMember]) -> Option<UnreadBlockProbe> {
+    (!config.workspace_include_root && !members.is_empty()).then(|| UnreadBlockProbe {
+        config: config.clone(),
+        members: members.to_vec(),
+    })
+}
+
 /// §FS-check.4.10: say so when a block that set `include_root = false` still holds
 /// files of its own. It is no project, and the enclosing scan stops at the member
 /// boundary (§FS-workspace.6), so those files are read by nobody — a declaration
@@ -313,6 +344,12 @@ fn absorbed_scan_warning(covered: &[String]) -> String {
 /// boundary, which is what puts it on every command that walks while leaving each
 /// block asked once.
 ///
+/// `project_roots` is where the *rest* of this run's projects are, and it is the
+/// other half of the counterfactual: the block's own root is added to it here,
+/// because a block that were a project would own its own tree and stop at every
+/// other project of the run (§FS-workspace.6). Handing an incomplete list would
+/// report a directory somebody else reads.
+///
 /// It returns how many lines it printed. This is the one of the two that can fire
 /// on an otherwise clean run — §FS-workspace.2.1's block always earns the
 /// empty-scan caution beside it — so it is the one whose caller has to know that
@@ -322,10 +359,11 @@ fn absorbed_scan_warning(covered: &[String]) -> String {
 /// does not need checked is a correct configuration and no key records that
 /// intent, so the finding is never eligible to become an error
 /// (§DF-unread-opted-out-block.2.3) — unlike both of its siblings.
-fn warn_if_no_project_scans_the_block(config: &Config, members: &[WorkspaceMember]) -> usize {
-    let Some(root) = unread_block_scope_root(config, members) else {
+fn warn_unread_block(probe: &UnreadBlockProbe, project_roots: &[PathBuf]) -> usize {
+    let Some(root) = unread_block_scope_root(probe, project_roots) else {
         return 0;
     };
+    let config = &probe.config;
     eprintln!(
         "warning: {}",
         config_location_message(
@@ -350,30 +388,34 @@ fn warn_if_no_project_scans_the_block(config: &Config, members: &[WorkspaceMembe
 /// then the `[[kinds]]` homes — because that order is fixed, while which file the
 /// walk hands back first is not (§FS-errors.4).
 ///
-/// **A block with no member in scope is not this finding.** `include_root = false`
-/// with no members is already a config error at that block's own line
-/// (§FS-workspace.6.1), and a configuration the run refuses is not one it also
-/// cautions about — the caution's two remedies are not the repair that block needs.
-///
-/// The probe runs against the block's own config with its member boundary set, so
-/// [`walk_reads_any_file`] prunes exactly as the block's own scan would and stops
-/// at each member. `workspace_project_roots` is empty on purpose: the block is no
-/// project of this run, and every project inside its scope is one of the members
-/// the boundary already stops at (§FS-workspace.6). `scan_full` is off for the same
-/// reason [`block_scope_roots`] asks the default scope — this is a property of the
+/// The walk runs against the block's own config with its member boundary set and
+/// with the run's project roots, its own among them, so [`walk_reads_any_file`]
+/// prunes exactly as the block's own scan would have: at each member on the way
+/// down, and at every other project of the run in the directions the member list
+/// cannot see — which is what a directory symlink out of the block's scope root
+/// takes (§FS-workspace.6). Its own root belongs there because the walker prunes
+/// what *another* project owns, and the block owns its tree in the counterfactual
+/// this finding asks about. Which projects those are is a property of the run: a
+/// run rooted at the block does not know the projects above it, and neither would
+/// the scan it is standing in for. `scan_full` is off for the same reason
+/// [`block_scope_roots`] asks the default scope — this is a property of the
 /// configuration rather than of one walk (§FS-check.1.3).
-fn unread_block_scope_root(config: &Config, members: &[WorkspaceMember]) -> Option<String> {
-    if config.workspace_include_root || members.is_empty() {
-        return None;
-    }
-    let mut probe = config.clone();
-    probe.workspace_boundary_roots = members.iter().map(|member| member.root.clone()).collect();
-    probe.workspace_project_roots = Vec::new();
-    probe.scan_full = false;
-    block_scope_roots(config, members)
+fn unread_block_scope_root(probe: &UnreadBlockProbe, project_roots: &[PathBuf]) -> Option<String> {
+    let config = &probe.config;
+    let mut walk = config.clone();
+    walk.workspace_boundary_roots = probe
+        .members
+        .iter()
+        .map(|member| member.root.clone())
+        .collect();
+    walk.workspace_project_roots = project_roots.to_vec();
+    walk.workspace_project_roots
+        .push(canonical_config_root(config));
+    walk.scan_full = false;
+    block_scope_roots(config, &probe.members)
         .into_iter()
         .filter(|(_, member)| member.is_none())
-        .find(|(root, _)| walk_reads_any_file(&probe, root))
+        .find(|(root, _)| walk_reads_any_file(&walk, root))
         .map(|(root, _)| format_path(block_relative_root(config, &root)))
 }
 

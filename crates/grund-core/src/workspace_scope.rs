@@ -48,6 +48,15 @@ fn resolve_workspace_config(path: &Path) -> Result<Config> {
 /// a member never populates the parent block's boundary
 /// (`config_for_member_scope` rewrites first), so it stays silent about a block it
 /// is not reading through.
+///
+/// §FS-check.4.10 is answered *here*, unlike the blocks below, which are held until
+/// the expansion knows where the run's projects are. It can be, and the reason is
+/// what makes this block different: it is the run's root and it is no project, so
+/// every project the run goes on to load lies inside one of the members expanded
+/// above — the probe's own member boundary is already the whole prune, and a list
+/// of project roots would add nothing to it (§FS-workspace.6). The count lands on
+/// the run's own config, which is the one `check` still holds when it decides
+/// whether to print `success` (§FS-check.2.1).
 fn apply_workspace_boundary(config: &mut Config) -> Result<()> {
     if !config.workspace_declared {
         return Ok(());
@@ -57,9 +66,8 @@ fn apply_workspace_boundary(config: &mut Config) -> Result<()> {
     // spelled with, which only the expansion walk composes (`expand_workspace_tree`).
     let members = expand_workspace_member_list(config)?.members;
     warn_if_members_absorb_scan(config, &members);
-    // §FS-check.4.10: counted onto the run's own config, which is the one `check`
-    // still holds when it decides whether to print `success` (§FS-check.2.1).
-    let unread = warn_if_no_project_scans_the_block(config, &members);
+    let unread =
+        unread_block_probe(config, &members).map_or(0, |probe| warn_unread_block(&probe, &[]));
     config.unread_opted_out_blocks += unread;
     config.workspace_boundary_roots = members.into_iter().map(|member| member.root).collect();
     Ok(())

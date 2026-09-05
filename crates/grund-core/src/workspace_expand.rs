@@ -175,6 +175,18 @@ fn expand_workspace_tree(root_config: &mut Config) -> Result<Vec<WorkspaceProjec
 /// §FS-workspace.6.1 already forbids for an ancestor's `members` line: from a
 /// narrowed directory a *different* `grund.toml` exists, so that spelling names a
 /// real file that is the wrong one.
+///
+/// §FS-check.4.10 is asked at the end rather than where each block is met, because
+/// the answer depends on `workspace_project_roots` and this is where the run first
+/// has it: a probe that did not stop where the scan stops would report a directory
+/// another project of this run reads, which is the false positive the finding's
+/// condition exists to avoid. Only *when* the blocks are asked moves — the order
+/// does not, since they are asked in the order they were reached, after the block
+/// the run is rooted at has already had its turn in `apply_workspace_boundary`. Two
+/// consequences worth stating: the count reaches `check` on the run's own config
+/// either way (§FS-check.2.1), and a tree whose expansion fails is never cautioned
+/// about, which is the same line §FS-check.4.10 already draws around a block the
+/// run refuses outright.
 fn expand_workspace_tree_with_report_base(
     root_config: &mut Config,
     report_base: &Path,
@@ -230,10 +242,9 @@ fn expand_workspace_tree_with_report_base(
         &absent_optional,
         &mut siblings,
     )?;
-    // §FS-check.4.11: every block below the run's root is asked down there, and the
-    // count comes back here because the run's own config is what `check` still holds
-    // when it decides whether to print `success` (§FS-check.2.1).
-    let unread = collect_workspace_members(
+    // §FS-check.4.11: every block below the run's root is posed the question down
+    // there and answered below, once this run knows where its projects are.
+    let unread_blocks = collect_workspace_members(
         &members,
         root_config,
         root_config,
@@ -244,7 +255,6 @@ fn expand_workspace_tree_with_report_base(
         &mut entries,
         &mut absent_optional,
     )?;
-    root_config.unread_opted_out_blocks += unread;
     // §FS-workspace.2.2: read from the config text — see this function's docs.
     if entries.is_empty() && root_config.workspace_optional_members.is_empty() {
         return Err(empty_workspace_error(root_config));
@@ -271,6 +281,14 @@ fn expand_workspace_tree_with_report_base(
     // §FS-check.4.10: the root config is what the report is rendered from, so it is
     // where the announcement is read back off (`run_workspace_check`).
     root_config.workspace_absent_optional = absent_optional;
+    // §FS-check.4.11: the blocks that opted out, asked now that `project_roots`
+    // exists — see this function's docs for why it is here and not where they were
+    // found.
+    let unread: usize = unread_blocks
+        .iter()
+        .map(|probe| warn_unread_block(probe, &root_config.workspace_project_roots))
+        .sum();
+    root_config.unread_opted_out_blocks += unread;
     Ok(entries)
 }
 
@@ -297,8 +315,9 @@ fn expand_workspace_tree_with_report_base(
 /// second name — one citation text has to name one namespace in a full checkout and
 /// in a partial one.
 ///
-/// Returns how many §FS-check.4.11 lines this subtree printed, so the run's own
-/// config can carry the count back to `check` (§FS-check.2.1).
+/// Returns the §FS-check.4.11 blocks this subtree found, in the order it reached
+/// them, for the caller to ask once it knows where the run's projects are — and
+/// then to carry the count back to `check` (§FS-check.2.1).
 #[allow(clippy::too_many_arguments)]
 fn collect_workspace_members(
     members: &[WorkspaceMember],
@@ -310,8 +329,8 @@ fn collect_workspace_members(
     visited: &mut Vec<PathBuf>,
     entries: &mut Vec<WorkspaceProjectEntry>,
     absent_optional: &mut Vec<AbsentOptionalNamespace>,
-) -> Result<usize> {
-    let mut unread = 0;
+) -> Result<Vec<UnreadBlockProbe>> {
+    let mut unread = Vec::new();
     for member in members {
         let member_root = &member.root;
         // §FS-workspace.6.1: an **unreachable backstop**, kept because it is the one
@@ -379,7 +398,7 @@ fn collect_workspace_members(
         // §FS-check.4.11: and whether its own tree holds anything unread, at
         // the same line — there is no outermost-block privilege in either
         // direction.
-        unread += warn_if_no_project_scans_the_block(&member_config, &nested.members);
+        unread.extend(unread_block_probe(&member_config, &nested.members));
         member_config.workspace_boundary_roots =
             nested.members.iter().map(|m| m.root.clone()).collect();
         // §FS-check.4.10: and its absent optional entries, at its own
@@ -404,7 +423,7 @@ fn collect_workspace_members(
                 config: member_config.clone(),
             });
         }
-        unread += collect_workspace_members(
+        unread.extend(collect_workspace_members(
             &nested.members,
             &member_config,
             top_config,
@@ -414,7 +433,7 @@ fn collect_workspace_members(
             visited,
             entries,
             absent_optional,
-        )?;
+        )?);
         // §FS-workspace.2.2: the same reading one block down — a nested block whose
         // only members may be absent named members, so it is not an empty block.
         if entries.len() == before && member_config.workspace_optional_members.is_empty() {
