@@ -72,7 +72,7 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!();
             println!(
-                "PATH defaults to `.`; config (`grund.toml`, root or `.agents/`) is discovered by walking up from it."
+                "PATH defaults to `.`; config is discovered by walking up from it — the root `grund.toml` is the home, `.agents/grund.toml` a deprecated fallback."
             );
             println!(
                 "With no config, grund scans `docs/`, `e2e/`, and `src/`; set `[scan] include` to widen it."
@@ -418,12 +418,12 @@ fn print_subcommand_help(cmd: &str) {
                 "  validate   parse the discovered config and report the first error; exit 0 if it's well-formed."
             );
             println!();
-            println!("PATH defaults to `.`; config is discovered by walking up from that path.");
+            println!(
+                "PATH defaults to `.`; config is discovered by walking up from it — the root `grund.toml` is the home, `.agents/grund.toml` a deprecated fallback."
+            );
             // §FS-cli.6 — the rule the line states; a printed ID would name
             // nothing in the reader's tree (§REQ-shipped-surfaces.1).
-            println!(
-                "There is no `--config <file>` override — config is discovered, not pointed at."
-            );
+            println!("There is no `--config <file>` override: it is discovered, not pointed at.");
             println!();
             println!(
                 "Exit:  0 well-formed / printed · 1 `validate` found an error · 2 no subcommand, or `show` couldn't read the config."
