@@ -214,7 +214,7 @@ impl Grammar {
         }
         for kind in kinds {
             if let Some(message) =
-                id_grammar_literal_slash_error(&format!("[[kinds]] prefix `{kind}`"), kind)
+                id_grammar_literal_slash_error(&format!("[[kinds]] kind `{kind}`"), kind)
             {
                 return Err(anyhow!("{message}"));
             }
