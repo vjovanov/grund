@@ -1,1 +1,1 @@
-error: grund.toml:5: [[kinds]] sets both `kind` and `prefix`, which name the same thing (keep `kind`)
+error: grund.toml:5: [[kinds]] `prefix` was removed in grund 0.13.0 — rename it to `kind`
