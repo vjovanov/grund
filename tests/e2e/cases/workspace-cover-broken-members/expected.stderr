@@ -1,1 +1,1 @@
-error: .agents/grund.toml:16: duplicate workspace project alias `api` (workspace members `apps/api` and `tools/api`)
+error: grund.toml:16: duplicate workspace project alias `api` (workspace members `apps/api` and `tools/api`)

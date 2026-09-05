@@ -1,1 +1,1 @@
-error: .agents/grund.toml:16: invalid [workspace] member `../sibling` (expected relative path or trailing /* glob)
+error: grund.toml:16: invalid [workspace] member `../sibling` (expected relative path or trailing /* glob)

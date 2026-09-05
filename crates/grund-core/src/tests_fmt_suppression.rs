@@ -169,7 +169,7 @@ mod tests_fmt_suppression {
     fn suppression_repo(name: &str, extra: &str) -> PathBuf {
         let root = test_root(name);
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             &format!(
                 "grund_config_version = 1\n[id]\nformat = \"{{kind}}-{{number}}-{{slug}}\"\n{extra}"
             ),

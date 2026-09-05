@@ -12,7 +12,7 @@ mod tests_managed_block_drift {
     fn citation_directions_drift_is_reported() {
         let root = test_root("citation_directions_drift_is_reported");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
@@ -46,7 +46,7 @@ mod tests_managed_block_drift {
     #[test]
     fn clickable_citations_drift_is_reported() {
         let root = test_root("clickable_citations_drift_is_reported");
-        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(&root.join("grund.toml"), "grund_config_version = 1\n");
         let config = load_config(&root).expect("load config");
 
         // Block rendered without the opinion → no drift while the key is absent.
@@ -62,7 +62,7 @@ mod tests_managed_block_drift {
 
         // Commit the `link` opinion without refreshing the block → drift finding.
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[reference]\nconversation = \"link\"\n",
         );
         let config = load_config(&root).expect("reload config");
@@ -115,7 +115,7 @@ mod tests_managed_block_drift {
     fn citation_directions_drift_compares_managed_block_only() {
         let root = test_root("citation_directions_drift_compares_managed_block_only");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
@@ -144,7 +144,7 @@ mod tests_managed_block_drift {
     fn citation_directions_drift_rejects_extra_managed_section_bytes() {
         let root = test_root("citation_directions_drift_rejects_extra_managed_section_bytes");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");
@@ -174,7 +174,7 @@ mod tests_managed_block_drift {
     fn citation_directions_drift_tolerates_crlf_line_endings() {
         let root = test_root("citation_directions_drift_tolerates_crlf_line_endings");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "[citations]\n[citations.e2e]\nmust = [\"FS\"]\n",
         );
         let config = load_config(&root).expect("load config");

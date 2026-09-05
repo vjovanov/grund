@@ -1,1 +1,1 @@
-error: .agents/grund.toml:18: unknown config key `unknwon`
+error: grund.toml:18: unknown config key `unknwon`

@@ -1,1 +1,1 @@
-error: .agents/grund.toml:16: invalid workspace project alias `My-App` (expected [a-z][a-z0-9-]*) for workspace member `packages/My-App`
+error: grund.toml:16: invalid workspace project alias `My-App` (expected [a-z][a-z0-9-]*) for workspace member `packages/My-App`

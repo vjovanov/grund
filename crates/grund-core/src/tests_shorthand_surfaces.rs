@@ -93,7 +93,7 @@ mod tests_shorthand_surfaces {
     #[test]
     fn ambiguous_shorthand_query_carries_no_sites() {
         let root = test_root("ambiguous_shorthand_query_carries_no_sites");
-        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(&root.join("grund.toml"), "grund_config_version = 1\n");
         write(
             &root.join("docs/functional-spec/FS-042-user-login.md"),
             "# FS-042-user-login: User login\n\nLead.\n",
@@ -128,7 +128,7 @@ mod tests_shorthand_surfaces {
     fn lsp_snapshot_navigates_a_shorthand_citation() {
         let root = test_root("lsp_snapshot_navigates_a_shorthand_citation");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[id]\nformat = \"{kind}-{number}-{slug}\"\n",
         );
         write(

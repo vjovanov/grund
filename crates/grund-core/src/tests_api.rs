@@ -7,7 +7,7 @@ mod tests_api {
     #[test]
     fn public_embedding_api_checks_and_shows_without_cli_dispatch() {
         let root = test_root("public_embedding_api_checks_and_shows_without_cli_dispatch");
-        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(&root.join("grund.toml"), "grund_config_version = 1\n");
         write(
             &root.join("docs/functional-spec/FS-001-alpha.md"),
             "# FS-001-alpha: Alpha\n\nLead.\n",
@@ -130,7 +130,7 @@ mod tests_api {
 
         let lsp_root = test_root("public_embedding_api_lsp_snapshot");
         write(
-            &lsp_root.join(".agents/grund.toml"),
+            &lsp_root.join("grund.toml"),
             "grund_config_version = 1\n[scan]\nexclude = [\"ignored\"]\n",
         );
         write(&lsp_root.join(".gitignore"), "gitignored/\n");
@@ -330,7 +330,7 @@ mod tests_api {
     #[test]
     fn init_next_guidance_uses_effective_legacy_fs_home() {
         let root = test_root("init_next_guidance_uses_effective_legacy_fs_home");
-        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(&root.join("grund.toml"), "grund_config_version = 1\n");
 
         let init_output = init(InitOpts {
             target: root,
@@ -364,7 +364,7 @@ mod tests_api {
     fn init_next_guidance_uses_effective_custom_fs_file() {
         let root = test_root("init_next_guidance_uses_effective_custom_fs_file");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"grund_config_version = 1
 
 [[kinds]]
@@ -443,7 +443,7 @@ file = "specs/requirements.md"
     #[test]
     fn public_check_api_returns_relative_slash_normalized_paths() {
         let root = test_root("public_check_api_returns_relative_slash_normalized_paths");
-        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(&root.join("grund.toml"), "grund_config_version = 1\n");
         write(
             &root.join("docs/functional-spec/FS-001-alpha.md"),
             "# FS-001-alpha: Alpha\n\nLead.\n",
@@ -483,11 +483,11 @@ file = "specs/requirements.md"
     fn validate_config_at_a_workspace_root_fails_on_a_broken_member() {
         let root = test_root("validate_config_at_a_workspace_root_fails_on_a_broken_member");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\nproject_name = \"root\"\n\n[workspace]\nmembers = [\"apps/api\"]\n",
         );
         write(
-            &root.join("apps/api/.agents/grund.toml"),
+            &root.join("apps/api/grund.toml"),
             "grund_config_version = 1\nproject_name = \"api\"\n\n[id]\nformat = \"{kind}-{slug}\"\nslug_pattern = \"[^.[:space:]]+\"\n",
         );
 
@@ -497,7 +497,7 @@ file = "specs/requirements.md"
 
         let message = format!("{err:#}");
         assert!(
-            message.starts_with("apps/api/.agents/grund.toml:"),
+            message.starts_with("apps/api/grund.toml:"),
             "the error must name the member config that failed to load: {message}"
         );
         assert!(

@@ -1,1 +1,1 @@
-error: .agents/grund.toml: kind `skill` sets `index` and `citable = false` (a non-citable kind declares nothing to index)
+error: grund.toml: kind `skill` sets `index` and `citable = false` (a non-citable kind declares nothing to index)

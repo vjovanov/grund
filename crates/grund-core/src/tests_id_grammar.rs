@@ -43,7 +43,7 @@ mod tests_id_grammar {
         ];
 
         for (body, expected, line) in cases {
-            write(&root.join(".agents/grund.toml"), body);
+            write(&root.join("grund.toml"), body);
             let err = match load_config(&root) {
                 Ok(_) => panic!("a `/` in the ID grammar should fail to load: {body}"),
                 Err(err) => format!("{err:#}"),
@@ -53,7 +53,7 @@ mod tests_id_grammar {
                 "unexpected error for {body}: {err}"
             );
             assert!(
-                err.contains(&format!(".agents/grund.toml:{line}:")),
+                err.contains(&format!("grund.toml:{line}:")),
                 "error should locate the offending line for {body}: {err}"
             );
         }
@@ -76,7 +76,7 @@ mod tests_id_grammar {
             ("[0-9]+|[/a-z]+", "number_pattern"),
         ] {
             write(
-                &root.join(".agents/grund.toml"),
+                &root.join("grund.toml"),
                 &format!("grund_config_version = 1\n\n[id]\n{key} = \"{pattern}\"\n"),
             );
             let err = match load_config(&root) {
@@ -84,7 +84,7 @@ mod tests_id_grammar {
                 Err(err) => format!("{err:#}"),
             };
             assert!(
-                err.contains(&format!(".agents/grund.toml:4: [id].{key} must not match `/`")),
+                err.contains(&format!("grund.toml:4: [id].{key} must not match `/`")),
                 "unexpected error for {pattern}: {err}"
             );
         }
@@ -99,7 +99,7 @@ mod tests_id_grammar {
         let root = test_root("id_grammar_accepts_a_pattern_that_forbids_a_slash");
         for pattern in ["[^/. ]+", "[^/.]+", "(?:a|b)[^/.]*", "[a-z][a-z0-9-]*"] {
             write(
-                &root.join(".agents/grund.toml"),
+                &root.join("grund.toml"),
                 &format!("grund_config_version = 1\n\n[id]\nslug_pattern = \"{pattern}\"\n"),
             );
             let config = load_config(&root)
@@ -111,7 +111,7 @@ mod tests_id_grammar {
         // The rule that does is the section-separator collision — a different
         // conflict, named as itself.
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n\n[id]\nslug_pattern = \"[^/]+\"\n",
         );
         let err = match load_config(&root) {
@@ -139,7 +139,7 @@ mod tests_id_grammar {
     fn id_grammar_rejects_a_slash_section_separator() {
         let root = test_root("id_grammar_rejects_a_slash_section_separator");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n\n[id]\nsection_separator = \"/\"\n",
         );
         let err = match load_config(&root) {
@@ -148,7 +148,7 @@ mod tests_id_grammar {
         };
         assert_eq!(
             err,
-            ".agents/grund.toml:4: [id].section_separator must not contain `/` (a citation's alias path ends at the last `/`, so a `/` here would put the ID/section boundary inside it)"
+            "grund.toml:4: [id].section_separator must not contain `/` (a citation's alias path ends at the last `/`, so a `/` here would put the ID/section boundary inside it)"
         );
 
         // And the backstop under it, for a `Config` assembled in code.

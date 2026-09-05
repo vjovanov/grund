@@ -60,7 +60,7 @@ mod tests_lsp_hover {
     }
 
     fn plural_fixture(root: &Path) {
-        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(&root.join("grund.toml"), "grund_config_version = 1\n");
         write(
             &root.join("docs/functional-spec/FS-001-alpha.md"),
             "# FS-001-alpha: Alpha\n\nLead.\n\n## 1. Detail\nMore.\n\n### 1.1 Deeper\nDeeper.\n",
@@ -191,7 +191,7 @@ mod tests_lsp_hover {
     #[test]
     fn title_hover_fences_backticks_read_off_a_real_tree() {
         let root = test_root("title_hover_fences_backticks_read_off_a_real_tree");
-        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(&root.join("grund.toml"), "grund_config_version = 1\n");
         write(
             &root.join("docs/functional-spec/FS-004-delta.md"),
             "# FS-004-delta: The `--toc` flag\n\nLead.\n\n## 1. Section map (`--toc`)\nMore.\n",
@@ -236,7 +236,7 @@ mod tests_lsp_hover {
     #[test]
     fn stub_title_hover_counts_the_inline_declarations_citations() {
         let root = test_root("stub_title_hover_counts_the_inline_declarations_citations");
-        write(&root.join(".agents/grund.toml"), "grund_config_version = 1\n");
+        write(&root.join("grund.toml"), "grund_config_version = 1\n");
         write(
             &root.join("docs/architecture/AR-001-router.md"),
             "# AR-001-router: [src/router.rs](../../src/router.rs)\n",
@@ -291,11 +291,11 @@ mod tests_lsp_hover {
     fn workspace_title_hover_counts_cross_namespace_citations() {
         let root = test_root("workspace_title_hover_counts_cross_namespace_citations");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n\n[workspace]\nmembers = [\"apps/api\"]\n",
         );
         write(
-            &root.join("apps/api/.agents/grund.toml"),
+            &root.join("apps/api/grund.toml"),
             "grund_config_version = 1\n",
         );
         write(

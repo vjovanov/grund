@@ -1,1 +1,1 @@
-error: .agents/grund.toml:5: workspace member does not exist: apps/api — list it in [workspace] optional_members if it may be legitimately absent
+error: grund.toml:5: workspace member does not exist: apps/api — list it in [workspace] optional_members if it may be legitimately absent

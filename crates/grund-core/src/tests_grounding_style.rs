@@ -430,7 +430,7 @@ mod tests_grounding_style {
     fn inline_note_config_rejects_soft_cap_above_hard_cap() {
         let root = test_root("inline_note_config_rejects_soft_cap_above_hard_cap");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n\n[reference]\ninline_note_suggested_lines = 4\ninline_note_max_lines = 3\n",
         );
 
@@ -451,7 +451,7 @@ mod tests_grounding_style {
     fn config_parses_project_description() {
         let root = test_root("config_parses_project_description");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_name = \"api\"\nproject_description = \"Payment API service\"\n",
         );
 
@@ -466,7 +466,7 @@ mod tests_grounding_style {
     fn config_rejects_multiline_project_description() {
         let root = test_root("config_rejects_multiline_project_description");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "project_description = \"first\\nsecond\"\n",
         );
 

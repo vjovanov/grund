@@ -20,9 +20,8 @@ use support::*;
 
 /// A project whose spec declares `FS-001-example` and whose source cites it.
 fn write_project(root: &Path, citation_name: &str) -> (PathBuf, PathBuf) {
-    fs::create_dir_all(root.join(".agents")).expect("create config dir");
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"src\"]\n\
          extensions = [\"md\", \"java\"]\n",
     )
@@ -150,9 +149,8 @@ fn a_symlinked_include_root_outside_the_project_still_answers() {
     let _ = fs::remove_dir_all(&base);
     let root = base.join("repo");
     let outside = base.join("outside-docs");
-    fs::create_dir_all(root.join(".agents")).expect("create config dir");
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
     )
     .expect("write config");
@@ -201,9 +199,8 @@ fn a_parent_relative_include_root_still_answers() {
     let _ = fs::remove_dir_all(&base);
     let root = base.join("repo");
     let shared = base.join("shared");
-    fs::create_dir_all(root.join(".agents")).expect("create config dir");
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"../shared\"]\nextensions = [\"md\"]\n",
     )
     .expect("write config");
@@ -250,7 +247,7 @@ fn a_file_two_projects_scan_collects_one_verdict() {
     let root = std::env::temp_dir().join(format!("grund-lsp-overlap-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
     write(
-        &root.join(".agents/grund.toml"),
+        &root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n\
          [workspace]\nmembers = [\"packages/app\"]\ninclude_root = true\n",
     );
@@ -260,7 +257,7 @@ fn a_file_two_projects_scan_collects_one_verdict() {
     );
     let member = root.join("packages/app");
     write(
-        &member.join(".agents/grund.toml"),
+        &member.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
     );
     write(
@@ -291,9 +288,8 @@ fn a_virtual_workspace_folder_is_skipped_not_fatal() {
     // (§FS-lsp.2.2, §REQ-never-crashes).
     let root = std::env::temp_dir().join(format!("grund-lsp-virtual-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
-    fs::create_dir_all(root.join(".agents")).expect("create config dir");
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
     )
     .expect("write config");
@@ -346,9 +342,8 @@ fn a_folder_whose_config_will_not_load_leaves_the_others_serving() {
     let _ = fs::remove_dir_all(&root);
     let good = root.join("good");
     let bad = root.join("bad");
-    fs::create_dir_all(good.join(".agents")).expect("create config dir");
     fs::write(
-        good.join(".agents/grund.toml"),
+        good.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
     )
     .expect("write config");
@@ -361,7 +356,7 @@ fn a_folder_whose_config_will_not_load_leaves_the_others_serving() {
         "# FS-002-user: User\n\nSee §FS-001-example.\n",
     );
     write(
-        &bad.join(".agents/grund.toml"),
+        &bad.join("grund.toml"),
         "grund_config_version = 1\n[scan\n",
     );
 

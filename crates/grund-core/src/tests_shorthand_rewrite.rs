@@ -303,7 +303,7 @@ mod tests_shorthand_rewrite {
     fn on_type_expands_a_shorthand_when_the_token_ends() {
         let root = test_root("on_type_expands_a_shorthand_when_the_token_ends");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[id]\nformat = \"{kind}-{number}-{slug}\"\n",
         );
         let path = root.join("docs/notes.md");
@@ -403,7 +403,7 @@ mod tests_shorthand_rewrite {
     fn on_type_refuses_the_lines_fmt_refuses() {
         let root = test_root("on_type_refuses_the_lines_fmt_refuses");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[id]\nformat = \"{kind}-{number}-{slug}\"\n",
         );
         let path = root.join("docs/notes.md");
@@ -444,7 +444,7 @@ mod tests_shorthand_rewrite {
     fn expansion_survives_a_root_reached_by_another_path() {
         let root = test_root("expansion_survives_a_root_reached_by_another_path");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[id]\nformat = \"{kind}-{number}-{slug}\"\n",
         );
         let home = root.join("docs/functional-spec/FS-042-user-login.md");
@@ -479,7 +479,7 @@ mod tests_shorthand_rewrite {
     fn on_type_expansion_is_scoped_and_never_guesses() {
         let root = test_root("on_type_expansion_is_scoped_and_never_guesses");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[id]\nformat = \"{kind}-{number}-{slug}\"\n",
         );
         let path = root.join("docs/notes.md");

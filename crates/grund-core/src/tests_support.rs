@@ -231,7 +231,7 @@ mod tests_support {
         let root = physical_test_root(name);
         let bin = root.join("bin");
         std::fs::create_dir_all(&bin).expect("create mock bin");
-        write(&root.join(".agents/grund.toml"), "[project]\n");
+        write(&root.join("grund.toml"), "[project]\n");
         let cwd = root.join(cwd_suffix);
         std::fs::create_dir_all(&cwd).expect("create cwd");
         let capture = root.join("opened-argument");

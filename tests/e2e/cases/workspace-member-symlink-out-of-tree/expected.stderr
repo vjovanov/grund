@@ -1,1 +1,1 @@
-error: .agents/grund.toml:16: workspace member `link` resolves outside the workspace root that lists it
+error: grund.toml:16: workspace member `link` resolves outside the workspace root that lists it

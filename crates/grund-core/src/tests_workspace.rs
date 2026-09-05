@@ -284,7 +284,7 @@ mod tests_workspace {
     fn workspace_qualified_query_uses_target_id_grammar() {
         let root = test_root("workspace_qualified_query_uses_target_id_grammar");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"grund_config_version = 1
 
 [id]
@@ -347,7 +347,7 @@ members = ["apps/api"]
     fn check_rejects_workspace_with_no_projects_in_scope() {
         let root = test_root("check_rejects_workspace_with_no_projects_in_scope");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"grund_config_version = 1
 
 [workspace]
@@ -366,7 +366,7 @@ members = []
     fn member_config_errors_render_workspace_relative_path() {
         let root = test_root("member_config_errors_render_workspace_relative_path");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             r#"grund_config_version = 1
 
 [workspace]
@@ -374,7 +374,7 @@ members = ["apps/api"]
 "#,
         );
         write(
-            &root.join("apps/api/.agents/grund.toml"),
+            &root.join("apps/api/grund.toml"),
             r#"grund_config_version = 1
 
 [unknown]
@@ -386,7 +386,7 @@ members = ["apps/api"]
             Err(err) => err.to_string(),
         };
         assert!(
-            err.contains("apps/api/.agents/grund.toml:3: unknown config section `unknown`"),
+            err.contains("apps/api/grund.toml:3: unknown config section `unknown`"),
             "error should point at the member path relative to the workspace root: {err}"
         );
     }

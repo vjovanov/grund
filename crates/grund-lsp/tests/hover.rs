@@ -15,7 +15,7 @@ use support::*;
 fn hover_fixture(name: &str) -> std::path::PathBuf {
     let root = test_root(name);
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\", \"src\"]\n\
          extensions = [\"md\", \"rs\"]\n",
     )
@@ -201,7 +201,7 @@ fn citation_hover_still_previews_the_declaration_body() {
 fn hover_on_dangling_citation_defers_to_diagnostic() {
     let root = test_root("hover-dangling-defers");
     fs::write(
-        root.join(".agents/grund.toml"),
+        root.join("grund.toml"),
         "grund_config_version = 1\n[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n\
          [id]\nformat = \"{kind}-{slug}\"\nslug_pattern = \"[a-z][a-z0-9-]*\"\n",
     )

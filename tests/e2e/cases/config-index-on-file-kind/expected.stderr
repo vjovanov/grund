@@ -1,1 +1,1 @@
-error: .agents/grund.toml: kind `FS` sets `index` without `folder` (only a folder kind has an index)
+error: grund.toml: kind `FS` sets `index` without `folder` (only a folder kind has an index)

@@ -1,1 +1,1 @@
-error: group/.agents/grund.toml:16: workspace has no projects in scope (include_root = false and no members)
+error: group/grund.toml:16: workspace has no projects in scope (include_root = false and no members)

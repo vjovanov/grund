@@ -1,1 +1,1 @@
-error: .agents/grund.toml:4: [fmt] exclude: error parsing glob 'docs/a{b': unclosed alternate group; missing '}' (maybe escape '{' with '[{]'?)
+error: grund.toml:4: [fmt] exclude: error parsing glob 'docs/a{b': unclosed alternate group; missing '}' (maybe escape '{' with '[{]'?)

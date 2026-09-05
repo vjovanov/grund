@@ -5,7 +5,7 @@ The default `grund` ID format. Numbers disambiguate; slugs describe.
 This example teaches choosing between the supported ID schemes ([§FS-examples.2](../../docs/functional-spec/FS-examples.md#2-canonical-use-cases)); the `format` grammar and its three canonical shapes are [§FS-config.3.2](../../docs/functional-spec/FS-config.md#32-id--id-grammar).
 
 ```toml
-# .agents/grund.toml — empty `[id]` block, defaults apply
+# grund.toml — empty `[id]` block, defaults apply
 ```
 
 Example IDs:

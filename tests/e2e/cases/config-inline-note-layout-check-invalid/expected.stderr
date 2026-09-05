@@ -1,1 +1,1 @@
-error: .agents/grund.toml:5: unknown [reference] inline_note_layout_check `errors` (expected off, warn, or error)
+error: grund.toml:5: unknown [reference] inline_note_layout_check `errors` (expected off, warn, or error)

@@ -98,7 +98,7 @@ mod tests_integrations {
         let root = test_root("resolver_peek_prints_the_declaration_without_opening_an_editor");
         let bin = root.join("bin");
         std::fs::create_dir_all(&bin).expect("create mock bin");
-        write(&root.join(".agents/grund.toml"), "[project]\n");
+        write(&root.join("grund.toml"), "[project]\n");
         let opened = root.join("must-not-exist");
         // `--format json` resolves; the bare call renders the body to show.
         write(
@@ -546,7 +546,7 @@ mod tests_integrations {
         std::os::unix::fs::symlink("AGENTS.md", root.join("CLAUDE.md")).expect("symlink");
 
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n",
         );
         let output = init(InitOpts {
@@ -560,7 +560,7 @@ mod tests_integrations {
         assert!(output.notes.is_empty(), "{:?}", output.notes);
 
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n[reference]\nconversation = \"link\"\n",
         );
         let output = init(InitOpts {

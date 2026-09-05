@@ -10,7 +10,7 @@ mod tests_fmt_errors {
     fn public_fmt_api_preserves_every_strict_scan_error() {
         let root = test_root("public_fmt_api_preserves_every_strict_scan_error");
         write(
-            &root.join(".agents/grund.toml"),
+            &root.join("grund.toml"),
             "grund_config_version = 1\n\n[scan]\ninclude = [\"docs\"]\n",
         );
         write(

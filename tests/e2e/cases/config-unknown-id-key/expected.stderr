@@ -1,1 +1,1 @@
-error: .agents/grund.toml:2: unknown config key `forrmat`
+error: grund.toml:2: unknown config key `forrmat`
