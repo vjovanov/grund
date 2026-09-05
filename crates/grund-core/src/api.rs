@@ -254,7 +254,10 @@ fn show_with_scope_and_overlays(
         opts.mode.render_mode(),
         opts.format == ShowFormat::Markdown,
         overlays,
-    )?;
+    )
+    // §FS-workspace.8.1.1: a miss names the projects that do declare the ID,
+    // read off the context this run already loaded.
+    .map_err(|err| with_member_id_candidates(err, &context, alias.as_deref(), raw_id))?;
     if opts.format != ShowFormat::Markdown {
         output.body = flatten_cross_ref_links(&output.body, config);
     }
