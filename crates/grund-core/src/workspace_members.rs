@@ -217,34 +217,72 @@ fn warn_if_members_absorb_scan(config: &Config, members: &[WorkspaceMember]) {
 ///
 /// Comparison is canonical and by prefix, exactly as the walk's own prune
 /// compares, so a member reached through a symlink or a glob covers what it
-/// actually lands on. Each root is named by its path under the block root — the
-/// config's spelling normalized rather than the spelling itself, so `./docs/`
-/// is named `docs` — because a canonical root renders as nothing when it equals
-/// the render base and as an absolute path when it does not (§FS-errors.4). The
-/// member beside it is the entry as written, which is what it was resolved from.
+/// actually lands on. Each root is named by its path under the block root, and
+/// the member beside it is the entry as written, which is what it was resolved
+/// from.
 fn absorbed_scan_roots(config: &Config, members: &[WorkspaceMember]) -> Vec<String> {
     // §FS-workspace.2.1: a block with `include_root = false` is not a project, so
-    // it has no scan of its own to lose — what its files cost is §FS-workspace.6.1's
-    // subject rather than this one.
+    // it has no scan of its own to lose — what its own files cost is the same
+    // question asked from the other side, and §FS-check.4.10 is where it is asked.
     if !config.workspace_include_root || members.is_empty() {
         return Vec::new();
     }
     let mut covered = Vec::new();
-    for root in root_scope_roots(config, false) {
-        if !root.exists() {
-            continue;
-        }
-        let canonical = canonical_workspace_path(&root);
-        let Some(member) = members
-            .iter()
-            .find(|member| canonical.starts_with(&member.root))
-        else {
+    for (root, member) in block_scope_roots(config, members) {
+        let Some(member) = member else {
             return Vec::new();
         };
-        let written = root.strip_prefix(&config.root).unwrap_or(root.as_path());
-        covered.push(format!("`{}` in `{}`", format_path(written), member.written));
+        covered.push(format!(
+            "`{}` in `{}`",
+            format_path(block_relative_root(config, &root)),
+            member.written
+        ));
     }
     covered
+}
+
+/// Each root of the block's **own default scope** that is on disk, paired with
+/// the member root that covers it — `None` where the members leave the root to
+/// the block itself.
+///
+/// One list, read from opposite ends by the two findings that ask what a block's
+/// own scan comes to: §FS-workspace.2.1 fires when every entry is covered, and
+/// §FS-check.4.10 when an uncovered entry holds a file. Sharing it is what keeps
+/// a `[[kinds]]` home, or a home the config lists without walking, moving both
+/// rules together instead of one of them (§FS-config.3.5).
+///
+/// The roots are [`root_scope_roots`] at `full = false` rather than a second
+/// reading of `[scan] include`: the question is about the set §FS-workspace.6's
+/// boundary prunes. `--full` is never asked, because the flag adds the config
+/// root as a root while the boundary still prunes — both findings are properties
+/// of the configuration, not of one walk (§FS-check.1.3).
+///
+/// Why a root that is not on disk is dropped: the walk skips it before it prunes,
+/// so it is read by nobody and rescues nobody. Comparison is canonical and by
+/// prefix, exactly as the walk's own prune compares.
+fn block_scope_roots<'a>(
+    config: &Config,
+    members: &'a [WorkspaceMember],
+) -> Vec<(PathBuf, Option<&'a WorkspaceMember>)> {
+    root_scope_roots(config, false)
+        .into_iter()
+        .filter(|root| root.exists())
+        .map(|root| {
+            let canonical = canonical_workspace_path(&root);
+            let member = members
+                .iter()
+                .find(|member| canonical.starts_with(&member.root));
+            (root, member)
+        })
+        .collect()
+}
+
+/// A scope root named by its path **under the block root** — the config's
+/// spelling normalized rather than the spelling itself, so `./docs/` is named
+/// `docs` — because a canonical root renders as nothing when it equals the render
+/// base and as an absolute path when it does not (§FS-errors.4).
+fn block_relative_root<'a>(config: &Config, root: &'a Path) -> &'a Path {
+    root.strip_prefix(&config.root).unwrap_or(root)
 }
 
 /// The sentence [`warn_if_members_absorb_scan`] prints, built apart from the
@@ -259,6 +297,99 @@ fn absorbed_scan_warning(covered: &[String]) -> String {
          not a member, or set include_root = false. This becomes an error in grund \
          {ABSORBED_SCAN_ERROR_RELEASE}.",
         covered.join(", ")
+    )
+}
+
+/// §FS-check.4.10: say so when a block that set `include_root = false` still holds
+/// files of its own. It is no project, and the enclosing scan stops at the member
+/// boundary (§FS-workspace.6), so those files are read by nobody — a declaration
+/// there reaches no catalog and a citation there is never checked
+/// (§GOAL-no-dangling-refs). grund#71 reproduced exactly that: `check`,
+/// `check --full` and `list` all silent over two dangling citations, all exiting 0.
+///
+/// The mirror of [`warn_if_members_absorb_scan`] above — *would this block have
+/// read something, had it been a project?* — and it takes that finding's shape: a
+/// CLI-level `warning:` on stderr, asked where a run first populates a block's
+/// boundary, which is what puts it on every command that walks while leaving each
+/// block asked once.
+///
+/// It returns how many lines it printed. This is the one of the two that can fire
+/// on an otherwise clean run — §FS-workspace.2.1's block always earns the
+/// empty-scan caution beside it — so it is the one whose caller has to know that
+/// stderr is no longer empty and `success` must not be printed (§FS-check.2.1).
+///
+/// It names no release, deliberately. A grouping directory holding a README it
+/// does not need checked is a correct configuration and no key records that
+/// intent, so the finding is never eligible to become an error
+/// (§DF-unread-opted-out-block.2.3) — unlike both of its siblings.
+fn warn_if_no_project_scans_the_block(config: &Config, members: &[WorkspaceMember]) -> usize {
+    let Some(root) = unread_block_scope_root(config, members) else {
+        return 0;
+    };
+    eprintln!(
+        "warning: {}",
+        config_location_message(
+            config
+                .workspace_include_root_source
+                .as_ref()
+                .or(config.workspace_section_source.as_ref()),
+            unread_block_warning(&root),
+        )
+    );
+    1
+}
+
+/// §FS-check.4.10: the first root of this block's own scope that holds a file the
+/// block would have read as a project, named under the block root — or `None`,
+/// which is every configuration this finding stays silent about.
+///
+/// **One root, not every root.** §FS-workspace.2.1's claim is universal and its
+/// list is the evidence for it; this claim is existential, one edit clears every
+/// root at once, and probing the rest would buy nothing the answer depends on. The
+/// one named is the first in *scope order* — `[scan] include` in config order,
+/// then the `[[kinds]]` homes — because that order is fixed, while which file the
+/// walk hands back first is not (§FS-errors.4).
+///
+/// **A block with no member in scope is not this finding.** `include_root = false`
+/// with no members is already a config error at that block's own line
+/// (§FS-workspace.6.1), and a configuration the run refuses is not one it also
+/// cautions about — the caution's two remedies are not the repair that block needs.
+///
+/// The probe runs against the block's own config with its member boundary set, so
+/// [`walk_reads_any_file`] prunes exactly as the block's own scan would and stops
+/// at each member. `workspace_project_roots` is empty on purpose: the block is no
+/// project of this run, and every project inside its scope is one of the members
+/// the boundary already stops at (§FS-workspace.6). `scan_full` is off for the same
+/// reason [`block_scope_roots`] asks the default scope — this is a property of the
+/// configuration rather than of one walk (§FS-check.1.3).
+fn unread_block_scope_root(config: &Config, members: &[WorkspaceMember]) -> Option<String> {
+    if config.workspace_include_root || members.is_empty() {
+        return None;
+    }
+    let mut probe = config.clone();
+    probe.workspace_boundary_roots = members.iter().map(|member| member.root.clone()).collect();
+    probe.workspace_project_roots = Vec::new();
+    probe.scan_full = false;
+    block_scope_roots(config, members)
+        .into_iter()
+        .filter(|(_, member)| member.is_none())
+        .find(|(root, _)| walk_reads_any_file(&probe, root))
+        .map(|(root, _)| format_path(block_relative_root(config, &root)))
+}
+
+/// The sentence [`warn_if_no_project_scans_the_block`] prints, built apart from
+/// the printing so a test can read it (§FS-check.4.10): the tree no scan reaches,
+/// what that costs, and the two remedies the ticket itself named.
+///
+/// Shorter than [`absorbed_scan_warning`] above, and without its "declarations are
+/// unreachable" half. That line is only ever printed on a green run, while this
+/// one stands beside an error in three cases of the corpus, so it keeps to the
+/// 180-byte cap a non-zero case's stderr is held to (§DF-unread-opted-out-block.2.4).
+/// It names no release: there is none.
+fn unread_block_warning(root: &str) -> String {
+    format!(
+        "no project scans `{root}`, so its citations are never checked. \
+         Set include_root = true, or point another project's [scan] include at it."
     )
 }
 

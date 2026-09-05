@@ -142,6 +142,11 @@ pub struct CheckOutput {
     pub output_format: String,
     pub report: Report,
     pub had_scan_errors: bool,
+    /// §FS-check.4.10: how many `[workspace]` blocks this run already told the
+    /// reader no project scans, on stderr, before the report existed. Not a
+    /// finding — the report carries none for it — but a caller that prints the
+    /// `success` marker has to know stderr is not empty (§FS-check.2.1).
+    pub unread_opted_out_blocks: usize,
 }
 
 /// Scan one project tree and return the raw scanner findings. This is the
@@ -171,6 +176,7 @@ pub fn check_with_opts(opts: CheckOpts) -> Result<CheckOutput> {
     let run = run_check(&opts.path, opts.path_provided, opts.require_grounding, opts.full)?;
     Ok(CheckOutput {
         output_format: run.config.output_format.clone(),
+        unread_opted_out_blocks: run.config.unread_opted_out_blocks,
         report: public_report(&run.config, run.report, opts.include_suggestions),
         had_scan_errors: run.had_scan_errors,
     })
