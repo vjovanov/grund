@@ -142,7 +142,7 @@ pub struct CheckOutput {
     pub output_format: String,
     pub report: Report,
     pub had_scan_errors: bool,
-    /// §FS-check.4.11: how many `[workspace]` blocks this run already told the
+    /// §FS-check.4.10: how many `[workspace]` blocks this run already told the
     /// reader no project scans, on stderr, before the report existed. Not a
     /// finding — the report carries none for it — but a caller that prints the
     /// `success` marker has to know stderr is not empty (§FS-check.2.1).
@@ -528,7 +528,7 @@ pub fn validate_config(path: &Path) -> Result<Config> {
 
 /// The CLI-level `warning:` texts a loaded config carries: the redundant
 /// discovery pair (§FS-config.1.1, §FS-check.4.3) and the deprecated `.agents/`
-/// location (§FS-config.1.2, §FS-check.4.12). Message text only, so
+/// location (§FS-config.1.2, §FS-check.4.11). Message text only, so
 /// `grund config validate` and `grund config show` print the same sentences
 /// `grund check` does without depending on the checker's report type.
 pub fn config_warnings(config: &Config) -> Vec<String> {
@@ -857,7 +857,7 @@ fn normalized_overlays(overlays: BTreeMap<PathBuf, String>) -> TextOverlays {
 /// terminal over one tree say the same thing — this is `grund check`'s workspace
 /// arm (`run_workspace_check`) for a surface that has no CLI.
 ///
-/// §FS-check.4.10: the announcement of every namespace the run did not read is a
+/// §FS-check.4.9: the announcement of every namespace the run did not read is a
 /// **located** report finding, so it is one of the diagnostics the editor must
 /// mirror. It belongs to the run rather than to a project, which is why it is read
 /// off the render config outside the loop below and survives a block whose every
@@ -915,7 +915,7 @@ fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: 
             project.scan_errors.is_empty() && !project_has_findings,
         ));
     }
-    // §FS-check.4.10, §FS-check.2.2: the announcements and the caution — see this
+    // §FS-check.4.9, §FS-check.2.2: the announcements and the caution — see this
     // function's docs.
     report
         .warnings

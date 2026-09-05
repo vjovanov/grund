@@ -13,7 +13,7 @@
 /// second list with a grammar rule of its own (no glob), an alias rule of its own
 /// (the entry's last segment, not the member's `project_name`), and an outcome the
 /// other list has no shape for — a member that is simply not there, and a report
-/// that has to say so (§AR-core-module-layout.1, §FS-check.4.10).
+/// that has to say so (§AR-core-module-layout.1, §FS-check.4.9).
 #[derive(Clone)]
 pub struct AbsentOptionalNamespace {
     /// The entry **as the config wrote it** — the string an author can edit
@@ -21,7 +21,7 @@ pub struct AbsentOptionalNamespace {
     pub written: String,
     /// The whole alias path this run spells the namespace with: one segment per
     /// workspace level, so an entry one `[workspace]` block down is `sub/vendored`
-    /// while the entry itself stays `vendored` (§FS-check.4.10). Expansion sets it
+    /// while the entry itself stays `vendored` (§FS-check.4.9). Expansion sets it
     /// to the bare segment; the walk that knows the enclosing path composes the
     /// rest ([`qualify_absent_optional`]).
     pub alias_path: String,
@@ -111,7 +111,7 @@ fn both_member_lists_message(entry: &str) -> String {
 /// §FS-workspace.2.2: fold this block's `optional_members` into the expanded
 /// member list `members` already holds. A present entry becomes an ordinary
 /// member — every §FS-workspace.2 invariant below applies to it unchanged; an
-/// absent one is returned for the report to announce (§FS-check.4.10) and costs
+/// absent one is returned for the report to announce (§FS-check.4.9) and costs
 /// the run nothing else.
 ///
 /// The canonical roots `members` expanded to are read *before* the two lists are
@@ -191,7 +191,7 @@ fn expand_optional_members(
 /// and one run says two opposite things: a dangling reference reported *in*
 /// namespace `vendored`, and one line later the announcement that `vendored` was
 /// not checked — while a third citation resolved silently against whichever
-/// project really holds the alias. §FS-check.4.10's announcement is only worth
+/// project really holds the alias. §FS-check.4.9's announcement is only worth
 /// anything if it is true, so the alias it names has to be the run's alone.
 ///
 /// Registered **before** this block's present members, which is what makes the
@@ -271,7 +271,7 @@ fn optional_entry_naming<'a>(block: &'a Config, child_root: &Path) -> Option<&'a
         .find(|entry| canonical_workspace_path(&block.root.join(entry)) == child_root)
 }
 
-/// §FS-check.4.10: the alias path a namespace is announced by, composed one level
+/// §FS-check.4.9: the alias path a namespace is announced by, composed one level
 /// at a time exactly as a project's alias is (§FS-workspace.6.1) — `vendored` at
 /// the outermost root, `sub/vendored` for the same entry one block down.
 fn qualify_absent_optional(
@@ -287,11 +287,11 @@ fn qualify_absent_optional(
         .collect()
 }
 
-/// §FS-check.4.10: one warning per absent optional entry, in the order the list
+/// §FS-check.4.9: one warning per absent optional entry, in the order the list
 /// writes them, anchored at the `optional_members` line of the block that holds it.
 ///
-/// A **located** finding on stdout, where its two nearest neighbours (§FS-check.4.8,
-/// §FS-check.4.9) are CLI-level `warning:` lines on stderr. Those two report a
+/// A **located** finding on stdout, where its two nearest neighbours (§FS-check.4.7,
+/// §FS-check.4.8) are CLI-level `warning:` lines on stderr. Those two report a
 /// misconfiguration that makes every command in the tree wrong; nothing is
 /// misconfigured here — the repository declared this may happen and it happened —
 /// and what is at stake is only the coverage of `check`'s own report. Exit `2` is
@@ -321,7 +321,7 @@ fn absent_optional_member_warnings(config: &Config) -> Vec<Diagnostic> {
 /// The sentence [`absent_optional_member_warnings`] carries, built apart from the
 /// diagnostic so a test can read it: the entry as the config wrote it, the
 /// namespace by the whole alias path a citation has to write, and what the run
-/// therefore does not cover (§FS-check.4.10, §FS-errors.4).
+/// therefore does not cover (§FS-check.4.9, §FS-errors.4).
 fn absent_optional_member_message(written: &str, alias_path: &str) -> String {
     format!(
         "optional workspace member `{written}` is absent — citations into namespace \
@@ -340,7 +340,7 @@ fn absent_optional_member_message(written: &str, alias_path: &str) -> String {
 /// of §FS-check.2.2's other two messages, both of which would be false: the walk
 /// never reached `[scan] include`, so it did not look there and find nothing, and
 /// the `grund init --docs` tree it would offer to scaffold is not what is missing.
-/// A checkout is, and that is not grund's to ask for (§FS-check.4.10).
+/// A checkout is, and that is not grund's to ask for (§FS-check.4.9).
 fn absent_only_workspace_caution(config: &Config, no_projects: bool) -> Option<Diagnostic> {
     (no_projects && !config.workspace_absent_optional.is_empty()).then(|| Diagnostic {
         code: "empty-scan",
@@ -361,7 +361,7 @@ fn absent_only_workspace_caution(config: &Config, no_projects: bool) -> Option<D
 /// beside resolved and unknown — so nothing is reported at its site: the citation
 /// may be perfect and the checkout merely partial, and a tree that cites an absent
 /// namespace widely would pay thousands of lines to be told one fact it is told
-/// once, at the entry that made the skip legal (§FS-check.4.10).
+/// once, at the entry that made the skip legal (§FS-check.4.9).
 ///
 /// Descending counts because an absent member may itself have declared
 /// `[workspace]` and the run cannot know how many levels it had or what they were

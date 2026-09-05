@@ -53,7 +53,7 @@ Exactly the gate [§FS-check.2.2](../../functional-spec/FS-check.md#22-empty-sca
 
 ## 3. Rejected alternative: warn on each heading that looks like a declaration
 
-Report every `# <KIND>-…: <title>` heading whose ID fails `[id] format`, at its own `path:line`. This is the near miss [§FS-check.5](../../functional-spec/FS-check.md#5-what-grund-does-not-check) already records as unflagged, and it shipped as [§FS-check.4.7](../../functional-spec/FS-check.md#47-declaration-near-miss).
+Report every `# <KIND>-…: <title>` heading whose ID fails `[id] format`, at its own `path:line`. This is the near miss [§FS-check.5](../../functional-spec/FS-check.md#5-what-grund-does-not-check) already records as unflagged, and it shipped as [§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-near-miss).
 
 It is a better message and a different rule, and it is not a substitute for this one. It requires deciding what "looks like a declaration" means — which is a heuristic, of the kind [§GOAL-agent-grounding.3](../../goals.md#3-what-this-rules-out) is careful about — plus an opt-out for files that legitimately write such headings as prose. This decision needs none of that: "the run recognized nothing" is arithmetic over what the scan already recorded, with no line to judge and nothing to suppress. When the per-heading rule ships it makes this warning more actionable, not redundant: the count is the diagnosis, the sites are the fix.
 

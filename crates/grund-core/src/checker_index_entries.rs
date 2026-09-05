@@ -3,7 +3,7 @@
 // family past the core-source file budget (§AR-core-module-layout.3).
 
 /// The IDs each kind index owes an entry for, keyed by the index's
-/// config-root-relative path (§FS-check.4.6). `folder_owed` preserves the
+/// config-root-relative path (§FS-check.3.18). `folder_owed` preserves the
 /// original folder-membership rule; `owed` additionally holds external inline
 /// declarations enrolled by a canonical link. Their exact sites stay separate
 /// so another citation of the same external ID on the page remains real use
@@ -60,7 +60,7 @@ impl KindIndexEntries {
     /// The IDs this index owes an entry for, or `None` when `path` is not a
     /// configured index (§FS-fmt.6.1). What the always-linkify carve-out wraps:
     /// declarations under the folder plus an external inline ID only after its
-    /// canonical enrollment link exists (§FS-check.4.6).
+    /// canonical enrollment link exists (§FS-check.3.18).
     fn entries_in(&self, path: &Path) -> Option<&BTreeSet<Id>> {
         if self.owed.is_empty() {
             return None;
@@ -95,7 +95,7 @@ impl KindIndexEntries {
 }
 
 /// Add every canonical external-inline enrollment to `owed`, returning the
-/// exact citation sites that are navigation rather than use (§FS-check.4.6).
+/// exact citation sites that are navigation rather than use (§FS-check.3.18).
 /// Citations are already scanner records; index text is read once per target
 /// solely to inspect the persisted Markdown wrapper and destination.
 fn enroll_external_inline_declarations(

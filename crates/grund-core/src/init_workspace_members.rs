@@ -43,7 +43,7 @@ fn find_init_workspace_context(
     // `target` before §FS-init.2.3.4.15's identity-based self omission.
     let target_canonical = fs::canonicalize(target).ok()?;
     let mut projects = Vec::new();
-    // §FS-check.4.9: the expansion below is the only route that walks *down* from
+    // §FS-check.4.8: the expansion below is the only route that walks *down* from
     // a root above the run, so it is the only one that has to be told where the
     // run is — every other command re-roots onto it first (§AR-workspace.5.1).
     for entry in expand_workspace_tree_with_report_base(&mut root_config, &run_root).ok()? {
@@ -109,7 +109,7 @@ fn find_init_workspace_context(
 /// block governing `target`, before the climb moved off it. That is the base every
 /// diagnostic of this run is rendered against (§FS-errors.4), and the climb has
 /// already used it for the blocks above; the expansion downward needs the same one
-/// (§FS-check.4.9).
+/// (§FS-check.4.8).
 fn find_init_workspace_root(target: &Path) -> Option<(Config, PathBuf)> {
     // Without a canonical anchor we cannot reliably compare against the
     // canonicalized project roots `expand_workspace_tree` returns; bail
@@ -137,7 +137,7 @@ fn find_init_workspace_root(target: &Path) -> Option<(Config, PathBuf)> {
     if !config.workspace_declared {
         return None;
     }
-    // §FS-check.4.9: the one route to `expand_workspace_tree` that does not come
+    // §FS-check.4.8: the one route to `expand_workspace_tree` that does not come
     // through `resolve_workspace_config`, and the expansion asks every block but
     // this one — so without this, `init` says nothing about the block it is on.
     apply_workspace_boundary(&mut config).ok()?;

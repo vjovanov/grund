@@ -193,7 +193,7 @@ fn scan_file_text(
             continue;
         }
 
-        // §FS-check.4.7: the line was not a declaration. Ask the near-miss pattern
+        // §FS-check.4.6: the line was not a declaration. Ask the near-miss pattern
         // whether it looked like one, here rather than in a second read of the tree —
         // the scan has the line, the position rules and the fence/docstring state.
         if let Some(text) =
@@ -1235,7 +1235,7 @@ fn scan_tree_with_workspace_threshold(
     // §FS-config.3.5: a link the walk could not resolve is already a scan failure
     // before a single file is opened — it joins the per-file ones (§FS-check.2).
     let walked = walk_scannable_files_reporting(config, scope, explicit_scope)?;
-    // §FS-check.4.9: the walk's directories travel with its files, for the rule that
+    // §FS-check.4.8: the walk's directories travel with its files, for the rule that
     // asks which of them holds a `[workspace]` block nothing claims. Carried, not
     // judged: the scanner never asks that question itself (§AR-workspace.1).
     let mut findings = Findings { walked_dirs: walked.dirs, ..Findings::default() };

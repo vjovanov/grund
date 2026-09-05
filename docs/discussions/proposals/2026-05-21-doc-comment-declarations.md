@@ -99,7 +99,7 @@ Turning the gate on by default changes what an existing tree recognizes — a tr
 
 ## Relation to other work
 
-- [§FS-check.4.7](../../functional-spec/FS-check.md#47-declaration-near-miss) warns on a heading shaped like a declaration that the recognizer ignores. A plain-`//` ID line is exactly such a near-miss once this gate drops it, so the two compose: the gate stops the phantom declaration, the near-miss optionally surfaces "this looks like a declaration but is being ignored."
+- [§FS-check.4.6](../../functional-spec/FS-check.md#46-declaration-near-miss) warns on a heading shaped like a declaration that the recognizer ignores. A plain-`//` ID line is exactly such a near-miss once this gate drops it, so the two compose: the gate stops the phantom declaration, the near-miss optionally surfaces "this looks like a declaration but is being ignored."
 - [§GOAL-multi-language](../../goals.md#goal-multi-language-same-engine-three-platforms): the gate and the language table must produce byte-identical results across all three bindings.
 - [§GOAL-friendliness-first](../../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible) / [§GOAL-zero-config](../../goals.md#goal-zero-config-works-on-any-conformant-tree): default-on, no config to write; the switch is only for trees that relied on the old behavior.
 

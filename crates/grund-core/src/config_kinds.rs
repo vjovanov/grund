@@ -225,7 +225,7 @@ fn parse_kinds_key(
             }
         }
         // §FS-config.3.4: `index` names the file under `folder` that must list the
-        // folder's declarations (§FS-check.4.6). A file name or `false`; `true` names
+        // folder's declarations (§FS-check.3.18). A file name or `false`; `true` names
         // no file, so it is rejected — the key's own absence already spells "default".
         "index" => {
             let index = if value == "false" {
@@ -362,7 +362,7 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
             ));
         }
         // §FS-config.3.4: an index lists the folder's declarations
-        // (§FS-check.4.6), and a non-citable kind has none — so the key is not a
+        // (§FS-check.3.18), and a non-citable kind has none — so the key is not a
         // no-op here, it is a statement about a set that can never be non-empty.
         if k.index != KindIndex::Default && !k.citable {
             return Err(anyhow!(

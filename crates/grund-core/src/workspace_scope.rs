@@ -38,7 +38,7 @@ fn resolve_workspace_config(path: &Path) -> Result<Config> {
 /// roots. The boundary is the same list that `run_workspace_check`
 /// computes; setting it on the Config makes the scanner skip those subtrees.
 ///
-/// §FS-check.4.9, §FS-check.4.11: it is also where the block a run is rooted at is
+/// §FS-check.4.8, §FS-check.4.10: it is also where the block a run is rooted at is
 /// asked what that boundary leaves it — anything to read, and anything it reads
 /// that nobody else will. Every command that walks resolves its config through
 /// here, so asking at this one point is what puts both warnings on `list`, `refs`,
@@ -49,7 +49,7 @@ fn resolve_workspace_config(path: &Path) -> Result<Config> {
 /// (`config_for_member_scope` rewrites first), so it stays silent about a block it
 /// is not reading through.
 ///
-/// §FS-check.4.11 is answered *here*, unlike the blocks below, which are held until
+/// §FS-check.4.10 is answered *here*, unlike the blocks below, which are held until
 /// the expansion knows where the run's projects are. It can be, and the reason is
 /// what makes this block different: it is the run's root and it is no project, so
 /// every project the run goes on to load lies inside one of the members expanded
@@ -61,7 +61,7 @@ fn apply_workspace_boundary(config: &mut Config) -> Result<()> {
     if !config.workspace_declared {
         return Ok(());
     }
-    // §FS-check.4.10: the absent optional entries are dropped here on purpose. This
+    // §FS-check.4.9: the absent optional entries are dropped here on purpose. This
     // is the boundary pass; the announcement needs the alias path each namespace is
     // spelled with, which only the expansion walk composes (`expand_workspace_tree`).
     let members = expand_workspace_member_list(config)?.members;
@@ -148,7 +148,7 @@ fn config_location_error(source: Option<&ConfigLocation>, message: String) -> an
 /// The breadcrumb every diagnostic about a config key wears — `<config>:<line>:`
 /// ahead of the sentence (§FS-config.4.3) — built apart from the error above
 /// because a *warning* about such a key needs the same one and is not an error
-/// (§FS-check.4.9).
+/// (§FS-check.4.8).
 fn config_location_message(source: Option<&ConfigLocation>, message: String) -> String {
     match source {
         Some(source) => format!("{}:{}: {message}", format_path(&source.path), source.line),

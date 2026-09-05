@@ -220,7 +220,7 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         return Err(InitError::new(message));
     }
 
-    // §FS-init.2.3.4.15, §FS-check.4.9: walked once and handed to both surfaces —
+    // §FS-init.2.3.4.15, §FS-check.4.8: walked once and handed to both surfaces —
     // the section does not vary by surface, and this walk is where every block is
     // asked whether its members swallowed its scan, once per run.
     let workspace_members = agents_workspace_members_section(
@@ -566,7 +566,7 @@ fn docs_scaffold(fs_home: &InitFsHome) -> Vec<(String, String)> {
             "docs/architecture/README.md",
             canonical_template_text(AS_README_TEMPLATE),
         ),
-        // §FS-init.2.1 / §FS-check.4.6: every folder kind the generated config
+        // §FS-init.2.1 / §FS-check.3.18: every folder kind the generated config
         // leaves at the default `index` gets its index README scaffolded, not a
         // bare `.gitkeep` (§FS-config.3.4).
         (

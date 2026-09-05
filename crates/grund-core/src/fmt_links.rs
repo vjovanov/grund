@@ -23,7 +23,7 @@ fn wrap_markdown_links(
             continue;
         }
         // §FS-fmt.6.1: the always-linkify carve-out reaches this file for its
-        // index entries (§FS-check.4.6) and writes nothing else — a qualified
+        // index entries (§FS-check.3.18) and writes nothing else — a qualified
         // citation is never an entry, and an ID the index does not owe is prose.
         if let Some(only_ids) = only_ids
             && (citation.namespace.is_some() || !only_ids.contains(&citation.id))

@@ -2,7 +2,7 @@
 /// (§DF-index-entry-form.2.3). One predicate decides it — a citation is a bare
 /// entry exactly when the next `grund fmt --write` would wrap it — and every
 /// case here is a place where the answer is no, so §FS-check.3.17 must stay
-/// silent and §FS-check.4.6's warning is what the reader gets instead. Each was
+/// silent and §FS-check.3.18's warning is what the reader gets instead. Each was
 /// a permanent, unclearable error before the predicate replaced a list of
 /// exemptions. Where the findings land, and the two carve-outs around them, are
 /// in `tests_kind_index.rs`.
@@ -40,7 +40,7 @@ mod tests_kind_index_entry_form {
     /// is not a citation at all off strict mode, because `](…)` is a zone `fmt`
     /// never writes in (§FS-fmt.2.3) — so it earns no `unlinked-index-entry`
     /// finding for the same reason no citation ever does, and the ID still falls
-    /// to §FS-check.4.6's warning below (grund#131).
+    /// to §FS-check.3.18's warning below (grund#131).
     #[test]
     fn an_id_shaped_link_destination_is_not_an_entry() {
         let root = kind_index_repo_loose("an_id_shaped_link_destination_is_not_an_entry");

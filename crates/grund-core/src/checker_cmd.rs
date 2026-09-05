@@ -175,7 +175,7 @@ fn run_check(
         path_provided,
         report_is_silent,
     ));
-    // What the config itself carries (§FS-check.4.3, §FS-check.4.12,
+    // What the config itself carries (§FS-check.4.3, §FS-check.4.11,
     // §FS-config.4.1), outside `report_is_silent`: a repository mid-migration
     // must not lose the scope caution just because it also has a config pair.
     report.warnings.extend(config_diagnostics(&config));
@@ -185,7 +185,7 @@ fn run_check(
     report
         .warnings
         .extend(full_scope_ignored_warning(&config, path, path_provided, full));
-    // §FS-check.4.9: the blocks this walk met that no enclosing one lists. A report
+    // §FS-check.4.8: the blocks this walk met that no enclosing one lists. A report
     // warning, not a line printed past it: that is what stands it in place of
     // `success` (§FS-check.2.1) and makes §DF-unlisted-workspace-block.2.1's ramp work.
     report.warnings.extend(unlisted_workspace_block_warnings(
@@ -215,7 +215,7 @@ fn run_check(
 /// `include_root = true` the root is itself a `projects` entry, so warning once per
 /// project would name the root's directory twice.
 ///
-/// §FS-check.4.10: the announcement of every namespace the run did not read is one
+/// §FS-check.4.9: the announcement of every namespace the run did not read is one
 /// located warning each, on stdout, at the `optional_members` entry that made the
 /// skip legal. It is what buys the green exit — the exit code says nothing about
 /// coverage here, so the report must — and it withholds `success` like any other
@@ -290,7 +290,7 @@ fn run_workspace_check(
             project.scan_errors.is_empty() && !project_has_findings,
         ));
     }
-    // §FS-workspace.2.2, §FS-check.4.10: the caution and the announcements — see
+    // §FS-workspace.2.2, §FS-check.4.9: the caution and the announcements — see
     // this function's docs.
     report
         .warnings
@@ -298,7 +298,7 @@ fn run_workspace_check(
     report
         .warnings
         .extend(absent_optional_member_warnings(&root_config));
-    // §FS-check.4.3, §FS-check.4.12: the root's config and every member's, each
+    // §FS-check.4.3, §FS-check.4.11: the root's config and every member's, each
     // named where that project loaded it — one config, not one scope, and a
     // workspace may mix the two discovery forms (§FS-workspace.2).
     report.warnings.extend(config_diagnostics(&root_config));
@@ -307,7 +307,7 @@ fn run_workspace_check(
             report.warnings.extend(config_diagnostics(&project.config));
         }
     }
-    // §FS-check.4.9: per project — the candidates are what *that* walk reached, and
+    // §FS-check.4.8: per project — the candidates are what *that* walk reached, and
     // the absorbing namespace is its own. Rendered against the workspace root like
     // every other message here (§FS-workspace.8.1).
     for project in &projects {

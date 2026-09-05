@@ -2,7 +2,7 @@
 /// folder kind's index is, and every shape of the value the config parser
 /// refuses. The rules built on the key, and the two findings they produce, are
 /// in `tests_kind_index.rs`; this file is about the key alone, so a reader
-/// chasing a rejected `grund.toml` is not paging through §FS-check.4.6's cases.
+/// chasing a rejected `grund.toml` is not paging through §FS-check.3.18's cases.
 #[cfg(test)]
 mod tests_kind_index_config {
     use super::*;
@@ -141,7 +141,7 @@ mod tests_kind_index_config {
     /// §FS-config.3.4: the `index` default is keyed on the prefix, and a declared
     /// `[[kinds]]` block that omits the key gets the same answer the built-in list
     /// does. Without this every config `grund init` wrote before the key existed
-    /// would take one §FS-check.4.6 warning per e2e case on upgrade.
+    /// would take one §FS-check.3.18 warning per e2e case on upgrade.
     #[test]
     fn a_declared_e2e_kind_takes_the_index_false_default() {
         let root = test_root("a_declared_e2e_kind_takes_the_index_false_default");

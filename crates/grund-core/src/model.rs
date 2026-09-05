@@ -210,7 +210,7 @@ pub struct Findings {
     pub scanned_files: Vec<PathBuf>,
     /// Every directory the walk descended into (§AR-scanner.1), scan roots
     /// included — the candidate set the unlisted-`[workspace]` rule of
-    /// §FS-check.4.9 probes. Carried rather than judged here: the walk knows what
+    /// §FS-check.4.8 probes. Carried rather than judged here: the walk knows what
     /// it reached, and nothing about workspaces (§AR-workspace.1).
     pub walked_dirs: Vec<PathBuf>,
     /// Per-file heading and doc-comment structure, for the files a grounding
@@ -225,14 +225,14 @@ pub struct Findings {
     /// than an intended illustration (§FS-check.2.3.1, §AR-checker.2.11).
     pub escaped_citations: Vec<Citation>,
     /// Headings that open like a declaration and do not parse as one
-    /// (§FS-check.4.7) — recorded where the scan already decided the line was
+    /// (§FS-check.4.6) — recorded where the scan already decided the line was
     /// not a declaration, so the rule costs one regex on heading-shaped lines
     /// rather than a second read of the tree.
     pub near_miss_headings: Vec<NearMissHeading>,
 }
 
 /// One heading that opens with a configured kind and the literal an ID puts
-/// after it, without parsing as an ID (§FS-check.4.7). `text` is the token as
+/// after it, without parsing as an ID (§FS-check.4.6). `text` is the token as
 /// written, so the finding can quote it back beside the format it missed.
 pub struct NearMissHeading {
     pub file: PathBuf,
@@ -276,7 +276,7 @@ pub struct KindConfig {
     pub file: Option<String>,
     pub title: Option<String>,
     /// The `index` key (§FS-config.3.4): which file under `folder` must list
-    /// every declaration in it (§FS-check.4.6). Absent means the `README.md`
+    /// every declaration in it (§FS-check.3.18). Absent means the `README.md`
     /// default; `false` opts the kind out.
     pub index: KindIndex,
     /// The `citable` key (§FS-config.3.4): whether this kind declares IDs that
@@ -533,7 +533,7 @@ pub struct Config {
     /// namespace it would have contributed goes unverified (§FS-workspace.4).
     pub workspace_optional_members: Vec<String>,
     pub workspace_optional_members_source: Option<ConfigLocation>,
-    /// §FS-check.4.10: the optional members this run found absent, named by the
+    /// §FS-check.4.9: the optional members this run found absent, named by the
     /// whole alias path it spells their namespaces with. Not a `grund.toml` key and
     /// never read from one — like `workspace_boundary_roots`, it is what expansion
     /// learned about this checkout — and stamped onto every project the run loaded,
@@ -547,13 +547,13 @@ pub struct Config {
     pub workspace_section_source: Option<ConfigLocation>,
     pub workspace_include_root: bool,
     /// Where `include_root` was written (§FS-config.4.3). The breadcrumb
-    /// §FS-check.4.11 wears: the key that took the block's files out of every
+    /// §FS-check.4.10 wears: the key that took the block's files out of every
     /// scan is the line the reader should open, which neither the `members` line
     /// nor the `[workspace]` header is. `None` where the key is absent, and the
     /// default `true` makes that unreachable for the one finding that reads it.
     pub workspace_include_root_source: Option<ConfigLocation>,
     pub workspace_boundary_roots: Vec<PathBuf>,
-    /// §FS-check.4.11: how many `[workspace]` blocks this run has already told
+    /// §FS-check.4.10: how many `[workspace]` blocks this run has already told
     /// the reader no project scans. Accumulated on the config the run was
     /// launched with, by the two points a run populates a block's member
     /// boundary, and read where `check` decides whether to print `success`

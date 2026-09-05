@@ -196,13 +196,13 @@
 /// doc-comment and a stub's prose are outside the body and never reach the list,
 /// so neither is filtered here (§FS-check.3.16).
 ///
-/// ### 2.16 Kind indexes (§FS-check.4.6, §FS-check.3.17, §DF-index-entry-form)
+/// ### 2.16 Kind indexes (§FS-check.3.18, §FS-check.3.17, §DF-index-entry-form)
 ///
 /// One pass per `[[kinds]]` entry that has a `folder` and an enabled `index`
 /// (§FS-config.3.4). For each, membership is the declarations under that
 /// folder's whole subtree — a stub and the inline body it points at collapsing
 /// to one ID, as in §2.1 — plus an external inline declaration whose canonical
-/// bare-ID source link enrolls it directly (§FS-check.4.6). The citations already
+/// bare-ID source link enrolls it directly (§FS-check.3.18). The citations already
 /// recorded in the index file say which members it names. The index file itself
 /// is re-read, the second and last rule that touches disk after §2.5, because
 /// wrapper form and an external enrollment's exact destination are facts about
@@ -471,7 +471,7 @@ fn check_with_workspace(
         }
     }
 
-    // §FS-check.4.6 / §FS-check.3.17: a kind's index must list every declaration
+    // §FS-check.3.18 / §FS-check.3.17: a kind's index must list every declaration
     // in its folder, as a full link. In `checker_index.rs` — one file per
     // invariant family, the arrangement §2.15's section rules already use.
     check_kind_indexes(findings, config, path_config, &mut report);
@@ -523,7 +523,7 @@ fn check_with_workspace(
     // row and per unit, in `checker_grounding.rs` (§AR-checker.2.8).
     check_grounding(findings, config, &kind_homes, workspace, &mut report);
 
-    // §FS-check.4.7: headings that open like a declaration and parse as none.
+    // §FS-check.4.6: headings that open like a declaration and parse as none.
     check_declaration_near_misses(findings, config, &mut report);
 
     // §FS-config.3.9 / §FS-check.3.11 / §FS-check.3.12: citation-direction

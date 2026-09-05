@@ -1,4 +1,4 @@
-/// Test module: the index a folder kind keeps (§FS-check.4.6, §FS-check.3.17,
+/// Test module: the index a folder kind keeps (§FS-check.3.18, §FS-check.3.17,
 /// §DF-index-entry-form). Every case here is about the two conditions an entry
 /// has to meet — present, and a full link — plus the two carve-outs that make
 /// the rule cheap: `fmt` always linkifies an index (§FS-fmt.6.1), and an entry
@@ -8,12 +8,14 @@ mod tests_kind_index {
     use super::*;
     use super::tests_support::*;
 
-    /// §FS-check.4.6: the folder has an index and the index does not name the
-    /// declaration. The finding is anchored at the declaration's own heading and
-    /// names the index file plus the release the warning becomes an error in.
+    /// §FS-check.3.18: the folder has an index and the index does not name the
+    /// declaration. The finding is an **error**, anchored at the declaration's own
+    /// heading and naming the index file — and naming nothing else, because the
+    /// ramp §REQ-backwards-compatibility.2 opened ended in this release and a
+    /// deadline that has arrived is not news the message can still carry.
     #[test]
-    fn a_declaration_the_index_does_not_name_is_a_warning_at_the_declaration() {
-        let root = kind_index_repo("a_declaration_the_index_does_not_name_is_a_warning_at_the_declaration");
+    fn a_declaration_the_index_does_not_name_is_an_error_at_the_declaration() {
+        let root = kind_index_repo("a_declaration_the_index_does_not_name_is_an_error_at_the_declaration");
         write(&root.join("docs/specs/README.md"), "# Specs\n\nNothing here yet.\n");
 
         let run = check_run(&root, false);
@@ -30,19 +32,29 @@ mod tests_kind_index {
             finding.message
         );
         assert!(
-            finding.message.contains(&format!(
-                "becomes an error in grund {INDEX_ENTRY_ERROR_RELEASE}"
-            )),
-            "§REQ-backwards-compatibility.2: the warning names the release: {}",
+            !finding.message.contains("becomes an error in grund"),
+            "§FS-check.3.18: the ramp ended, so the message names no release: {}",
             finding.message
         );
         assert!(
-            run.report.errors.is_empty(),
-            "§DF-index-compatibility-ramp.2.1: no command writes the entry, so it warns"
+            run.report
+                .errors
+                .iter()
+                .any(|diagnostic| diagnostic.code == "missing-index-entry"),
+            "§FS-check.3.18: an error, so it reaches the exit code: {:?}",
+            findings(&run)
+        );
+        assert!(
+            run.report
+                .warnings
+                .iter()
+                .all(|diagnostic| diagnostic.code != "missing-index-entry"),
+            "§FS-check.3.18: and it is not also on the warning path: {:?}",
+            findings(&run)
         );
     }
 
-    /// §FS-check.4.6: a folder with no index *file* is the same finding class,
+    /// §FS-check.3.18: a folder with no index *file* is the same finding class,
     /// once per declaration — which is why it is anchored at the declaration.
     #[test]
     fn a_missing_index_file_reports_once_per_declaration() {
@@ -104,7 +116,7 @@ mod tests_kind_index {
         );
     }
 
-    /// §FS-check.4.6 / §FS-check.3.17: the wrapped form is what satisfies the
+    /// §FS-check.3.18 / §FS-check.3.17: the wrapped form is what satisfies the
     /// rule, and `check` never looks at where the link points (§DF-index-entry-form.2.2).
     #[test]
     fn a_linked_entry_satisfies_the_rule_whatever_the_target_says() {
@@ -290,12 +302,12 @@ mod tests_kind_index {
         );
         assert!(
             current < error,
-            "this tree is {}, which has reached the release §FS-check.4.6 promised the warning would become an error in ({INDEX_ENTRY_ERROR_RELEASE}). Ship §RM-index-entry-error rather than moving the date.",
+            "this tree is {}, which has reached the release §FS-check.3.18 promised the warning would become an error in ({INDEX_ENTRY_ERROR_RELEASE}). Ship §RM-index-entry-error rather than moving the date.",
             env!("CARGO_PKG_VERSION")
         );
     }
 
-    /// §FS-check.4.6: the three ways an index file fails to read are named apart.
+    /// §FS-check.3.18: the three ways an index file fails to read are named apart.
     /// "does not exist", said about a directory that plainly does, is a diagnosis
     /// the reader has to argue with before acting on it.
     #[test]
@@ -313,7 +325,7 @@ mod tests_kind_index {
         );
     }
 
-    /// §FS-check.4.6: the entries come from the scan and the form from disk, so a
+    /// §FS-check.3.18: the entries come from the scan and the form from disk, so a
     /// run that never scanned the index cannot say what it lists. Reporting every
     /// declaration as unlisted there would be a finding about the scope.
     #[test]
