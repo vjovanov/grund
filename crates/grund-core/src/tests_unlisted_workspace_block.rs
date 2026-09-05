@@ -408,10 +408,11 @@ mod tests_unlisted_workspace_block {
     /// §REQ-backwards-compatibility.2, §DF-unlisted-workspace-block.2.1: the
     /// warning names the release it becomes an error in, and that release is held
     /// ahead of the running version so the deadline fails the build rather than
-    /// passing unnoticed — the forcing function §RM-index-entry-error uses, and the
-    /// one that carried `[[kinds]] prefix` to the removal §FS-config.3.4.6 records.
-    /// Read out of the message rather than off the constant on purpose: the message
-    /// is the promise a user was given.
+    /// passing unnoticed — the forcing function §DF-index-compatibility-ramp.2.3
+    /// states, and the one that carried `[[kinds]] prefix` to the removal
+    /// §FS-config.3.4.6 records and a missing index entry to the error
+    /// §FS-check.3.18 records. Read out of the message rather than off the
+    /// constant on purpose: the message is the promise a user was given.
     #[test]
     fn the_named_error_release_is_0_14_0_and_still_ahead() {
         let root = unlisted_block_repo("the_named_error_release_is_0_14_0_and_still_ahead");

@@ -92,6 +92,12 @@ mod tests_check_full {
             &root.join("docs/functional-spec/FS-042-user-login.md"),
             "# FS-042-user-login: A user can log in\n\nBody.\n",
         );
+        // The default config indexes `FS`, so the fixture owes the entry
+        // (§FS-check.3.18) or the run is red for a reason this case is not about.
+        write(
+            &root.join("docs/functional-spec/README.md"),
+            "# Functional spec\n\n- [§FS-042-user-login](FS-042-user-login.md#fs-042-user-login-a-user-can-log-in)\n",
+        );
         write(
             &root.join("sim/world.py"),
             "# Resolvable shorthand §FS-042\n# Unknown shorthand §FS-777\n",
