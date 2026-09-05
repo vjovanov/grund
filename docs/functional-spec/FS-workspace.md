@@ -123,7 +123,10 @@ Three neighbouring shapes are deliberately *not* this finding:
   boundary working as designed and stays silent.
 - **`include_root = false` has nothing to lose.** That block is not a project
   (§6.1), so it has no scan of its own to be covered. What its files cost is
-  §6.1's own subject.
+  [§FS-check.4.10](FS-check.md#410-include_root--false-leaves-the-blocks-own-files-unread)'s
+  subject, asked of the same default scope from the other side: this rule fires
+  when every root is inside a member, that one when a root outside them holds a
+  file nobody reads.
 - **`--full` does not silence it** ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)). The flag adds the config
   root as a walk root, but the member boundary still prunes, so the absorbed
   tree is no more readable with it than without. The question is therefore asked
@@ -485,7 +488,14 @@ node's own files are then scanned by **nobody**: the enclosing scan stops at the
 member boundary (§6) and no other scan covers that directory, so a declaration
 there is in no catalog and a citation there is never checked — not even under
 `--full` ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)), which
-widens a project's scope and has no project to widen here. `grund check` stays
+widens a project's scope and has no project to widen here. That cost is said out loud rather
+than only written down here: a block whose own tree holds a file a scan would
+have read earns one warning naming it
+([§FS-check.4.10](FS-check.md#410-include_root--false-leaves-the-blocks-own-files-unread)),
+on every command that walks, permanently and without moving the exit code —
+opting out is a legitimate choice, and the finding turns on what is in the tree
+rather than on the key alone. Where the tree holds nothing a scan would read the
+run stays silent, and `grund check` stays
 green over content nothing reads, which is precisely why the default is a project
 ([§DF-nested-workspaces.3.5](../decisions/functional/DF-nested-workspaces.md#35-the-intermediate-node-reuses-include_root-and-defaults-to-a-project)).
 Every block must put at

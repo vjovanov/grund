@@ -59,6 +59,7 @@ The rules that make this file, and the ones beside it, checked rather than hoped
 - [§DF-cli-base-parent-paths](DF-cli-base-parent-paths.md#df-cli-base-parent-paths-relative_paths--false-keeps-one-cli-base-and-may-climb-within-the-loaded-root) — `relative_paths = false` keeps one CLI base and may climb within the loaded root
 - [§DF-absorbed-scan-warning](DF-absorbed-scan-warning.md#df-absorbed-scan-warning-a-scan-its-own-members-swallowed-is-a-warning-with-a-named-release-not-an-error) — a scan its own members swallowed is a warning with a named release, not an error
 - [§DF-optional-workspace-members](DF-optional-workspace-members.md#df-optional-workspace-members-an-absent-member-is-declared-in-a-sibling-list-and-the-run-announces-the-namespace-it-did-not-check) — an absent member is declared in a sibling list, and the run announces the namespace it did not check
+- [§DF-unread-opted-out-block](DF-unread-opted-out-block.md#df-unread-opted-out-block-the-unread-files-of-an-opted-out-block-are-a-conditional-warning-that-never-ramps) — the unread files of an opted-out block are a conditional warning that never ramps
 
 ## The command surface
 
