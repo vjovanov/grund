@@ -23,20 +23,36 @@ class GenerateLargeBenchmarkFixtureTests(unittest.TestCase):
             root = Path(tmp) / "fixture"
             generate_large_benchmark_fixture.generate_fixture(root, 12, 3)
 
-            markdown_files = sorted((root / "docs").rglob("*.md"))
-            self.assertEqual(len(markdown_files), 12)
+            declaration_files = sorted(
+                (root / "docs" / "functional-spec").glob("component-*/*.md")
+            )
+            self.assertEqual(len(declaration_files), 12)
             self.assertTrue((root / "grund.toml").exists())
             self.assertEqual(
-                markdown_files[0].relative_to(root).as_posix(),
+                declaration_files[0].relative_to(root).as_posix(),
                 "docs/functional-spec/component-000/FS-00001-feature-00001.md",
             )
             self.assertIn(
                 "§FS-00002-feature-00002",
-                markdown_files[0].read_text(encoding="utf-8"),
+                declaration_files[0].read_text(encoding="utf-8"),
             )
             self.assertIn(
                 "§FS-00001-feature-00001",
-                markdown_files[-1].read_text(encoding="utf-8"),
+                declaration_files[-1].read_text(encoding="utf-8"),
+            )
+
+            # §FS-check.3.18: every declaration must be a linked index entry, or
+            # `grund check` errors on the generated fixture instead of measuring it.
+            index_text = (root / "docs" / "functional-spec" / "README.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn(
+                "[§FS-00001-feature-00001](component-000/FS-00001-feature-00001.md)",
+                index_text,
+            )
+            self.assertIn(
+                "[§FS-00012-feature-00012](component-002/FS-00012-feature-00012.md)",
+                index_text,
             )
 
     def test_replaces_existing_fixture_deterministically(self) -> None:
