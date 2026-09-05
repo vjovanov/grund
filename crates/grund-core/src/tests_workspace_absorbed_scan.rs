@@ -57,8 +57,11 @@ mod tests_workspace_absorbed_scan {
     /// passed is a promise grund broke. Held ahead of the running version so the
     /// bump that reaches the deadline fails the build rather than shipping a
     /// message the binary is behind — the guard §RM-workspace-absorbed-scan-error
-    /// is spent against, the same one `index_entry_ramp_releases_are_ordered`
-    /// keeps for its ramp.
+    /// is spent against, and the same one
+    /// `the_named_error_release_is_0_14_0_and_still_ahead` keeps for the
+    /// unlisted-block ramp. These two are what is left of the pending half
+    /// `scripts/check_release_ramps.py` now asks of every message
+    /// (§FS-distribution.4.2).
     #[test]
     fn the_absorbed_scan_error_release_is_still_ahead() {
         let Some(golden) = repo_text(GOLDEN) else {

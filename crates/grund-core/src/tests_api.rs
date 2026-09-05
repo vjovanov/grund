@@ -12,6 +12,13 @@ mod tests_api {
             &root.join("docs/functional-spec/FS-001-alpha.md"),
             "# FS-001-alpha: Alpha\n\nLead.\n",
         );
+        // The default config indexes `FS`, so the fixture owes the entry
+        // (§FS-check.3.18) — and the entry is a citation to `list` and `refs`
+        // alike, which is why the counts below are two (§FS-check.4.1).
+        write(
+            &root.join("docs/functional-spec/README.md"),
+            "# Functional spec\n\n- [§FS-001-alpha](FS-001-alpha.md#fs-001-alpha-alpha)\n",
+        );
         write(&root.join("src/lib.rs"), "//! §FS-001-alpha\n");
 
         let report = check(&root).expect("public check api");
@@ -25,7 +32,7 @@ mod tests_api {
         .expect("public list api");
         assert_eq!(catalog.entries.len(), 1);
         assert_eq!(catalog.entries[0].id, "FS-001-alpha");
-        assert_eq!(catalog.entries[0].refs, 1);
+        assert_eq!(catalog.entries[0].refs, 2);
 
         let refs_output = refs(RefsOpts {
             path: root.clone(),
@@ -34,8 +41,12 @@ mod tests_api {
             ..RefsOpts::default()
         })
         .expect("public refs api");
-        assert_eq!(refs_output.hits.len(), 1);
-        assert_eq!(refs_output.hits[0].path, "src/lib.rs");
+        assert_eq!(refs_output.hits.len(), 2);
+        assert!(
+            refs_output.hits.iter().any(|hit| hit.path == "src/lib.rs"),
+            "the source citation is a hit: {:?}",
+            refs_output.hits.iter().map(|hit| &hit.path).collect::<Vec<_>>()
+        );
 
         let cover_output = cover(CoverOpts {
             path: root.clone(),

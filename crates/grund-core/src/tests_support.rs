@@ -294,6 +294,13 @@ mod tests_support {
             &root.join("docs/functional-spec/FS-001-login.md"),
             "# FS-001-login: A user can log in\n\n## 1. Rules\n\nThe login behavior.\n",
         );
+        // The default config gives `FS` a folder and an index, so a fixture that
+        // declares under it owes the entry or it is red for §FS-check.3.18 —
+        // which is a fact about the fixture, not about the scope layer under test.
+        write(
+            &root.join("docs/functional-spec/README.md"),
+            "# Functional spec\n\n- [§FS-001-login](FS-001-login.md#fs-001-login-a-user-can-log-in)\n",
+        );
         write(&root.join("src/auth.rs"), "// Implements §FS-001-login.1\n");
         root
     }

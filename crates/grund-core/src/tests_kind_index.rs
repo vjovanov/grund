@@ -267,13 +267,16 @@ mod tests_kind_index {
         );
     }
 
-    /// §DF-index-compatibility-ramp.2.3: the three releases the ramp is stated in
-    /// are literals in message text, and the version they are measured against is
-    /// bumped at release time rather than when the work lands. This is the guard:
-    /// the bump that reaches the deadline fails here, so §RM-index-entry-error
-    /// cannot be walked past and no run can print a date it is already behind.
+    /// §DF-index-compatibility-ramp.2.3: the releases §FS-check.3.17's message
+    /// names are literals in message text, and the version they are measured
+    /// against is bumped at release time rather than when the work lands
+    /// (§FS-distribution.4). This is the guard on the pair that is left. Both
+    /// halves of it are claims about releases that happened — the verdict a
+    /// §REQ-backwards-compatibility.3 migration *moved between* — so a run that
+    /// printed either as a date still ahead would be promising rather than
+    /// reporting. §FS-check.3.18's own deadline literal is gone with its ramp.
     #[test]
-    fn index_entry_ramp_releases_are_ordered() {
+    fn index_rule_releases_are_ordered_and_behind_us() {
         fn version(text: &str) -> (u64, u64, u64) {
             let mut parts = text.split('.').map(|part| {
                 part.split(|ch: char| !ch.is_ascii_digit())
@@ -292,17 +295,15 @@ mod tests_kind_index {
         let current = version(env!("CARGO_PKG_VERSION"));
         let prior = version(INDEX_RULE_PRIOR_RELEASE);
         let arrival = version(INDEX_RULE_RELEASE);
-        let error = version(INDEX_ENTRY_ERROR_RELEASE);
         assert!(prior < arrival, "{INDEX_RULE_PRIOR_RELEASE} < {INDEX_RULE_RELEASE}");
-        assert!(arrival < error, "{INDEX_RULE_RELEASE} < {INDEX_ENTRY_ERROR_RELEASE}");
         assert!(
             prior <= current,
             "§FS-check.3.17 says the rule was unchecked in {INDEX_RULE_PRIOR_RELEASE}, which has to be a release that happened (this tree is {})",
             env!("CARGO_PKG_VERSION")
         );
         assert!(
-            current < error,
-            "this tree is {}, which has reached the release §FS-check.3.18 promised the warning would become an error in ({INDEX_ENTRY_ERROR_RELEASE}). Ship §RM-index-entry-error rather than moving the date.",
+            arrival <= current,
+            "§FS-check.3.17 says the rule is an error as of {INDEX_RULE_RELEASE}, which has to be a release that happened rather than one still ahead (this tree is {})",
             env!("CARGO_PKG_VERSION")
         );
     }

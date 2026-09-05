@@ -62,8 +62,8 @@ enum IndexCitationForm {
     /// finding, and the only form that earns it.
     Bare,
     /// Everything else: a citation `fmt` declines to wrap, so it is neither an
-    /// entry nor a finding, and the ID falls to §FS-check.3.18's warning
-    /// (§DF-index-entry-form.2.3).
+    /// entry nor a §FS-check.3.17 finding, and the ID falls to §FS-check.3.18's
+    /// error (§DF-index-entry-form.2.3).
     Ignored,
 }
 
@@ -197,14 +197,17 @@ fn declarations_under_folder(
     })
 }
 
-/// The three releases the kind-index ramp is stated in
-/// (§DF-index-compatibility-ramp.2.3). All three are named in message text, so
-/// all three are part of the release process: bumping the workspace version is
-/// also the moment to ask whether these still say what they mean
-/// (§FS-distribution.4). `index_entry_ramp_releases_are_ordered` below is the
-/// guard — it fails the build once the tree reaches `INDEX_ENTRY_ERROR_RELEASE`,
-/// which is the release §RM-index-entry-error has to land in, so the ramp cannot
-/// expire quietly.
+/// The two releases §FS-check.3.17's message names
+/// (§DF-index-compatibility-ramp.2.3) — the pair
+/// §REQ-backwards-compatibility.3 asks of a verdict that flipped in one
+/// release. Both are literals in message text, so both are part of the release
+/// process: bumping the workspace version is also the moment to ask whether
+/// they still say what they mean (§FS-distribution.4), and
+/// `index_rule_releases_are_ordered_and_behind_us` below holds them to it.
+///
+/// §FS-check.3.18 named a third release here until its own ramp completed; its
+/// message names none, because the deadline it carried has arrived
+/// (§DF-index-compatibility-ramp.3).
 
 /// The last release before `check` knew anything about a kind's index — the
 /// "from" half of the pair §REQ-backwards-compatibility.3 requires a
@@ -214,12 +217,6 @@ const INDEX_RULE_PRIOR_RELEASE: &str = "0.11.0";
 /// The release the kind-index rules arrive in, and in which §FS-check.3.17 is an
 /// error on arrival — the "to" half of that pair.
 const INDEX_RULE_RELEASE: &str = "0.12.0";
-
-/// The release in which §FS-check.3.18's warning becomes an error
-/// (§REQ-backwards-compatibility.2, §DF-index-compatibility-ramp.2.3). Named in
-/// the message text, because a warning that does not say when it bites tells a
-/// maintainer they have a problem and not that they have a deadline.
-const INDEX_ENTRY_ERROR_RELEASE: &str = "0.13.0";
 
 /// §AR-checker.2.16 — the kind-index rule (§FS-check.3.18, §FS-check.3.17). One
 /// pass per configured index: read the file once, classify the citations the
@@ -241,7 +238,7 @@ const INDEX_ENTRY_ERROR_RELEASE: &str = "0.13.0";
 /// occurrence the pass would in fact rewrite, while a link already written stands
 /// whatever `fmt` would do with it (§DF-index-entry-form.2.4). The tree is already
 /// red for the unresolved section itself (§FS-check.3.2); the ID falls to
-/// §FS-check.3.18's warning, whose fix is an edit.
+/// §FS-check.3.18's error, whose fix is an edit.
 ///
 /// Why the unlinked-entry message names `grund fmt --write`: that command is only
 /// ever named on a site the pass will in fact rewrite, which is what
@@ -391,13 +388,15 @@ fn check_kind_indexes(
                 // own heading — the one line that exists whether or not the
                 // index file does (§DF-index-entry-form.2.6).
                 None => {
-                    report.warnings.push(Diagnostic {
+                    report.errors.push(Diagnostic {
                         code: "missing-index-entry",
                         path: Some(decl.file.clone()),
                         line: Some(decl.line),
                         column: None,
+                        // The ramp ended here, so no deadline is named: one that
+                        // has arrived is not news a reader can act on.
                         message: format!(
-                            "{} is not listed in {index_display}{absent} — an index entry becomes an error in grund {INDEX_ENTRY_ERROR_RELEASE}",
+                            "{} is not listed in {index_display}{absent}",
                             render_id(config, id)
                         ),
                         sites: Vec::new(),

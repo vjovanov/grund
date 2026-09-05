@@ -141,6 +141,12 @@ mod tests_check_full_scope {
             &root.join("docs/functional-spec/FS-001-root.md"),
             "# FS-001-root: Root spec\n\nBody.\n",
         );
+        // The default config indexes `FS`, so the fixture owes the entry
+        // (§FS-check.3.18) or the run is red for a reason this case is not about.
+        write(
+            &root.join("docs/functional-spec/README.md"),
+            "# Functional spec\n\n- [§FS-001-root](FS-001-root.md#fs-001-root-root-spec)\n",
+        );
         write(
             &root.join("api/grund.toml"),
             "grund_config_version = 1\nproject_name = \"api\"\n\n[scan]\ninclude = [\"docs\"]\n",
@@ -148,6 +154,10 @@ mod tests_check_full_scope {
         write(
             &root.join("api/docs/functional-spec/FS-002-api.md"),
             "# FS-002-api: Api spec\n\nCites §root/FS-001-root.\n",
+        );
+        write(
+            &root.join("api/docs/functional-spec/README.md"),
+            "# Functional spec\n\n- [§FS-002-api](FS-002-api.md#fs-002-api-api-spec)\n",
         );
         write(&root.join("api/sim/model.py"), "# Cites §FS-404-nope\n");
 
@@ -177,6 +187,12 @@ mod tests_check_full_scope {
         write(
             &root.join("docs/functional-spec/FS-001-login.md"),
             "# FS-001-login: A user can log in\n\nCites §AR-002-gen.\n",
+        );
+        // The default config indexes `FS`, so the fixture owes the entry
+        // (§FS-check.3.18) or the run is red for a reason this case is not about.
+        write(
+            &root.join("docs/functional-spec/README.md"),
+            "# Functional spec\n\n- [§FS-001-login](FS-001-login.md#fs-001-login-a-user-can-log-in)\n",
         );
         write(&root.join("generated/notes.md"), "# Notes\n\nCites §FS-999-missing.\n");
         write(
@@ -251,6 +267,12 @@ mod tests_check_full_scope {
         write(
             &root.join("docs/functional-spec/FS-001-login.md"),
             "# FS-001-login: A user can log in\n\nBody.\n",
+        );
+        // The default config indexes `FS`, so the fixture owes the entry
+        // (§FS-check.3.18) or the run is red for a reason this case is not about.
+        write(
+            &root.join("docs/functional-spec/README.md"),
+            "# Functional spec\n\n- [§FS-001-login](FS-001-login.md#fs-001-login-a-user-can-log-in)\n",
         );
         write(&root.join("sim/vendor/a.py"), "# Cites §FS-901-nope\n");
         write(&root.join("sim/.cache/b.py"), "# Cites §FS-902-nope\n");
