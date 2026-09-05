@@ -130,7 +130,7 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
-      # `fissile check` enforces the file-size budgets in `.agents/fissile.toml`,
+      # `fissile check` enforces the file-size budgets in `.agent-grounds/fissile.toml`,
       # which is where §AR-core-module-layout.3's "below 500 lines of code"
       # finally gets teeth (§AR-ci.9). Like `lychee`, this calls an installed
       # binary rather than `cargo run`: it is a third-party tool, not this
