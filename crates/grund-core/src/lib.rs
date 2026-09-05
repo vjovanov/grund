@@ -126,6 +126,7 @@ include!("tests_workspace_absorbed_scan.rs");
 include!("tests_unlisted_workspace_block.rs");
 include!("tests_alias_hints.rs");
 include!("tests_workspace_members.rs");
+include!("tests_workspace_optional_members.rs");
 include!("tests_cover_workspace.rs");
 include!("tests_init_agents.rs");
 include!("tests_init_target.rs");

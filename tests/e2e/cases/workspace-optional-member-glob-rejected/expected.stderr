@@ -1,0 +1,1 @@
+error: grund.toml:5: [workspace] optional_members may not use a glob: `hardware/*` — an absent parent names no namespaces; list one concrete entry per namespace instead

@@ -1,0 +1,1 @@
+{"severity":"warning","path":"grund.toml","line":5,"code":"optional-member-absent","message":"optional workspace member `vendored` is absent — citations into namespace `vendored` were not checked, so this run does not cover it","sites":null}

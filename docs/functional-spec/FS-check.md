@@ -604,6 +604,77 @@ What survives is a real limitation and is recorded rather than papered over: **a
 
 - **Code:** `unlisted-workspace-block` ([§FS-errors.5](FS-errors.md#5-json-format)).
 
+### 4.10 A workspace member declared optional is absent
+
+A member listed in `[workspace] optional_members` whose path is not a directory
+in this checkout ([§FS-workspace.2.2](FS-workspace.md#22-a-member-that-may-be-legitimately-absent)). The namespace it would have contributed
+was not read: no declaration in it reached a catalog, and no citation into it was
+resolved or reported ([§FS-workspace.4](FS-workspace.md#4-resolution)). The run is a report about less of the
+repository than it looks like, and saying so is this finding's whole job.
+
+One warning per absent entry, in the order the list writes them, anchored at the
+`optional_members` line of the block that holds it:
+
+```
+grund.toml:5: optional workspace member `vendored` is absent — citations into namespace `vendored` were not checked, so this run does not cover it
+```
+
+The entry is named **as the config wrote it** and the namespace by the **whole
+alias path this run spells it with** — `vendored` and `sub/vendored` for one
+entry inside a nested block — which is the pair §4.8 and §4.9 already use, for
+the same two reasons: the entry is what an author can edit, and the alias path is
+what a citation has to write ([§FS-errors.4](FS-errors.md#4-determinism)).
+
+**It names no remedy, because nothing here is broken.** Most warnings in §4 end
+in an edit, because they report a configuration that says something its author
+did not mean. This one reports a state the author declared in advance and
+a checkout that happens to be partial; the only thing that would "fix" it is a
+checkout with the member in it, which is not grund's to ask for and is often not
+available where the run happens. So the message stops at the fact, the way
+[§FS-check.4.7](FS-check.md#47-declaration-near-miss) stops at the mismatch.
+
+**It is a located finding on stdout, not a CLI-level caution.** That departs from
+its two nearest neighbours — §4.8 and §4.9 both point at a `[workspace]` line and
+both print as a CLI-level `warning:` on stderr (§2.1.1) — and the departure is
+deliberate.
+
+Those two report a **misconfiguration**, and the reason they are CLI-level is
+that every command in the tree is wrong under them: a block that reads nothing
+makes `grund list` silent, an unlisted block makes every command spell the same
+project two ways. So they are emitted where the workspace loads, and carried by
+every command that walks. This finding is not that. Nothing is misconfigured —
+the repository said this may happen, and it happened — and no other command's
+output is wrong, because a namespace that is not there has nothing to list and
+nothing to point at. What is at stake is only the verdict `check` renders, and a
+statement about the coverage of a report belongs in the report.
+
+The exit code is what forces the shape. §2 gives grund one way to say "do not
+trust this report as complete", and it is exit `2`. This is the one case where a
+run is deliberately incomplete and still exits `0` ([§FS-workspace.2.2](FS-workspace.md#22-a-member-that-may-be-legitimately-absent)), so the
+exit code carries nothing here and stdout has to. A CLI-level line would leave
+stdout saying only that the `success` marker was withheld — a signal made of an
+absence, which under `2>/dev/null` or a folded CI log is indistinguishable from
+silence, and which is exactly the warning that scrolls past. The
+`<path>:<line>:` prefix is also honest here in a way it is not for §4.3: there is
+one line, in a file the repository wrote, and it is the line a reader has to open
+to understand the run. `success` is withheld all the same, because it is withheld
+for every warning (§2.1) — but that is now a consequence of the finding rather
+than the whole of it.
+
+**It names no release.** §4.8 and §4.9 are warnings on the way to being errors
+([§REQ-backwards-compatibility.2](../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path)). This one is permanent. An unverified namespace
+is not a state to be migrated off; it is the standing price of the opt-out, paid
+on every run of every checkout that takes it, and a repository that stops wanting
+to pay it deletes the entry.
+
+Under `--format=json` it is one warning diagnostic on **stdout** with `path` and
+`line` set and `sites` null, like every other located finding ([§FS-errors.5](FS-errors.md#5-json-format)) —
+which is the other half of what the CLI-level shape would have cost, since a
+consumer filtering the report for coverage facts would have had to parse text on
+a second stream to find this one.
+
+- **Code:** `optional-member-absent` ([§FS-errors.5](FS-errors.md#5-json-format)).
+
 ## 5. What grund does not check
 
 See [§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) — in particular [§FS-non-goals.1](FS-non-goals.md#1-markdown-link-validation) (markdown links / URLs), [§FS-non-goals.2](FS-non-goals.md#2-spelling-grammar-prose-quality) (spelling/grammar), and the convention that ID numbers are stable handles, not ordinal positions.
