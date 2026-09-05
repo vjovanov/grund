@@ -326,7 +326,7 @@ mod tests_kind_index {
     #[test]
     fn the_index_entry_error_is_not_published_before_the_release_it_named() {
         let current = env!("CARGO_PKG_VERSION");
-        if current.contains('-') {
+        if current.ends_with("-dev") {
             return;
         }
         assert!(
