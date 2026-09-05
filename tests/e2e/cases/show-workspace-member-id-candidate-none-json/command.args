@@ -1,0 +1,1 @@
+show --format=json SPEC-999-nothing {repo}

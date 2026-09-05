@@ -1,0 +1,20 @@
+grund_config_version = 1
+project_name = "acme"
+
+[reference]
+marker = "§"
+strict = true
+
+[id]
+format = "{kind}-{number}-{slug}"
+
+[[kinds]]
+prefix = "SPEC"
+file = "docs/spec.md"
+title = "What the service does"
+
+[scan]
+include = ["docs"]
+
+[workspace]
+members = ["vendored"]
