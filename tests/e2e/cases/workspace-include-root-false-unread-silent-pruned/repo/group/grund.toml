@@ -1,0 +1,18 @@
+grund_config_version = 1
+project_name = "group"
+
+[reference]
+marker = "§"
+strict = true
+
+[id]
+format = "{kind}-{slug}"
+slug_pattern = "[a-z][a-z0-9-]*"
+
+[scan]
+include = ["docs"]
+exclude = ["vendor"]
+
+[workspace]
+members = ["alpha"]
+include_root = false
