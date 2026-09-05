@@ -224,7 +224,7 @@ fn warn_if_members_absorb_scan(config: &Config, members: &[WorkspaceMember]) {
 fn absorbed_scan_roots(config: &Config, members: &[WorkspaceMember]) -> Vec<String> {
     // §FS-workspace.2.1: a block with `include_root = false` is not a project, so
     // it has no scan of its own to lose — what its own files cost is the same
-    // question asked from the other side, and §FS-check.4.10 is where it is asked.
+    // question asked from the other side, and §FS-check.4.11 is where it is asked.
     if !config.workspace_include_root || members.is_empty() {
         return Vec::new();
     }
@@ -248,7 +248,7 @@ fn absorbed_scan_roots(config: &Config, members: &[WorkspaceMember]) -> Vec<Stri
 ///
 /// One list, read from opposite ends by the two findings that ask what a block's
 /// own scan comes to: §FS-workspace.2.1 fires when every entry is covered, and
-/// §FS-check.4.10 when an uncovered entry holds a file. Sharing it is what keeps
+/// §FS-check.4.11 when an uncovered entry holds a file. Sharing it is what keeps
 /// a `[[kinds]]` home, or a home the config lists without walking, moving both
 /// rules together instead of one of them (§FS-config.3.5).
 ///
@@ -301,7 +301,7 @@ fn absorbed_scan_warning(covered: &[String]) -> String {
     )
 }
 
-/// §FS-check.4.10: one block that opted out of being a project, kept with the
+/// §FS-check.4.11: one block that opted out of being a project, kept with the
 /// members that bound it until the run can be asked where its projects are.
 ///
 /// The finding is settled where a run populates a block's member boundary, and for
@@ -310,13 +310,13 @@ fn absorbed_scan_warning(covered: &[String]) -> String {
 /// block, so the question is posed there and answered by
 /// [`warn_unread_block`] afterwards. Holding the block rather than the answer is
 /// what keeps the order the two sites print in — the run's own block first, then
-/// the blocks below it as the run reaches them (§FS-check.4.10).
+/// the blocks below it as the run reaches them (§FS-check.4.11).
 struct UnreadBlockProbe {
     config: Config,
     members: Vec<WorkspaceMember>,
 }
 
-/// §FS-check.4.10: the block to ask, or `None` when this one is not the finding's
+/// §FS-check.4.11: the block to ask, or `None` when this one is not the finding's
 /// subject at all — cheap enough to run at every boundary population, because it
 /// reads two config fields and touches no disk.
 ///
@@ -331,7 +331,7 @@ fn unread_block_probe(config: &Config, members: &[WorkspaceMember]) -> Option<Un
     })
 }
 
-/// §FS-check.4.10: say so when a block that set `include_root = false` still holds
+/// §FS-check.4.11: say so when a block that set `include_root = false` still holds
 /// files of its own. It is no project, and the enclosing scan stops at the member
 /// boundary (§FS-workspace.6), so those files are read by nobody — a declaration
 /// there reaches no catalog and a citation there is never checked
@@ -377,7 +377,7 @@ fn warn_unread_block(probe: &UnreadBlockProbe, project_roots: &[PathBuf]) -> usi
     1
 }
 
-/// §FS-check.4.10: the first root of this block's own scope that holds a file the
+/// §FS-check.4.11: the first root of this block's own scope that holds a file the
 /// block would have read as a project, named under the block root — or `None`,
 /// which is every configuration this finding stays silent about.
 ///
@@ -420,7 +420,7 @@ fn unread_block_scope_root(probe: &UnreadBlockProbe, project_roots: &[PathBuf]) 
 }
 
 /// The sentence [`warn_if_no_project_scans_the_block`] prints, built apart from
-/// the printing so a test can read it (§FS-check.4.10): the tree no scan reaches,
+/// the printing so a test can read it (§FS-check.4.11): the tree no scan reaches,
 /// what that costs, and the two remedies the ticket itself named.
 ///
 /// Shorter than [`absorbed_scan_warning`] above, and without its "declarations are

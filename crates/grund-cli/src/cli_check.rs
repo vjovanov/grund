@@ -106,7 +106,7 @@ fn sorted_findings(report: &Report) -> Vec<(&'static str, &Finding)> {
     findings
 }
 
-/// `unread_opted_out_blocks` is the §FS-check.4.10 lines the run already printed on
+/// `unread_opted_out_blocks` is the §FS-check.4.11 lines the run already printed on
 /// stderr, before this report existed. They are not findings, so nothing in
 /// `report` records them — and a run that says its citations are unchecked must not
 /// also say `success` (§FS-check.2.1).

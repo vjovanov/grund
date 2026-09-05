@@ -123,7 +123,7 @@ Three neighbouring shapes are deliberately *not* this finding:
   boundary working as designed and stays silent.
 - **`include_root = false` has nothing to lose.** That block is not a project
   (§6.1), so it has no scan of its own to be covered. What its files cost is
-  [§FS-check.4.10](FS-check.md#410-include_root--false-leaves-the-blocks-own-files-unread)'s
+  [§FS-check.4.11](FS-check.md#411-include_root--false-leaves-the-blocks-own-files-unread)'s
   subject, asked of the same default scope from the other side: this rule fires
   when every root is inside a member, that one when a root outside them holds a
   file nobody reads.
@@ -491,7 +491,7 @@ there is in no catalog and a citation there is never checked — not even under
 widens a project's scope and has no project to widen here. That cost is said out loud rather
 than only written down here: a block whose own tree holds a file a scan would
 have read earns one warning naming it
-([§FS-check.4.10](FS-check.md#410-include_root--false-leaves-the-blocks-own-files-unread)),
+([§FS-check.4.11](FS-check.md#411-include_root--false-leaves-the-blocks-own-files-unread)),
 on every command that walks, permanently and without moving the exit code —
 opting out is a legitimate choice, and the finding turns on what is in the tree
 rather than on the key alone. Where the tree holds nothing a scan would read the

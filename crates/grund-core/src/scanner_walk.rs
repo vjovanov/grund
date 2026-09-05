@@ -242,7 +242,7 @@ fn walk_scannable_files_reporting(
 /// exclude`, unwalked-home and E2E-case prunes [`WalkDirFilter`] carries.
 ///
 /// Built apart from the walk above so [`walk_reads_any_file`] traverses through the
-/// same one. That is not a tidiness point: §FS-check.4.10 reports a tree *because*
+/// same one. That is not a tidiness point: §FS-check.4.11 reports a tree *because*
 /// no scan reads it, so a probe that pruned differently from the scan would caution
 /// a repository about content the scan would have skipped anyway — the one outcome
 /// that finding cannot afford (§DF-unread-opted-out-block).
@@ -302,7 +302,7 @@ fn scannable_walker(
     builder.build()
 }
 
-/// §FS-check.4.10: whether a walk of `scan_root` under this config would read a
+/// §FS-check.4.11: whether a walk of `scan_root` under this config would read a
 /// file — the same builder, the same filter and the same `is_scannable` test the
 /// reporting walk applies, stopped at the first hit.
 ///
