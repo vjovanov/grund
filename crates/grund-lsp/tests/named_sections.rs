@@ -145,3 +145,151 @@ fn named_sections_have_cli_parity_across_editor_surfaces() {
     wait_for_exit(&mut child);
     let _ = fs::remove_dir_all(root);
 }
+
+#[test]
+fn section_citation_references_keep_the_exact_subtree() {
+    let root = test_root("section-citation-references");
+    fs::write(
+        root.join("grund.toml"),
+        "grund_config_version = 1\n\n[reference]\nstrict = true\n\n\
+         [id]\nformat = \"{kind}-{slug}\"\nnamed_sections = true\n\n\
+         [scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
+    )
+    .expect("write named config");
+    let spec = root.join("docs/FS-doc.md");
+    fs::write(
+        &spec,
+        "# FS-doc: Document\n\n\
+         ## goals: Goals\n\n\
+         ### goals.performance: Performance\n\n\
+         ## 1. Numeric\n\n\
+         ### 1.1 Numeric child\n\n\
+         ## other: Other\n\n\
+         Bare \u{a7}FS-doc.\n\
+         Named \u{a7}FS-doc.goals.\n\
+         Named child \u{a7}FS-doc.goals.performance.\n\
+         Numeric \u{a7}FS-doc.1.\n\
+         Numeric child \u{a7}FS-doc.1.1.\n\
+         Other \u{a7}FS-doc.other.\n",
+    )
+    .expect("write named spec");
+
+    let (mut child, mut stdin, receiver) = start_server(&root);
+    let references = |stdin: &mut _, child: &mut _, id, line, include_declaration| {
+        send_message(
+            stdin,
+            json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "method": "textDocument/references",
+                "params": {
+                    "textDocument": { "uri": file_uri(&spec) },
+                    "position": { "line": line, "character": 10 },
+                    "context": { "includeDeclaration": include_declaration }
+                }
+            }),
+        );
+        recv_response_or_panic(&receiver, child, id)["result"]
+            .as_array()
+            .unwrap_or_else(|| panic!("references response {id}"))
+            .iter()
+            .map(|location| location["range"]["start"]["line"].as_u64().unwrap())
+            .collect::<Vec<_>>()
+    };
+
+    // A named citation has the same exact-path-and-descendants reference set as
+    // its heading; includeDeclaration selects that heading, not the H1
+    // declaration (§FS-lsp.1.3.1).
+    assert_eq!(references(&mut stdin, &mut child, 2, 13, false), [13, 14]);
+    assert_eq!(references(&mut stdin, &mut child, 3, 13, true), [2, 13, 14]);
+
+    // The exact-section rule is coordinate-agnostic, while a bare citation
+    // retains whole-declaration grouping (§FS-lsp.1.3.1).
+    assert_eq!(references(&mut stdin, &mut child, 4, 15, false), [15, 16]);
+    assert_eq!(
+        references(&mut stdin, &mut child, 5, 12, false),
+        [12, 13, 14, 15, 16, 17]
+    );
+
+    send_message(
+        &mut stdin,
+        json!({"jsonrpc": "2.0", "id": 6, "method": "shutdown", "params": null}),
+    );
+    recv_response_or_panic(&receiver, &mut child, 6);
+    send_message(
+        &mut stdin,
+        json!({"jsonrpc": "2.0", "method": "exit", "params": null}),
+    );
+    drop(stdin);
+    wait_for_exit(&mut child);
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn named_heading_references_keep_dotted_descendants_with_a_custom_outer_separator() {
+    let root = test_root("named-heading-custom-separator-references");
+    fs::write(
+        root.join("grund.toml"),
+        "grund_config_version = 1\n\n[reference]\nstrict = true\n\n\
+         [id]\nformat = \"{kind}-{slug}\"\nsection_separator = \"#\"\n\
+         named_sections = true\n\n\
+         [scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
+    )
+    .expect("write custom-separator config");
+    let spec = root.join("docs/FS-doc.md");
+    fs::write(
+        &spec,
+        "# FS-doc: Document\n\n\
+         ## goals: Goals\n\n\
+         ### goals.performance: Performance\n\n\
+         ## other: Other\n\n\
+         Uses \u{a7}FS-doc#goals.\n\
+         Uses \u{a7}FS-doc#goals.performance.\n\
+         Uses \u{a7}FS-doc#other.\n",
+    )
+    .expect("write custom-separator spec");
+
+    let (mut child, mut stdin, receiver) = start_server(&root);
+    send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/references",
+            "params": {
+                "textDocument": { "uri": file_uri(&spec) },
+                "position": { "line": 2, "character": 4 },
+                "context": { "includeDeclaration": false }
+            }
+        }),
+    );
+    let response = recv_response_or_panic(&receiver, &mut child, 2);
+    let lines = response["result"]
+        .as_array()
+        .unwrap_or_else(|| panic!("custom-separator references: {response:?}"))
+        .iter()
+        .map(|location| location["range"]["start"]["line"].as_u64().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(lines, [8, 9]);
+
+    let hover = hover_result(&mut stdin, &receiver, &mut child, 3, &file_uri(&spec), 2, 4);
+    assert!(
+        hover["contents"]["value"]
+            .as_str()
+            .is_some_and(|body| body.contains("cited at 2 sites across 1 file")),
+        "custom-separator section usage: {hover:?}"
+    );
+
+    send_message(
+        &mut stdin,
+        json!({"jsonrpc": "2.0", "id": 4, "method": "shutdown", "params": null}),
+    );
+    recv_response_or_panic(&receiver, &mut child, 4);
+    send_message(
+        &mut stdin,
+        json!({"jsonrpc": "2.0", "method": "exit", "params": null}),
+    );
+    drop(stdin);
+    wait_for_exit(&mut child);
+    let _ = fs::remove_dir_all(root);
+}

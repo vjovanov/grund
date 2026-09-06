@@ -197,9 +197,9 @@ fn navigation_covers_source_comment_citations_and_stub_titles() {
     assert!(
         references.iter().any(|location| {
             location["uri"].as_str() == Some(file_uri(&spec).as_str())
-                && location["range"]["start"]["line"].as_i64() == Some(0)
+                && location["range"]["start"]["line"].as_i64() == Some(4)
         }),
-        "references should include the declaration: {references:?}"
+        "section references should include the matching heading: {references:?}"
     );
     assert!(
         references.iter().any(|location| {
