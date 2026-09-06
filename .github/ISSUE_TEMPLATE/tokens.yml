@@ -1,0 +1,46 @@
+name: Token or time waste
+description: grund burned tokens or wall-clock it did not need to.
+labels: ["tokens"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Output you had to read to discard, a workflow that made you re-read files, a retry loop, an unhelpfully large dump.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: The command you ran, the directory it ran in, and the version or commit sha.
+      placeholder: |
+        $ grund check .
+        run in ~/src/example, grund 0.13.0
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The work grund made you or an agent do twice, or the output that had to be read and thrown away.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: The cheaper behaviour that would have answered the same question.
+    validations:
+      required: true
+  - type: textarea
+    id: cost
+    attributes:
+      label: Cost
+      description: What it actually cost - tokens, invocations, or wall-clock, measured rather than estimated where you can.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: What you did instead, if anything; leave this empty when there was nothing to do.
+    validations:
+      required: false

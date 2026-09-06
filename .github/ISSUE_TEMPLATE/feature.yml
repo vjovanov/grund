@@ -1,0 +1,29 @@
+name: Feature request
+description: grund lacks something it would clearly benefit from.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A proposal is judged against what grund is for, so say what is missing before saying how to build it.
+  - type: textarea
+    id: missing
+    attributes:
+      label: What is missing
+      description: The capability grund does not have today, stated as the behaviour you want.
+    validations:
+      required: true
+  - type: textarea
+    id: why-here
+    attributes:
+      label: Why it belongs in this tool
+      description: What makes this grund's job rather than a caller's, a script's, or another tool's.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today instead
+      description: The workaround you are living with, and what it costs you.
+    validations:
+      required: false

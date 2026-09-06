@@ -1,0 +1,39 @@
+name: Bug report
+description: grund does not do what it is supposed to do.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One report per defect. What makes it actionable is the context: the exact command, where it ran, and which version.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: The command you ran, the directory it ran in, and the version or commit sha.
+      placeholder: |
+        $ grund check .
+        run in ~/src/example, grund 0.13.0
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The behaviour you saw, with the output quoted exactly rather than described.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: What grund should have done instead, and what says so if anything does.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: What you did instead, if anything; leave this empty when there was nothing to do.
+    validations:
+      required: false

@@ -1,0 +1,39 @@
+name: Usability report
+description: grund led you the wrong way - a message, a name, or a default that means something other than it says.
+labels: ["usability"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when grund was arguably right but said so in a way that sent you hunting in the wrong place.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: The command you ran, the directory it ran in, and the version or commit sha.
+      placeholder: |
+        $ grund check .
+        run in ~/src/example, grund 0.13.0
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The message, name, or default you met, quoted exactly, and where it pointed you.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: What it should have said or meant, so the next reader goes to the right place.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: What you did instead, if anything; leave this empty when there was nothing to do.
+    validations:
+      required: false
