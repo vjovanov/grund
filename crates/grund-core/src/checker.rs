@@ -222,6 +222,16 @@
 /// `checker_index_entries.rs`, one file per invariant family and bounded helper
 /// (§AR-core-module-layout.1, §AR-core-module-layout.3).
 ///
+/// ### 2.17 Named section prefixes (§FS-check.3.19)
+///
+/// One pass over each declaration's scanner-recorded section set. For every
+/// name-bearing path, walk its proper prefixes and emit one `orphan-section`
+/// error at the descendant heading for the first prefix absent from the same
+/// declaration. The pass does not parse headings or infer hierarchy from their
+/// Markdown placement; it consumes the shared path set. It is independent of
+/// heading-depth and duplicate checks, so those findings compose rather than
+/// suppress one another. Purely numeric paths bypass the pass.
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and

@@ -23,7 +23,7 @@ grund [show] <ID> [<path>] [--section <s>] [--brief | --toc | --full] [--format 
 
 ### 2.1 Whole declaration (default)
 
-`grund FS-check` prints the *lead* — the prose between the declaration heading and the first child section heading (`## 1. ...`). The opening heading is omitted in `text` format and included in `md`. This is the new default: a 1–2 paragraph slice that names what the declaration is about, without paying for the whole body. Decided in [§DF-show-default-token-cheap](../decisions/functional/DF-show-default-token-cheap.md#df-show-default-token-cheap-grund-show-defaults-to-the-cheap-read-the-full-body-is-opt-in).
+`grund FS-check` prints the *lead* — the prose between the declaration heading and the first child citable section heading (`## 1. ...`, or `## goals: ...` when named sections are enabled). The opening heading is omitted in `text` format and included in `md`. A named heading is a citable point and cuts its parent's lead exactly as a numbered heading does; a plain heading remains prose and does not cut it. This is the new default: a 1–2 paragraph slice that names what the declaration is about, without paying for the whole body. Decided in [§DF-show-default-token-cheap](../decisions/functional/DF-show-default-token-cheap.md#df-show-default-token-cheap-grund-show-defaults-to-the-cheap-read-the-full-body-is-opt-in).
 
 If a declaration has no lead paragraph (its body opens directly with `## 1. ...`), the default prints **nothing** and exits `0`. This is not an error: the declaration simply has no lead. Callers (IDE hovers, agents) can detect this case by the empty output and escalate to `--toc` or `--full`. We do not auto-fall-back; the caller knows what it wants.
 
@@ -39,9 +39,9 @@ If the declaration has no lead prose (opens directly with `## 1. ...`), `--brief
 
 #### 2.1.2 Section map (`--toc`)
 
-`grund --toc FS-check` prints the default lead (§2.1), then a blank line, then every numbered section heading in the declaration body, one per line, in document order, each at the depth it was written (`## 1. Inputs`, `### 2.1 Whole declaration`, `#### 2.1.1 Brief (--brief)`, …). No section bodies. The heading lines are emitted verbatim — the same bytes `--full` would show for those lines — so the section numbers the reader needs are right there to feed back into `grund FS-check.<n>`. No generated summary, ever: `--toc` is a structural slice, as deterministic as the default ([§FS-errors.4](FS-errors.md#4-determinism)).
+`grund --toc FS-check` prints the default lead (§2.1), then a blank line, then every citable section heading in the declaration body, one per line, in document order, each at the depth and in the complete form it was written (`## 1. Inputs`, `## goals: Goals`, `### goals.performance: Performance`, …). No section bodies. The heading lines are emitted verbatim — the same bytes `--full` would show for those lines — so the coordinate the reader needs is right there to feed back into `grund FS-check.<path>`. No generated summary, ever: `--toc` is a structural slice, as deterministic as the default ([§FS-errors.4](FS-errors.md#4-determinism)). A whole-declaration TOC still lists every claimant of a duplicate named coordinate; selecting that coordinate refuses as ambiguous.
 
-If the lead is empty (`## 1.` opens the body), the leading blank line is omitted — the output is the section map only. If the body has no numbered headings (a short declaration that is all lead prose, an E2E manifest), `--toc` prints the default and nothing else. If both are empty, `--toc` prints **nothing** and exits `0`.
+If the lead is empty (`## 1.` or `## goals:` opens the body), the leading blank line is omitted — the output is the section map only. If the body has no citable headings (a short declaration that is all lead prose, an E2E manifest), `--toc` prints the default and nothing else. If both are empty, `--toc` prints **nothing** and exits `0`.
 
 `grund --toc FS-check.3.1` restricts the map to headings **nested under** the selected section: it prints `### 3.1`'s lead, then a blank line, then `#### 3.1.1 …`, `#### 3.1.2 …`, and so on, stopping at the next sibling-or-shallower heading. A selected section with no nested headings is just its lead — i.e. behaves like the default. A section that does not exist is still a `section not found` error.
 
@@ -53,14 +53,14 @@ If the lead is empty (`## 1.` opens the body), the leading blank line is omitted
 
 ### 2.2 Section
 
-`grund FS-check.3.1` selects a section. The flag determines how much of it is printed:
+`grund FS-check.3.1` selects a section; in an opted-in repository, `grund FS-plan.goals.performance` and `grund FS-plan --section goals.performance` select the same named section. The flag determines how much of it is printed:
 
 - `--brief`: section heading + first paragraph.
 - (default): section heading + prose down to the first child heading.
 - `--toc`: section heading + lead + nested heading map.
 - `--full`: section heading + full body (everything down to the next sibling-or-shallower heading; nested deeper headings included).
 
-The selected section heading is printed in all four modes — `text` strips only the whole-declaration H1, not section headings (§3.1). For `--brief`, the section heading is the slice's self-label. Arbitrary nesting depth is supported per [§FS-config.3.3](FS-config.md#33-section-paths--arbitrary-nesting-depth).
+The selected section heading is printed verbatim in all four modes — `text` strips only the whole-declaration H1, not section headings (§3.1). For `--brief`, the section heading is the slice's self-label. Named paths, including `name.number`, compose with default, brief, TOC, full, and `--section` exactly as numeric paths do. Arbitrary nesting depth is supported per [§FS-config.3.3](FS-config.md#33-section-paths--arbitrary-nesting-depth).
 
 #### 2.2.1 Ambiguous ID
 
@@ -82,7 +82,7 @@ Candidates are listed in ID order, and the repo needs no fixing: the caller does
 
 #### 2.2.2 Ambiguous section
 
-The same refusal one level down. If two numbered headings inside the selected declaration claim the requested dotted path — the duplicate-section error of [§FS-check.3.16](FS-check.md#316-duplicate-section-path) — `show` does not pick one either:
+The same refusal one level down. If two citable headings inside the selected declaration claim the requested dotted path — numeric or named, under the duplicate-section error of [§FS-check.3.16](FS-check.md#316-duplicate-section-path) — `show` does not pick one either:
 
 ```
 ambiguous section: FS-001-login.1 (declared at docs/functional-spec/FS-001-login.md:5, docs/functional-spec/FS-001-login.md:9)
@@ -102,7 +102,7 @@ A duplicate elsewhere in the declaration is not this error: only a collision on 
 
 ### 2.3 Inline declarations in code and doc-comments
 
-When the ID's home is in code — whether discovered directly, enrolled by its kind's canonical index link ([§FS-check.3.18](FS-check.md#318-declaration-missing-from-its-kinds-index)), or paired with a [§FS-check.3.4](FS-check.md#34-broken-inline-spec-stub) stub — `show` extracts the comment block surrounding the inline declaration, strips comment markers, and prints the resulting prose. Index enrollment creates no declaration and therefore changes no query resolution. The same section logic applies — and so do the `--brief` / (default) / `--toc` / `--full` slices, computed over the stripped block exactly as over a `.md` body (the lead is what precedes the first `## N.` heading inside the comment; the section map is the numbered headings recorded within it, per §2.3.3).
+When the ID's home is in code — whether discovered directly, enrolled by its kind's canonical index link ([§FS-check.3.18](FS-check.md#318-declaration-missing-from-its-kinds-index)), or paired with a [§FS-check.3.4](FS-check.md#34-broken-inline-spec-stub) stub — `show` extracts the comment block surrounding the inline declaration, strips comment markers, and prints the resulting prose. Index enrollment creates no declaration and therefore changes no query resolution. The same section logic applies — and so do the `--brief` / (default) / `--toc` / `--full` slices, computed over the stripped block exactly as over a `.md` body (the lead is what precedes the first citable heading inside the comment; the section map is the citable headings recorded within it, per §2.3.3).
 
 The scanner recognizes the same doc-comment forms enumerated in [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) — Javadoc, JSDoc/TSDoc, Doxygen, KDoc, Scaladoc, PHPDoc, Rustdoc (`///`, `//!`, `/** … */`), C# XML doc comments, Go's `// …` doc blocks, Ruby `#` comments, and Python `""" … """` docstrings. This means an architectural spec can live directly in the class-level Javadoc, and `grund AR-<event-bus>` returns the rendered Javadoc lead — same content the optional LSP server shows on hover ([§FS-lsp.1.2](FS-lsp.md#12-hover-preview)). The stub at `docs/architecture/AR-<event-bus>.md` is a single-line H1 — `# AR-<event-bus>: [<path>](<path>)` — pointing at the file.
 
@@ -209,9 +209,9 @@ A failed query (`1`) prints the bare result line and, where the next step is obv
 
 ### 3.1 Format variants
 
-- `text` (default) — the body only. The whole-declaration H1 (`# FS-<x>: …`) is omitted; section headings inside the slice are kept. Mode-by-mode: the default prints the lead prose (§2.1); `--brief` prints the heading line and the first paragraph (§2.1.1) — the one mode that includes the H1 in `text`, since the slice would otherwise be unlabeled; `--toc` prints the lead plus the numbered heading lines (§2.1.2); `--full` prints the full body (§2.1.3); a selected section is printed with its own section heading in every mode (§2.2). For an inline-source declaration the body is the comment-stripped prose (§2.3.2); for an E2E case it is the manifest (§2.4). A `grund fmt --cross-refs` link wrapper around a citation (`[§FS-<x>.1](FS-<x>.md#1-y)`) is flattened back to the bare `§FS-<x>.1` — §3.2.
+- `text` (default) — the body only. The whole-declaration H1 (`# FS-<x>: …`) is omitted; section headings inside the slice are kept verbatim, including explicit named handles. Mode-by-mode: the default prints the lead prose (§2.1); `--brief` prints the heading line and the first paragraph (§2.1.1) — the one mode that includes the H1 in `text`, since the slice would otherwise be unlabeled; `--toc` prints the lead plus the citable heading lines (§2.1.2); `--full` prints the full body (§2.1.3); a selected section is printed with its own section heading in every mode (§2.2). For an inline-source declaration the body is the comment-stripped prose (§2.3.2); for an E2E case it is the manifest (§2.4). A `grund fmt --cross-refs` link wrapper around a citation (`[§FS-<x>.goals](FS-<x>.md#goals-scope)`) is flattened back to the bare citation — §3.2.
 - `md` — same as `text` but the opening declaration heading line is **included** verbatim, and `--cross-refs` link wrappers are kept as written — that is the renderable form (§3.2). For the default and `--toc`, the heading is prefixed; for `--brief` it is already included in `text` and stays as written in `md`; for `--full`, the heading is prefixed. The kind's `[[kinds]] title` ([§FS-config.3.4](FS-config.md#34-kinds--recognized-kinds)) is *not* injected — it is metadata exposed only in `json`. For an inline-source declaration the included heading is the one written in the doc-comment (`AR-<event-bus>: In-process event broadcaster`), comment-markers stripped.
-- `json` — a single object on stdout: `{"id":<ID>,"section":<section-path or null>,"body":<string>,"path":<declaring file or case dir>,"line":<1-indexed>}`. `body` is the same text `text` prints — `--cross-refs` wrappers flattened (§3.2). `section` is `null` when the whole declaration was requested. With `--toc` the object additionally carries `sections` — one `{"path":<section path>,"title":<heading text>,"depth":<integer>}` per numbered heading in the selected outline slice, in document order. For E2E cases the object is the §2.4 shape instead. The wire form is stable per [§GOAL-no-silent-breakage.1](../goals.md#1-what-counts-as-user-visible).
+- `json` — a single object on stdout: `{"id":<ID>,"section":<section-path or null>,"body":<string>,"path":<declaring file or case dir>,"line":<1-indexed>}`. `body` is the same text `text` prints — `--cross-refs` wrappers flattened (§3.2). `section` is `null` when the whole declaration was requested and otherwise carries the exact numeric or named path string. With `--toc` the object additionally carries `sections` — one `{"path":<section path>,"title":<complete rendered heading text>,"depth":<integer>}` per citable heading in the selected outline slice, in document order. For E2E cases the object is the §2.4 shape instead. The wire form is stable per [§GOAL-no-silent-breakage.1](../goals.md#1-what-counts-as-user-visible).
 
 Verbose `show --format=json` examples, including failed-query stream behavior, live in [§FS-output-shapes](FS-output-shapes.md#fs-output-shapes-machine-readable-output-shapes).
 

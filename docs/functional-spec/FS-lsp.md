@@ -12,6 +12,8 @@ A single malformed or failing message is not fatal to the session: a request tha
 
 ### 1.1 Diagnostics
 
+Named-section diagnostics are not a parallel editor rule. In an opted-in repository, missing named coordinates, duplicate named coordinates, orphan name-bearing paths, and named heading-depth mismatches are transported from the core report with the same message, severity, line, and range as the CLI. A citation-side finding selects the complete written citation token; an orphan or depth finding selects the complete named heading title. Independent core findings remain independent diagnostics.
+
 `textDocument/publishDiagnostics` pushes `grund check` results as the user edits. Each unknown reference, missing section, duplicate declaration, broken stub, and citation-direction violation — a required citation absent ([§FS-check.3.11](FS-check.md#311-missing-required-citation)) or a forbidden one present ([§FS-check.3.12](FS-check.md#312-forbidden-citation)) — becomes a diagnostic with the same `path:line: <message>` content the CLI prints to stdout ([§FS-errors.2.1](FS-errors.md#21-located-finding)). The advisory `should` / `should-not` suggestions channel ([§FS-check.2.3](FS-check.md#23-suggestions-channel-opt-in)) is opt-in on the CLI and is not pushed as diagnostics. Severity follows the engine's severity model ([§FS-non-goals.9](FS-non-goals.md#9-severity-exit-code-or-report-ordering-customization) — not configurable). The diagnostic position is the start column of the citation the finding concerns — the offending token, not merely the first citation on the line. A single comment can carry several citations, so each finding anchors to its own token. Diagnostics that are line-anchored rather than citation-anchored, such as the opt-in ungrounded-file check ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)), do not borrow a citation range from the same line; otherwise VSCode-style diagnostic hovers would stack unrelated line-level messages onto the citation's own error. Declaration-side findings may still use the declaration, section, or stub title span on that line. For example, with
 
 ```
@@ -22,6 +24,8 @@ A single malformed or failing message is not fatal to the session: a request tha
 the `unknown reference FS-confg` diagnostic anchors on the second token; the resolving first citation `FS-check.3.9` is left unmarked. Precise column information is computed once per scan and reused across the open editor session.
 
 ### 1.2 Hover preview
+
+Named citations preview the exact named section slice that `grund <ID>.<path> --toc` returns. An explicit named heading is a declaration-side title just like a numbered heading: its hover range covers the complete rendered heading title, including the handle and colon, and its usage count covers citations of that path and its descendants.
 
 `textDocument/hover` on a citation returns the body `grund <ID> --toc` would print ([§FS-show.2.1.2](FS-show.md#212-section-map---toc)), or the `--toc` body of the requested section if the citation includes one ([§FS-show.2.2](FS-show.md#22-section)). When the declaration's home is in source code (a stub points at `src/bus.rs`), the hover body is the comment-stripped prose per [§FS-show.2.3.2](FS-show.md#232-stripping-comment-markers) — the same content the CLI returns. There is no separate "IDE-only" rendering for resolving citations; citation hover and the `show --toc` query produce the same bytes. If that citation has a diagnostic instead (for example an unknown reference with a nearest-ID hint), hover returns nothing: the diagnostic already carries the actionable text — the nearest-ID hint — through `publishDiagnostics`, and an editor that renders diagnostics inside the hover popup (VSCode among them) would otherwise show that text twice. The diagnostic is the single source of the error message; hover stays reserved for previewing citations that resolve.
 
@@ -47,13 +51,19 @@ The citation hover content is Markdown. Any resolving `§<ID>` citation inside t
 
 ### 1.3 Go-to-definition
 
+For a named coordinate, definition navigates from the whole citation token to the exact named heading, and declaration-side definition on that heading returns its section-scoped usages. Named and numeric headings use the same snapshot ranges and result shapes.
+
 `textDocument/definition` on a citation jumps to the declaration's `path:line`. For a stub-and-inline-source pair ([§FS-check.3.4](FS-check.md#34-broken-inline-spec-stub)), the server follows the stub's link and lands on the inline declaration line directly — the user does not stop at the stub. The same is true when definition is invoked anywhere on the stub heading's ID or title text: `# AR-foo: [src/lib.rs](...)` is one navigable title span that jumps to the inline `AR-foo` declaration in the source doc-comment. Normal Markdown declaration headings use the same whole-title span for declaration-side requests: references and definition-as-usages return citations of that ID. A numbered section heading inside a declaration body — `## 1. …`, addressable as `<ID>.<section>` — is itself a declaration-side title with the same behaviour: definition and references on it return the citations of that section (`§<ID>.<section>` and any deeper subsection), scoped to the section rather than the whole ID. Definition results report the whole originating token as their origin span — the entire `§<ID>` citation or declaration, section, or stub title — so the editor underlines that span as one navigable unit on the link gesture rather than only the word under the cursor. The server sends `LocationLink` results unless a client explicitly sets `textDocument.definition.linkSupport = false`; clients that omit the flag still get the richer range-carrying shape because plain `Location` results cannot express the origin span.
 
 #### 1.3.1 References from declarations
 
+On a named section heading, references returns citations of that exact path and all descendant paths, matching the section-title usage count. A references request on a named citation resolves to that same set.
+
 `textDocument/references` on a declaration ID or anywhere in its Markdown title returns every citation of that ID, including citations in scanned source-code comments, the same set `grund refs <ID>` reports ([§FS-refs](FS-refs.md#fs-refs-grund-lists-every-citation-of-an-id)). On a numbered section heading it returns the citations of that section ID (`§<ID>.<section>` and deeper), the section-scoped counterpart of the whole-ID title. The same request on a citation returns that citation's target ID usages too, so editors can show "find usages" from either side of the relationship.
 
 #### 1.3.2 Document links
+
+A resolving named citation is one whole document-link range whose target is the named heading line. Explicit named headings themselves remain declaration-side titles rather than self-links.
 
 `textDocument/documentLink` marks each resolving citation token as a link to its declaration target, and each inline-spec stub title as a link to the source doc-comment declaration it points at. Editors that render LSP document links therefore show `§<ID>` references and stub titles as single navigable units even in source files where Markdown cross-reference emission cannot run ([§FS-fmt.6.1](FS-fmt.md#61-scope)). Ordinary Markdown declaration titles are deliberately **not** document links: a self-pointing link covers the same span the editor's Ctrl-click would otherwise resolve to go-to-definition, so it would shadow that gesture and navigate the title onto its own line instead of showing the declaration's usages. The title stays navigable through go-to-definition, which returns the citation sites (§1.3, §1.3.1). Numbered section headings are likewise not document links and stay reachable through the same declaration-side go-to-definition and references.
 
@@ -63,6 +73,8 @@ linked file without moving the cursor to the line; `textDocument/definition`
 remains the exact-position fallback for those clients.
 
 #### 1.3.3 Occurrence highlight
+
+For a named coordinate, the complete `§<ID>.<path>` token and the complete named heading title are occurrence units. Highlights never shorten a missing or reserved letter-bearing tail to the bare ID or numeric prefix.
 
 `textDocument/documentHighlight` marks the whole `§<ID>` citation — or declaration, section, or stub title — under the cursor as one span, plus every other occurrence of the same ID in the open document. Without this, an editor that has no highlight provider falls back to its language word pattern when the cursor rests in a token, and a marker-and-punctuation citation such as `§FS-lsp.1.3` is split on `§`, `-`, and `.`, so only the bare word at the cursor (`lsp`) is boxed rather than the whole reference. Returning the token span as a document highlight makes editors mark the entire citation as a unit. Highlights are scoped to the document the request names: the citing token plus same-document declarations, section headings, stub titles, and sibling citations of the same ID; usages in other files are reached through references (§1.3.1).
 

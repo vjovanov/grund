@@ -46,6 +46,8 @@ LSP over **stdio only**. No TCP, no Unix socket, no named pipe. Reasoning: stdio
 
 ## 5. Determinism and parity tests
 
+Named sections add no server-side parser or resolver. The core snapshot carries their complete section paths, heading-title ranges, citation ranges, resolved targets, and checker diagnostics in the same records used for numeric sections. Diagnostics, hover, definition, references, links, and highlights translate those records only; CLI/core/LSP parity therefore includes missing, duplicate, orphan, depth, and resolving named-section fixtures rather than parallel expected behavior in the transport.
+
 The LSP must produce the same diagnostics for the same workspace state as `grund check` does — byte-for-byte on the message text, position-for-position on the line numbers ([§FS-non-goals.13](../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)). Current parity is enforced by keeping all engine work in `grund-core` and limiting `grund-lsp` to transport/range translation:
 
 - `grund-core::lsp_snapshot` returns the report, declaration ranges, section-heading ranges, stub ranges, citation ranges, and resolved targets from one scan/check pass.
