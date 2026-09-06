@@ -112,6 +112,7 @@ The same spelling in both files is deliberate: one setting the user already know
 format             = "{kind}-{number}-{slug}"
 section_separator  = "."
 section_heading_levels = "strict"
+named_sections     = false
 number_pattern     = "\\d+"
 slug_pattern       = "[a-z0-9][a-z0-9-]*"
 ```
@@ -136,9 +137,11 @@ No ID the grammar can build may contain a `/`, and what that forbids depends on 
 
 The chosen format is repo-wide. Mixing styles in one tree (some IDs numbered, others slug-only) is not supported — citations would look identical but resolve differently. Pick one shape per repo and keep it stable.
 
+`named_sections` is an absent-by-default Boolean gate for explicit section handles. When absent or `false`, section scanning, citation recognition, queries, formatting, completion, LSP behavior, and operational output remain the numeric-only behavior of earlier configurations. When `true`, a named component has the fixed, configuration-independent grammar `[a-z][a-z0-9-]*`; it is not derived from `slug_pattern` or from the displayed heading title. `grund init` writes the teaching default `named_sections = false` ([§FS-init.2.4](FS-init.md#24-generated-grundtoml)). Unknown values are invalid config.
+
 ### 3.3 Section paths — arbitrary nesting depth
 
-Section coordinates are **dotted paths of arbitrary depth**. There is no maximum nesting level. All of the following are valid section references when the corresponding heading exists in the declaration:
+Section coordinates are **dotted paths of arbitrary depth**. There is no maximum nesting level. Purely numeric paths retain their existing heading form and behavior:
 
 ```
 §FS-check.3
@@ -147,9 +150,21 @@ Section coordinates are **dotted paths of arbitrary depth**. There is no maximum
 §FS-check.3.1.2.7.4
 ```
 
-Section depth in the citation must match a heading at that depth in the declaration. The scanner records every numbered heading inside a declaration body and validates citations against the recorded set, so a project that wants four-deep nesting (`## 1.`, `### 1.1`, `#### 1.1.1`, `##### 1.1.1.1`) is supported with no config changes — the dotted path simply grows.
+Section depth in the citation must match a heading at that depth in the declaration. The scanner records every citable heading inside a declaration body and validates citations against the recorded set, so a project that wants four-deep numeric nesting (`## 1.`, `### 1.1`, `#### 1.1.1`, `##### 1.1.1.1`) is supported with no config changes — the dotted path simply grows.
 
-`section_heading_levels` controls how the Markdown heading depth must line up with the dotted section path. The default, `"strict"`, requires the heading level to equal the declaration heading level plus the number of dotted path components: under an H1 declaration, `## 1. …`, `### 1.1 …`, and `#### 1.1.1 …` are valid, while `## 1.1 …` is a `section heading level mismatch` error in `grund check` ([§FS-check.3.9](FS-check.md#39-section-heading-level-mismatch)). `"warn"` reports the same mismatch as a warning, so CI can stay green while a repo migrates. `"loose"` preserves the historical behavior: any heading deeper than the declaration heading is recorded as a section, and the dotted number alone determines the tree. Plain, unnumbered headings and bold labels are always allowed prose structure; they are not grund section targets. Unknown values are invalid config.
+With `named_sections = true`, any path containing a named component uses the explicit colon form `<complete-path>: <title>`. The path is written in full at every depth; the title declares nothing and may change without changing the coordinate:
+
+```markdown
+## goals: Goals
+### goals.performance: Performance
+### goals.3: Third ordered goal
+```
+
+Named components may occur at every depth, so all-name paths such as `goals.performance.latency` are legal. A numeric component may follow a named prefix (`goals.3`), knowingly retaining positional behavior beneath that stable handle. A named component may not follow a numeric component: `1.goals` is reserved and is neither a named heading nor an alias for section `1`. Purely numeric headings keep their existing optional trailing period and title syntax; the colon form is mandatory whenever any component is named. There is no inferred title slug, dual numeric/name address, rename map, or automatic migration.
+
+`section_heading_levels` controls how the Markdown heading depth must line up with the dotted section path. The default, `"strict"`, requires the heading level to equal the declaration heading level plus the number of path components, named or numeric: under an H1 declaration, `## 1. …`, `### 1.1 …`, `## goals: …`, and `### goals.performance: …` are valid, while `## 1.1 …` and `## goals.performance: …` are `section heading level mismatch` errors in `grund check` ([§FS-check.3.9](FS-check.md#39-section-heading-level-mismatch)). `"warn"` reports the same mismatch as a warning, so CI can stay green while a repo migrates. `"loose"` preserves the historical depth behavior: any deeper heading can declare a syntactically legal complete path. Plain headings and bold labels are always allowed prose structure; they are not grund section targets. Unknown values are invalid config.
+
+Every proper prefix of a name-bearing path must itself be recorded in the same declaration. Thus `### goals.performance: …` requires `goals`, while `### missing.performance: …` is an orphan even if its Markdown placement looks nested under some other heading ([§FS-check.3.19](FS-check.md#319-orphan-name-bearing-section-path)). The invariant applies to name-bearing paths only; purely numeric paths preserve their historical behavior.
 
 The default `section_separator` is `.`. Projects that prefer `:` (`§FS-check:3.1.2`) or `#` (`RFC-42#3.1.2`) override it; the dotted **components** stay separated by `.` regardless of the outer separator. Example with `section_separator = "#"`:
 
@@ -579,6 +594,8 @@ When the discovered config declares `[workspace]` ([§3.8](#38-workspace--sub-pr
 ### 4.2 `grund config show [path]`
 
 Prints the **effective** configuration — defaults merged with the config discovered by walking up from `path` (or `.` when omitted), plus CLI flags — as TOML. Every `[[kinds]]` entry is printed under the canonical `kind` key, and `citable` is printed **only where it is `false`**: absence *is* `citable = true`, and the printed config has to load back as itself. `require_grounding` and `grounding_level` follow the same rule for the same reason, one scope down: a row prints either key only where its effective value differs from the effective global, which is printed under `[reference]` (§3.4.8). A row that inherits both prints neither, and the config that comes out loads back to the same effective values it went in with. Useful for debugging "why did grund recognize this citation" or "what does my config actually evaluate to." A redundant config pair at the config root is reported as a `warning:` on stderr before the TOML (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)), so the answer to "why is this key not taking effect" is on screen next to the effective value.
+
+The `[id]` table prints `named_sections = true` only when enabled. Absent and explicit `false` configurations therefore retain the previous `config show` bytes; an enabled repository exposes the opt-in that explains its named heading and citation grammar. The emitted TOML loads back to the same effective value.
 
 ### 4.3 Invalid config behavior
 
