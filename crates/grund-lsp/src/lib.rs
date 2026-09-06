@@ -671,20 +671,21 @@ impl Server {
         let mut ranges = vec![token.range(self)];
         match token {
             Token::Citation(source) => {
+                let section = source.query_id != source.declaration_query_id;
                 for citation in &snapshot.citations {
-                    if same_path(&citation.path, &path)
-                        && citation_under_title(
-                            &source.declaration_query_id,
-                            &citation.query_id,
-                            &source.section_separator,
-                        )
-                    {
+                    let same_query = citation.query_id == source.query_id
+                        || !section
+                            && citation_under_title(
+                                &source.declaration_query_id,
+                                &citation.query_id,
+                                &source.section_separator,
+                            );
+                    if same_path(&citation.path, &path) && same_query {
                         ranges.push(citation_range(citation, self));
                     }
                 }
-                for decl in &snapshot.declarations {
-                    if same_path(&decl.path, &path) && decl.query_id == source.declaration_query_id
-                    {
+                for decl in snapshot.declarations.iter().chain(&snapshot.sections) {
+                    if same_path(&decl.path, &path) && decl.query_id == source.query_id {
                         ranges.push(declaration_range(decl, self));
                     }
                 }

@@ -18,6 +18,7 @@ warn_on_suggested = false
 [id]
 format = "{kind}-{number}-{slug}" # placeholders: {kind} required; use {number}, {slug}, or both
 section_separator = "."
+named_sections = false
 section_heading_levels = "strict" # strict | warn | loose
 number_pattern = "\\d+"
 slug_pattern = "[a-z0-9][a-z0-9-]*"
