@@ -197,7 +197,7 @@ that is not a full ID under the repo's own grammar.
 
 ### 3.2 Missing section
 
-A citation with a section suffix (`§FS-<user-login>.3.1` or, in an opted-in repository, `§FS-<user-login>.goals`) where the declaration exists but the requested section heading does not. A missing marker-prefixed named coordinate is never shortened to its declaration; it produces the ordinary `section not found` error and adds `write <§> before it to show the shape without citing it` to the message. A number-only shorthand carrying a missing named section produces both the existing shorthand finding and this finding: the persisted ID form and the requested target are independent facts ([AR-checker.2.12](../architecture/AR-checker.md#212-number-only-shorthand-citations)).
+A citation with a section suffix (`§FS-<user-login>.3.1` or, in an opted-in repository, `§FS-<user-login>.goals`) where the declaration exists but the requested section heading does not. A missing marker-prefixed named coordinate is never shortened to its declaration; it produces the ordinary `section not found` error and adds `write <§> before it to show the shape without citing it` to the message. A number-only shorthand carrying a missing named section produces both the existing shorthand finding and this finding: the persisted ID form and the requested target are independent facts ([AR-checker.2.12](../../crates/grund-core/src/checker.rs)).
 
 ### 3.3 Duplicate declaration
 
