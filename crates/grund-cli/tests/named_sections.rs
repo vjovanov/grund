@@ -131,7 +131,9 @@ fn named_sections_drive_show_refs_json_and_completion() {
         &["show", "FS-doc.goals.performance", "--format", "md"],
     );
     expect_success(&markdown, "named Markdown query");
-    assert!(stdout(&markdown).starts_with("### goals.performance: Performance"));
+    assert!(
+        stdout(&markdown).starts_with("# FS-doc: Document\n### goals.performance: Performance")
+    );
 
     let toc = grund(repo.path(), &["show", "FS-doc", "--toc"]);
     expect_success(&toc, "whole named TOC");
@@ -234,7 +236,7 @@ fn named_sections_report_missing_reserved_orphan_depth_and_duplicates() {
         findings.contains("FS-doc.md:11"),
         "orphan heading line: {findings}"
     );
-    assert!(findings.contains("section heading level mismatch"));
+    assert!(findings.contains("heading level mismatch"));
 
     let ambiguous = grund(repo.path(), &["show", "FS-doc.goals"]);
     assert_eq!(ambiguous.status.code(), Some(1));

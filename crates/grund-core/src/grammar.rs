@@ -294,10 +294,9 @@ impl Grammar {
             id = id_pat
         ))?;
         let docstring_decl_re = Regex::new(&format!(r"^\s*{id}\b", id = id_pat))?;
-        // §FS-config.3.3 / §AR-scanner.2.2: a name-bearing heading uses the
-        // explicit colon form; numeric headings retain their optional full stop.
-        // The punctuation is captured with the path because Rust regexes have no
-        // lookahead; `section_path` removes it for every shared consumer.
+        // §FS-config.3.3: name-bearing headings require the explicit colon form;
+        // numeric headings retain optional full stops. Rust regexes lack lookahead, so
+        // punctuation stays captured and `section_path` removes it (§AR-scanner.2.2).
         let section_heading = if named_sections {
             format!(
                 r"(?P<sec>(?:{NUMERIC_SECTION_PATTERN}\.?|{NAMED_SECTION_PATTERN}:))"
