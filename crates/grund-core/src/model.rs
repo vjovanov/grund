@@ -55,9 +55,9 @@ pub struct Declaration {
     pub body_end: usize,
 }
 
-/// One numbered subsection heading recorded inside a declaration
-/// (§AR-scanner.2.2): the heading text used for anchors, plus the source line and
-/// Markdown heading level used by the strict section-depth checker
+/// One numeric or explicitly named subsection heading recorded inside a
+/// declaration (§AR-scanner.2.2): the heading text used for anchors, plus the
+/// source line and Markdown heading level used by the section-depth checker
 /// (§FS-check.3.9).
 #[derive(Debug, Clone)]
 pub struct SectionInfo {
@@ -513,6 +513,8 @@ pub struct Config {
     pub section_separator: String,
     pub number_pattern: String,
     pub slug_pattern: String,
+    /// The absent-by-default named-section grammar gate (§FS-config.3.2).
+    pub named_sections: bool,
     pub section_heading_levels: String,
     pub kinds: Vec<KindConfig>,
     /// `[fmt] exclude` (§FS-config.3.10) — the files `grund fmt` performs no
@@ -634,6 +636,7 @@ impl Config {
             DEFAULT_NUMBER_PATTERN,
             DEFAULT_SLUG_PATTERN,
             DEFAULT_SECTION_SEPARATOR,
+            false,
             &DEFAULT_COMMENT_PREFIXES
                 .iter()
                 .map(|prefix| prefix.to_string())
@@ -693,6 +696,7 @@ impl Config {
             section_separator: DEFAULT_SECTION_SEPARATOR.into(),
             number_pattern: DEFAULT_NUMBER_PATTERN.into(),
             slug_pattern: DEFAULT_SLUG_PATTERN.into(),
+            named_sections: false,
             section_heading_levels: "strict".into(),
             kinds,
             fmt_exclude: Vec::new(),
@@ -751,6 +755,7 @@ impl Config {
             &self.number_pattern,
             &self.slug_pattern,
             &self.section_separator,
+            self.named_sections,
             &self.comment_prefixes,
         )?;
         Ok(())

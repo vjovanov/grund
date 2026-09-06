@@ -294,17 +294,29 @@ fn check_citation_resolution(
         if let Some(sec) = &cite.section {
             let any_match = decls.iter().any(|d| d.sections.contains_key(sec));
             if !any_match {
+                let coordinate = format!(
+                    "{}{}{}",
+                    render_qualified_id(target.config, cite.namespace.as_deref(), &cite.id),
+                    target.config.section_separator,
+                    sec
+                );
+                let message = if target.config.named_sections
+                    && target.config.grammar.is_named_section(Some(sec))
+                    && cite.has_marker
+                {
+                    format!(
+                        "section not found: {coordinate}; write <{}> before it to show the shape without citing it",
+                        target.config.marker
+                    )
+                } else {
+                    format!("missing section {coordinate}")
+                };
                 report.errors.push(Diagnostic {
                     code: "missing-section",
                     path: Some(cite.file.clone()),
                     line: Some(cite.line),
                     column: Some(cite.column),
-                    message: format!(
-                        "missing section {}{}{}",
-                        render_qualified_id(target.config, cite.namespace.as_deref(), &cite.id),
-                        target.config.section_separator,
-                        sec
-                    ),
+                    message,
                     sites: Vec::new(),
                 });
             }

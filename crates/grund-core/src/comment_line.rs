@@ -24,10 +24,20 @@ fn citation_token_ranges(
         let Some(full) = caps.get(0) else { continue };
         let namespace = caps.name("namespace");
         let has_marker = line[..full.start()].ends_with(&config.marker);
+        if config.grammar.has_reserved_named_tail(line, full.end()) {
+            continue;
+        }
         if namespace.is_some() && !has_marker {
             continue;
         }
         if config.strict && !has_marker {
+            continue;
+        }
+        if !has_marker
+            && config
+                .grammar
+                .is_named_section(caps.name("sec").map(|sec| sec.as_str()))
+        {
             continue;
         }
         if !has_marker && is_inside_string_literal(line, full.start()) {

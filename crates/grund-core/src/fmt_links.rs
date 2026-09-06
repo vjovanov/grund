@@ -104,6 +104,9 @@ fn markdown_link_citations(
     }
     for caps in config.grammar.citation_re.captures_iter(line) {
         let Some(full) = caps.get(0) else { continue };
+        if config.grammar.has_reserved_named_tail(line, full.end()) {
+            continue;
+        }
         let marker_start = full.start().saturating_sub(config.marker.len());
         if !line[..full.start()].ends_with(&config.marker) {
             continue;
@@ -162,6 +165,13 @@ fn collect_workspace_markdown_link_citations(
         let Some(parsed) = parse_longest_id_prefix(id_rest, &target_project.config.grammar) else {
             continue;
         };
+        if target_project
+            .config
+            .grammar
+            .has_reserved_named_tail(id_rest, parsed.len)
+        {
+            continue;
+        }
         out.push(MarkdownLineCitation {
             marker_start,
             token_end: id_start + parsed.len,
@@ -390,6 +400,16 @@ fn path_components(path: &Path) -> Vec<String> {
 /// by `grund fmt --cross-refs` (§DF-github-anchor-fidelity).
 fn section_anchor_text(line: &str, section: &str) -> String {
     let trimmed = line.trim_start();
+    // §FS-fmt.6.2: named anchors derive from the complete rendered heading, so
+    // its explicit colon reaches the renderer (`goals: Scope`). Numeric paths
+    // retain their historical normalized stored text byte for byte.
+    if section
+        .as_bytes()
+        .first()
+        .is_some_and(u8::is_ascii_lowercase)
+    {
+        return reduce_heading_text(trimmed.trim_start_matches('#').trim_start());
+    }
     let heading = trimmed
         .trim_start_matches('#')
         .trim_start()
@@ -439,7 +459,7 @@ fn section_heading_text(
             continue;
         }
         if let Some(caps) = config.grammar.section_re.captures(scan_line)
-            && caps.name("sec").is_some_and(|sec| sec.as_str() == section)
+            && section_path(&caps).is_some_and(|found| found == section)
         {
             return Ok(Some(section_anchor_text(scan_line, section)));
         }

@@ -580,7 +580,7 @@ pub struct LspSnapshot {
     pub workspace: bool,
     pub report: Report,
     pub declarations: Vec<LspDeclaration>,
-    /// Numbered section headings (`<ID>.<section>`) inside declaration bodies,
+    /// Citable section headings (`<ID>.<section>`) inside declaration bodies,
     /// each a declaration-side title editors can navigate to its section
     /// citations (§FS-lsp.1.3.1). Kept separate from `declarations` so the
     /// whole-ID home set stays the bare-ID declarations.
@@ -710,7 +710,7 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
                     query_id: query_id.clone(),
                     section_separator: project.config.section_separator.clone(),
                 });
-                // Each numbered section heading is its own declaration-side
+                // Each citable section heading is its own declaration-side
                 // title: editors navigate `<ID>.<section>` to that section's
                 // citations, the same way the whole-ID title does (§FS-lsp.1.3.1).
                 for (section, info) in &home.sections {
