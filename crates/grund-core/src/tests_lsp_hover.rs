@@ -94,8 +94,18 @@ mod tests_lsp_hover {
         assert!(citation_under_title("FS-lsp", "FS-lsp", "."));
         assert!(citation_under_title("FS-lsp", "FS-lsp.1", "."));
         assert!(citation_under_title("FS-lsp", "FS-lsp/1", "/"));
+        assert!(citation_under_title(
+            "FS-lsp#goals",
+            "FS-lsp#goals.performance",
+            "#"
+        ));
         assert!(!citation_under_title("FS-lsp", "FS-lsp-extra.1", "."));
         assert!(!citation_under_title("FS-lsp.1", "FS-lsp.11", "."));
+        assert!(!citation_under_title(
+            "FS-lsp#goals",
+            "FS-lsp#other",
+            "#"
+        ));
     }
 
     /// §FS-lsp.1.2: the body is the title as inline code, an em dash, and the

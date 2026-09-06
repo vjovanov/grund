@@ -591,9 +591,11 @@ impl Server {
                 locations.extend(self.citation_locations_for_declaration(snapshot, decl));
             }
             Token::Citation(source) => {
+                // A citation carries its complete target query, so a section
+                // keeps the same exact subtree as its heading (§FS-lsp.1.3.1).
                 if include_decl {
-                    for decl in &snapshot.declarations {
-                        if decl.query_id == source.declaration_query_id
+                    for decl in snapshot.declarations.iter().chain(&snapshot.sections) {
+                        if decl.query_id == source.query_id
                             && let Some(location) = self.declaration_location(decl)
                         {
                             locations.push(location);
@@ -602,7 +604,7 @@ impl Server {
                 }
                 for citation in &snapshot.citations {
                     if citation_under_title(
-                        &source.declaration_query_id,
+                        &source.query_id,
                         &citation.query_id,
                         &source.section_separator,
                     ) && let Some(uri) = path_uri(&citation.path)

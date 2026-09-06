@@ -19,6 +19,9 @@ pub struct LspUsage {
 
 /// Whether a citation belongs to the declaration-side title `title_query_id`:
 /// the title's own ID, or one of its deeper sections (§FS-lsp.1.3.1).
+/// A bare declaration enters its section tree through the configured outer
+/// separator; an existing section path always enters descendants through `.`
+/// (§FS-config.3.3).
 ///
 /// Both query IDs are already namespace-qualified by the snapshot, so a
 /// member's own `§<ID>` and a sibling's `§<alias>/<ID>` compare equal here for
@@ -29,10 +32,16 @@ pub fn citation_under_title(
     citation_query_id: &str,
     section_separator: &str,
 ) -> bool {
+    let local_title = title_query_id.rsplit('/').next().unwrap_or(title_query_id);
+    let descendant_separator = if local_title.contains(section_separator) {
+        "."
+    } else {
+        section_separator
+    };
     citation_query_id == title_query_id
         || citation_query_id
             .strip_prefix(title_query_id)
-            .is_some_and(|tail| tail.starts_with(section_separator))
+            .is_some_and(|tail| tail.starts_with(descendant_separator))
 }
 
 impl LspSnapshot {
