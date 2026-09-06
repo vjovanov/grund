@@ -24,6 +24,10 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Added
+
+- [§FS-config.3.2](functional-spec/FS-config.md#32-id--id-grammar), [§FS-check.3.19](functional-spec/FS-check.md#319-orphan-name-bearing-section-path), [§FS-show.2.2](functional-spec/FS-show.md#22-section): add opt-in explicit named section coordinates across checking, queries, references, formatting, completion, LSP, and generated guidance. `[id] named_sections = true` makes complete colon-form handles such as `goals.performance` stable and addressable at every depth, permits ordered numeric children such as `goals.3`, reserves `number.name`, and reports missing prefixes instead of accepting structurally orphaned paths. The absent/false default retains numeric behavior and output; `grund init` writes `named_sections = false`. (PR #204)
+
 ## 2. [0.13.0] — 2026-09-05
 
 ### Added

@@ -221,6 +221,12 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                 }
                 grammar_dirty = true;
             }
+            // §FS-config.3.2: named coordinates are an explicit, absent-by-default
+            // grammar change, so parsing the key recompiles every shared pattern.
+            ("id", "named_sections") => {
+                config.named_sections = parse_bool(path, line_no, value)?;
+                grammar_dirty = true;
+            }
             ("id", "section_heading_levels") => {
                 let mode = parse_string(path, line_no, value)?;
                 if !matches!(mode.as_str(), "strict" | "warn" | "loose") {

@@ -1,4 +1,6 @@
-const SEC_GROUP: &str = r"(?P<sec>\d+(?:\.\d+)*)";
+const NUMERIC_SECTION_PATTERN: &str = r"\d+(?:\.\d+)*";
+const NAMED_SECTION_PATTERN: &str =
+    r"[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)*(?:\.\d+)*";
 const DEFAULT_INCLUDE: &[&str] = &["requirements.md", "docs", "e2e", "src"];
 const DEFAULT_SCAN_EXTENSIONS: &[&str] = &[
     "md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala",
@@ -143,6 +145,9 @@ pub struct Grammar {
     /// match; this regex never has two modes.
     citation_re: Regex,
     id_input_re: Regex,
+    /// The compiled grammar remembers the gate so every token consumer can
+    /// enforce the same whole-token suppression rule (§AR-scanner.2.3).
+    named_sections: bool,
     /// The near-miss patterns (§FS-check.4.6): a heading that opens with a
     /// configured kind and the literal an ID puts after it, without parsing as
     /// an ID. `None` where `[id] format` puts no literal between `{kind}` and
@@ -187,6 +192,7 @@ impl Grammar {
         number_pattern: &str,
         slug_pattern: &str,
         section_separator: &str,
+        named_sections: bool,
         comment_prefixes: &[String],
     ) -> Result<Self> {
         let kind_alt = if kinds.is_empty() {
@@ -270,7 +276,13 @@ impl Grammar {
         }
 
         let sep_quoted = regex::escape(section_separator);
-        let sec_suffix = format!(r"(?:{}{})?", sep_quoted, SEC_GROUP);
+        let section_pattern = if named_sections {
+            format!(r"(?:{NUMERIC_SECTION_PATTERN}|{NAMED_SECTION_PATTERN})")
+        } else {
+            NUMERIC_SECTION_PATTERN.to_string()
+        };
+        let sec_group = format!(r"(?P<sec>{section_pattern})");
+        let sec_suffix = format!(r"(?:{}{})?", sep_quoted, sec_group);
 
         let comment_prefix = comment_prefix_regex(comment_prefixes);
         // Declaration grammar (§AR-scanner.2.1): Markdown-form is `#+` then ID,
@@ -282,9 +294,20 @@ impl Grammar {
             id = id_pat
         ))?;
         let docstring_decl_re = Regex::new(&format!(r"^\s*{id}\b", id = id_pat))?;
+        // §FS-config.3.3 / §AR-scanner.2.2: a name-bearing heading uses the
+        // explicit colon form; numeric headings retain their optional full stop.
+        // The punctuation is captured with the path because Rust regexes have no
+        // lookahead; `section_path` removes it for every shared consumer.
+        let section_heading = if named_sections {
+            format!(
+                r"(?P<sec>(?:{NUMERIC_SECTION_PATTERN}\.?|{NAMED_SECTION_PATTERN}:))"
+            )
+        } else {
+            format!(r"(?P<sec>{NUMERIC_SECTION_PATTERN})\.?" )
+        };
         let section_re = Regex::new(&format!(
-            r"^\s*(?:{})?\s*(?P<hashes>#+)\s+{}\.?\s+\S",
-            comment_prefix, SEC_GROUP
+            r"^\s*(?:{})?\s*(?P<hashes>#+)\s+{}\s+\S",
+            comment_prefix, section_heading
         ))?;
         // §FS-workspace.1: the optional `<alias>/` namespace prefix is part of the
         // citation grammar, not a separate parser pass, and the scanner gates it on
@@ -323,6 +346,7 @@ impl Grammar {
             section_re,
             citation_re,
             id_input_re,
+            named_sections,
             near_miss: literal_after_kind_placeholder(format)
                 .filter(|literal| !literal.is_empty())
                 .map(|literal| NearMissGrammar::build(&kind_alt, &comment_prefix, literal)),
@@ -330,6 +354,37 @@ impl Grammar {
             elements,
         })
     }
+
+    /// A name-shaped section matched by the opted-in grammar (§FS-check.1.1).
+    fn is_named_section(&self, section: Option<&str>) -> bool {
+        self.named_sections
+            && section.is_some_and(|path| {
+                path.split('.')
+                    .any(|part| part.as_bytes().first().is_some_and(u8::is_ascii_lowercase))
+            })
+    }
+
+    /// Whether a valid prefix is followed by the reserved `number.name` order.
+    /// The regex crate has no lookahead, so this whole-token rejection is the
+    /// post-match half of the grammar (§AR-scanner.2.3, §FS-config.3.3).
+    fn has_reserved_named_tail(&self, text: &str, end: usize) -> bool {
+        self.named_sections
+            && text[end..]
+                .strip_prefix('.')
+                .and_then(|tail| tail.as_bytes().first())
+                .is_some_and(u8::is_ascii_lowercase)
+    }
+}
+
+/// The normalized complete path from a citable section heading. In named mode
+/// the grammar captures the discriminating `:`; numeric `.` remains optional.
+fn section_path<'a>(caps: &'a regex::Captures<'a>) -> Option<&'a str> {
+    let raw = caps.name("sec")?.as_str();
+    Some(
+        raw.strip_suffix('.')
+            .or_else(|| raw.strip_suffix(':'))
+            .unwrap_or(raw),
+    )
 }
 
 /// Build the alternation a declaration/section heading may be prefixed by — one

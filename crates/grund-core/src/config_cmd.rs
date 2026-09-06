@@ -113,6 +113,11 @@ fn command_config(args: &[String]) -> ExitCode {
                 println!("[id]");
                 println!("format = \"{}\"", config.id_format);
                 println!("section_separator = \"{}\"", config.section_separator);
+                // §FS-config.4.2: false is operationally absent; only an enabled
+                // gate adds a line to effective-config output.
+                if config.named_sections {
+                    println!("named_sections = true");
+                }
                 println!(
                     "section_heading_levels = \"{}\"",
                     config.section_heading_levels

@@ -505,6 +505,15 @@ fn add_markers(
         if line[..found.start()].ends_with(&config.marker) {
             continue;
         }
+        // §FS-fmt.2.3 / §FS-check.1.1: an unmarked named coordinate is one
+        // prose token under the opt-in and is never promoted by `fmt --marker`.
+        if config.grammar.has_reserved_named_tail(line, found.end())
+            || config
+                .grammar
+                .is_named_section(caps.name("sec").map(|sec| sec.as_str()))
+        {
+            continue;
+        }
         if is_md && is_inside_inline_code(line, found.start()) {
             continue;
         }

@@ -190,6 +190,11 @@ fn parse_longest_id_prefix(raw: &str, grammar: &Grammar) -> Option<ParsedIdPrefi
         .collect::<Vec<_>>();
     for end in ends.into_iter().rev() {
         if let Ok(parsed) = parse_id_arg_with_shorthand(&raw[..end], grammar) {
+            // §FS-config.3.3 / §AR-scanner.2.3: do not return the numeric prefix
+            // of a reserved name-bearing candidate.
+            if grammar.has_reserved_named_tail(raw, end) {
+                return None;
+            }
             // §DF-number-only-citation-shorthand.2.6: a shorthand match here is
             // always a proper prefix of something longer, so it counts only if
             // what follows cannot continue the token.
@@ -474,6 +479,7 @@ fn id_token_end_at(line: &str, at: usize, grammar: &Grammar) -> Option<usize> {
         .citation_re
         .find_at(line, at)
         .filter(|found| found.start() == at)
+        .filter(|found| !grammar.has_reserved_named_tail(line, found.end()))
     {
         return Some(found.end());
     }
@@ -485,6 +491,7 @@ fn id_token_end_at(line: &str, at: usize, grammar: &Grammar) -> Option<usize> {
         // §DF-number-only-citation-shorthand.2.6: `$$FS-042abc` is not a
         // shorthand, so the trigger before it is not rewritable either.
         .filter(|found| grammar.id_token_ends_cleanly(rest, found.end()))
+        .filter(|found| !grammar.has_reserved_named_tail(rest, found.end()))
         .map(|found| at + found.end())
 }
 

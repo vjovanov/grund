@@ -1002,7 +1002,7 @@ impl Server {
                     .map(Token::Declaration)
             })
             .or_else(|| {
-                // A numbered section heading is a declaration-side title too, so
+                // A citable section heading is a declaration-side title too, so
                 // definition and references resolve to its section citations
                 // (§FS-lsp.1.3.1).
                 snapshot

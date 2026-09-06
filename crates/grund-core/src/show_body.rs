@@ -10,7 +10,7 @@
 
 /// Pull the body text of a declaration out of its file: the lines under the
 /// `# <ID>: …` heading down to the next same-or-shallower heading (§FS-show.2.1),
-/// optionally just one numbered subsection (§FS-show.2.2) or just the lead
+/// optionally just one citable subsection (§FS-show.2.2) or just the lead
 /// paragraph (§FS-show.2.1.1). For an inline declaration in a code/`"""` doc-comment
 /// this walks the comment block (§FS-show.2.3.1) and strips comment markers
 /// (§FS-show.2.3.2) before returning the text.
@@ -156,10 +156,10 @@ fn extract_declaration_body(
         if !fenced
             && let Some(caps) = config.grammar.section_re.captures(scan_line)
         {
-            let sec = caps.name("sec").map(|m| m.as_str()).unwrap_or("");
+            let sec = section_path(&caps).unwrap_or("");
             let depth = sec.split('.').count();
             match section {
-                // Whole-declaration lead: stop at the first numbered subsection.
+                // Whole-declaration lead: stop at the first citable subsection.
                 None => {
                     if mode == ShowRenderMode::Default {
                         break;
@@ -271,7 +271,7 @@ fn section_title(line: &str, section: &str, markdown_heading: bool) -> String {
         .trim_start_matches('#')
         .trim_start()
         .trim_start_matches(section)
-        .trim_start_matches('.')
+        .trim_start_matches(['.', ':'])
         .trim_start()
         .to_string()
 }

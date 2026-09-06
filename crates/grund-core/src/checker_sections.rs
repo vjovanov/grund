@@ -1,5 +1,5 @@
-/// The section-shape rule family: the two things `grund check` says about a
-/// declaration's own numbered headings, rather than about a citation of one.
+/// The section-shape rule family: what `grund check` says about a declaration's
+/// own citable headings, rather than about a citation of one.
 ///
 /// - **Heading level** (§FS-check.3.9) — the Markdown depth a heading writes must
 ///   mirror the dotted path it claims, as strictly as `[id] section_heading_levels`
@@ -13,7 +13,7 @@
 /// `duplicate_sections` list the scanner keeps beside it (§AR-scanner.2.2,
 /// §AR-core-module-layout.1).
 
-/// Both section-shape rules, as two independent passes over the declarations
+/// The section-shape rules, as independent passes over the declarations
 /// (§AR-checker.2.15). Order does not matter — the report is sorted before it is
 /// printed (§FS-errors.4).
 ///
@@ -65,6 +65,44 @@ fn check_section_headings(
                                 expected_level,
                                 heading_marks(section.heading_level),
                                 section.heading_level
+                            ),
+                            sites: Vec::new(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    // §FS-check.3.19 / §AR-checker.2.17: every name-bearing path is addressable
+    // only when each proper prefix exists in the same scanner-recorded map.
+    if config.named_sections {
+        for (id, decls) in &findings.declarations {
+            for decl in decls {
+                for (path, info) in &decl.sections {
+                    if !path
+                        .split('.')
+                        .any(|part| part.as_bytes().first().is_some_and(u8::is_ascii_lowercase))
+                    {
+                        continue;
+                    }
+                    let parts = path.split('.').collect::<Vec<_>>();
+                    let first_absent = (1..parts.len())
+                        .map(|end| parts[..end].join("."))
+                        .find(|prefix| !decl.sections.contains_key(prefix));
+                    if let Some(prefix) = first_absent {
+                        report.errors.push(Diagnostic {
+                            code: "orphan-section",
+                            path: Some(decl.file.clone()),
+                            line: Some(info.line),
+                            column: None,
+                            message: format!(
+                                "orphan section {}{}{}: missing prefix {}{}{}",
+                                render_id(config, id),
+                                config.section_separator,
+                                path,
+                                render_id(config, id),
+                                config.section_separator,
+                                prefix
                             ),
                             sites: Vec::new(),
                         });

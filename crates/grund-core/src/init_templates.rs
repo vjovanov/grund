@@ -164,6 +164,18 @@ fn agents_workspace_members_section(
 
 fn section_heading_note(config: &Config, marker: &str) -> String {
     let sep = config.section_separator.as_str();
+    // §FS-init.2.3.4.5: enabled repositories teach explicit complete handles;
+    // the generated false default retains the prior numeric-only bytes here.
+    if config.named_sections {
+        let verdict = match config.section_heading_levels.as_str() {
+            "strict" => "an error",
+            "warn" => "a warning",
+            _ => "recommended for readability",
+        };
+        return format!(
+            "Named sections are enabled: use explicit complete paths (`## goals: Goals`, `### goals.performance: Performance`, `### goals.3: Ordered child`) so `{marker}<ID>{sep}goals.performance` resolves; handles are letter-first lowercase names, `name.number` is legal, and `number.name` is reserved. Heading depth must match each path component ({verdict}). Purely numbered headings remain citable, and plain headings or bold labels are fine for non-citable local structure."
+        );
+    }
     match config.section_heading_levels.as_str() {
         "strict" => format!(
             "Numbered headings inside a declaration are citable sections: use depth-matching headings (`## 1. …`, `### 1.1 …`, etc.) so `{marker}<ID>{sep}1` / `{marker}<ID>{sep}1.1` resolve; mismatched heading depth is a `grund check` error. Plain headings or bold labels are fine for non-citable local structure."
