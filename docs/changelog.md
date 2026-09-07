@@ -24,11 +24,13 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
-## 2. [0.13.1] — 2026-09-07
-
 ### Added
 
 - [§FS-config.3.4.10](functional-spec/FS-config.md#3410-format-resolve-and-fetch--external-snapshot-kinds), [§FS-check.4.12](functional-spec/FS-check.md#412-missing-snapshot), [§FS-fetch](functional-spec/FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot): add per-kind ID formats, fixed `must`/`should` snapshot resolution, and explicit `grund fetch <ID>` materialization into committed file or folder homes. Fetch integrations run directly only on request; every check and query stays offline. `KindConfig` gains public `format`, `resolve`, and `fetch` fields, so downstream exhaustive struct literals must initialize them; `grund_config_version` remains 1 because all configuration keys are optional and absent keys retain prior behavior. Closes issue #93. (PR #208)
+
+## 2. [0.13.1] — 2026-09-07
+
+### Added
 
 - Report intake: `.github/ISSUE_TEMPLATE/` carries four GitHub issue forms — bug report, feature request, usability report, and token or time waste — each applying the matching kind label (`bug`, `enhancement`, `usability`, `tokens`) as the issue is opened, and `config.yml` turns blank issues off so no issue can arrive without a kind. Every form asks for the fields that make a report actionable: the context (command, directory, version), what happened, what was expected, an optional workaround, and, for the token form, the cost. (PR #205)
 - [§FS-values](functional-spec/FS-values.md#fs-values-opted-in-kinds-bind-authored-components-to-one-declared-value), [§DA-explicit-value-bindings](decisions/architectural/DA-explicit-value-bindings.md#da-explicit-value-bindings-compare-only-authored-delimited-value-bindings): add opt-in first-class Markdown and home-JSON values, exact authored bindings in prose and scanned comments, arbitrary-precision decimal or decoded-string consistency checks, fixed text/NDJSON diagnostics, and shared query, formatter, workspace, core, and LSP behavior. Repositories opt in per citable kind with only `values = true`; existing repositories keep byte-identical behavior. Closes issues #37 and #38. (PR #206)

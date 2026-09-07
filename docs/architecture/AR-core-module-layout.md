@@ -48,7 +48,7 @@ A file belongs to the category whose prefix its name carries — `scanner_walk.r
 | **api** | `api` |
 | **grammar** | `grammar`, `markdown_fence`, `comment_line`, `comment_block`, `shorthand`, `inline_note_layout`, `never_rewrite` |
 | **workspace** | `workspace` |
-| **integrations** | `integrations` |
+| **integrations** | `integrations`, `fetch`, `fetch_write` |
 | **lsp** | `lsp`, `on_type` |
 | **compat** | `compat` |
 
