@@ -36,6 +36,7 @@ Behavior every subcommand inherits.
 - [§FS-cli](FS-cli.md#fs-cli-grunds-command-line-surface-conventions) — grund's command-line surface conventions
 - [§FS-errors](FS-errors.md#fs-errors-grund-emits-messages-in-fixed-shapes) — grund emits messages in fixed shapes
 - [§FS-output-shapes](FS-output-shapes.md#fs-output-shapes-machine-readable-output-shapes) — machine-readable output shapes
+- [§FS-values](FS-values.md#fs-values-opted-in-kinds-bind-authored-components-to-one-declared-value) — opted-in kinds bind authored components to one declared value
 
 ## Verbose fixtures
 

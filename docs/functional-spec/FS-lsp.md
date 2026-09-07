@@ -12,6 +12,8 @@ A single malformed or failing message is not fatal to the session: a request tha
 
 ### 1.1 Diagnostics
 
+The shared core report includes all three value errors with the same primary and declaration spans as CLI text/NDJSON, so editor diagnostics neither rescan nor reinterpret bindings ([§FS-values.5](FS-values.md#5-resolution-diagnostics-and-exit-status)).
+
 Named-section diagnostics are not a parallel editor rule. In an opted-in repository, missing named coordinates, duplicate named coordinates, orphan name-bearing paths, and named heading-depth mismatches are transported from the core report with the same message, severity, line, and range as the CLI. A citation-side finding selects the complete written citation token; an orphan or depth finding selects the complete named heading title. Independent core findings remain independent diagnostics.
 
 `textDocument/publishDiagnostics` pushes `grund check` results as the user edits. Each unknown reference, missing section, duplicate declaration, broken stub, and citation-direction violation — a required citation absent ([§FS-check.3.11](FS-check.md#311-missing-required-citation)) or a forbidden one present ([§FS-check.3.12](FS-check.md#312-forbidden-citation)) — becomes a diagnostic with the same `path:line: <message>` content the CLI prints to stdout ([§FS-errors.2.1](FS-errors.md#21-located-finding)). The advisory `should` / `should-not` suggestions channel ([§FS-check.2.3](FS-check.md#23-suggestions-channel-opt-in)) is opt-in on the CLI and is not pushed as diagnostics. Severity follows the engine's severity model ([§FS-non-goals.9](FS-non-goals.md#9-severity-exit-code-or-report-ordering-customization) — not configurable). The diagnostic position is the start column of the citation the finding concerns — the offending token, not merely the first citation on the line. A single comment can carry several citations, so each finding anchors to its own token. Diagnostics that are line-anchored rather than citation-anchored, such as the opt-in ungrounded-file check ([§FS-check.3.6](FS-check.md#36-ungrounded-source-file-opt-in)), do not borrow a citation range from the same line; otherwise VSCode-style diagnostic hovers would stack unrelated line-level messages onto the citation's own error. Declaration-side findings may still use the declaration, section, or stub title span on that line. For example, with
@@ -24,6 +26,8 @@ Named-section diagnostics are not a parallel editor rule. In an opted-in reposit
 the `unknown reference FS-confg` diagnostic anchors on the second token; the resolving first citation `FS-check.3.9` is left unmarked. Precise column information is computed once per scan and reused across the open editor session.
 
 ### 1.2 Hover preview
+
+Hovering a Markdown or JSON value declaration/binding uses the same exact `show --toc` slice as the CLI; no rendered or interpolated value surface is invented ([§FS-values.6](FS-values.md#6-shared-catalog-consumers)).
 
 Named citations preview the exact named section slice that `grund <ID>.<path> --toc` returns. An explicit named heading is a declaration-side title just like a numbered heading: its hover range covers the complete rendered heading title, including the handle and colon, and its usage count covers citations of that path and its descendants.
 
@@ -50,6 +54,8 @@ The clause is a count, never a finding. An uncited declaration already earns the
 The citation hover content is Markdown. Any resolving `§<ID>` citation inside that hover body is emitted as a normal link to its declaration target, so users can keep following the grounding graph without closing the hover.
 
 ### 1.3 Go-to-definition
+
+A value binding navigates through the shared resolver to its Markdown component heading or exact JSON key/element span ([§FS-values.7](FS-values.md#7-workspaces-and-editor-consumers)).
 
 For a named coordinate, definition navigates from the whole citation token to the exact named heading, and declaration-side definition on that heading returns its section-scoped usages. Named and numeric headings use the same snapshot ranges and result shapes.
 

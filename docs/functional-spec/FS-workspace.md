@@ -358,6 +358,8 @@ participates in alias derivation, citation resolution, or `check` semantics.
 
 ## 4. Resolution
 
+Value bindings use this resolver without a parallel lookup path. An unqualified binding resolves locally; an alias-qualified binding uses the target project's grammar, `values` opt-in, declaration, and exact component, and retains the existing member-local unknown-alias behavior ([§FS-values.7](FS-values.md#7-workspaces-and-editor-consumers)).
+
 During `grund check`:
 
 - `<§>ID` resolves only against declarations in the current project.

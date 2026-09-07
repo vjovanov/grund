@@ -22,6 +22,8 @@ The scripts do not complete IDs for arbitrary shell words, citations inside file
 
 ## 2. Internal dynamic helper
 
+The shared declaration catalog includes JSON value IDs and their numbered array components, so ID and section completion offers them under the same ordering and prefix rules as Markdown declarations ([§FS-values.6](FS-values.md#6-shared-catalog-consumers)).
+
 The scripts call a hidden machine surface:
 
 ```

@@ -96,6 +96,8 @@ Either of these one-component formats also puts the repo outside the number-only
 
 ## 5. Collision check
 
+The collision catalog includes JSON value declarations from opted-in kind homes. `id` remains a Markdown-oriented allocator: it may reject a candidate already declared in JSON but never creates or edits JSON ([§FS-values.6](FS-values.md#6-shared-catalog-consumers)).
+
 After deriving slug and number, `id` verifies the full proposed ID does not already appear as a declaration in the scanned tree. This is belt-and-suspenders against:
 
 - A configured `slug_pattern` that admits ambiguity (e.g., a project that loosened the pattern after declarations were authored under the strict default).
