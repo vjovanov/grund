@@ -123,6 +123,9 @@ impl ParsedKind {
                 require_grounding: None,
                 grounding_level: None,
                 values: false,
+                format: None,
+                resolve: None,
+                fetch: None,
             },
             header_line,
             named: false,
@@ -283,6 +286,41 @@ fn parse_kinds_key(
                 )?;
             }
         }
+        // §FS-config.3.4.10: snapshot kinds may override their ID shape and
+        // configure one explicit materializer plus its fixed obligation.
+        "format" => {
+            let format = parse_string(path, line_no, value)?;
+            let Some(slot) = current_kind.as_mut() else {
+                bail_config(path, line_no, "`format` outside of [[kinds]] block".to_string())?;
+                unreachable!();
+            };
+            slot.config.format = Some(format);
+        }
+        "resolve" => {
+            let value = parse_string(path, line_no, value)?;
+            let resolution = match value.as_str() {
+                "must" => KindResolution::Must,
+                "should" => KindResolution::Should,
+                _ => bail_config(
+                    path,
+                    line_no,
+                    "[[kinds]] `resolve` must be `must` or `should`".to_string(),
+                )?,
+            };
+            let Some(slot) = current_kind.as_mut() else {
+                bail_config(path, line_no, "`resolve` outside of [[kinds]] block".to_string())?;
+                unreachable!();
+            };
+            slot.config.resolve = Some(resolution);
+        }
+        "fetch" => {
+            let fetch = parse_string(path, line_no, value)?;
+            let Some(slot) = current_kind.as_mut() else {
+                bail_config(path, line_no, "`fetch` outside of [[kinds]] block".to_string())?;
+                unreachable!();
+            };
+            slot.config.fetch = Some(fetch);
+        }
         _ => return Ok(false),
     }
     Ok(true)
@@ -357,6 +395,39 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
     }
     for entry in &parsed {
         let k = &entry.config;
+        // §FS-config.3.4.10: an override belongs only to an ID namespace; an
+        // explicit obligation needs the fetch remedy, and fetching needs one
+        // unambiguous snapshot home.
+        if k.format.is_some() && !k.citable {
+            return Err(anyhow!(
+                "{}: kind `{}` sets `format` with `citable = false`",
+                format_path(path),
+                k.kind
+            ));
+        }
+        if k.resolve.is_some() && k.fetch.is_none() {
+            return Err(anyhow!(
+                "{}: kind `{}` sets `resolve` but requires `fetch`",
+                format_path(path),
+                k.kind
+            ));
+        }
+        if k.fetch.is_some() {
+            if !k.citable {
+                return Err(anyhow!(
+                    "{}: kind `{}` sets `fetch` with `citable = false`",
+                    format_path(path),
+                    k.kind
+                ));
+            }
+            if usize::from(k.file.is_some()) + usize::from(k.folder.is_some()) != 1 {
+                return Err(anyhow!(
+                    "{}: kind `{}` sets `fetch` without exactly one `file` or `folder` home",
+                    format_path(path),
+                    k.kind
+                ));
+            }
+        }
         // Reject kinds that set both `folder` and `file` — they're mutually exclusive
         // (§FS-config.3.4): a kind is either multi-file (folder) or single-file
         // (file), and "can always be broken up" swaps one key for the other.
@@ -453,6 +524,9 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
     for kind in &mut kinds {
         if kind.index == KindIndex::Default && kind.folder.is_some() && kind.citable {
             kind.index = default_kind_index(&kind.kind);
+        }
+        if kind.fetch.is_some() && kind.resolve.is_none() {
+            kind.resolve = Some(KindResolution::Must);
         }
     }
     // §FS-config.3.9.2: the homeless kind is the complement of every configured home,

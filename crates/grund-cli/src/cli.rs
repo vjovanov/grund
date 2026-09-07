@@ -132,6 +132,8 @@ pub fn main_entry() -> ExitCode {
         Some("refs") => command_refs(&args[1..]),
         Some("cover") => command_cover(&args[1..]),
         Some("fmt") => command_fmt(&args[1..]),
+        // §FS-fetch.1: only this explicit verb reaches the configured process.
+        Some("fetch") => command_fetch(&args[1..]),
         Some("id") => command_id(&args[1..]),
         Some("init") => command_init(&args[1..]),
         Some("config") => command_config(&args[1..]),

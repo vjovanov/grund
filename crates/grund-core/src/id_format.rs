@@ -121,16 +121,28 @@ impl Grammar {
     /// `render_id` is on the report and `list` paths, so the common case has to
     /// borrow the parsed element list rather than clone it.
     fn render(&self, id: &Id, width: usize) -> String {
+        // §FS-config.3.4.10: numeric external handles are preserved as ordinary
+        // numbers; the `grund id --width` allocation convention belongs to the
+        // repository grammar and does not rewrite provider identifiers.
+        let width = if self.overridden_kinds.contains(&id.kind) {
+            0
+        } else {
+            width
+        };
+        let configured = self
+            .kind_elements
+            .get(&id.kind)
+            .unwrap_or(&self.elements);
         // Reduce only when a placeholder the format *carries* has no value — the
         // shorthand `Id` and nothing else — so the common path borrows the parsed
         // element list and allocates nothing extra (§GOAL-fast-feedback).
         let missing = |value_absent: bool, element| {
-            value_absent && self.elements.contains(element)
+            value_absent && configured.contains(element)
         };
         let reduced = (missing(id.num.is_none(), &IdElement::Number)
             || missing(id.slug.is_none(), &IdElement::Slug))
         .then(|| {
-            let mut elements = self.elements.clone();
+            let mut elements = configured.clone();
             if id.num.is_none() {
                 elements = elements_without(&elements, &IdElement::Number);
             }
@@ -139,7 +151,7 @@ impl Grammar {
             }
             elements
         });
-        let elements = reduced.as_deref().unwrap_or(&self.elements);
+        let elements = reduced.as_deref().unwrap_or(configured);
         let mut rendered = String::new();
         for element in elements {
             match element {
@@ -326,7 +338,7 @@ impl Grammar {
     /// Whether this repo's `[id] format` has a number-only shorthand at all
     /// (§FS-check.1.2) — the gate every shorthand pass checks first.
     fn has_shorthand(&self) -> bool {
-        self.shorthand.is_some()
+        self.shorthand.is_some() || !self.override_shorthands.is_empty()
     }
 
     /// Whether `ch` could extend an ID token that has just ended — the test that
@@ -353,15 +365,12 @@ impl Grammar {
     /// shorthand would be the one silently dropped, which is the false negative
     /// §GOAL-no-dangling-refs exists to forbid.
     fn id_token_continues_with(&self, ch: char) -> bool {
-        ch.is_alphanumeric() || ch == '_' || self.format_literal_starting_with(ch).is_some()
-    }
-
-    /// The `[id] format` literal beginning with `ch`, if any.
-    fn format_literal_starting_with(&self, ch: char) -> Option<&str> {
-        self.elements.iter().find_map(|element| match element {
-            IdElement::Literal(text) if text.starts_with(ch) => Some(text.as_str()),
-            _ => None,
-        })
+        ch.is_alphanumeric()
+            || ch == '_'
+            || self
+                .kind_elements
+                .values()
+                .any(|elements| format_literal_in(elements, ch).is_some())
     }
 
     /// Whether an ID token that the pattern matched up to `end` really ends there
@@ -382,7 +391,12 @@ impl Grammar {
         if next.is_alphanumeric() || next == '_' {
             return false;
         }
-        let Some(literal) = self.format_literal_starting_with(next) else {
+        let elements = self
+            .kind_elements
+            .iter()
+            .find(|(kind, _)| rest.starts_with(kind.as_str()))
+            .map_or(&self.elements, |(_, elements)| elements);
+        let Some(literal) = format_literal_in(elements, next) else {
             return true;
         };
         !tail
@@ -409,7 +423,7 @@ impl Grammar {
     /// optional `<alias>/` would make any path ending in an ID-shaped segment a
     /// second number — `docs/functional-spec/FS-042-user-login.md` among them.
     fn shorthand_sits_in_numeric_run(&self, marker: &str, rest: &str, end: usize) -> bool {
-        let Some(shorthand) = self.shorthand.as_ref() else {
+        let Some(shorthand) = self.shorthand_for(rest) else {
             return false;
         };
         let Some(neighbor) = numeric_run_neighbor(marker, &rest[end..]) else {
@@ -418,6 +432,13 @@ impl Grammar {
         shorthand.number_prefix_re().is_match(neighbor)
             || shorthand.unqualified_prefix_re().is_match(neighbor)
     }
+}
+
+fn format_literal_in(elements: &[IdElement], ch: char) -> Option<&str> {
+    elements.iter().find_map(|element| match element {
+        IdElement::Literal(text) if text.starts_with(ch) => Some(text.as_str()),
+        _ => None,
+    })
 }
 
 /// The token a delimiter run separates from the shorthand that just ended, or
@@ -483,15 +504,15 @@ fn id_token_end_at(line: &str, at: usize, grammar: &Grammar) -> Option<usize> {
     {
         return Some(found.end());
     }
-    let shorthand = grammar.shorthand.as_ref()?;
     let rest = line.get(at..)?;
-    shorthand
-        .prefix_re()
-        .find(rest)
+    grammar
+        .shorthands()
+        .filter_map(|shorthand| shorthand.prefix_re().find(rest))
         // §DF-number-only-citation-shorthand.2.6: `$$FS-042abc` is not a
         // shorthand, so the trigger before it is not rewritable either.
         .filter(|found| grammar.id_token_ends_cleanly(rest, found.end()))
         .filter(|found| !grammar.has_reserved_named_tail(rest, found.end()))
+        .max_by_key(|found| found.end())
         .map(|found| at + found.end())
 }
 

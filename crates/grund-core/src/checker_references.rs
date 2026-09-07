@@ -152,6 +152,7 @@ fn out_of_scope_references(
     check_citation_resolution(
         findings,
         config,
+        config,
         workspace,
         ReferenceTier::OutOfScope,
         Some(scope),
@@ -234,6 +235,7 @@ fn tag_out_of_scope(mut diagnostic: Diagnostic) -> Diagnostic {
 fn check_citation_resolution(
     findings: &Findings,
     config: &Config,
+    path_config: &Config,
     workspace: &BTreeMap<String, WorkspaceCheckTarget<'_>>,
     tier: ReferenceTier,
     outside: Option<&ScanScope>,
@@ -290,21 +292,63 @@ fn check_citation_resolution(
         // §FS-check.3.1 / §FS-workspace.4: a citation whose ID is declared
         // nowhere in its target namespace is dangling.
         let Some(decls) = target.findings.declarations.get(&cite.id) else {
-            let message = dangling_message(
-                target.config,
-                cite.namespace.as_deref(),
-                target.findings,
-                &cite.id,
-                citation_in_markdown_inline_code(cite),
-            );
-            report.errors.push(Diagnostic {
-                code: "dangling",
+            let snapshot_kind = target
+                .config
+                .kinds
+                .iter()
+                .find(|kind| kind.kind == cite.id.kind && kind.fetch.is_some());
+            let in_inline_code = citation_in_markdown_inline_code(cite);
+            let (code, message, warning) = if let Some(kind) = snapshot_kind {
+                let home = kind.file.as_deref().or(kind.folder.as_deref()).expect(
+                    "fetch-enabled kind has exactly one home after config validation",
+                );
+                let home = display_path(path_config, &target.config.root.join(home));
+                let message = missing_snapshot_message(
+                    target.config,
+                    cite.namespace.as_deref(),
+                    target.findings,
+                    &cite.id,
+                    in_inline_code,
+                    &home,
+                    kind.resolve == Some(KindResolution::Must),
+                );
+                (
+                    if kind.resolve == Some(KindResolution::Should) {
+                        "missing-snapshot"
+                    } else {
+                        "dangling"
+                    },
+                    message,
+                    kind.resolve == Some(KindResolution::Should),
+                )
+            } else {
+                (
+                    "dangling",
+                    dangling_message(
+                        target.config,
+                        cite.namespace.as_deref(),
+                        target.findings,
+                        &cite.id,
+                        in_inline_code,
+                    ),
+                    false,
+                )
+            };
+            let diagnostic = Diagnostic {
+                code,
                 path: Some(cite.file.clone()),
                 line: Some(cite.line),
                 column: Some(cite.column),
                 message,
                 sites: Vec::new(),
-            });
+            };
+            if warning {
+                // §FS-check.4.12: `should` is a distinct fixed warning and
+                // leaves a warning-only check at exit 0.
+                report.warnings.push(diagnostic);
+            } else {
+                report.errors.push(diagnostic);
+            }
             continue;
         };
         // §FS-check.3.2: the ID resolves but no declaration has a heading at the

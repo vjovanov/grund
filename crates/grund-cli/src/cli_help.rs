@@ -30,6 +30,7 @@ fn print_help() {
     println!(
         "  fmt      Rewrite `$$` triggers to `§`; --marker upgrades cites.   e.g. grund fmt --check"
     );
+    println!("  fetch    Materialize one configured external snapshot.            e.g. grund fetch TICKET-1234");
     println!(
         "  id       Next conflict-free ID for a new declaration.             e.g. grund id FS \"user login\""
     );
@@ -152,6 +153,13 @@ fn print_subcommand_help(cmd: &str) {
             println!(
                 "ID not found? `grund list` shows every declared ID; `grund id <KIND> \"…\"` proposes a new one."
             );
+        }
+        "fetch" => {
+            println!("grund fetch — materialize one configured external fact snapshot.");
+            println!("\nUsage:  grund fetch <ID>\n");
+            println!("The selected kind's [[kinds]].fetch executable receives the local ID and returns one declaration, validated before an atomic write.");
+            println!("No check, query, formatter, completion, or LSP operation runs the integration implicitly.");
+            println!("\nExit:  0 stored · 1 invalid ID · 2 missing integration, rejected output, or operational error.");
         }
         "list" => {
             println!("grund list — the ID catalog: every declared ID in the repo, with where it's");

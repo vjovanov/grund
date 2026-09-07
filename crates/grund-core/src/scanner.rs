@@ -159,7 +159,7 @@ fn scan_file_text(
         let scan_line = scan.text;
 
         if let Some(caps) = declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
-            && let Some(id) = parse_id(&caps)
+            && let Some(id) = parse_id(&caps, &config.grammar)
         {
             if let Some(prev) = current.take() {
                 findings
@@ -294,7 +294,7 @@ fn scan_file_text(
             if !has_marker && bare_token_in_never_rewrite_zone(scan_line, is_md, full.start()) {
                 continue;
             }
-            let Some(id) = parse_id(&caps) else { continue };
+            let Some(id) = parse_id(&caps, &config.grammar) else { continue };
             let start = if has_marker {
                 full.start().saturating_sub(config.marker.len())
             } else {
