@@ -53,6 +53,14 @@ kind = "DA"
 folder = "docs/decisions/architectural"
 title = "Architecture decisions and tradeoffs"
 
+# Optional first-class values: uncomment to make numbered components in this
+# Markdown/JSON home authoritative for explicit `literal` (§CONST-name.1)
+# bindings. Fresh repositories remain unopted-in.
+# [[kinds]]
+# kind = "CONST"
+# file = "values.json"
+# values = true
+
 # A test cites the document whose claim it proves, and is never cited back — so
 # the two test kinds are `citable = false`: a home and citation directions, no ID
 # namespace. `index` is a folder kind's index file, relative to `folder`; `false`

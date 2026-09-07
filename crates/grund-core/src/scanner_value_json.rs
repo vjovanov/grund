@@ -47,10 +47,9 @@ fn scan_value_json_sources(
             Err(message) => errors.push((path.clone(), format!("invalid JSON: {message}"))),
         }
         if owners.len() > 1 {
-            // A physical source owned by two homes is ambiguous even when it
-            // was read only once and its contents agree. Duplicate each site so
-            // the ordinary duplicate-declaration rule remains the single winner
-            // (§FS-values.2.3, §FS-check.3.3).
+            // A source owned by two homes is ambiguous even after one read;
+            // duplicate each site so the ordinary duplicate rule stays the
+            // single winner (§FS-values.2.3, §FS-check.3.3).
             let duplicated = findings
                 .declarations
                 .iter()

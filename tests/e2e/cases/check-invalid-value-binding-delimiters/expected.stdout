@@ -1,0 +1,4 @@
+docs/offer.md:1: invalid value binding: value binding must be exactly `literal` (marker-prefixed full value ID with one positive numeric field)
+docs/offer.md:3: invalid value binding: value binding must be exactly `literal` (marker-prefixed full value ID with one positive numeric field)
+docs/offer.md:4: invalid value binding: value binding must be exactly `literal` (marker-prefixed full value ID with one positive numeric field)
+docs/offer.md:5: invalid value binding: value binding must be exactly `literal` (marker-prefixed full value ID with one positive numeric field)

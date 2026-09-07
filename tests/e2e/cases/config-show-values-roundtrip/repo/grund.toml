@@ -1,0 +1,22 @@
+grund_config_version = 1
+project_name = "values-config"
+
+[reference]
+strict = true
+
+[id]
+format = "{kind}-{slug}"
+slug_pattern = "[a-z][a-z0-9-]*"
+
+[[kinds]]
+kind = "CONST"
+file = "values.json"
+values = true
+
+[[kinds]]
+kind = "TERM"
+file = "terms.md"
+values = false
+
+[scan]
+include = []
