@@ -1,5 +1,6 @@
 /// Focused first-class-value scanner cases: Markdown title boundaries and the
-/// exact attempted-binding delimiter contract (§FS-values.2.1, §FS-values.3.1).
+/// exact attempted-binding delimiter and source-context contracts
+/// (§FS-values.2.1, §FS-values.3.1, §FS-values.3.2).
 #[cfg(test)]
 mod tests_values {
     use super::*;
@@ -33,6 +34,65 @@ mod tests_values {
         );
         write(&root.join("docs/offer.md"), binding);
         root
+    }
+
+    fn source_value_repo(name: &str, source: &str) -> PathBuf {
+        let root = test_root(name);
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\n\
+             [reference]\nstrict = true\n\n\
+             [id]\nformat = \"{kind}-{slug}\"\nslug_pattern = \"[a-z][a-z0-9-]*\"\n\n\
+             [[kinds]]\nkind = \"CONST\"\nfolder = \"values\"\nindex = false\nvalues = true\n\n\
+             [scan]\ninclude = [\"src\"]\nextensions = [\"md\", \"rs\"]\n",
+        );
+        write(
+            &root.join("values/field-price.md"),
+            "# CONST-field-price: Reference field price\n## 1. 1.2e3\n",
+        );
+        write(&root.join("src/lib.rs"), source);
+        root
+    }
+
+    #[test]
+    fn source_bindings_follow_complete_comment_spans() {
+        let dereference = source_value_repo(
+            "value_binding_rust_dereference_string",
+            "pub fn replace(ptr: &mut &'static str) {\n\
+             *ptr = \"`999` (§CONST-field-price.1)\";\n\
+             }\n",
+        );
+        let dereference_errors = check_run(&dereference, false).report.errors;
+        let dereference_messages = dereference_errors
+            .iter()
+            .map(|error| format!("{}: {}", error.code, error.message))
+            .collect::<Vec<_>>();
+        assert!(
+            dereference_errors.is_empty(),
+            "binding-shaped text in a dereference expression's host string is unchecked: {dereference_messages:?}"
+        );
+
+        let block = source_value_repo(
+            "value_binding_rust_block_interior",
+            "pub fn documented() {\n\
+             /*\n\
+             Checked documentation: `999` (§CONST-field-price.1)\n\
+             */ let trailing = \"`998` (§CONST-field-price.1)\";\n\
+             let _ = trailing;\n\
+             }\n",
+        );
+        let mismatches = check_run(&block, false)
+            .report
+            .errors
+            .into_iter()
+            .filter(|error| error.code == "value-mismatch")
+            .map(|error| error.line)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            mismatches,
+            vec![Some(3)],
+            "the block interior binds, while host bytes after `*/` do not"
+        );
     }
 
     #[test]

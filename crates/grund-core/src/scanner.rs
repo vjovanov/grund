@@ -35,6 +35,10 @@ struct CitationLine<'a> {
     path: &'a Path,
     config: &'a Config,
     is_md: bool,
+    /// The bytes on this physical source line that the scanner's shared block
+    /// walk recognizes as comment content. Markdown and Python docstrings use
+    /// their already-normalized `scan_line` instead (§FS-values.3.2).
+    value_comment_range: Option<(usize, usize)>,
     inline_sites: &'a BTreeMap<usize, InlineCitationSite>,
 }
 
@@ -124,6 +128,8 @@ fn scan_file_text(
         || workspace_targets
             .iter()
             .any(|target| target.config.kinds.iter().any(|kind| kind.values));
+    let value_comment_ranges = (scan_values && !is_md)
+        .then(|| recognized_source_comment_ranges(&text, is_py, config));
     // §AR-scanner.2.4: citing-side classification is consumed only by the
     // citation-direction checks, so it is computed only when the project declares
     // `[citations]` and the caller asked for it (§AR-benchmarks).
@@ -337,6 +343,9 @@ fn scan_file_text(
             path,
             config,
             is_md,
+            value_comment_range: value_comment_ranges
+                .as_ref()
+                .and_then(|ranges| ranges.get(idx).copied().flatten()),
             inline_sites: &inline_sites,
         };
         if workspace_mode {
