@@ -176,9 +176,9 @@ fn scan_value_bindings(
     citation_start: usize,
     findings: &mut Findings,
 ) {
-    if !value_binding_context(line) {
+    let Some(context) = value_binding_context(line) else {
         return;
-    }
+    };
     let mut bindings = Vec::new();
     let mut invalid = Vec::new();
     let mut classified_openings = BTreeSet::new();
@@ -209,6 +209,9 @@ fn scan_value_bindings(
         };
         if !before_marker.ends_with('`') {
             if let Some(open_tick) = unmatched_open_tick(before_marker) {
+                if !binding_span_is_inside(context, open_tick, token_end) {
+                    continue;
+                }
                 classified_openings.insert(open_tick);
                 invalid.push(invalid_value_binding_site(
                     line,
@@ -229,6 +232,10 @@ fn scan_value_bindings(
         };
         let literal = &before_marker[open_tick + 1..close_tick];
         let closes = line.scan_line.get(token_end..).is_some_and(|tail| tail.starts_with(')'));
+        let binding_end = token_end.saturating_add(usize::from(closes));
+        if !binding_span_is_inside(context, open_tick, binding_end) {
+            continue;
+        }
         let section = citation.section.as_deref();
         let valid_section = section.is_some_and(|section| {
             !section.is_empty()
@@ -267,6 +274,7 @@ fn scan_value_bindings(
     scan_noncanonical_value_binding_attempts(
         line,
         workspace_targets,
+        context,
         &classified_openings,
         &mut invalid,
     );
@@ -282,11 +290,15 @@ fn scan_value_bindings(
 fn scan_noncanonical_value_binding_attempts(
     line: &CitationLine<'_>,
     workspace_targets: &[WorkspaceCitationTarget],
+    context: (usize, usize),
     classified_openings: &BTreeSet<usize>,
     invalid: &mut Vec<InvalidValueSite>,
 ) {
     for (close_tick, _) in line.scan_line.match_indices('`') {
-        let Some(tail) = line.scan_line.get(close_tick + 1..) else {
+        if close_tick < context.0 || close_tick >= context.1 {
+            continue;
+        }
+        let Some(tail) = line.scan_line.get(close_tick + 1..context.1) else {
             continue;
         };
         if attempted_value_target(tail, line.config, workspace_targets).is_none() {
@@ -296,6 +308,9 @@ fn scan_noncanonical_value_binding_attempts(
         // a multiline literal—the binding is still an invalid attempted
         // delimited form (§FS-values.3.1).
         let open_tick = line.scan_line[..close_tick].rfind('`').unwrap_or(close_tick);
+        if !binding_span_is_inside(context, open_tick, close_tick + 1) {
+            continue;
+        }
         if classified_openings.contains(&open_tick) {
             continue;
         }
@@ -368,16 +383,6 @@ fn attempted_value_id(raw: &str, config: &Config) -> Option<Id> {
             Ok((id, None)) => Some(id),
             _ => None,
         })
-}
-
-fn value_binding_context(line: &CitationLine<'_>) -> bool {
-    if line.is_md || line.docstring.is_docstring() {
-        return true;
-    }
-    let trimmed = line.raw_line.trim_start();
-    comment_strip_prefixes(line.config)
-        .into_iter()
-        .any(|prefix| trimmed.starts_with(prefix))
 }
 
 fn enroll_json_member(
