@@ -1,4 +1,5 @@
 //! [§FS-lsp.1.1](../../../docs/functional-spec/FS-lsp.md#11-diagnostics) / [§REQ-runs-offline](../../../docs/requirements/REQ-runs-offline.md#req-runs-offline-verification-never-depends-on-an-external-service): missing-snapshot diagnostics cross the existing LSP transport without executing the fetcher.
+#![cfg(unix)]
 
 mod support;
 
@@ -6,7 +7,6 @@ use serde_json::json;
 use std::fs;
 use support::*;
 
-#[cfg(unix)]
 #[test]
 fn external_facts_lsp_publishes_the_warning_without_fetch_or_code_action() {
     use std::os::unix::fs::PermissionsExt;
