@@ -231,7 +231,6 @@ fn scan_workspace_qualified_pass(
 /// enough to defer token/section precedence without a second file read.
 fn scan_legacy_citation_candidates(
     line: &CitationLine<'_>,
-    citation_start: usize,
     findings: &mut Findings,
 ) {
     if line.config.marker.is_empty() || !line.scan_line.contains(&line.config.marker) {
@@ -239,11 +238,6 @@ fn scan_legacy_citation_candidates(
     }
     for (marker_start, _) in line.scan_line.match_indices(&line.config.marker) {
         let column = line.column_offset + marker_start + 1;
-        if findings.citations[citation_start..].iter().any(|citation| {
-            citation.file == line.path && citation.line == line.lineno && citation.column == column
-        }) {
-            continue;
-        }
         let token_start = marker_start + line.config.marker.len();
         let Some(rest) = line.scan_line.get(token_start..) else {
             continue;
@@ -270,6 +264,7 @@ fn scan_legacy_citation_candidates(
                 line: line.lineno,
                 column,
                 inline_site: line.inline_sites.get(&line.lineno).cloned(),
+                inline_block_lines: line.inline_block_lines.get(&line.lineno).cloned(),
                 source_kind: String::new(),
                 enclosing_declaration: None,
             });

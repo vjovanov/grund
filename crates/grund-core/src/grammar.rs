@@ -370,11 +370,8 @@ impl Grammar {
         let legacy = LegacyGrammar::build(
             kinds,
             format,
-            number_pattern,
-            slug_pattern,
             &section_pattern,
             &comment_prefix,
-            &elements,
         )?;
 
         // §FS-check.1.2: the same two shapes over the slug-less element list.

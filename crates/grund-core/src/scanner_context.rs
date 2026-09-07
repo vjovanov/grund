@@ -207,10 +207,14 @@ fn inline_citation_sites(
     is_py: bool,
     config: &Config,
     workspace_targets: &[WorkspaceCitationTarget],
-) -> BTreeMap<usize, InlineCitationSite> {
+) -> (
+    BTreeMap<usize, InlineCitationSite>,
+    BTreeMap<usize, std::sync::Arc<[String]>>,
+) {
     let mut sites = BTreeMap::new();
+    let mut site_lines = BTreeMap::new();
     if is_md {
-        return sites;
+        return (sites, site_lines);
     }
     let lines = text.lines().collect::<Vec<_>>();
     // §FS-inline-citation-style.1.1: which blocks this file's language calls
@@ -253,10 +257,25 @@ fn inline_citation_sites(
                 has_note,
                 layout_violations,
             };
+            // Only a marker-prefixed rejected candidate can need post-catalog
+            // reconciliation. Ordinary comment blocks retain no source copy.
+            let block_lines = (!config.marker.is_empty()
+                && block.iter().any(|line| line.contains(&config.marker)))
+            .then(|| {
+                std::sync::Arc::<[String]>::from(
+                    block
+                        .iter()
+                        .map(|line| (*line).to_string())
+                        .collect::<Vec<_>>(),
+                )
+            });
             for line in (start + 1)..=(end + 1) {
                 sites.insert(line, site.clone());
+                if let Some(block_lines) = &block_lines {
+                    site_lines.insert(line, std::sync::Arc::clone(block_lines));
+                }
             }
         }
     }
-    sites
+    (sites, site_lines)
 }

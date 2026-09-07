@@ -113,9 +113,9 @@ mod tests_declaration_near_miss {
     }
 
     /// §FS-config.3.2 / §FS-check.4.6: both recognition and the displayed
-    /// template come from the candidate kind's effective grammar. A separator
-    /// belonging only to the repository default must not make the overridden
-    /// kind look malformed.
+    /// template come from the candidate kind's effective grammar. A persisted
+    /// spelling accepted only by the repository default remains readable when
+    /// that kind's authoritative override rejects it.
     #[test]
     fn off_grammar_kind_override_owns_its_near_miss_shape_and_message() {
         let root = test_root("a_kind_override_owns_its_near_miss_shape_and_message");
@@ -130,10 +130,23 @@ mod tests_declaration_near_miss {
         );
         write(
             &root.join("docs/tickets.md"),
-            "# Tickets\n\n## TICKET_bad: Override-shaped miss\n\n## TICKET-bad: Default-shaped prose\n",
+            "# Tickets\n\n## TICKET-old: Persisted default-shaped ticket\n\n\
+             Ticket body cites \u{a7}TICKET-old.\n",
         );
 
+        let shown = show(
+            "TICKET-old",
+            ShowOpts {
+                path: root.clone(),
+                mode: ShowMode::Full,
+                ..ShowOpts::default()
+            },
+        )
+        .expect("persisted override-rejected declaration resolves");
+        assert!(shown.body.contains("Ticket body"), "{}", shown.body);
+
         let run = check_run(&root, false);
+        assert!(run.report.errors.is_empty(), "got {:?}", findings(&run));
         let near_misses = run
             .report
             .warnings
@@ -144,7 +157,7 @@ mod tests_declaration_near_miss {
         assert_eq!(near_misses[0].line, Some(3));
         assert_eq!(
             near_misses[0].message,
-            "`TICKET_bad` resolves for compatibility but does not match \
+            "`TICKET-old` resolves for compatibility but does not match \
              [id] format = \"{kind}_{number}\" — rename it or change the \
              effective format; this warning becomes an error in grund 0.15.0"
         );
