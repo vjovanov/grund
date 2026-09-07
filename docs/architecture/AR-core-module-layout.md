@@ -32,9 +32,9 @@ A file belongs to the category whose prefix its name carries — `scanner_walk.r
 
 | Category | File-name prefixes |
 |---|---|
-| **model** | `model` |
+| **model** | `model`, `values` |
 | **config** | `config` |
-| **scanner** | `scanner` |
+| **scanner** | `scanner`, `value_json` |
 | **checker** | `checker` |
 | **output** | `output` |
 | **show** | `show` |
