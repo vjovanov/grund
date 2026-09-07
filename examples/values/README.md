@@ -5,7 +5,7 @@ This runnable mini-repository demonstrates [§FS-values](../../docs/functional-s
 Run it from the repository root:
 
 ```bash
-grund examples/values/repo
+grund check examples/values/repo
 echo $?    # 1: the intentional discount mismatch is caught
 ```
 

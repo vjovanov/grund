@@ -157,7 +157,10 @@ fn empty_citable_value_heading(line: &str, declaration_level: usize, config: &Co
 fn markdown_component<'a>(line: &'a str, config: &Config) -> Option<(&'a str, usize)> {
     let captures = config.grammar.section_re.captures(line)?;
     let coordinate = captures.name("sec")?;
-    let tail = &line[coordinate.end()..];
+    // Numeric heading punctuation is optional and intentionally sits outside
+    // the `sec` capture; it delimits the title but is not part of it
+    // (§FS-values.2.1).
+    let tail = line[coordinate.end()..].strip_prefix('.').unwrap_or(&line[coordinate.end()..]);
     let component = tail.trim_start_matches([' ', '\t']);
     let start = line.len() - component.len();
     Some((component, start + 1))
@@ -204,6 +207,17 @@ fn scan_value_bindings(
         let Some(before_marker) = prefix.strip_suffix(" (") else {
             continue;
         };
+        if !before_marker.ends_with('`') {
+            if let Some(open_tick) = unmatched_open_tick(before_marker) {
+                classified_openings.insert(open_tick);
+                invalid.push(invalid_value_binding_site(
+                    line,
+                    Some(citation.id.clone()),
+                    open_tick,
+                ));
+            }
+            continue;
+        }
         let Some(close_tick) = before_marker.len().checked_sub(1) else {
             continue;
         };
@@ -232,15 +246,11 @@ fn scan_value_bindings(
             || !component_text_is_valid(literal)
         {
             classified_openings.insert(open_tick);
-            invalid.push(InvalidValueSite {
-                id: Some(citation.id.clone()),
-                file: citation.file.clone(),
-                line: citation.line,
-                column: Some(line.column_offset + open_tick + 1),
-                message: "value binding must be exactly `literal` (marker-prefixed full value ID with one positive numeric field)"
-                    .to_string(),
-                source: DeclarationSource::Text,
-            });
+            invalid.push(invalid_value_binding_site(
+                line,
+                Some(citation.id.clone()),
+                open_tick,
+            ));
             continue;
         }
         classified_openings.insert(open_tick);
@@ -289,15 +299,29 @@ fn scan_noncanonical_value_binding_attempts(
         if classified_openings.contains(&open_tick) {
             continue;
         }
-        invalid.push(InvalidValueSite {
-            id: None,
-            file: line.path.to_path_buf(),
-            line: line.lineno,
-            column: Some(line.column_offset + open_tick + 1),
-            message: "value binding must be exactly `literal` (marker-prefixed full value ID with one positive numeric field)"
-                .to_string(),
-            source: DeclarationSource::Text,
-        });
+        invalid.push(invalid_value_binding_site(line, None, open_tick));
+    }
+}
+
+fn unmatched_open_tick(prefix: &str) -> Option<usize> {
+    prefix
+        .match_indices('`')
+        .fold(None, |opening, (index, _)| opening.map_or(Some(index), |_| None))
+}
+
+fn invalid_value_binding_site(
+    line: &CitationLine<'_>,
+    id: Option<Id>,
+    open_tick: usize,
+) -> InvalidValueSite {
+    InvalidValueSite {
+        id,
+        file: line.path.to_path_buf(),
+        line: line.lineno,
+        column: Some(line.column_offset + open_tick + 1),
+        message: "value binding must be exactly `literal` (marker-prefixed full value ID with one positive numeric field)"
+            .to_string(),
+        source: DeclarationSource::Text,
     }
 }
 
