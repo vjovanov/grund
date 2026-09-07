@@ -9,6 +9,11 @@
 /// leaves out, while every other rule stays inside the configured scope
 /// (§AR-core-module-layout.1).
 
+struct WorkspaceCheckTarget<'a> {
+    findings: &'a Findings,
+    config: &'a Config,
+}
+
 /// Which of a `--full` run's two scopes a citation site is being judged on
 /// (§FS-check.1.3). It changes exactly one thing: outside the configured scope,
 /// `grund fmt --write` will not rewrite the site either, so the mechanical
@@ -98,10 +103,23 @@ fn retain_findings_in_scope(findings: &mut Findings, scope: Option<&ScanScope>) 
     findings
         .declarations
         .retain(|_, decls| {
-            decls.retain(|decl| scope.contains(&decl.file));
+            decls.retain(|decl| {
+                matches!(decl.source, DeclarationSource::Json { .. }) || scope.contains(&decl.file)
+            });
             !decls.is_empty()
         });
     findings.citations.retain(|cite| scope.contains(&cite.file));
+    findings
+        .value_bindings
+        .retain(|binding| scope.contains(&binding.file));
+    findings
+        .invalid_value_bindings
+        .retain(|site| scope.contains(&site.file));
+    // Home JSON is catalog input under every scope; Markdown value errors obey
+    // the ordinary configured scope (§FS-values.2.2, §FS-check.1.3).
+    findings.invalid_value_declarations.retain(|site| {
+        matches!(site.source, DeclarationSource::Json { .. }) || scope.contains(&site.file)
+    });
     findings
         .escaped_citations
         .retain(|cite| scope.contains(&cite.file));

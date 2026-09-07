@@ -163,6 +163,10 @@ fn command_config(args: &[String]) -> ExitCode {
                     if !kind.scan {
                         println!("scan = false");
                     }
+                    // §FS-config.3.4.9: false is operationally absent.
+                    if kind.values {
+                        println!("values = true");
+                    }
                     // §FS-config.3.4.8: each grounding key only where the row's
                     // effective value differs from the effective global printed
                     // above, so the shown config loads back as itself.

@@ -255,6 +255,8 @@ members = ["packages/*"]
                 title: Some("Router".to_string()),
                 body_start: 1,
                 body_end: 1,
+                source: DeclarationSource::Text,
+                value_valid: None,
             }],
         );
         let report = check_findings(&findings, &config);

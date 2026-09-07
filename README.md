@@ -141,6 +141,33 @@ alias like `payments/FS-refunds` resolving to a neighboring repo — are not yet
 supported.
 See [§FS-workspace](docs/functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace).
 
+### Keep shared values consistent
+
+A citable kind can opt its numbered fields into exact value checking:
+
+```toml
+[[kinds]]
+kind = "CONST"
+folder = "values"
+index = false
+values = true
+```
+
+```markdown
+# CONST-field-price: Reference field price
+## 1. 1200
+
+The offer uses `1200.0` (§CONST-field-price.1).
+```
+
+The backticks, one space, parentheses, marker, and positive numeric field are
+intentional syntax. `grund check` accepts exact decimal equivalents such as
+`1200` and `1200.0`, and reports `value-mismatch` if the authored component
+drifts. JSON arrays at the same kind home can provide the declaration instead,
+so application code can read the source directly. See the complete
+[first-class values guide](docs/user-facing/values.md) and the runnable
+[`examples/values/`](examples/values/) repository ([§FS-values](docs/functional-spec/FS-values.md#fs-values-opted-in-kinds-bind-authored-components-to-one-declared-value)).
+
 ## 4. The structure that gets cited
 
 Every fact has a stable ID. The default kinds, all configurable — `*` marks a *place* rather than an ID namespace (`citable = false`: a home, a title and citation rules, no declarations), which is what a test is, and what any directory an agent must be told about can be. See [Citation directions](docs/user-facing/citation-directions.md) for the complete `[citations]` grammar and its rendered examples:
@@ -337,6 +364,7 @@ That rule plus a clean `grund check` is the whole contract: every reference reso
 `grund` follows its own scheme. Start at [`AGENTS.md`](AGENTS.md), then read down through [`docs/`](docs/):
 
 - [`docs/user-facing/clickable-citations.md`](docs/user-facing/clickable-citations.md) — make citations clickable in your terminal
+- [`docs/user-facing/values.md`](docs/user-facing/values.md) — declare and check shared values in Markdown, JSON, prose, and code comments
 - [`docs/grund.md`](docs/grund.md) — why this exists
 - [`docs/goals.md`](docs/goals.md) — what we measure ourselves against
 - [`docs/roadmap.md`](docs/roadmap.md) — what's next

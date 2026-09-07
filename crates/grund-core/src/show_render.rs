@@ -74,6 +74,9 @@ fn show_declaration_with_overlays(
         .into());
     }
     let decl = decls.iter().find(|decl| decl.is_stub).unwrap_or(&decls[0]);
+    if matches!(decl.source, DeclarationSource::Json { .. }) {
+        return show_json_value(config, id, decl, section);
+    }
     if let Some(case) = &decl.e2e_case {
         return show_e2e_case(config, path_config, id, case, section, mode);
     }
@@ -109,6 +112,49 @@ fn show_declaration_with_overlays(
         return Err(refusal);
     }
     extract_declaration_body(&file, id, section, mode, include_heading, config, overlays)
+}
+
+/// JSON values have source slices rather than Markdown bodies. Every show mode
+/// therefore returns the exact member or element bytes and invents no heading
+/// or outline (§FS-values.6, §FS-show.2).
+fn show_json_value(
+    config: &Config,
+    id: &Id,
+    decl: &Declaration,
+    section: Option<&str>,
+) -> Result<ShowOutput> {
+    let (body, line) = match section {
+        Some(section) => {
+            let info = decl.sections.get(section).ok_or_else(|| {
+                anyhow!(
+                    "section not found: {}{}{}",
+                    render_id(config, id),
+                    config.section_separator,
+                    section
+                )
+            })?;
+            let value = info.value.as_ref().ok_or_else(|| {
+                anyhow!(
+                    "section not found: {}{}{}",
+                    render_id(config, id),
+                    config.section_separator,
+                    section
+                )
+            })?;
+            (value.source_slice.clone(), info.line)
+        }
+        None => match &decl.source {
+            DeclarationSource::Json { member_slice, .. } => (member_slice.clone(), decl.line),
+            DeclarationSource::Text => unreachable!("JSON value branch requires JSON source"),
+        },
+    };
+    Ok(ShowOutput {
+        body,
+        path: decl.file.clone(),
+        line,
+        json: None,
+        sections: Vec::new(),
+    })
 }
 
 /// §FS-show.2.2.2: refuse a section coordinate two headings claim, before the
