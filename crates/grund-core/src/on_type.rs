@@ -199,7 +199,7 @@ fn line_is_rewritable(
         }
         if index == line_index {
             return directives.rewriting()
-                && declaration_captures(
+                && declaration_id_on_line(
                     &config.grammar,
                     docstring.text_of(line),
                     docstring.is_docstring(),

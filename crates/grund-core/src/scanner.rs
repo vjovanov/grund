@@ -210,15 +210,69 @@ fn scan_file_text(
         // §FS-check.4.6: the line was not a declaration. Ask the near-miss pattern
         // whether it looked like one, here rather than in a second read of the tree —
         // the scan has the line, the position rules and the fence/docstring state.
-        if let Some((text, format)) =
+        if let Some((text, format, kind)) =
             near_miss_heading(&config.grammar, scan_line, scan.in_py_docstring, is_md)
         {
+            if let Some(prev) = current.take() {
+                findings
+                    .declarations
+                    .entry(prev.id.clone())
+                    .or_default()
+                    .push(prev);
+            }
             findings.near_miss_headings.push(NearMissHeading {
                 file: path.to_path_buf(),
                 line: lineno,
                 text: text.to_string(),
                 format: format.to_string(),
             });
+            let token_end = scan_line.find(text).map(|start| start + text.len()).unwrap_or(0);
+            let tail = &scan_line[token_end..];
+            let mut is_stub = false;
+            let mut defined_in = None;
+            if is_md
+                && in_docs
+                && let Some(link_caps) = STUB_LINK_HEADING.captures(tail)
+            {
+                is_stub = true;
+                defined_in = Some(PathBuf::from(link_caps.name("path").unwrap().as_str()));
+            }
+            let title = if is_stub {
+                None
+            } else {
+                let trimmed = tail.trim_start();
+                let trimmed = trimmed.strip_prefix(':').unwrap_or(trimmed).trim();
+                (!trimmed.is_empty()).then(|| trimmed.to_string())
+            };
+            // §FS-config.3.2 / §AR-scanner.2.1: retain a rejected declaration-position
+            // token as an ordinary catalog declaration, with exact spelling and all
+            // body/section state from this same file pass.
+            current = Some(Declaration {
+                id: Id::legacy(kind.to_string(), text),
+                file: path.to_path_buf(),
+                line: lineno,
+                heading_level: if is_md || scan.in_py_docstring {
+                    scan_line
+                        .trim_start()
+                        .chars()
+                        .take_while(|ch| *ch == '#')
+                        .count()
+                        .max(1)
+                } else {
+                    1
+                },
+                sections: BTreeMap::new(),
+                duplicate_sections: Vec::new(),
+                is_stub,
+                defined_in,
+                e2e_case: None,
+                title,
+                body_start: lineno,
+                body_end: lineno,
+                source: DeclarationSource::Text,
+                value_valid: None,
+            });
+            continue;
         }
 
         if let Some(caps) = config.grammar.section_re.captures(scan_line)
@@ -372,6 +426,7 @@ fn scan_file_text(
             &qualified_marker_starts,
             findings,
         );
+        scan_legacy_citation_candidates(&citation_line, citation_start, findings);
         scan_escaped_citations(&citation_line, findings);
         if scan_values {
             scan_value_bindings(&citation_line, workspace_targets, citation_start, findings);

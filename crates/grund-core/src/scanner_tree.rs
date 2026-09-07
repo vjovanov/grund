@@ -54,6 +54,9 @@ fn merge_findings(target: &mut Findings, mut source: Findings) {
             .append(&mut declarations);
     }
     target.citations.append(&mut source.citations);
+    target
+        .legacy_citation_candidates
+        .append(&mut source.legacy_citation_candidates);
     target.value_bindings.append(&mut source.value_bindings);
     target
         .invalid_value_declarations
@@ -184,6 +187,7 @@ fn scan_tree_with_workspace_threshold(
     // §AR-scanner.2.6: shorthand citations name a declaration that may live in
     // any file, so they can only be resolved once the whole walk (including the
     // E2E cases above) has produced the declaration set.
+    promote_local_legacy_citations(config, &mut findings);
     resolve_shorthand_citations(&mut findings);
     Ok((findings, errors))
 }

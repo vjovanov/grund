@@ -74,30 +74,6 @@ fn parse_id_arg_with_shorthand(raw: &str, grammar: &Grammar) -> Result<ParsedId>
 /// as an ambiguous full ID (§FS-show.2.2.1); one matching none keeps its
 /// shorthand `Id`, so the caller's own "not found" path reports it as written
 /// instead of a second message saying the same thing.
-fn resolve_id_arg(
-    raw: &str,
-    config: &Config,
-    findings: &Findings,
-) -> std::result::Result<(Id, Option<String>), IdArgError> {
-    let parsed =
-        parse_id_arg_with_shorthand(raw, &config.grammar).map_err(IdArgError::Unparsable)?;
-    if !parsed.shorthand {
-        return Ok((parsed.id, parsed.section));
-    }
-    match shorthand_candidates(&parsed.id, &findings.declarations).as_slice() {
-        [unique] => Ok(((*unique).clone(), parsed.section)),
-        [] => Ok((parsed.id, parsed.section)),
-        many => Err(IdArgError::Ambiguous(anyhow!(
-            "ambiguous ID: {} (matches {})",
-            render_id(config, &parsed.id),
-            many.iter()
-                .map(|id| render_id(config, id))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ))),
-    }
-}
-
 /// Why an `<ID>` argument could not be turned into one declaration
 /// (§FS-show.2.2.1, §FS-refs.4).
 ///

@@ -225,6 +225,57 @@ fn scan_workspace_qualified_pass(
     }
 }
 
+/// Retain marker-prefixed tokens that the configured grammar may have rejected;
+/// catalog reconciliation promotes only exact declaration-backed spellings
+/// (§FS-check.1.1, §FS-config.3.2). The remainder of the already-read line is
+/// enough to defer token/section precedence without a second file read.
+fn scan_legacy_citation_candidates(
+    line: &CitationLine<'_>,
+    citation_start: usize,
+    findings: &mut Findings,
+) {
+    if line.config.marker.is_empty() || !line.scan_line.contains(&line.config.marker) {
+        return;
+    }
+    for (marker_start, _) in line.scan_line.match_indices(&line.config.marker) {
+        let column = line.column_offset + marker_start + 1;
+        if findings.citations[citation_start..].iter().any(|citation| {
+            citation.file == line.path && citation.line == line.lineno && citation.column == column
+        }) {
+            continue;
+        }
+        let token_start = marker_start + line.config.marker.len();
+        let Some(rest) = line.scan_line.get(token_start..) else {
+            continue;
+        };
+        let (namespace, tail) = match QUALIFIED_CITATION_PREFIX.captures(rest) {
+            Some(prefix) => {
+                if qualified_suppressed_in_source(line.scan_line, line.is_md, marker_start) {
+                    continue;
+                }
+                let Some(alias) = prefix.name("namespace") else {
+                    continue;
+                };
+                let end = prefix.get(0).unwrap().end();
+                (Some(alias.as_str().to_string()), &rest[end..])
+            }
+            None => (None, rest),
+        };
+        findings
+            .legacy_citation_candidates
+            .push(LegacyCitationCandidate {
+                namespace,
+                tail: tail.to_string(),
+                file: line.path.to_path_buf(),
+                line: line.lineno,
+                column,
+                inline_site: line.inline_sites.get(&line.lineno).cloned(),
+                source_kind: String::new(),
+                enclosing_declaration: None,
+            });
+    }
+}
+
 /// §AR-scanner.2.5: collect `<§>`-escaped citation illustrations. The literal
 /// `<§>[alias/]ID[.section]` is deliberately *not* a live citation — the `<` and
 /// `>` around the marker mean `§` is not immediately followed by an ID, so no
@@ -283,4 +334,3 @@ fn scan_escaped_citations(line: &CitationLine<'_>, findings: &mut Findings) {
         });
     }
 }
-

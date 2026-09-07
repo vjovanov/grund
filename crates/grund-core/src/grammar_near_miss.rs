@@ -134,15 +134,61 @@ fn near_miss_heading<'line, 'grammar>(
     line: &'line str,
     in_py_docstring: bool,
     is_md: bool,
-) -> Option<(&'line str, &'grammar str)> {
-    grammar
+) -> Option<(&'line str, &'grammar str, &'grammar str)> {
+    if let Some(found) = grammar
         .near_misses
         .iter()
         .find_map(|near_miss| {
             near_miss
                 .heading_text(line, in_py_docstring, is_md)
-                .map(|text| (text, near_miss.format.as_str()))
+                .and_then(|text| {
+                    grammar
+                        .legacy_kind_and_format(text)
+                        .map(|(kind, _)| (text, near_miss.format.as_str(), kind))
+                })
         })
+    {
+        return Some(found);
+    }
+
+    // §FS-check.4.6: retain a rejected persisted token when declaration position,
+    // colon, and one citable kind make it unambiguous. A token conforming to the
+    // repository default remains prose under an overriding kind.
+    let caps = if in_py_docstring {
+        grammar.legacy.docstring_decl_re.captures(line)
+    } else {
+        grammar
+            .legacy.decl_re
+            .captures(line)
+            .filter(|caps| is_md || caps.name("mdhashes").is_none())
+    }?;
+    let text = caps.name("near")?.as_str();
+    if grammar
+        .legacy.default_kind_parsers
+        .iter()
+        .any(|parser| parser.is_match(text))
+    {
+        return None;
+    }
+    grammar
+        .legacy_kind_and_format(text)
+        .map(|(kind, format)| (text, format, kind))
+}
+
+impl Grammar {
+    fn legacy_kind_and_format<'a>(&'a self, token: &str) -> Option<(&'a str, &'a str)> {
+        let mut matches = self.legacy.kinds.iter().filter(|(kind, _)| {
+            token.strip_prefix(kind).is_some_and(|rest| {
+                !rest.is_empty()
+                    && rest
+                        .chars()
+                        .next()
+                        .is_some_and(|ch| !ch.is_ascii_alphanumeric())
+            })
+        });
+        let first = matches.next()?;
+        matches.next().is_none().then_some((first.0.as_str(), first.1.as_str()))
+    }
 }
 
 fn declaration_captures<'a>(
@@ -159,4 +205,24 @@ fn declaration_captures<'a>(
             .captures(line)
             .filter(|caps| is_md || caps.name("mdhashes").is_none())
     }
+}
+
+/// Parse either a conforming declaration or a catalog-compatible persisted one
+/// from a declaration-position line, returning the end of its written ID token
+/// (§FS-config.3.2). Re-read consumers use this instead of inventing their own
+/// compatibility fallback.
+fn declaration_id_on_line(
+    grammar: &Grammar,
+    line: &str,
+    in_py_docstring: bool,
+    is_md: bool,
+) -> Option<(Id, usize)> {
+    if let Some(caps) = declaration_captures(grammar, line, in_py_docstring, is_md)
+        && let Some(id) = parse_id(&caps, grammar)
+    {
+        return Some((id, caps.get(0)?.end()));
+    }
+    let (text, _, kind) = near_miss_heading(grammar, line, in_py_docstring, is_md)?;
+    let start = line.find(text)?;
+    Some((Id::legacy(kind.to_string(), text), start + text.len()))
 }

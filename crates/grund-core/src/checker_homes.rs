@@ -238,12 +238,11 @@ fn file_declares_inline_home(path: &Path, id: &Id, config: &Config) -> Result<bo
     for line in text.lines() {
         let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
         let scan_line = scan.text;
-        if let Some(caps) =
-            declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
-            && let Some(found) = parse_id(&caps, &config.grammar)
+        if let Some((found, token_end)) =
+            declaration_id_on_line(&config.grammar, scan_line, scan.in_py_docstring, is_md)
             && &found == id
         {
-            let tail = &scan_line[caps.get(0).unwrap().end()..];
+            let tail = &scan_line[token_end..];
             if STUB_LINK_HEADING.is_match(tail) {
                 continue;
             }
