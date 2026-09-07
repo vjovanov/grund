@@ -30,6 +30,11 @@ fn wrap_markdown_links(
         {
             continue;
         }
+        // §FS-values.8: wrapping the citation would destroy the sole accepted
+        // authored binding form, so a recognized value binding keeps its bytes.
+        if markdown_citation_is_value_binding(line, &citation, config, workspace) {
+            continue;
+        }
         // §FS-workspace.8.5: a qualified `§<alias>/<ID>` resolves against the
         // named project in workspace mode; a member-local run has no workspace
         // context and leaves it untouched — no wrap created, none stripped.
@@ -83,6 +88,44 @@ fn wrap_markdown_links(
     }
     output.push_str(&line[cursor..]);
     output
+}
+
+fn markdown_citation_is_value_binding(
+    line: &str,
+    citation: &MarkdownLineCitation,
+    config: &Config,
+    workspace: Option<&WorkspaceContext>,
+) -> bool {
+    let target_config = citation
+        .namespace
+        .as_deref()
+        .and_then(|alias| workspace.and_then(|workspace| workspace.project_by_alias(alias)))
+        .map(|project| &project.config)
+        .unwrap_or(config);
+    if !kind_uses_values(target_config, &citation.id.kind) {
+        return false;
+    }
+    let Some(section) = citation.section.as_deref() else {
+        return false;
+    };
+    if section.starts_with('0') || !section.bytes().all(|byte| byte.is_ascii_digit()) {
+        return false;
+    }
+    let Some(before_marker) = line[..citation.marker_start].strip_suffix(" (") else {
+        return false;
+    };
+    let Some(close_tick) = before_marker.len().checked_sub(1) else {
+        return false;
+    };
+    if before_marker.as_bytes().get(close_tick) != Some(&b'`')
+        || !line[citation.token_end..].starts_with(')')
+    {
+        return false;
+    }
+    let Some(open_tick) = before_marker[..close_tick].rfind('`') else {
+        return false;
+    };
+    component_text_is_valid(&before_marker[open_tick + 1..close_tick])
 }
 
 struct MarkdownLineCitation {

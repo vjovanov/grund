@@ -17,7 +17,7 @@ pub struct Id {
 /// (§AR-scanner.2.1, §AR-scanner.4), with its section body map
 /// (§AR-scanner.2.2) and, for stub headings, the inline-home path it points at
 /// (§FS-show.2.3, §FS-check.3.4).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Declaration {
     pub id: Id,
     pub file: PathBuf,
@@ -53,6 +53,14 @@ pub struct Declaration {
     /// §RM-gap-report.
     pub body_start: usize,
     pub body_end: usize,
+    /// Exact source metadata for catalog consumers. Ordinary Markdown and
+    /// source declarations carry `Text`; home JSON members retain both their
+    /// member slice and key span (§FS-values.2.2, §FS-values.6).
+    pub source: DeclarationSource,
+    /// `Some(true)` for a valid opted-in value declaration, `Some(false)` for
+    /// a readable declaration with invalid value grammar, and `None` for an
+    /// ordinary declaration (§FS-values.2, §FS-values.5.1).
+    pub value_valid: Option<bool>,
 }
 
 /// One numeric or explicitly named subsection heading recorded inside a
@@ -64,30 +72,7 @@ pub struct SectionInfo {
     pub title: String,
     pub line: usize,
     pub heading_level: usize,
-}
-
-/// An `e2e/cases/<name>/` directory treated as an `E2E-<name>` declaration
-/// (§AR-scanner.6) — its `command.args`, `expected.exit`, and fixture file list
-/// are what `grund E2E-<name>` renders (§FS-show.2.4).
-#[derive(Debug)]
-pub struct E2eCase {
-    pub dir: PathBuf,
-    pub args: Vec<String>,
-    pub expected_exit: i32,
-    pub fixtures: Vec<PathBuf>,
-    pub spec_refs: Vec<E2eSpecRef>,
-}
-
-/// A non-empty `spec.refs` manifest line from an E2E case (§AR-scanner.6).
-/// It is evidence for E2E citation-direction obligations (§FS-config.3.9), not a
-/// normal citation site, so it does not produce dangling-ref findings: an E2E
-/// case grounds in the *layer* a `spec.refs` entry names, and entries are
-/// deliberately allowed to use idealized, not-locally-resolvable IDs, so only
-/// `kind` (plus `namespace`) is retained.
-#[derive(Debug)]
-pub struct E2eSpecRef {
-    pub namespace: Option<String>,
-    pub kind: String,
+    pub value: Option<ValueComponent>,
 }
 
 /// One citation site: an `<ID>[.<section>]` token, optionally `§`-prefixed
@@ -203,6 +188,9 @@ type TextOverlays = BTreeMap<PathBuf, String>;
 pub struct Findings {
     pub declarations: BTreeMap<Id, Vec<Declaration>>,
     pub citations: Vec<Citation>,
+    pub value_bindings: Vec<ValueBinding>,
+    pub invalid_value_declarations: Vec<InvalidValueSite>,
+    pub invalid_value_bindings: Vec<InvalidValueSite>,
     /// Every file the walk read successfully (§AR-scanner.1) — the universe the
     /// `[reference] require_grounding` check iterates over (§FS-check.3.6,
     /// §DF-require-grounding). Files that failed to read are not here; they are in
@@ -298,6 +286,9 @@ pub struct KindConfig {
     /// `[reference]` default; `1` is the file, which is what every config had
     /// before the key existed.
     pub grounding_level: Option<usize>,
+    /// The absent-by-default first-class-value opt-in (§FS-config.3.4.9,
+    /// §FS-values.1).
+    pub values: bool,
 }
 
 /// The three states of `[[kinds]] index` (§FS-config.3.4): unset (the
@@ -627,6 +618,7 @@ impl Config {
                 scan: true,
                 require_grounding: None,
                 grounding_level: None,
+                values: false,
             })
             .collect();
         let kind_prefixes = kind_prefixes(&kinds);

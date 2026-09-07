@@ -106,6 +106,7 @@ struct ParsedKind {
     /// was written on (§FS-config.3.4.8) — read by `config_grounding.rs`, which
     /// owns both keys and every rule about them.
     grounding: ParsedGrounding,
+    values_line: Option<usize>,
 }
 
 impl ParsedKind {
@@ -121,10 +122,12 @@ impl ParsedKind {
                 scan: true,
                 require_grounding: None,
                 grounding_level: None,
+                values: false,
             },
             header_line,
             named: false,
             grounding: ParsedGrounding::default(),
+            values_line: None,
         }
     }
 }
@@ -199,6 +202,19 @@ fn parse_kinds_key(
                     "`scan` outside of [[kinds]] block".to_string(),
                 )?;
             }
+        }
+        // §FS-config.3.4.9 / §FS-values.1: the sole value-related key is an
+        // absent-by-default boolean on the owning kind row.
+        "values" => {
+            let values = parse_bool(path, line_no, value)?;
+            let Some(slot) = current_kind.as_mut() else {
+                bail_config(path, line_no, "`values` outside of [[kinds]] block".to_string())?;
+                unreachable!();
+            };
+            if slot.values_line.replace(line_no).is_some() {
+                bail_config(path, line_no, "[[kinds]] sets `values` twice".to_string())?;
+            }
+            slot.config.values = values;
         }
         "folder" => {
             let folder = parse_string(path, line_no, value)?;
@@ -380,6 +396,28 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
                 format_path(path)
             ));
         }
+        if k.values {
+            let line = entry.values_line.unwrap_or(entry.header_line);
+            if !k.citable {
+                return Err(anyhow!(
+                    "{}:{line}: kind `{}` sets `values = true` with `citable = false`",
+                    format_path(path),
+                    k.kind
+                ));
+            }
+            let (home, expects_file) = match (&k.file, &k.folder) {
+                (Some(home), None) => (home, true),
+                (None, Some(home)) => (home, false),
+                _ => {
+                    return Err(anyhow!(
+                        "{}:{line}: kind `{}` sets `values = true` without exactly one `file` or `folder` home",
+                        format_path(path),
+                        k.kind
+                    ));
+                }
+            };
+            validate_value_home(path, line, &config.root, &k.kind, home, expects_file)?;
+        }
     }
     // §FS-config.3.4.7: an unwalked kind is a place and nothing more. A citable one
     // would have declarations nobody reads — the trap §FS-config.3.5 closes — and the
@@ -465,5 +503,40 @@ fn apply_parsed_kinds(path: &Path, parsed: Vec<ParsedKind>, config: &mut Config)
         }
     }
     config.kinds = kinds;
+    Ok(())
+}
+
+/// A value home is mandatory, existing, and physically inside the project root
+/// (§FS-config.3.4.9, §FS-values.1). Resolving both paths closes `..`, absolute,
+/// and symlink escapes through the same located config error.
+fn validate_value_home(
+    config_path: &Path,
+    line: usize,
+    root: &Path,
+    kind: &str,
+    home: &str,
+    expects_file: bool,
+) -> Result<()> {
+    let candidate = normalize_path_lexically(&root.join(home));
+    let root = fs::canonicalize(root).unwrap_or_else(|_| normalize_path_lexically(root));
+    let resolved = fs::canonicalize(&candidate).map_err(|_| {
+        anyhow!(
+            "{}:{line}: value home for kind `{kind}` does not exist: {home}",
+            format_path(config_path)
+        )
+    })?;
+    if !resolved.starts_with(&root) {
+        return Err(anyhow!(
+            "{}:{line}: value home for kind `{kind}` must normalize inside the project root: {home}",
+            format_path(config_path)
+        ));
+    }
+    if (expects_file && !resolved.is_file()) || (!expects_file && !resolved.is_dir()) {
+        let expected = if expects_file { "file" } else { "folder" };
+        return Err(anyhow!(
+            "{}:{line}: value home for kind `{kind}` must be an existing {expected}: {home}",
+            format_path(config_path)
+        ));
+    }
     Ok(())
 }

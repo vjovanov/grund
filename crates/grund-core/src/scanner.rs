@@ -118,6 +118,12 @@ fn scan_file_text(
     let mut markdown_fence = None;
     let mut py_docstring = PythonDocstringScanState::default();
     let mut current: Option<Declaration> = None;
+    // §FS-values.9: keep every value-specific line pass off for repositories
+    // that have not opted in locally or through a workspace target.
+    let scan_values = config.kinds.iter().any(|kind| kind.values)
+        || workspace_targets
+            .iter()
+            .any(|target| target.config.kinds.iter().any(|kind| kind.values));
     // §AR-scanner.2.4: citing-side classification is consumed only by the
     // citation-direction checks, so it is computed only when the project declares
     // `[citations]` and the caller asked for it (§AR-benchmarks).
@@ -189,6 +195,8 @@ fn scan_file_text(
                 // on the file is known. Default to the single declaration line.
                 body_start: lineno,
                 body_end: lineno,
+                source: DeclarationSource::Text,
+                value_valid: None,
             });
             continue;
         }
@@ -217,6 +225,7 @@ fn scan_file_text(
                     title: section_anchor_text(scan_line, sec),
                     line: lineno,
                     heading_level,
+                    value: None,
                 };
                 // §AR-scanner.2.2: a path is recorded once, by the first heading
                 // that claims it; later claimants go to `duplicate_sections` so
@@ -233,6 +242,7 @@ fn scan_file_text(
         }
 
         let workspace_mode = !workspace_targets.is_empty();
+        let citation_start = findings.citations.len();
         let mut qualified_marker_starts = BTreeSet::new();
         // §AR-scanner.2.6: every marker the full-ID pattern matched at, whether or
         // not this pass emitted a citation there. The shorthand pass skips these
@@ -353,6 +363,9 @@ fn scan_file_text(
             findings,
         );
         scan_escaped_citations(&citation_line, findings);
+        if scan_values {
+            scan_value_bindings(&citation_line, workspace_targets, citation_start, findings);
+        }
     }
 
     if let Some(decl) = current.take() {
@@ -371,11 +384,20 @@ fn scan_file_text(
         .values()
         .flatten()
         .any(|decl| !decl.duplicate_sections.is_empty());
-    if classify || has_duplicate_sections {
+    let has_value_declarations = scan_values
+        && findings
+            .declarations
+            .values()
+            .flatten()
+            .any(|decl| kind_uses_values(config, &decl.id.kind));
+    if classify || has_duplicate_sections || has_value_declarations {
         assign_declaration_bodies(findings, is_md, is_py, config, &text, &md_headings, total_lines);
     }
     if has_duplicate_sections {
         retain_in_body_duplicate_sections(findings);
+    }
+    if has_value_declarations {
+        validate_markdown_value_declarations(path, &text, is_md, config, findings);
     }
     if classify {
         classify_citation_sources(findings, config, path);

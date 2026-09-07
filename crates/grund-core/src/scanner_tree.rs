@@ -54,6 +54,13 @@ fn merge_findings(target: &mut Findings, mut source: Findings) {
             .append(&mut declarations);
     }
     target.citations.append(&mut source.citations);
+    target.value_bindings.append(&mut source.value_bindings);
+    target
+        .invalid_value_declarations
+        .append(&mut source.invalid_value_declarations);
+    target
+        .invalid_value_bindings
+        .append(&mut source.invalid_value_bindings);
     target.escaped_citations.append(&mut source.escaped_citations);
     target
         .near_miss_headings
@@ -124,6 +131,18 @@ fn scan_tree_with_workspace_threshold(
     let mut findings = Findings { walked_dirs: walked.dirs, ..Findings::default() };
     let (mut files, mut errors) = (walked.files, walked.errors);
     add_overlay_scan_files(config, scope, explicit_scope, overlays, &mut files)?;
+    // §FS-values.2.2: home JSON is a declaration input, never a general text
+    // scan input even when a repository adds `json` to `[scan].extensions`.
+    if config.kinds.iter().any(|kind| kind.values) {
+        let home_json = value_json_sources(config, overlays)
+            .map(|sources| sources.into_iter().map(|(path, _)| path).collect::<Vec<_>>())
+            .unwrap_or_default();
+        files.retain(|file| {
+            !home_json
+                .iter()
+                .any(|source| paths_same_location(source, file))
+        });
+    }
     if files.len() >= parallel_min_files {
         for (file, result) in scan_file_results(&files, config, workspace_targets, overlays) {
             match result {
@@ -142,11 +161,19 @@ fn scan_tree_with_workspace_threshold(
     if let Err(err) = scan_e2e_cases(config, scope, explicit_scope, &mut findings) {
         errors.push((config.root.join("e2e/cases"), format!("{err:#}")));
     }
+    scan_value_json_sources(config, overlays, &mut findings, &mut errors);
     // §FS-workspace.1: when the citing-grammar pass and the target-grammar pass both
     // fire on the same line they emit in source order *per pass*; one sort at the end
     // keeps a workspace scan's per-line order the single-project scan's left-to-right one.
     if !workspace_targets.is_empty() {
         findings.citations.sort_by(|a, b| {
+            (sort_path_key(&a.file), a.line, a.column).cmp(&(
+                sort_path_key(&b.file),
+                b.line,
+                b.column,
+            ))
+        });
+        findings.value_bindings.sort_by(|a, b| {
             (sort_path_key(&a.file), a.line, a.column).cmp(&(
                 sort_path_key(&b.file),
                 b.line,

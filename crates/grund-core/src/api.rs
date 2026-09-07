@@ -714,8 +714,7 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
                 // title: editors navigate `<ID>.<section>` to that section's
                 // citations, the same way the whole-ID title does (§FS-lsp.1.3.1).
                 for (section, info) in &home.sections {
-                    let (column, text) =
-                        heading_span_parts(&home.file, info.line, section, &overlays);
+                    let (column, text) = section_range_parts(home, info, section, &overlays);
                     sections.push(LspDeclaration {
                         project: context.workspace_loaded.then(|| project.alias.clone()),
                         path: absolutize_path(&home.file),
@@ -1005,7 +1004,28 @@ fn declaration_range_parts(
     rendered_id: &str,
     overlays: &TextOverlays,
 ) -> (usize, String) {
-    heading_span_parts(&decl.file, decl.line, rendered_id, overlays)
+    match &decl.source {
+        DeclarationSource::Json {
+            key_column,
+            key_text,
+            ..
+        } => (*key_column, key_text.clone()),
+        DeclarationSource::Text => heading_span_parts(&decl.file, decl.line, rendered_id, overlays),
+    }
+}
+
+fn section_range_parts(
+    decl: &Declaration,
+    info: &SectionInfo,
+    section: &str,
+    overlays: &TextOverlays,
+) -> (usize, String) {
+    if matches!(decl.source, DeclarationSource::Json { .. })
+        && let Some(value) = &info.value
+    {
+        return (value.column, value.source_slice.clone());
+    }
+    heading_span_parts(&decl.file, info.line, section, overlays)
 }
 
 /// The 1-based start column and title text of a heading-line token: the span

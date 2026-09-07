@@ -266,11 +266,6 @@ fn check_findings(findings: &Findings, config: &Config) -> CheckReport {
     check_with_workspace(findings, config, config, None, &BTreeMap::new())
 }
 
-struct WorkspaceCheckTarget<'a> {
-    findings: &'a Findings,
-    config: &'a Config,
-}
-
 /// `path_config` is the config the finished report renders paths against
 /// (§FS-workspace.8.1) — the workspace root's in workspace mode, `config` itself
 /// otherwise. A path baked *into* a message must use it, or in a workspace it
@@ -417,6 +412,9 @@ fn check_with_workspace(
         None,
         &mut report,
     );
+    // §AR-checker.2.18 / §FS-values.5: ordinary resolution runs first and the
+    // focused pass suppresses comparison at every unresolved or ambiguous site.
+    check_values(findings, config, path_config, workspace, &mut report);
 
     // §FS-check.2.3.1 / §AR-checker.2.11: a `<§>`-escaped illustration whose ID
     // resolves to a real declaration is likely a live citation someone bracketed
