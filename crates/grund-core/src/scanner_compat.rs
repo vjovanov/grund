@@ -88,13 +88,21 @@ fn resolve_id_arg(
 /// can become a citation.
 fn promote_local_legacy_citations(config: &Config, findings: &mut Findings) {
     let catalog = legacy_catalog_ids(&findings.declarations);
+    let configured_catalog = configured_catalog_ids(&findings.declarations);
     let candidates = std::mem::take(&mut findings.legacy_citation_candidates);
     for candidate in candidates {
         if candidate.namespace.is_some() {
             findings.legacy_citation_candidates.push(candidate);
             continue;
         }
-        promote_legacy_candidate(config, config, &catalog, candidate, &mut findings.citations);
+        promote_legacy_candidate(
+            config,
+            config,
+            &configured_catalog,
+            &catalog,
+            candidate,
+            &mut findings.citations,
+        );
     }
     sort_citations(&mut findings.citations);
 }
@@ -109,6 +117,7 @@ fn promote_qualified_legacy_citations(projects: &mut [WorkspaceProject]) {
             (
                 project.alias.clone(),
                 project.config.clone(),
+                configured_catalog_ids(&project.findings.declarations),
                 legacy_catalog_ids(&project.findings.declarations),
             )
         })
@@ -120,14 +129,15 @@ fn promote_qualified_legacy_citations(projects: &mut [WorkspaceProject]) {
             let Some(alias) = candidate.namespace.as_deref() else {
                 continue;
             };
-            let Some((_, target_config, catalog)) =
-                catalogs.iter().find(|(target, _, _)| target == alias)
+            let Some((_, target_config, configured_catalog, catalog)) =
+                catalogs.iter().find(|(target, _, _, _)| target == alias)
             else {
                 continue;
             };
             promote_legacy_candidate(
                 &project.config,
                 target_config,
+                configured_catalog,
                 catalog,
                 candidate,
                 &mut project.findings.citations,
@@ -145,9 +155,62 @@ fn legacy_catalog_ids(declarations: &BTreeMap<Id, Vec<Declaration>>) -> Vec<Id> 
         .collect()
 }
 
+fn configured_catalog_ids(declarations: &BTreeMap<Id, Vec<Declaration>>) -> Vec<Id> {
+    declarations
+        .keys()
+        .filter(|id| id.legacy_spelling().is_none())
+        .cloned()
+        .collect()
+}
+
+fn shorthand_index_number(config: &Config, declared: &Id) -> Option<Option<u32>> {
+    match declared.legacy_spelling() {
+        Some(spelling) => parse_id_arg_with_shorthand(spelling, &config.grammar)
+            .ok()
+            .filter(|parsed| parsed.shorthand && parsed.section.is_none())
+            .map(|parsed| parsed.id.num),
+        None if declared.slug.is_some() => Some(declared.num),
+        None => None,
+    }
+}
+
+fn unique_shorthand_expansion_target<'a>(
+    config: &Config,
+    token: &str,
+    parsed: &ParsedId,
+    declared_ids: &[&'a str],
+) -> Option<&'a str> {
+    let exact = parsed.section.as_ref().map_or(token, |section| {
+        token
+            .strip_suffix(&format!("{}{}", config.section_separator, section))
+            .unwrap_or(token)
+    });
+    let mut matches = declared_ids.iter().copied().filter(|declared| {
+        *declared == exact
+            || parse_id_arg(declared, &config.grammar).is_ok_and(|(id, section)| {
+                section.is_none() && shorthand_names(&id, &parsed.id)
+            })
+    });
+    let unique = matches.next()?;
+    (matches.next().is_none() && unique != exact).then_some(unique)
+}
+
+fn formatter_wrapper_label_is_citation(label: &str, config: &Config) -> bool {
+    let tail = match QUALIFIED_CITATION_PREFIX.captures(label) {
+        Some(prefix) => &label[prefix.get(0).expect("qualified prefix match").end()..],
+        None => label,
+    };
+    if tail.is_empty() || tail.contains('/') {
+        return false;
+    }
+    parse_id_arg_with_shorthand(tail, &config.grammar).is_ok()
+        || config.grammar.legacy_kind_and_format(tail).is_some()
+}
+
 fn promote_legacy_candidate(
     source_config: &Config,
     target_config: &Config,
+    configured_catalog: &[Id],
     catalog: &[Id],
     candidate: LegacyCitationCandidate,
     citations: &mut Vec<Citation>,
@@ -167,13 +230,26 @@ fn promote_legacy_candidate(
         qualified,
         &candidate.tail[..consumed]
     );
-    // §FS-config.3.2 / §FS-check.1.1: exact catalog reconciliation owns a
-    // marker before any shorter configured-grammar prefix found there.
-    citations.retain(|citation| {
-        citation.file != candidate.file
-            || citation.line != candidate.line
-            || citation.column != candidate.column
-    });
+    let same_marker = |citation: &Citation| {
+        citation.file == candidate.file
+            && citation.line == candidate.line
+            && citation.column == candidate.column
+    };
+    // §FS-config.3.2 / §FS-check.1.1: a configured parse reaching past the
+    // shorter legacy target owns its marker. A shorthand owns it when its
+    // configured target set is non-empty; `ShorthandIndex` adds the legacy target.
+    if citations.iter().any(|citation| {
+        same_marker(citation)
+            && ((!citation.shorthand && citation.text.len() > text.len())
+                || configured_catalog
+                    .iter()
+                    .any(|id| shorthand_names(id, &citation.id)))
+    }) {
+        return;
+    }
+    // With no configured interpretation left, exact catalog compatibility is
+    // the one target and replaces the rejected/empty shorthand parse.
+    citations.retain(|citation| !same_marker(citation));
     let site = candidate.inline_site.clone();
     let block_lines = candidate.inline_block_lines.clone();
     let file = candidate.file.clone();
@@ -307,6 +383,15 @@ fn collect_local_legacy_markdown_citations(
         let Some((id, section, consumed)) = match_legacy_tail(rest, config, &catalog) else {
             continue;
         };
+        // §FS-config.3.2 / §FS-fmt.6: do not linkify a shorthand-shaped legacy
+        // ID when conforming declarations share its number. The scanner reports
+        // the combined target set; formatting leaves the same bytes untouched.
+        if parse_id_arg_with_shorthand(&rest[..consumed], &config.grammar).is_ok_and(|parsed| {
+            parsed.shorthand
+                && !shorthand_candidates(&parsed.id, &findings.declarations).is_empty()
+        }) {
+            continue;
+        }
         citations.push(MarkdownLineCitation {
             marker_start,
             token_end: token_start + consumed,

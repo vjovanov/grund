@@ -131,7 +131,7 @@ fn fmt_tree(
     let mut shorthand_findings: Option<CompleteScan> = None;
     // §FS-fmt.2.4: built once for the whole walk, not once per line — see
     // `ShorthandTargets`. Rebuilt at most once, when the deferred scan lands.
-    let mut shorthand_targets = ShorthandTargets::new(findings, workspace);
+    let mut shorthand_targets = ShorthandTargets::new(config, findings, workspace);
     // §FS-fmt.3: the paths this walk could not read, rendered here while the
     // config that names them is at hand — the same account `check` owes of the
     // tree it walks (§FS-check.2).
@@ -185,7 +185,7 @@ fn fmt_tree(
         if rewritten.saw_shorthand_candidate && findings.is_none() {
             shorthand_findings = Some(CompleteScan::of_tree_or_abort(config, opts.render)?);
             findings = shorthand_findings.as_ref().map(CompleteScan::findings);
-            shorthand_targets = ShorthandTargets::new(findings, workspace);
+            shorthand_targets = ShorthandTargets::new(config, findings, workspace);
             changes.truncate(file_changes_start);
             rewritten = rewrite_file(&original, &path, config, is_md, &FmtLineOpts {
                 add_marker,

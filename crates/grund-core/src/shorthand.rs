@@ -142,14 +142,18 @@ struct ShorthandIndex<'a> {
 }
 
 impl<'a> ShorthandIndex<'a> {
-    fn build(declarations: impl IntoIterator<Item = &'a Id>) -> Self {
+    /// Index canonical declarations plus exact persisted spellings which are
+    /// themselves valid shorthand tokens under the effective grammar
+    /// (§FS-config.3.2). The latter must join the target set so a shorthand
+    /// collision cannot silently resolve to its conforming neighbor.
+    fn build(config: &Config, declarations: impl IntoIterator<Item = &'a Id>) -> Self {
         let mut by_number: BTreeMap<(&'a str, Option<u32>), Vec<&'a Id>> = BTreeMap::new();
         for declared in declarations {
-            if declared.slug.is_none() {
+            let Some(number) = shorthand_index_number(config, declared) else {
                 continue;
-            }
+            };
             by_number
-                .entry((declared.kind.as_str(), declared.num))
+                .entry((declared.kind.as_str(), number))
                 .or_default()
                 .push(declared);
         }
@@ -197,9 +201,14 @@ struct ShorthandAliasTarget<'a> {
 }
 
 impl<'a> ShorthandTargets<'a> {
-    fn new(findings: Option<&'a Findings>, workspace: Option<&'a WorkspaceContext>) -> Self {
+    fn new(
+        config: &Config,
+        findings: Option<&'a Findings>,
+        workspace: Option<&'a WorkspaceContext>,
+    ) -> Self {
         Self {
-            local: findings.map(|found| ShorthandIndex::build(found.declarations.keys())),
+            local: findings
+                .map(|found| ShorthandIndex::build(config, found.declarations.keys())),
             by_alias: workspace
                 .map(|workspace| {
                     workspace
@@ -211,6 +220,7 @@ impl<'a> ShorthandTargets<'a> {
                                 ShorthandAliasTarget {
                                     config: &project.config,
                                     index: ShorthandIndex::build(
+                                        &project.config,
                                         project.findings.declarations.keys(),
                                     ),
                                 },
@@ -349,7 +359,7 @@ fn scan_shorthand_citations(
 /// The escaped citations are resolved too. Without that, `<§>FS-042` escaping a
 /// real declaration is silently exempt from a check that catches
 /// `<§>FS-042-user-login`.
-fn resolve_shorthand_citations(findings: &mut Findings) {
+fn resolve_shorthand_citations(config: &Config, findings: &mut Findings) {
     let pending = |citations: &[Citation]| {
         citations
             .iter()
@@ -363,7 +373,7 @@ fn resolve_shorthand_citations(findings: &mut Findings) {
     // resolve here — a qualified one is resolved against its own namespace by
     // the workspace checker.
     let declared: Vec<Id> = findings.declarations.keys().cloned().collect();
-    let index = ShorthandIndex::build(declared.iter());
+    let index = ShorthandIndex::build(config, declared.iter());
     // §FS-check.2.3.1: an escape earns its "this resolves — did you mean it to be
     // live?" suggestion only by carrying an `Id` that is actually declared, and a
     // shorthand's `Id` never is until it is rewritten here.
@@ -410,6 +420,11 @@ fn shorthand_diagnostic(
     let message = match candidates {
         [] => format!("shorthand citation {written} matches no declaration"),
         [unique] => {
+            // An exact persisted spelling is already canonical for compatibility;
+            // there is no different text for `fmt` to write (§FS-config.3.2).
+            if unique.legacy_spelling().is_some() {
+                return None;
+            }
             // §FS-check.3.14: outside the configured scope `fmt` will not rewrite
             // the site either, so the same withholding applies for the same reason.
             if !cite.shorthand_rewritable || tier == ReferenceTier::OutOfScope {
@@ -500,7 +515,9 @@ fn report_shorthand_citation<'a>(
 ) -> bool {
     let index = indexes
         .entry(cite.namespace.clone())
-        .or_insert_with(|| ShorthandIndex::build(target.findings.declarations.keys()));
+        .or_insert_with(|| {
+            ShorthandIndex::build(target.config, target.findings.declarations.keys())
+        });
     let candidates = index.candidates(&cite.id);
     let resolved = cite.id.slug.is_some() && candidates.len() == 1;
     if let Some(diagnostic) = shorthand_diagnostic(config, cite, target.config, tier, candidates) {
@@ -652,6 +669,12 @@ fn expand_shorthand_citations(
         let Some(unique) = index.unique(&id) else {
             continue;
         };
+        // Exact persisted shorthand-shaped IDs are read compatibility, not an
+        // authoring rewrite. With a conforming neighbor they made `unique`
+        // return `None`; alone they already have the right written spelling.
+        if unique.legacy_spelling().is_some() {
+            continue;
+        }
         let namespace = alias.map(|(alias, _)| alias);
         let match_end = alias_len + match_end;
         output.push_str(&line[cursor..token_start]);
@@ -713,7 +736,16 @@ fn resolve_qualified_shorthand_citations(projects: &mut [WorkspaceProject]) {
         .collect();
     let indexes: BTreeMap<&str, ShorthandIndex<'_>> = declared
         .iter()
-        .map(|(alias, ids)| (alias.as_str(), ShorthandIndex::build(ids.iter())))
+        .filter_map(|(alias, ids)| {
+            let config = projects
+                .iter()
+                .find(|project| project.alias == *alias)
+                .map(|project| &project.config)?;
+            Some((
+                alias.as_str(),
+                ShorthandIndex::build(config, ids.iter()),
+            ))
+        })
         .collect();
     for project in projects.iter_mut() {
         for cite in &mut project.findings.citations {
@@ -751,15 +783,7 @@ fn shorthand_token_expansion(
     if !parsed.shorthand {
         return None;
     }
-    let mut matches = declared_ids.iter().filter(|declared| {
-        parse_id_arg(declared, &config.grammar).is_ok_and(|(id, section)| {
-            section.is_none() && shorthand_names(&id, &parsed.id)
-        })
-    });
-    let unique = matches.next()?;
-    if matches.next().is_some() {
-        return None;
-    }
+    let unique = unique_shorthand_expansion_target(config, token, &parsed, declared_ids)?;
     let section = parsed
         .section
         .map(|section| format!("{}{}", config.section_separator, section))

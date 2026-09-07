@@ -271,13 +271,14 @@ fn flatten_cross_ref_links_line(line: &str, config: &Config) -> String {
         };
         let cite_end = label_start + label_close_rel;
         let token = &line[label_start..cite_end];
-        // §FS-show.3.2: flatten the formatter wrapper independently of today's grammar,
-        // including persisted and qualified legacy spellings. Markdown label delimiters
-        // and whitespace cannot occur in a wrapper emitted by `fmt --cross-refs`.
+        // §FS-show.3.2: require a citation-shaped label the formatter can emit,
+        // including persisted and qualified legacy spellings but excluding an
+        // ordinary link whose label merely starts with the marker.
         if token.is_empty()
             || token
                 .chars()
                 .any(|ch| ch.is_whitespace() || matches!(ch, '[' | ']' | '(' | ')' | '`'))
+            || !formatter_wrapper_label_is_citation(token, config)
         {
             continue;
         }

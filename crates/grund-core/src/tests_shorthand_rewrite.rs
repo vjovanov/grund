@@ -31,7 +31,7 @@ mod tests_shorthand_rewrite {
                 DocstringContent::default(),
                 &config,
                 is_md,
-                &ShorthandTargets::new(Some(&findings), None),
+                &ShorthandTargets::new(&config, Some(&findings), None),
                 &mut saw_candidate,
                 &mut Vec::new(),
             )
@@ -79,7 +79,7 @@ mod tests_shorthand_rewrite {
                 DocstringContent::default(),
                 &config,
                 is_md,
-                &ShorthandTargets::new(Some(&findings), None),
+                &ShorthandTargets::new(&config, Some(&findings), None),
                 &mut saw_candidate,
                 &mut Vec::new(),
             )
@@ -136,7 +136,7 @@ mod tests_shorthand_rewrite {
             DocstringContent::default(),
             &config,
             true,
-            &ShorthandTargets::new(Some(&findings), None),
+            &ShorthandTargets::new(&config, Some(&findings), None),
             &mut saw_candidate,
             &mut expansions,
         )
@@ -219,7 +219,7 @@ mod tests_shorthand_rewrite {
                 index_entry_ids: None,
                 findings: Some(&findings),
                 workspace: None,
-                shorthand_targets: &ShorthandTargets::new(Some(&findings), None),
+                shorthand_targets: &ShorthandTargets::new(&config, Some(&findings), None),
             },
             false,
             &mut false,
@@ -243,7 +243,7 @@ mod tests_shorthand_rewrite {
                 index_entry_ids: None,
                 findings: Some(&findings),
                 workspace: None,
-                shorthand_targets: &ShorthandTargets::new(Some(&findings), None),
+                shorthand_targets: &ShorthandTargets::new(&config, Some(&findings), None),
             },
             false,
             &mut false,
@@ -493,6 +493,17 @@ mod tests_shorthand_rewrite {
         ];
         assert_eq!(
             type_line(&path, "See ", "$$FS-042 x", &ambiguous),
+            "See §FS-042 x"
+        );
+
+        // An exact persisted spelling joins the same target set instead of
+        // letting the conforming declaration steal the token.
+        let legacy_collision = vec![
+            (home.clone(), "FS-042"),
+            (home.clone(), "FS-042-user-login"),
+        ];
+        assert_eq!(
+            type_line(&path, "See ", "$$FS-042 x", &legacy_collision),
             "See §FS-042 x"
         );
 

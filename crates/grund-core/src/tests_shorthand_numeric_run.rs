@@ -56,7 +56,7 @@ mod tests_shorthand_numeric_run {
                 DocstringContent::default(),
                 &config,
                 true,
-                &ShorthandTargets::new(Some(&findings), None),
+                &ShorthandTargets::new(&config, Some(&findings), None),
                 &mut saw_candidate,
                 &mut Vec::new(),
             )
@@ -143,7 +143,7 @@ mod tests_shorthand_numeric_run {
                 DocstringContent::default(),
                 &config,
                 true,
-                &ShorthandTargets::new(Some(&findings), None),
+                &ShorthandTargets::new(&config, Some(&findings), None),
                 &mut saw_candidate,
                 &mut Vec::new(),
             )
