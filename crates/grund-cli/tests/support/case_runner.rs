@@ -145,6 +145,20 @@ pub fn assert_case_is_deterministic(manifest_dir: &Path, case: &Path) -> CaseOut
     }
 }
 
+/// Why a `requires-unix-shell` case is skipped off unix: §FS-fetch.2 has grund
+/// invoke the configured integration directly, with no shell of its own, so a
+/// fetcher script's own `#!` line is the only interpreter it ever gets — and a
+/// platform with no such interpreter cannot run it at all, not merely
+/// differently.
+const REQUIRES_UNIX_SHELL_SKIP: &str = "the fetch integration is a POSIX shell script grund runs directly; this platform has no shell to interpret it";
+
+/// Marked by presence, the way `symlinks` is marked by content: a case whose
+/// fixture executes a POSIX shell script fetcher rather than one whose fixture
+/// is data.
+fn case_requires_unix_shell(case: &Path) -> bool {
+    case.join("requires-unix-shell").is_file()
+}
+
 /// Run one e2e case: build its fixture, run the binary, and compare the exit
 /// code, stdout, stderr, and resulting tree against the recorded expectations.
 ///
@@ -157,6 +171,12 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) -> CaseOutcome
     let name = case_name(case);
     if kind.requires_spec_refs() {
         assert_spec_refs(case, name);
+    }
+    if case_requires_unix_shell(case) && !cfg!(unix) {
+        return CaseOutcome::Skipped {
+            case: name.to_string(),
+            why: REQUIRES_UNIX_SHELL_SKIP,
+        };
     }
     // A case whose fixture needs a symlink cannot run where the platform cannot
     // make one, so the case is skipped rather than compared against a different

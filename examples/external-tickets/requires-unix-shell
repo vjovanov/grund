@@ -1,0 +1,3 @@
+The fetch integration below is a POSIX shell script; §FS-fetch.2 has grund
+execute it directly, with no shell of its own, so this example only runs on
+a platform with one.
