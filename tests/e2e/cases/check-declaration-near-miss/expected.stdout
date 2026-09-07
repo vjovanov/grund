@@ -1,1 +1,1 @@
-docs/FS-billing.md:1: `FS-billing` is heading-shaped and declares nothing — [id] format = "{kind}-{number}-{slug}" reads `# <KIND>-<NNN>-<slug>: <title>`
+docs/FS-billing.md:1: `FS-billing` resolves for compatibility but does not match [id] format = "{kind}-{number}-{slug}" — rename it or change the effective format; this warning becomes an error in grund 0.15.0

@@ -274,6 +274,7 @@ fn off_grammar_show_flattens_local_and_qualified_formatter_wrappers() {
         "client/docs/specs/consumer.md",
         "# FS-001-consumer: Consumer\n\n\
          Follows \u{a7}FS-client-legacy and \u{a7}api/FS-security-providers.\n\n\
+         Keeps the ordinary [\u{a7}not-a-citation](manual.md) link and [documentation](manual.md).\n\n\
          Keeps `[\u{a7}FS-client-legacy](manual.md)` illustrative.\n",
     );
 
@@ -312,6 +313,13 @@ fn off_grammar_show_flattens_local_and_qualified_formatter_wrappers() {
             "{label}: {body}"
         );
         assert!(!body.contains("Follows [\u{a7}"), "{label}: {body}");
+        assert!(
+            body.contains(
+                "Keeps the ordinary [\u{a7}not-a-citation](manual.md) link and \
+                 [documentation](manual.md)."
+            ),
+            "{label}: {body}"
+        );
         assert!(
             body.contains("`[\u{a7}FS-client-legacy](manual.md)`"),
             "{label}: {body}"

@@ -188,7 +188,7 @@ fn scan_tree_with_workspace_threshold(
     // any file, so they can only be resolved once the whole walk (including the
     // E2E cases above) has produced the declaration set.
     promote_local_legacy_citations(config, &mut findings);
-    resolve_shorthand_citations(&mut findings);
+    resolve_shorthand_citations(config, &mut findings);
     Ok((findings, errors))
 }
 
