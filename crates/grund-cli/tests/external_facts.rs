@@ -178,7 +178,8 @@ fn external_facts_per_kind_grammar_is_shared_by_every_cli_consumer() {
             "[[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n",
             "[[kinds]]\nkind = \"TICKET\"\nfile = \"docs/tickets.md\"\n",
             "format = \"{kind}-{number}\"\nfetch = \"scripts/fetch-ticket\"\nresolve = \"must\"\n",
-            "[scan]\ninclude = [\"docs\"]\nrespect_gitignore = false\n"
+            "[scan]\ninclude = [\"docs\"]\nrespect_gitignore = false\n",
+            "[fmt.cross_refs]\nenabled = false\n"
         ),
     );
     write(
@@ -189,12 +190,16 @@ fn external_facts_per_kind_grammar_is_shared_by_every_cli_consumer() {
     write(
         &root,
         "docs/tickets.md",
-        "# Tickets\n\n## TICKET-1234: Ticket\n\nExternal.\n",
+        concat!(
+            "# Tickets\n\n",
+            "## TICKET-8: Short provider ID\n\nExternal.\n\n",
+            "## TICKET-1234: Ticket\n\nExternal.\n"
+        ),
     );
     write(
         &root,
         "docs/guide.md",
-        "# Guide\n\nSee \u{a7}FS-alpha and \u{a7}TICKET-1234.\n",
+        "# Guide\n\nSee \u{a7}FS-alpha, \u{a7}TICKET-8, and \u{a7}TICKET-1234.\n",
     );
     executable(
         &root,
@@ -209,14 +214,17 @@ fn external_facts_per_kind_grammar_is_shared_by_every_cli_consumer() {
         vec!["list", "."],
         vec!["cover", "."],
         vec!["fmt", "--check", "."],
-        vec!["complete", "ids", ".", "--prefix", "TICKET-"],
     ] {
         let output = run(&root, &args);
         assert_code(&output, 0, &args.join(" "));
     }
-    let allocate = run(&root, &["id", "TICKET", "Another ticket"]);
-    assert_code(&allocate, 0, "id TICKET");
-    assert_eq!(stdout(&allocate), "TICKET-1235\n");
+    let completion = run(&root, &["complete", "ids", ".", "--prefix", "TICKET-"]);
+    assert_code(&completion, 0, "complete ids");
+    assert!(stdout(&completion).lines().any(|line| line == "TICKET-8"));
+    assert!(!stdout(&completion).lines().any(|line| line == "TICKET-008"));
+    let allocate = run(&root, &["id", "TICKET", "Another ticket", "--width", "6"]);
+    assert_code(&allocate, 0, "id TICKET --width 6");
+    assert_eq!(stdout(&allocate), "TICKET-001235\n");
     assert!(!root.join("fetch-ran").exists());
 }
 
@@ -237,7 +245,8 @@ fn external_facts_qualified_fetch_uses_member_home_and_local_argument() {
     write(
         &root,
         "api/grund.toml",
-        &file_config(
+        &file_config_for_project(
+            "api",
             "docs/tickets.md",
             Some("must"),
             Some("scripts/fetch-ticket"),

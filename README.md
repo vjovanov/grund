@@ -225,7 +225,13 @@ Every fact has a stable ID. The default kinds, all configurable — `*` marks a 
    └────────────────────────────────────────── citation marker (writing only)
 ```
 
-Three schemes are supported. Pick one per repo and keep it stable — mixing is unsupported because citations would look identical but resolve under different rules. Each has a runnable tiny repo under [`examples/`](examples/), which are maintained as detailed walkthroughs for canonical user workflows ([§FS-examples](docs/functional-spec/FS-examples.md#fs-examples-examples-teach-canonical-user-workflows)).
+Three schemes are supported. `[id].format` selects the repository default; an
+explicit `[[kinds]].format` may give one kind a different stable scheme, so
+configured per-kind mixing is supported
+([§FS-config.3.2](docs/functional-spec/FS-config.md#32-id--id-grammar)). Each
+scheme has a runnable tiny repo under [`examples/`](examples/), maintained as a
+detailed walkthrough for canonical user workflows
+([§FS-examples](docs/functional-spec/FS-examples.md#fs-examples-examples-teach-canonical-user-workflows)).
 
 | Scheme                                     | Example             | Benefit                                                                                                          | Trade-off                                                                |
 |--------------------------------------------|---------------------|------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|

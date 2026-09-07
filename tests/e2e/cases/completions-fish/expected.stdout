@@ -4,9 +4,9 @@ function __grund_complete_ids
     grund complete ids --prefix "$token" 2>/dev/null
 end
 
-complete -c grund -f -n "__fish_use_subcommand" -a "check show list refs cover fmt id init config agent-setup-instructions completions"
+complete -c grund -f -n "__fish_use_subcommand" -a "check show list refs cover fmt fetch id init config agent-setup-instructions completions"
 # IDs start with an uppercase kind, but workspace aliases are lowercase. Once a
 # non-flag prefix exists, ask the helper for matching IDs/aliases.
 complete -c grund -f -k -n "__fish_use_subcommand; and test -n (commandline -ct); and not string match -qr '^-' -- (commandline -ct)" -a "(__grund_complete_ids)"
-complete -c grund -f -k -n "__fish_seen_subcommand_from show refs" -a "(__grund_complete_ids)"
+complete -c grund -f -k -n "__fish_seen_subcommand_from show refs fetch" -a "(__grund_complete_ids)"
 

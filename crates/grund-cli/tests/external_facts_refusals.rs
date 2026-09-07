@@ -46,6 +46,76 @@ fn external_facts_file_home_is_stably_inserted_replaced_and_idempotent() {
 
 #[cfg(unix)]
 #[test]
+fn external_facts_file_home_preserves_unowned_sibling_sections_byte_for_byte() {
+    let root = root("file-sibling-boundary");
+    write(
+        &root,
+        "grund.toml",
+        &file_config("docs/tickets.md", None, Some("scripts/fetch-ticket")),
+    );
+    write(
+        &root,
+        "docs/tickets.md",
+        concat!(
+            "# Tickets\n\n",
+            "## TICKET-8: Old snapshot\n\nOld body.\n\n",
+            "## Notes that grund does not own\n\nKeep this unrelated text.\n\n",
+            "## TICKET-9: Other snapshot\n\nOther body.\n"
+        ),
+    );
+    executable(
+        &root,
+        "scripts/fetch-ticket",
+        "#!/bin/sh\nprintf '## TICKET-8: New snapshot\\n\\nNew body.\\n'\n",
+    );
+
+    assert_code(&run(&root, &["fetch", "TICKET-8"]), 0, "replace");
+    assert_eq!(
+        fs::read(root.join("docs/tickets.md")).unwrap(),
+        concat!(
+            "# Tickets\n\n",
+            "## TICKET-8: New snapshot\n\nNew body.\n\n",
+            "## Notes that grund does not own\n\nKeep this unrelated text.\n\n",
+            "## TICKET-9: Other snapshot\n\nOther body.\n"
+        )
+        .as_bytes()
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn external_facts_file_home_refuses_malformed_declaration_ownership() {
+    let root = root("file-malformed-ownership");
+    write(
+        &root,
+        "grund.toml",
+        &file_config("docs/tickets.md", None, Some("scripts/fetch-ticket")),
+    );
+    write(
+        &root,
+        "docs/tickets.md",
+        concat!(
+            "# Tickets\n\n",
+            "## TICKET-8: Old snapshot\n\nOld body.\n\n",
+            "## TICKET-bad: Malformed snapshot\n\nDo not consume this.\n"
+        ),
+    );
+    executable(
+        &root,
+        "scripts/fetch-ticket",
+        "#!/bin/sh\nprintf '## TICKET-8: New snapshot\\n\\nNew body.\\n'\n",
+    );
+    let before = tree_with_directories(&root);
+
+    let output = run(&root, &["fetch", "TICKET-8"]);
+
+    assert_code(&output, 2, "malformed home");
+    assert!(stderr(&output).contains("malformed declaration heading"));
+    assert_eq!(tree_with_directories(&root), before);
+}
+
+#[cfg(unix)]
+#[test]
 fn external_facts_folder_home_preserves_verbatim_output_environment_and_argv() {
     let root = root("folder-write");
     write(
@@ -74,6 +144,58 @@ fn external_facts_folder_home_preserves_verbatim_output_environment_and_argv() {
         fs::read(root.join("snapshots/TICKET-77.md")).unwrap(),
         b"# TICKET-77: Folder fact\n\n  spacing stays  \n"
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn external_facts_folder_home_replaces_nested_snapshot_and_refuses_nested_duplicates() {
+    let folder_config = concat!(
+        "grund_config_version = 1\n[id]\nformat = \"{kind}-{slug}\"\n",
+        "[[kinds]]\nkind = \"TICKET\"\nfolder = \"snapshots\"\nindex = false\n",
+        "format = \"{kind}-{number}\"\nfetch = \"scripts/fetch-ticket\"\n",
+        "[scan]\ninclude = [\"docs\"]\nrespect_gitignore = false\n"
+    );
+    let nested = root("folder-nested-replacement");
+    write(&nested, "grund.toml", folder_config);
+    write(
+        &nested,
+        "snapshots/nested/provider.md",
+        "# TICKET-8: Old snapshot\n\nOld body.\n",
+    );
+    executable(
+        &nested,
+        "scripts/fetch-ticket",
+        "#!/bin/sh\nprintf '# TICKET-8: New snapshot\\n\\nNew body.\\n'\n",
+    );
+    assert_code(&run(&nested, &["fetch", "TICKET-8"]), 0, "nested replace");
+    assert_eq!(
+        fs::read(nested.join("snapshots/nested/provider.md")).unwrap(),
+        b"# TICKET-8: New snapshot\n\nNew body.\n"
+    );
+    assert!(!nested.join("snapshots/TICKET-8.md").exists());
+
+    let duplicate = root("folder-nested-duplicate");
+    write(&duplicate, "grund.toml", folder_config);
+    write(
+        &duplicate,
+        "snapshots/first.md",
+        "# TICKET-8: First\n\nFirst body.\n",
+    );
+    write(
+        &duplicate,
+        "snapshots/nested/second.md",
+        "# TICKET-8: Second\n\nSecond body.\n",
+    );
+    executable(
+        &duplicate,
+        "scripts/fetch-ticket",
+        "#!/bin/sh\nprintf '# TICKET-8: New snapshot\\n\\nNew body.\\n'\n",
+    );
+    let before = tree_with_directories(&duplicate);
+    let output = run(&duplicate, &["fetch", "TICKET-8"]);
+    assert_code(&output, 2, "nested duplicate");
+    assert!(stderr(&output).contains("multiple declarations"));
+    assert_eq!(tree_with_directories(&duplicate), before);
 }
 
 #[test]
@@ -217,6 +339,31 @@ fn external_facts_rejected_outputs_and_failures_never_mutate_the_tree() {
 
 #[cfg(unix)]
 #[test]
+fn external_facts_failed_install_removes_parent_directories_created_by_the_fetch() {
+    let root = root("atomic-parent-rollback");
+    let home = format!("new/{}.md", "x".repeat(300));
+    write(
+        &root,
+        "grund.toml",
+        &file_config(&home, Some("must"), Some("scripts/fetch-ticket")),
+    );
+    executable(
+        &root,
+        "scripts/fetch-ticket",
+        "#!/bin/sh\nprintf '## TICKET-8: Valid\\n\\nBody.\\n'\n",
+    );
+    let before = tree_with_directories(&root);
+
+    let output = run(&root, &["fetch", "TICKET-8"]);
+
+    assert_code(&output, 2, "post-parent-creation install failure");
+    assert!(stderr(&output).contains("atomically replace"));
+    assert_eq!(tree_with_directories(&root), before);
+    assert!(!root.join("new").exists());
+}
+
+#[cfg(unix)]
+#[test]
 fn external_facts_missing_fetch_bad_id_and_shell_text_are_refused_without_execution() {
     let no_fetch = root("no-fetch");
     write(
@@ -239,8 +386,14 @@ fn external_facts_missing_fetch_bad_id_and_shell_text_are_refused_without_execut
         "scripts/fetch-ticket",
         "#!/bin/sh\ntouch executed\n",
     );
-    let output = run(&bad_id, &["fetch", "not-an-id"]);
-    assert_code(&output, 1, "unparseable ID");
+    let malformed = run(&bad_id, &["fetch", "TICKET-bad"]);
+    assert_code(&malformed, 1, "unparseable ID");
+    assert_eq!(stdout(&malformed), "");
+    assert_eq!(stderr(&malformed), "invalid ID `TICKET-bad`\n");
+    let section = run(&bad_id, &["fetch", "TICKET-1234.1"]);
+    assert_code(&section, 1, "section-qualified ID");
+    assert_eq!(stdout(&section), "");
+    assert_eq!(stderr(&section), "invalid ID `TICKET-1234.1`\n");
     assert!(!bad_id.join("executed").exists());
 
     let no_shell = root("no-shell");
@@ -282,6 +435,6 @@ fn external_facts_fetched_body_citations_are_live() {
     assert_code(&check, 1, "body citation is checked");
     assert_eq!(
         stdout(&check),
-        "docs/tickets.md:3: unknown reference TICKET-9; no snapshot in docs/tickets.md — run grund fetch TICKET-9\n"
+        "docs/tickets.md:3: unknown reference TICKET-9; no snapshot in docs/tickets.md; did you mean TICKET-8?\n"
     );
 }

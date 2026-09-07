@@ -229,15 +229,14 @@ fn slugify_title(title: &str, slug_pattern: &str) -> String {
     out
 }
 
-/// Render an `Id` back to text under the repo's `[id] format`, zero-padding the
-/// number to `width` (§FS-config.3.2, §FS-id.2 — the form `grund id` prints and
-/// every report uses).
+/// Render a newly allocated `Id` under its effective format, zero-padding the
+/// number to `width` (§FS-config.3.2, §FS-id.2).
 fn format_id(id: &Id, config: &Config, width: usize) -> String {
-    config.grammar.render(id, width)
+    config.grammar.render_allocation(id, width)
 }
 
-/// Render an `Id` at the default 3-digit number width — the form used everywhere
-/// `grund` prints an ID in a report, listing, or message (§FS-config.3.2).
+/// Render an existing `Id` for a report, listing, or message, preserving the
+/// provider spelling policy of a per-kind override (§FS-config.3.2).
 fn render_id(config: &Config, id: &Id) -> String {
-    format_id(id, config, 3)
+    config.grammar.render(id, 3)
 }
