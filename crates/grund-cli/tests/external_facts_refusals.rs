@@ -3,6 +3,7 @@
 #[path = "support/external_facts.rs"]
 mod support;
 
+#[cfg(unix)]
 use std::fs;
 use support::*;
 

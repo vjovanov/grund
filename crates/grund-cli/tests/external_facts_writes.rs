@@ -1,6 +1,7 @@
 //! Writer regressions for rendered ordering and replacement metadata under
 //! [§FS-fetch.4](../../docs/functional-spec/FS-fetch.md#4-file-home-write) and
 //! [§FS-fetch.6](../../docs/functional-spec/FS-fetch.md#6-stability-and-ownership).
+#![cfg(unix)]
 
 #[path = "support/external_facts.rs"]
 mod support;
@@ -8,7 +9,6 @@ mod support;
 use std::fs;
 use support::*;
 
-#[cfg(unix)]
 #[test]
 fn external_facts_file_home_orders_by_the_effective_rendered_id() {
     let root = root("file-rendered-order");
@@ -44,7 +44,6 @@ fn external_facts_file_home_orders_by_the_effective_rendered_id() {
     );
 }
 
-#[cfg(unix)]
 #[test]
 fn external_facts_replacement_preserves_file_and_folder_home_permissions() {
     use std::os::unix::fs::PermissionsExt;
