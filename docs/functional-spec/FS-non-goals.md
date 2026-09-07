@@ -10,7 +10,7 @@ A non-goal is not the same as "we'll do it later." Non-goals are commitments. To
 
 ## 2. Spelling, grammar, prose quality
 
-`grund` reads spec text as opaque content between IDs. It does not lint English. Use any general-purpose linter — `vale`, `ltex-ls`, or a thousand others — alongside `grund`.
+`grund` reads spec text as opaque content between IDs except for the explicitly delimited value-binding form defined by the value specification; it compares only that form's authored component with the numbered component it cites and never infers values from surrounding prose. It does not lint English. Use any general-purpose linter — `vale`, `ltex-ls`, or a thousand others — alongside `grund`. Decided in [§DA-explicit-value-bindings](../decisions/architectural/DA-explicit-value-bindings.md#da-explicit-value-bindings-compare-only-authored-delimited-value-bindings) and specified by [§FS-values.3](FS-values.md#3-explicit-value-bindings).
 
 ## 3. Code AST parsing
 

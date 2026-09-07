@@ -6,6 +6,7 @@ Half of this folder is the record of one rename. That is deliberate: the superse
 
 ## Shape of the shipped tool
 
+- [§DA-explicit-value-bindings](DA-explicit-value-bindings.md#da-explicit-value-bindings-compare-only-authored-delimited-value-bindings) — compare only authored delimited value bindings
 - [§DA-lsp-optional](DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary) — LSP server ships as a separate, optional binary
 - [§DA-pgo-release](DA-pgo-release.md#da-pgo-release-distributed-binaries-are-pgo-built-trained-on-the-benchmark-workload) — distributed binaries are PGO-built, trained on the benchmark workload
 - [§DA-benchmark-instruction-counting](DA-benchmark-instruction-counting.md#da-benchmark-instruction-counting-the-performance-harness-counts-instructions-not-wall-clock-seconds) — the performance harness counts instructions, not wall-clock seconds

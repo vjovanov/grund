@@ -8,6 +8,8 @@ An example is any maintained directory or document under `examples/` that is adv
 
 ## 2. Canonical use-cases
 
+The examples include an optional first-class-values repository showing `values = true`, Markdown and home JSON declarations, exact numeric equality, prose and scanned-comment bindings, direct runtime JSON use, and a caught mismatch. It demonstrates the deliberate unbackticked non-binding without implying interpolation or value inference ([§FS-values](FS-values.md#fs-values-opted-in-kinds-bind-authored-components-to-one-declared-value)).
+
 Every maintained example must map to at least one canonical `grund` use-case. The use-case must be named in the example's README or manifest in user terms, such as:
 
 - choosing between supported ID schemes;

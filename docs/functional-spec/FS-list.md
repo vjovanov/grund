@@ -25,6 +25,8 @@ grund list [<path>] [--kind <KIND>[,<KIND>…]]… [--unused] [--summary] [--for
 
 ## 2. Behaviour
 
+JSON entries from an opted-in kind home are declarations in the same catalog. `list` shows their ID and exact location without inventing a title; duplicate and unused filters apply as they do to Markdown values ([§FS-values.6](FS-values.md#6-shared-catalog-consumers)).
+
 `list` runs the same scan as `check` ([AR-scanner](../architecture/AR-scanner.md#ar-scanner-how-grund-discovers-declarations-and-citations)) and emits, for every declaration the scan found, one catalog line. The set of declarations is exactly the set `check` validates and `show` can resolve, so the three never disagree on what exists.
 
 - **Order.** Declarations come out sorted by ID — kind, then number, then slug — the same stable order `check` reports diagnostics in ([§FS-errors.4](FS-errors.md#4-determinism)). The result is deterministic for a given tree.

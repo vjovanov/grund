@@ -21,6 +21,8 @@ grund [show] <ID> [<path>] [--section <s>] [--brief | --toc | --full] [--format 
 
 ## 2. Behavior
 
+Opted-in JSON value declarations are members of the same catalog. For one, `show` returns the exact source member slice for the ID or exact array-element slice for a numbered section; `--brief`, default, `--toc`, and `--full` all collapse to that available slice and never synthesize Markdown ([§FS-values.6](FS-values.md#6-shared-catalog-consumers)).
+
 ### 2.1 Whole declaration (default)
 
 `grund FS-check` prints the *lead* — the prose between the declaration heading and the first child citable section heading (`## 1. ...`, or `## goals: ...` when named sections are enabled). The opening heading is omitted in `text` format and included in `md`. A named heading is a citable point and cuts its parent's lead exactly as a numbered heading does; a plain heading remains prose and does not cut it. This is the new default: a 1–2 paragraph slice that names what the declaration is about, without paying for the whole body. Decided in [§DF-show-default-token-cheap](../decisions/functional/DF-show-default-token-cheap.md#df-show-default-token-cheap-grund-show-defaults-to-the-cheap-read-the-full-body-is-opt-in).

@@ -232,6 +232,15 @@
 /// heading-depth and duplicate checks, so those findings compose rather than
 /// suppress one another. Purely numeric paths bypass the pass.
 ///
+/// ### 2.18 Explicit values (§FS-values.5, §DA-explicit-value-bindings)
+///
+/// A focused `checker_values` pass consumes the scanner's declarations,
+/// components, bindings, and exact spans without rereading files. It routes the
+/// binding citation through the same local/workspace resolver as every citation;
+/// config, declaration, and resolution failures suppress comparison. Only one
+/// valid unique numbered target reaches exact decimal-or-decoded-string equality,
+/// producing the fixed value errors and declaration site required by §FS-values.5.
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and

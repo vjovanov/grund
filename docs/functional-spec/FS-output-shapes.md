@@ -21,6 +21,8 @@ Fields:
 
 `check --format=json` emits diagnostic objects as NDJSON on stdout for graph findings. Run-level warnings such as empty scans, and line-less mid-walk read failures, emit the same diagnostic object shape on stderr. Launch-time CLI failures stay raw `error:` text on stderr even when `--format=json` was requested.
 
+A value mismatch uses `code: "value-mismatch"`, the binding as its primary `path`/`line`, and the declaration as the one `sites` entry. The text embedded in `message` includes that declaration's `path:line`; the object and text line therefore carry the same actionable content ([§FS-values.5.2](FS-values.md#52-fixed-value-errors)).
+
 ## 2. Empty JSON check
 
 Command:
@@ -47,6 +49,8 @@ docs/functional-spec/FS-002-beta.md:1: declared but never cited: FS-002-beta
 ```
 
 stderr is empty for ordinary graph findings.
+
+Value findings join this same global ordering. Home JSON sources are read in normalized bytewise path order before their declaration and binding findings are sorted into the report ([§FS-values.2.2](FS-values.md#22-json-declarations-from-the-kind-home)).
 
 ## 4. `show --format=json`
 
@@ -83,6 +87,8 @@ For an E2E case, `show --format=json` uses the E2E manifest shape from [§FS-sho
 ```
 
 Failed queries emit one diagnostic object on stderr and leave stdout empty; launch-time errors stay raw `error:` text.
+
+For a JSON value declaration, every read mode's `body` is the exact available member or element source slice and `path`/`line` is that slice's exact span start; no Markdown heading or title is synthesized ([§FS-values.6](FS-values.md#6-shared-catalog-consumers)).
 
 ## 5. `list --format=json`
 
@@ -147,3 +153,6 @@ The invalid-ID example exits `2` for list-like query commands such as `refs`; th
 | bad flag / malformed CLI | empty | raw `error:` text | `2` |
 | invalid config during `config validate` | empty | raw `error: <path>:<line>:` text | `1` |
 | invalid config blocking another command | empty | raw `error: <path>:<line>:` text | `2` |
+| semantic value finding, text | located finding lines | empty | `1` |
+| semantic value finding, JSON | diagnostic NDJSON with declaration `sites` | empty | `1` |
+| unreadable or syntactically incomplete home JSON | partial findings if any | incomplete-scan diagnostic | `2` |

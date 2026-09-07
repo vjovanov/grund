@@ -28,6 +28,8 @@ In a Markdown file, the parallel carve-out is the link destination: a **bare** I
 
 Two contexts are read as neither prose nor code, so nothing inside them is a citation. A **fenced code block** in Markdown is skipped entirely: this is what makes an example ID safe to write in documentation without the `<§>` escape, and it is why the illustrations throughout these specs resolve to nothing. A fence opens with at most three leading spaces followed by a run of at least three backticks or tildes; it closes only on a run of the **same character** at least as long as the opener, again with at most three leading spaces and only whitespace after the run. A backtick opener cannot carry a backtick in its info string. An unclosed fence runs to end of file. In **source files only**, the namespace-qualified form `§<alias>/<ID>` is additionally skipped inside an inline-code span or a string literal, because `alias/ID` is shaped like a path, module reference, or URL ([AR-scanner.2.3](../architecture/AR-scanner.md#23-citation-detection)); the unqualified form stays live there, and neither skip applies in Markdown. Every other skip is a property of the *walk* rather than of the text — hidden paths, `[scan] exclude`, ignore-file matches, and unlisted `[scan] extensions` mean a file is never read at all ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full), [§REQ-no-missed-citation.2](../requirements/REQ-no-missed-citation.md#2-every-blind-spot-is-declared-and-bounded)). `E2E` citations (`§E2E-<name>`) resolve against case directories under `e2e/cases/` per [AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations).
 
+An exact explicit value binding additionally records its authored component, but its marker-prefixed token remains one citation under every rule above. The binding grammar and its narrower recognized source-comment contexts are [§FS-values.3](FS-values.md#3-explicit-value-bindings); `[reference] strict = false` never removes the binding's marker requirement.
+
 ### 1.2 The number-only shorthand
 
 When `[id] format` carries **both** `{number}` and `{slug}` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) — the default `{kind}-{number}-{slug}` that `grund init` writes — the number alone already identifies a declaration within its kind, so `§FS-042` is an abbreviation of `§FS-042-user-login` rather than a different ID. `check` **recognizes** that shape, resolves it, and reports it as an error to be rewritten (§3.13). It is never silently ignored, which is what [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) means by "false negatives are bugs".
@@ -75,6 +77,8 @@ A report on **stdout** — `check` is a linter and its findings are its output (
 - `0` — no errors. Warnings allowed (they do not affect the exit code).
 - `1` — at least one error.
 - `2` — scan failure (I/O, malformed file, invalid `grund.toml`).
+
+The three value findings are ordinary fixed-severity errors and exit `1`; an unreadable or syntactically incomplete required home JSON source leaves the scan incomplete and exits `2` ([§FS-values.5](FS-values.md#5-resolution-diagnostics-and-exit-status)).
 
 For verbose text and JSON report examples, including empty JSON scans and global diagnostic ordering, see [§FS-output-shapes](FS-output-shapes.md#fs-output-shapes-machine-readable-output-shapes).
 
@@ -195,13 +199,19 @@ A number-only shorthand citation (§1.2) is exempt from this rule and reported b
 §3.13 instead — never both, because `unknown reference FS-042` would name a token
 that is not a full ID under the repo's own grammar.
 
+For a value binding, this ordinary resolution finding suppresses value comparison at the same site ([§FS-values.5.1](FS-values.md#51-resolve-before-comparison)).
+
 ### 3.2 Missing section
 
 A citation with a section suffix (`§FS-<user-login>.3.1` or, in an opted-in repository, `§FS-<user-login>.goals`) where the declaration exists but the requested section heading does not. A missing marker-prefixed named coordinate is never shortened to its declaration; it produces the ordinary `section not found` error and adds `write <§> before it to show the shape without citing it` to the message. A number-only shorthand carrying a missing named section produces both the existing shorthand finding and this finding: the persisted ID form and the requested target are independent facts ([AR-checker.2.12](../../crates/grund-core/src/checker.rs)).
 
+For a value binding the explicit numeric component must resolve here before comparison; a missing component produces this finding alone, not a mismatch ([§FS-values.5.1](FS-values.md#51-resolve-before-comparison)).
+
 ### 3.3 Duplicate declaration
 
 The same `<KIND>-<NNN>-<slug>` declared as a heading in more than one file. Reported per §2.1: one error anchored at the lexicographically-first site, with the remaining sites listed in the message.
+
+Duplicate JSON keys, cross-file JSON IDs, Markdown/JSON collisions, and overlapping opted-in ownership feed this same ambiguity rule even when their components agree. A duplicate target cannot be value-compared ([§FS-values.2.3](FS-values.md#23-duplicates-and-ownership)).
 
 ### 3.4 Broken inline-spec stub
 
@@ -482,6 +492,18 @@ With `[id] named_sections = true`, every proper prefix of a name-bearing section
 
 The message names the orphan coordinate and its first absent prefix. Its code is `orphan-section`. This is a declaration-side structural error, not a missing-citation error: it is reported even when nobody cites the orphan, and a citation to it may independently be present and resolve to the recorded coordinate.
 
+### 3.20 Invalid value declaration
+
+In a kind opted into values, a readable Markdown or JSON declaration that violates [§FS-values.2](FS-values.md#2-value-declarations) is an error at the exact invalid heading, key, or element. The code is `invalid-value-declaration`. Duplicate declarations retain §3.3 instead; unreadable or syntactically incomplete JSON retains exit `2` (§2).
+
+### 3.21 Invalid value binding
+
+An attempted backtick-delimited binding that violates the exact grammar in [§FS-values.3.1](FS-values.md#31-the-only-binding-grammar) is an error at the attempted form. Its code is `invalid-value-binding`. Unbackticked adjacency, bare citations, and the same shape for a kind without `values = true` are not attempts and remain ordinary prose/citations.
+
+### 3.22 Value mismatch
+
+After ordinary citation resolution succeeds uniquely, a binding whose authored component differs from its declaration under [§FS-values.4](FS-values.md#4-exact-equality) is an error at the binding and names the declaration site. Its code is `value-mismatch`; the canonical text and NDJSON parity are fixed by [§FS-values.5](FS-values.md#5-resolution-diagnostics-and-exit-status). An unknown alias, dangling ID, duplicate or invalid declaration, missing section, or noncanonical shorthand suppresses this comparison so one bad reference is never also reported as a mismatch.
+
 ## 4. Warnings
 
 ### 4.1 Unused declaration
@@ -492,7 +514,7 @@ A number-only shorthand citation that resolves counts here like any other citati
 
 A citation that is a kind's own **index entry** (§3.18) does not count here. An index names every declaration in its folder by construction, so counting its entries would leave every ID in an indexed folder permanently cited and delete the signal this warning exists to give ([§DF-index-not-an-inbound-citation](../decisions/functional/DF-index-not-an-inbound-citation.md#df-index-not-an-inbound-citation-an-index-entry-is-navigation-not-use)). The exclusion is exactly the entry: a citation in an index file of an ID whose home lies *outside* that folder is an ordinary citation and counts like any other **unless that exact site is the canonical link that enrolls an external inline declaration** (§3.18). Other citations of the enrolled ID on the same page still count. `grund refs` is unaffected and still lists every index entry — they are real citations, and a reader asking who points at an ID wants to be told that its index does.
 
-`E2E` declarations ([AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations)) are exempt: an end-to-end case is exercised by being run, not by being cited, so a `§E2E-<name>` that nothing references is not a warning. Every other kind is subject to this rule. `grund list --unused` ([§FS-list](FS-list.md#fs-list-grund-lists-every-declared-id)) uses the same default signal and suppresses uncited `E2E` cases unless `E2E` is explicitly selected with `--kind` (including a multi-kind filter such as `--kind FS,E2E`).
+`E2E` declarations ([AR-scanner.6](../architecture/AR-scanner.md#6-e2e-case-declarations)) are exempt: an end-to-end case is exercised by being run, not by being cited, so a `§E2E-<name>` that nothing references is not a warning. Every other kind is subject to this rule, including Markdown and JSON value declarations; the citation inside a recognized value binding counts as a use ([§FS-values.3.2](FS-values.md#32-recognized-text-contexts)). `grund list --unused` ([§FS-list](FS-list.md#fs-list-grund-lists-every-declared-id)) uses the same default signal and suppresses uncited `E2E` cases unless `E2E` is explicitly selected with `--kind` (including a multi-kind filter such as `--kind FS,E2E`).
 
 ### 4.2 Inline note soft-cap overrun *(opt-in)*
 
@@ -736,7 +758,7 @@ This is §4.3's finding in everything but its trigger, and for §4.3's own reaso
 
 ## 5. What grund does not check
 
-See [§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) — in particular [§FS-non-goals.1](FS-non-goals.md#1-markdown-link-validation) (markdown links / URLs), [§FS-non-goals.2](FS-non-goals.md#2-spelling-grammar-prose-quality) (spelling/grammar), and the convention that ID numbers are stable handles, not ordinal positions.
+See [§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) — in particular [§FS-non-goals.1](FS-non-goals.md#1-markdown-link-validation) (markdown links / URLs), [§FS-non-goals.2](FS-non-goals.md#2-spelling-grammar-prose-quality) (spelling/grammar outside the explicit value form), and the convention that ID numbers are stable handles, not ordinal positions. Value checking adds only the exact binding in [§FS-values.3.1](FS-values.md#31-the-only-binding-grammar): no surrounding-number inference, bare-literal lint, range/unit semantics, rendering, fingerprint/history check, or new reconciliation verb is performed ([§FS-values.9](FS-values.md#9-compatibility-and-explicit-exclusions)).
 
 The declaration-side near miss is **no longer** in this section: a heading shaped like `# <KIND>-…: <title>` whose ID does not match the configured `[id] format` is reported per heading by §4.6, and a tree in which every heading misses that way says so twice over — once per line, and once as the run that recognized nothing (§4.5). Neither guesses the corrected ID. The citation-side near miss — a `§`-marked token in the shorthand shape — left this section earlier, when §1.2 and §3.13 began recognizing and reporting it.
 

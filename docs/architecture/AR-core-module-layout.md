@@ -8,10 +8,10 @@ The core implementation lives in `crates/grund-core/src/`, while `crates/grund-c
 
 The categories are:
 
-- **model** — shared data types and tiny helpers used across commands.
+- **model** — shared data types and tiny helpers used across commands, including value declaration/binding records and exact-decimal components ([§FS-values.2](../functional-spec/FS-values.md#2-value-declarations), [§FS-values.4](../functional-spec/FS-values.md#4-exact-equality)).
 - **config** — defaults, config discovery, config parsing, and TOML rendering helpers.
-- **scanner** — tree walking, per-file scanning, e2e case discovery, and scan error handling.
-- **checker** — validation rules that turn scanner findings into diagnostics.
+- **scanner** — tree walking, per-file scanning, e2e case discovery, scan error handling, and span-preserving home JSON ingestion.
+- **checker** — validation rules that turn scanner findings into diagnostics, including the focused value-check pass.
 - **output** — shared path formatting, JSON escaping, diagnostics, and report rendering.
 - **show** — declaration and section retrieval/rendering.
 - **refs** — reverse-reference query rendering.

@@ -1,0 +1,1 @@
+{"severity":"error","path":"docs/offer.md","line":7,"code":"value-mismatch","message":"value mismatch for CONST-field-price.1: bound `1250`, declared `1200` at values/field-price.md:2","sites":[{"path":"values/field-price.md","line":2}]}

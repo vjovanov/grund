@@ -202,6 +202,8 @@ Detection of an existing wrap, for both the rewrite and the no-double-wrap rules
 
 ### 6.4 What is never wrapped
 
+The citation bytes inside a recognized value binding are never wrapped or otherwise rewritten, because the explicit form is the only compared grammar. Existing trigger and safe shorthand behavior may still apply where it preserves that form ([§FS-values.8](FS-values.md#8-formatting-stability)).
+
 In addition to the never-rewrite rules in §2.3:
 
 - Citations inside fenced code blocks (the same skip used by §2.3 / `grund fmt`'s existing trigger pass). Code samples often illustrate citations as plain tokens; rewriting them changes what the docs claim.
