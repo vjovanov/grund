@@ -304,7 +304,7 @@ fn parse_kinds_key(
                 _ => bail_config(
                     path,
                     line_no,
-                    "[[kinds]] `resolve` must be `must` or `should`".to_string(),
+                    "[[kinds]] `resolve` must be must or should".to_string(),
                 )?,
             };
             let Some(slot) = current_kind.as_mut() else {

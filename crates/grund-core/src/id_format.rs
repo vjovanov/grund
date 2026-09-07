@@ -122,13 +122,24 @@ impl Grammar {
     /// borrow the parsed element list rather than clone it.
     fn render(&self, id: &Id, width: usize) -> String {
         // §FS-config.3.4.10: numeric external handles are preserved as ordinary
-        // numbers; the `grund id --width` allocation convention belongs to the
-        // repository grammar and does not rewrite provider identifiers.
+        // numbers on read/report paths rather than being rewritten to the
+        // allocator's minimum width.
         let width = if self.overridden_kinds.contains(&id.kind) {
             0
         } else {
             width
         };
+        self.render_with_width(id, width)
+    }
+
+    /// Render a newly allocated ID with the caller's explicit minimum width
+    /// even when its kind overrides the repository format (§FS-id.1,
+    /// §FS-id.2.1).
+    fn render_allocation(&self, id: &Id, width: usize) -> String {
+        self.render_with_width(id, width)
+    }
+
+    fn render_with_width(&self, id: &Id, width: usize) -> String {
         let configured = self
             .kind_elements
             .get(&id.kind)

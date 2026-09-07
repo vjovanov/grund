@@ -134,13 +134,16 @@ pub fn main_entry() -> ExitCode {
             } else {
                 match fetch_snapshot(&args[1], Path::new(".")) {
                     Ok(()) => ExitCode::SUCCESS,
-                    Err(err) => {
-                        eprintln!("error: {}", err.message);
-                        match err.kind {
-                            FetchFailureKind::Query => ExitCode::FAILURE,
-                            FetchFailureKind::Operational => ExitCode::from(2),
+                    Err(err) => match err.kind {
+                        FetchFailureKind::Query => {
+                            eprintln!("{}", err.message);
+                            ExitCode::FAILURE
                         }
-                    }
+                        FetchFailureKind::Operational => {
+                            eprintln!("error: {}", err.message);
+                            ExitCode::from(2)
+                        }
+                    },
                 }
             }
         }

@@ -66,8 +66,17 @@ pub fn stderr(output: &Output) -> String {
 }
 
 pub fn file_config(home: &str, resolve: Option<&str>, fetch: Option<&str>) -> String {
+    file_config_for_project("facts", home, resolve, fetch)
+}
+
+pub fn file_config_for_project(
+    project: &str,
+    home: &str,
+    resolve: Option<&str>,
+    fetch: Option<&str>,
+) -> String {
     let mut row = format!(
-        "grund_config_version = 1\nproject_name = \"facts\"\n\n\
+        "grund_config_version = 1\nproject_name = \"{project}\"\n\n\
          [reference]\nstrict = true\n\n\
          [id]\nformat = \"{{kind}}-{{slug}}\"\nslug_pattern = \"[a-z][a-z-]*\"\n\n\
          [[kinds]]\nkind = \"TICKET\"\nfile = \"{home}\"\nformat = \"{{kind}}-{{number}}\"\n"
@@ -107,6 +116,34 @@ pub fn tree(root: &Path) -> BTreeMap<String, Vec<u8>> {
     let mut files = BTreeMap::new();
     collect(root, root, &mut files);
     files
+}
+
+pub fn tree_with_directories(root: &Path) -> BTreeMap<String, Option<Vec<u8>>> {
+    fn collect(base: &Path, at: &Path, entries: &mut BTreeMap<String, Option<Vec<u8>>>) {
+        let mut children = fs::read_dir(at)
+            .expect("read fixture tree")
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+        children.sort_by_key(|entry| entry.file_name());
+        for entry in children {
+            let path = entry.path();
+            let relative = path
+                .strip_prefix(base)
+                .expect("fixture-relative path")
+                .to_string_lossy()
+                .replace('\\', "/");
+            if path.is_dir() {
+                entries.insert(format!("{relative}/"), None);
+                collect(base, &path, entries);
+            } else {
+                entries.insert(relative, Some(fs::read(path).expect("read fixture file")));
+            }
+        }
+    }
+
+    let mut entries = BTreeMap::new();
+    collect(root, root, &mut entries);
+    entries
 }
 
 pub fn assert_code(output: &Output, code: i32, context: &str) {

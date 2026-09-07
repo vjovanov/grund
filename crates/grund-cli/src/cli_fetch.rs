@@ -9,7 +9,7 @@ fn command_fetch(args: &[String]) -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => match err.kind {
             FetchFailureKind::Query => {
-                eprintln!("error: {}", err.message);
+                eprintln!("{}", err.message);
                 ExitCode::FAILURE
             }
             FetchFailureKind::Operational => {
