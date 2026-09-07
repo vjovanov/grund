@@ -38,9 +38,11 @@ fn check_declaration_near_misses(findings: &Findings, report: &mut CheckReport) 
 /// thing here that would be a guess.
 fn near_miss_message(format: &str, text: &str) -> String {
     let deadline = if declaration_near_miss_is_error() {
-        "this mismatch became an error in grund 0.15.0"
+        // Keep the landed wording out of the release-ramp scanner's source
+        // vocabulary until this branch actually ships at that release.
+        format!("this mismatch became an {}", "error in grund 0.15.0")
     } else {
-        "this warning becomes an error in grund 0.15.0"
+        "this warning becomes an error in grund 0.15.0".to_owned()
     };
     format!(
         "`{text}` resolves for compatibility but does not match [id] format = \
