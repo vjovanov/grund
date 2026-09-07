@@ -151,25 +151,11 @@ fn near_miss_heading<'line, 'grammar>(
         return Some(found);
     }
 
-    // §FS-check.4.6: retain a rejected persisted token when declaration position,
-    // colon, and one citable kind make it unambiguous. A token conforming to the
-    // repository default remains prose under an overriding kind.
-    let caps = if in_py_docstring {
-        grammar.legacy.docstring_decl_re.captures(line)
-    } else {
-        grammar
-            .legacy.decl_re
-            .captures(line)
-            .filter(|caps| is_md || caps.name("mdhashes").is_none())
-    }?;
+    // §FS-check.4.6: retain an unambiguous rejected declaration token. Its kind's
+    // effective grammar is authoritative; the repository default cannot suppress a
+    // persisted spelling rejected by an override (§FS-config.3.2).
+    let caps = legacy_declaration_captures(grammar, line, in_py_docstring, is_md)?;
     let text = caps.name("near")?.as_str();
-    if grammar
-        .legacy.default_kind_parsers
-        .iter()
-        .any(|parser| parser.is_match(text))
-    {
-        return None;
-    }
     grammar
         .legacy_kind_and_format(text)
         .map(|(kind, format)| (text, format, kind))
@@ -197,10 +183,39 @@ fn declaration_captures<'a>(
     in_py_docstring: bool,
     is_md: bool,
 ) -> Option<regex::Captures<'a>> {
-    if in_py_docstring {
+    let captures = if in_py_docstring {
         grammar.docstring_decl_re.captures(line)
     } else {
         grammar
+            .decl_re
+            .captures(line)
+            .filter(|caps| is_md || caps.name("mdhashes").is_none())
+    }?;
+    // §FS-config.3.2: retain the exact token written before `:`. A narrowed
+    // component pattern may match a shorter prefix (`FS-legacy` in
+    // `FS-legacy-2:`); that prefix must not claim the declaration first.
+    if let Some(complete) = legacy_declaration_captures(grammar, line, in_py_docstring, is_md)
+        .and_then(|caps| caps.name("near"))
+        && captures
+            .name("id")
+            .is_none_or(|id| id.as_str() != complete.as_str())
+    {
+        return None;
+    }
+    Some(captures)
+}
+
+fn legacy_declaration_captures<'a>(
+    grammar: &Grammar,
+    line: &'a str,
+    in_py_docstring: bool,
+    is_md: bool,
+) -> Option<regex::Captures<'a>> {
+    if in_py_docstring {
+        grammar.legacy.docstring_decl_re.captures(line)
+    } else {
+        grammar
+            .legacy
             .decl_re
             .captures(line)
             .filter(|caps| is_md || caps.name("mdhashes").is_none())

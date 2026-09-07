@@ -40,6 +40,7 @@ struct CitationLine<'a> {
     /// their already-normalized `scan_line` instead (§FS-values.3.2).
     value_comment_range: Option<(usize, usize)>,
     inline_sites: &'a BTreeMap<usize, InlineCitationSite>,
+    inline_block_lines: &'a BTreeMap<usize, std::sync::Arc<[String]>>,
 }
 
 /// §AR-scanner.2.3: the qualified `alias/ID` form collides with a path, module
@@ -116,7 +117,7 @@ fn scan_file_text(
 ) -> Result<()> {
     let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
     let is_py = path.extension().and_then(|e| e.to_str()) == Some("py");
-    let inline_sites =
+    let (inline_sites, inline_block_lines) =
         inline_citation_sites(path, &text, is_md, is_py, config, workspace_targets);
     let in_docs = path.components().any(|c| c.as_os_str() == "docs");
     let mut markdown_fence = None;
@@ -402,6 +403,7 @@ fn scan_file_text(
                 .as_ref()
                 .and_then(|ranges| ranges.get(idx).copied().flatten()),
             inline_sites: &inline_sites,
+            inline_block_lines: &inline_block_lines,
         };
         if workspace_mode {
             scan_workspace_qualified_pass(
@@ -426,7 +428,7 @@ fn scan_file_text(
             &qualified_marker_starts,
             findings,
         );
-        scan_legacy_citation_candidates(&citation_line, citation_start, findings);
+        scan_legacy_citation_candidates(&citation_line, findings);
         scan_escaped_citations(&citation_line, findings);
         if scan_values {
             scan_value_bindings(&citation_line, workspace_targets, citation_start, findings);

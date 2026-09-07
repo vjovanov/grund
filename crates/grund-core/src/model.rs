@@ -165,6 +165,7 @@ struct LegacyCitationCandidate {
     line: usize,
     column: usize,
     inline_site: Option<InlineCitationSite>,
+    inline_block_lines: Option<std::sync::Arc<[String]>>,
     source_kind: String,
     enclosing_declaration: Option<Id>,
 }

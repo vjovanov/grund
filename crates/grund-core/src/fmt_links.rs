@@ -257,22 +257,28 @@ fn flatten_cross_ref_links(body: &str, config: &Config) -> String {
 
 fn flatten_cross_ref_links_line(line: &str, config: &Config) -> String {
     let marker = config.marker.as_str();
+    if marker.is_empty() {
+        return line.to_string();
+    }
     let mut output = String::new();
     let mut cursor = 0usize;
-    for caps in config.grammar.citation_re.captures_iter(line) {
-        let Some(full) = caps.get(0) else { continue };
-        let (cite_start, cite_end) = (full.start(), full.end());
-        if !line[..cite_start].ends_with(marker) {
-            continue;
-        }
-        let Some(marker_start) = cite_start.checked_sub(marker.len()) else {
+    let wrapper_start = format!("[{marker}");
+    for (bracket_pos, _) in line.match_indices(&wrapper_start) {
+        let marker_start = bracket_pos + 1;
+        let label_start = marker_start + marker.len();
+        let Some(label_close_rel) = line[label_start..].find("](") else {
             continue;
         };
-        // `[` immediately before the marker?
-        let Some(bracket_pos) = marker_start.checked_sub(1) else {
-            continue;
-        };
-        if line.as_bytes()[bracket_pos] != b'[' {
+        let cite_end = label_start + label_close_rel;
+        let token = &line[label_start..cite_end];
+        // §FS-show.3.2: flatten the formatter wrapper independently of today's grammar,
+        // including persisted and qualified legacy spellings. Markdown label delimiters
+        // and whitespace cannot occur in a wrapper emitted by `fmt --cross-refs`.
+        if token.is_empty()
+            || token
+                .chars()
+                .any(|ch| ch.is_whitespace() || matches!(ch, '[' | ']' | '(' | ')' | '`'))
+        {
             continue;
         }
         // A citation shown inside `` `…` `` is an illustration, not a citation —
@@ -280,10 +286,7 @@ fn flatten_cross_ref_links_line(line: &str, config: &Config) -> String {
         if is_inside_inline_code(line, bracket_pos) {
             continue;
         }
-        // `](…)` immediately after the citation?
-        let Some(rest) = line[cite_end..].strip_prefix("](") else {
-            continue;
-        };
+        let rest = &line[cite_end + 2..];
         let Some(close_rel) = rest.find(')') else {
             continue;
         };

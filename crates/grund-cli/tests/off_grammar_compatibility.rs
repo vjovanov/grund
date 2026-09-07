@@ -85,6 +85,12 @@ fn numbered_fixture(root: &Path) {
          // Marked but unbacked \u{a7}FS-not-declared is not promoted by compatibility.\n\n\
          pub fn provider_name() -> &'static str { \"fixture\" }\n",
     );
+    write(
+        root,
+        "docs/consumer.md",
+        "The implementation follows \u{a7}FS-security-providers and \u{a7}FS-security-providers.1.\n\
+         Marked but unbacked \u{a7}FS-not-declared is not promoted by compatibility.\n",
+    );
 }
 
 /// The triage reproducer, expanded across every CLI consumer that reads the
@@ -220,17 +226,24 @@ fn persisted_off_grammar_declaration_is_read_consistently_across_cli_surfaces() 
         "invalid ID",
     );
 
+    let source_before =
+        fs::read_to_string(root.join("src/security.rs")).expect("read source before rewrite");
     let fmt = run(&root, &["fmt", "--cross-refs", "--write"]);
     expect_code(&mut failures, "fmt cross refs", &fmt, 0);
-    let rewritten = fs::read_to_string(root.join("src/security.rs")).expect("read rewrite");
+    let rewritten = fs::read_to_string(root.join("docs/consumer.md")).expect("read rewrite");
     expect_contains(
         &mut failures,
         "fmt cross refs",
         &rewritten,
-        "[\u{a7}FS-security-providers](../docs/functional-spec/FS-security-providers.md#",
+        "[\u{a7}FS-security-providers](functional-spec/FS-security-providers.md#",
     );
     if rewritten.contains("[\u{a7}FS-not-declared]") {
         failures.push("fmt cross refs: an unbacked malformed candidate was wrapped".into());
+    }
+    let source_after =
+        fs::read_to_string(root.join("src/security.rs")).expect("read source after rewrite");
+    if source_after != source_before {
+        failures.push("fmt cross refs: a source file received Markdown link syntax".into());
     }
 
     assert!(

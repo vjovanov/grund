@@ -5,7 +5,6 @@ struct LegacyGrammar {
     decl_re: Regex,
     docstring_decl_re: Regex,
     kinds: Vec<(String, String)>,
-    default_kind_parsers: Vec<Regex>,
     section_path_re: Regex,
 }
 
@@ -14,11 +13,8 @@ impl LegacyGrammar {
     fn build(
         kinds: &[KindConfig],
         format: &str,
-        number_pattern: &str,
-        slug_pattern: &str,
         section_pattern: &str,
         comment_prefix: &str,
-        elements: &[IdElement],
     ) -> Result<Self> {
         let decl_re = Regex::new(&format!(
             r"^\s*(?:{comment_prefix}\s+|(?P<mdhashes>#+)\s+)(?P<near>[^\s:`]+):"
@@ -34,21 +30,10 @@ impl LegacyGrammar {
                 )
             })
             .collect();
-        let default_kind_parsers = kinds
-            .iter()
-            .filter(|kind| kind.citable)
-            .map(|kind| {
-                let kind = format!("(?P<kind>{})", regex::escape(&kind.kind));
-                let number = format!("(?P<num>{number_pattern})");
-                let slug = format!("(?P<slug>{slug_pattern})");
-                Regex::new(&format!(r"^{}$", id_pattern(elements, &kind, &number, &slug)))
-            })
-            .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(Self {
             decl_re,
             docstring_decl_re,
             kinds: kinds_and_formats,
-            default_kind_parsers,
             section_path_re: Regex::new(&format!(r"^{section_pattern}$"))?,
         })
     }
@@ -171,18 +156,27 @@ fn promote_legacy_candidate(
     else {
         return;
     };
-    if citations.iter().any(|citation| {
-        citation.file == candidate.file
-            && citation.line == candidate.line
-            && citation.column == candidate.column
-    }) {
-        return;
-    }
     let qualified = candidate
         .namespace
         .as_deref()
         .map(|alias| format!("{alias}/"))
         .unwrap_or_default();
+    let text = format!(
+        "{}{}{}",
+        source_config.marker,
+        qualified,
+        &candidate.tail[..consumed]
+    );
+    // §FS-config.3.2 / §FS-check.1.1: exact catalog reconciliation owns a
+    // marker before any shorter configured-grammar prefix found there.
+    citations.retain(|citation| {
+        citation.file != candidate.file
+            || citation.line != candidate.line
+            || citation.column != candidate.column
+    });
+    let site = candidate.inline_site.clone();
+    let block_lines = candidate.inline_block_lines.clone();
+    let file = candidate.file.clone();
     citations.push(Citation {
         namespace: candidate.namespace,
         id,
@@ -194,16 +188,14 @@ fn promote_legacy_candidate(
         shorthand: false,
         shorthand_rewritable: true,
         numeric_run: false,
-        text: format!(
-            "{}{}{}",
-            source_config.marker,
-            qualified,
-            &candidate.tail[..consumed]
-        ),
+        text,
         inline_site: candidate.inline_site,
         source_kind: candidate.source_kind,
         enclosing_declaration: candidate.enclosing_declaration,
     });
+    if let (Some(site), Some(block_lines)) = (site, block_lines) {
+        reconcile_promoted_inline_site(source_config, citations, &file, site, &block_lines);
+    }
 }
 
 /// Apply the exact-ID-before-section precedence from §FS-config.3.2 to one

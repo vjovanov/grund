@@ -41,6 +41,7 @@ include!("scanner_value_json.rs");
 include!("scanner_context.rs");
 include!("scanner_citations.rs");
 include!("scanner_compat.rs");
+include!("scanner_inline_compat.rs");
 include!("scanner_e2e.rs");
 include!("scanner_tree.rs");
 include!("scanner_units.rs");
