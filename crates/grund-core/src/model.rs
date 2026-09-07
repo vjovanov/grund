@@ -12,6 +12,28 @@ pub struct Id {
     pub slug: Option<String>,
 }
 
+const LEGACY_ID_SENTINEL: char = '\0';
+
+impl Id {
+    /// Preserve an off-grammar declaration's exact spelling without widening
+    /// the configured authoring grammar (§FS-config.3.2). The spelling lives in
+    /// the otherwise grammar-owned slug slot behind an impossible sentinel, so
+    /// existing `Id` construction and kind-based graph rules stay unchanged.
+    fn legacy(kind: String, spelling: &str) -> Self {
+        Self {
+            kind,
+            num: None,
+            slug: Some(format!("{LEGACY_ID_SENTINEL}{spelling}")),
+        }
+    }
+
+    fn legacy_spelling(&self) -> Option<&str> {
+        self.slug
+            .as_deref()
+            .and_then(|slug| slug.strip_prefix(LEGACY_ID_SENTINEL))
+    }
+}
+
 /// One declaration site discovered by the scanner: a `# <ID>: …` heading in a
 /// Markdown file or an inline declaration in a code doc-comment
 /// (§AR-scanner.2.1, §AR-scanner.4), with its section body map
@@ -132,6 +154,21 @@ pub struct Citation {
     pub enclosing_declaration: Option<Id>,
 }
 
+/// A marker-prefixed token the configured grammar rejected, retained during
+/// the same file scan until the project catalog can prove it names an exact
+/// persisted declaration (§FS-check.1.1, §FS-config.3.2).
+#[derive(Debug)]
+struct LegacyCitationCandidate {
+    namespace: Option<String>,
+    tail: String,
+    file: PathBuf,
+    line: usize,
+    column: usize,
+    inline_site: Option<InlineCitationSite>,
+    source_kind: String,
+    enclosing_declaration: Option<Id>,
+}
+
 /// The enclosing source-comment citation site for one citation
 /// (§FS-inline-citation-style.1, §FS-inline-citation-style.2.3). Markdown
 /// citations and citations outside recognized comment blocks carry `None`, and
@@ -188,6 +225,7 @@ type TextOverlays = BTreeMap<PathBuf, String>;
 pub struct Findings {
     pub declarations: BTreeMap<Id, Vec<Declaration>>,
     pub citations: Vec<Citation>,
+    legacy_citation_candidates: Vec<LegacyCitationCandidate>,
     pub value_bindings: Vec<ValueBinding>,
     pub invalid_value_declarations: Vec<InvalidValueSite>,
     pub invalid_value_bindings: Vec<InvalidValueSite>,

@@ -241,6 +241,13 @@ detailed walkthrough for canonical user workflows
 
 Rule of thumb: pick `{kind}-{slug}` until rename churn or ID count starts to hurt; switch to `{kind}-{number}-{slug}` when it does.
 
+Changing that setting does not strand declarations already committed under an
+older shape: their exact written IDs and exact marked citations remain readable
+across the CLI and editor, while `grund check` points out each mismatch so you
+can rename it or restore the matching format. The mismatch warns before 0.15.0
+and becomes an error in 0.15.0; read compatibility remains in either case
+([§FS-config.3.2](docs/functional-spec/FS-config.md#32-id--id-grammar)).
+
 A citation is the marker `§`, the ID, and an optional `.<section>` — with the target project's alias in front when the repo is a workspace:
 
 ```

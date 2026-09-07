@@ -130,9 +130,7 @@ fn block_declares_id(lines: &[&str], in_py_docstring: bool, config: &Config) -> 
                 closed_py_docstring: false,
             }
         };
-        declaration_captures(&config.grammar, scan.text, scan.in_py_docstring, false)
-            .and_then(|caps| parse_id(&caps, &config.grammar))
-            .is_some()
+        declaration_id_on_line(&config.grammar, scan.text, scan.in_py_docstring, false).is_some()
     })
 }
 

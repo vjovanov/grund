@@ -121,6 +121,11 @@ impl Grammar {
     /// `render_id` is on the report and `list` paths, so the common case has to
     /// borrow the parsed element list rather than clone it.
     fn render(&self, id: &Id, width: usize) -> String {
+        // §FS-config.3.2: catalog reads preserve a persisted off-grammar ID's
+        // raw spelling; the effective format remains only its conformance rule.
+        if let Some(spelling) = id.legacy_spelling() {
+            return spelling.to_string();
+        }
         // §FS-config.3.4.10: numeric external handles are preserved as ordinary
         // numbers on read/report paths rather than being rewritten to the
         // allocator's minimum width.

@@ -111,14 +111,13 @@ fn extract_declaration_body(
         let fence_delimiter = is_md && markdown_fence_delimiter(&mut markdown_fence, line);
         let fenced = was_fenced || fence_delimiter;
         if !fenced
-            && let Some(caps) =
-                declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
+            && let Some((found, _)) =
+                declaration_id_on_line(&config.grammar, scan_line, scan.in_py_docstring, is_md)
         {
-            let found = parse_id(&caps, &config.grammar);
-            if in_decl && found.as_ref() != Some(id) {
+            if in_decl && &found != id {
                 break;
             }
-            if found.as_ref() == Some(id) {
+            if &found == id {
                 in_decl = true;
                 line_style_comment = is_line_style_comment_line(scan_line);
                 output_line = lineno;

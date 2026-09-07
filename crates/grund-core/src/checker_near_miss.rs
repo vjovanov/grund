@@ -13,14 +13,22 @@
 /// the same order every time (§FS-errors.4).
 fn check_declaration_near_misses(findings: &Findings, report: &mut CheckReport) {
     for heading in &findings.near_miss_headings {
-        report.warnings.push(Diagnostic {
+        let diagnostic = Diagnostic {
             code: "declaration-near-miss",
             path: Some(heading.file.clone()),
             line: Some(heading.line),
             column: None,
             message: near_miss_message(&heading.format, &heading.text),
             sites: Vec::new(),
-        });
+        };
+        // §FS-check.4.6 / §RM-off-grammar-declaration-error: the scheduled
+        // severity transition is release-derived and never changes catalog
+        // recognition or citation promotion.
+        if declaration_near_miss_is_error() {
+            report.errors.push(diagnostic);
+        } else {
+            report.warnings.push(diagnostic);
+        }
     }
 }
 
@@ -29,9 +37,21 @@ fn check_declaration_near_misses(findings: &Findings, report: &mut CheckReport) 
 /// the tree and the config (§FS-check.3 vs §4), and the corrected ID is the one
 /// thing here that would be a guess.
 fn near_miss_message(format: &str, text: &str) -> String {
+    let deadline = if declaration_near_miss_is_error() {
+        "this mismatch became an error in grund 0.15.0"
+    } else {
+        "this warning becomes an error in grund 0.15.0"
+    };
     format!(
-        "`{text}` is heading-shaped and declares nothing — [id] format = \"{format}\" \
-         reads `# {shape}: <title>`",
-        shape = id_shape(format),
+        "`{text}` resolves for compatibility but does not match [id] format = \
+         \"{format}\" — rename it or change the effective format; {deadline}",
     )
+}
+
+fn declaration_near_miss_is_error() -> bool {
+    let mut parts = env!("CARGO_PKG_VERSION")
+        .trim_end_matches("-dev")
+        .split('.')
+        .filter_map(|part| part.parse::<u32>().ok());
+    (parts.next().unwrap_or(0), parts.next().unwrap_or(0)) >= (0, 15)
 }

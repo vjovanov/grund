@@ -145,6 +145,23 @@ fn classify_citation_sources(findings: &mut Findings, config: &Config, path: &Pa
             }
         }
     }
+    for candidate in &mut findings.legacy_citation_candidates {
+        let enclosing = bodies
+            .iter()
+            .filter(|(start, end, _)| *start <= candidate.line && candidate.line <= *end)
+            .max_by_key(|(start, _, _)| *start);
+        match enclosing {
+            Some((_, _, id)) => {
+                candidate.source_kind = id.kind.clone();
+                candidate.enclosing_declaration = Some(id.clone());
+            }
+            None => {
+                candidate.source_kind = file_home
+                    .clone()
+                    .unwrap_or_else(|| homeless.to_string());
+            }
+        }
+    }
 }
 
 /// The kind whose configured home (`[[kinds]] folder` / `file`, §FS-config.3.4)
@@ -243,4 +260,3 @@ fn inline_citation_sites(
     }
     sites
 }
-

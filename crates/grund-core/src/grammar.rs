@@ -154,6 +154,7 @@ pub struct Grammar {
     /// no literal there — then "looks like a declaration" cannot be told from
     /// prose beginning with the kind name, and the rule declines rather than guess.
     near_misses: Vec<NearMissGrammar>,
+    legacy: LegacyGrammar,
     /// The number-only shorthand patterns (§FS-check.1.2, §AR-scanner.2.6),
     /// present only when `[id] format` carries both `{number}` and `{slug}`.
     /// `None` is the whole opt-out: every shorthand pass downstream is gated on
@@ -366,6 +367,15 @@ impl Grammar {
         let citation_re =
             Regex::new(&format!(r"\b{}{}{}", namespace_prefix, id_pat, sec_suffix))?;
         let id_input_re = Regex::new(&format!(r"^{}{}$", id_pat, sec_suffix))?;
+        let legacy = LegacyGrammar::build(
+            kinds,
+            format,
+            number_pattern,
+            slug_pattern,
+            &section_pattern,
+            &comment_prefix,
+            &elements,
+        )?;
 
         // §FS-check.1.2: the same two shapes over the slug-less element list.
         // Compiled only where the format has a shorthand at all, so `has_shorthand`
@@ -442,7 +452,6 @@ impl Grammar {
                     })
             })
             .collect();
-
         Ok(Self {
             decl_re,
             docstring_decl_re,
@@ -451,6 +460,7 @@ impl Grammar {
             id_input_re,
             named_sections,
             near_misses,
+            legacy,
             shorthand,
             override_shorthands,
             elements,
@@ -508,6 +518,10 @@ impl Grammar {
                 .strip_prefix('.')
                 .and_then(|tail| tail.as_bytes().first())
                 .is_some_and(u8::is_ascii_lowercase)
+    }
+
+    fn is_section_path(&self, section: &str) -> bool {
+        self.legacy.section_path_re.is_match(section)
     }
 }
 

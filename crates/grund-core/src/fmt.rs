@@ -266,7 +266,7 @@ fn rewrite_file(
             lines.push(line.to_string());
             continue;
         }
-        if declaration_captures(
+        if declaration_id_on_line(
             &config.grammar,
             docstring.text_of(line),
             docstring.is_docstring(),

@@ -310,6 +310,7 @@ fn load_workspace_projects_with_overlays(
         .into_iter()
         .map(|(_, project)| project)
         .collect::<Result<Vec<_>>>()?;
+    promote_qualified_legacy_citations(&mut projects);
     resolve_qualified_shorthand_citations(&mut projects);
     Ok(projects)
 }

@@ -337,7 +337,7 @@ fn check_kind_indexes(
             // §FS-fmt.6.4: `fmt` leaves a declaration heading alone, so a citation
             // riding on one is no more repairable than one in inline code. Fenced
             // blocks need no test here — the scanner records no citation inside one.
-            if declaration_captures(&config.grammar, line, false, true).is_some() {
+            if declaration_id_on_line(&config.grammar, line, false, true).is_some() {
                 continue;
             }
             // An `Ignored` form creates no entry: a citation `fmt` will not wrap

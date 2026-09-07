@@ -18,7 +18,7 @@ fn wrap_markdown_links(
 ) -> String {
     let mut output = String::new();
     let mut cursor = 0;
-    for citation in markdown_link_citations(line, config, workspace) {
+    for citation in markdown_link_citations(line, config, findings, workspace) {
         if citation.marker_start < cursor {
             continue;
         }
@@ -139,6 +139,7 @@ struct MarkdownLineCitation {
 fn markdown_link_citations(
     line: &str,
     config: &Config,
+    findings: &Findings,
     workspace: Option<&WorkspaceContext>,
 ) -> Vec<MarkdownLineCitation> {
     let mut citations = Vec::new();
@@ -166,12 +167,14 @@ fn markdown_link_citations(
             section: caps.name("sec").map(|m| m.as_str().to_string()),
         });
     }
+    collect_local_legacy_markdown_citations(line, config, findings, &mut citations);
     citations.sort_by(|a, b| {
         (a.marker_start, std::cmp::Reverse(a.token_end)).cmp(&(
             b.marker_start,
             std::cmp::Reverse(b.token_end),
         ))
     });
+    citations.dedup_by(|a, b| a.marker_start == b.marker_start && a.token_end == b.token_end);
     citations
 }
 
@@ -205,22 +208,27 @@ fn collect_workspace_markdown_link_citations(
         let Some(id_rest) = line.get(id_start..) else {
             continue;
         };
-        let Some(parsed) = parse_longest_id_prefix(id_rest, &target_project.config.grammar) else {
+        let parsed = parse_longest_id_prefix(id_rest, &target_project.config.grammar)
+            .filter(|parsed| {
+                !target_project
+                    .config
+                    .grammar
+                    .has_reserved_named_tail(id_rest, parsed.len)
+            })
+            .map(|parsed| (parsed.id, parsed.section, parsed.len))
+            .or_else(|| {
+                let catalog = legacy_catalog_ids(&target_project.findings.declarations);
+                match_legacy_tail(id_rest, &target_project.config, &catalog)
+            });
+        let Some((id, section, len)) = parsed else {
             continue;
         };
-        if target_project
-            .config
-            .grammar
-            .has_reserved_named_tail(id_rest, parsed.len)
-        {
-            continue;
-        }
         out.push(MarkdownLineCitation {
             marker_start,
-            token_end: id_start + parsed.len,
+            token_end: id_start + len,
             namespace: Some(alias.to_string()),
-            id: parsed.id,
-            section: parsed.section,
+            id,
+            section,
         });
     }
 }
@@ -486,14 +494,13 @@ fn section_heading_text(
     for line in text.lines() {
         let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
         let scan_line = scan.text;
-        if let Some(caps) =
-            declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
+        if let Some((found, _)) =
+            declaration_id_on_line(&config.grammar, scan_line, scan.in_py_docstring, is_md)
         {
-            let found = parse_id(&caps, &config.grammar);
-            if in_decl && found.as_ref() != Some(id) {
+            if in_decl && &found != id {
                 break;
             }
-            if found.as_ref() == Some(id) {
+            if &found == id {
                 in_decl = true;
                 continue;
             }
