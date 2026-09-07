@@ -96,7 +96,8 @@ fn command_id(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let uses_number = config.id_format.contains("{number}");
+    let kind_format = kind_config.effective_format(&config);
+    let uses_number = kind_format.contains("{number}");
     let number = if uses_number {
         let max = findings
             .declarations
@@ -112,7 +113,7 @@ fn command_id(args: &[String]) -> ExitCode {
     let id = Id {
         kind: kind.clone(),
         num: number,
-        slug: if config.id_format.contains("{slug}") {
+        slug: if kind_format.contains("{slug}") {
             Some(slug.clone())
         } else {
             None

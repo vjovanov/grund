@@ -125,13 +125,23 @@ fn command_config(args: &[String]) -> ExitCode {
                 // `number_pattern` / `slug_pattern` each govern one `[id] format`
                 // placeholder — under a format that omits the placeholder the pattern
                 // is dead config, so don't print it.
-                if config.id_format.contains("{number}") {
+                if config.id_format.contains("{number}")
+                    || config
+                        .kinds
+                        .iter()
+                        .any(|kind| kind.effective_format(&config).contains("{number}"))
+                {
                     println!(
                         "number_pattern = \"{}\"",
                         escape_toml_basic(&config.number_pattern)
                     );
                 }
-                if config.id_format.contains("{slug}") {
+                if config.id_format.contains("{slug}")
+                    || config
+                        .kinds
+                        .iter()
+                        .any(|kind| kind.effective_format(&config).contains("{slug}"))
+                {
                     println!(
                         "slug_pattern = \"{}\"",
                         escape_toml_basic(&config.slug_pattern)
@@ -166,6 +176,19 @@ fn command_config(args: &[String]) -> ExitCode {
                     // §FS-config.3.4.9: false is operationally absent.
                     if kind.values {
                         println!("values = true");
+                    }
+                    if let Some(format) = &kind.format {
+                        println!("format = \"{}\"", escape_toml_basic(format));
+                    }
+                    if let Some(resolve) = kind.resolution() {
+                        let value = match resolve {
+                            KindResolution::Must => "must",
+                            KindResolution::Should => "should",
+                        };
+                        println!("resolve = \"{value}\"");
+                    }
+                    if let Some(fetch) = &kind.fetch {
+                        println!("fetch = \"{}\"", escape_toml_basic(fetch));
                     }
                     // §FS-config.3.4.8: each grounding key only where the row's
                     // effective value differs from the effective global printed

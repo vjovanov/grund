@@ -45,17 +45,18 @@ fn parse_id_arg_with_shorthand(raw: &str, grammar: &Grammar) -> Result<ParsedId>
         }
         Err(err) => err,
     };
-    let Some(shorthand) = &grammar.shorthand else {
-        return Err(full);
-    };
     // The whole argument must be the shorthand — a trailing tail is not a
     // shorthand with junk after it, it is a token this grammar does not accept.
-    let caps = shorthand
-        .prefix_re()
-        .captures(raw)
-        .filter(|caps| caps.get(0).is_some_and(|found| found.end() == raw.len()))
+    let caps = grammar
+        .shorthands()
+        .find_map(|shorthand| {
+            shorthand
+                .prefix_re()
+                .captures(raw)
+                .filter(|caps| caps.get(0).is_some_and(|found| found.end() == raw.len()))
+        })
         .ok_or(full)?;
-    let id = parse_id(&caps).ok_or_else(|| anyhow!("invalid ID `{raw}`"))?;
+    let id = parse_id(&caps, grammar).ok_or_else(|| anyhow!("invalid ID `{raw}`"))?;
     Ok(ParsedId {
         id,
         section: caps.name("sec").map(|m| m.as_str().to_string()),
@@ -284,9 +285,6 @@ fn scan_shorthand_citations(
     qualified_claimed: &BTreeSet<usize>,
     findings: &mut Findings,
 ) {
-    let Some(shorthand) = &line.config.grammar.shorthand else {
-        return;
-    };
     if line.config.marker.is_empty() {
         return;
     }
@@ -299,6 +297,9 @@ fn scan_shorthand_citations(
         }
         let token_start = marker_start + line.config.marker.len();
         let Some(rest) = line.scan_line.get(token_start..) else {
+            continue;
+        };
+        let Some(shorthand) = line.config.grammar.shorthand_for(rest) else {
             continue;
         };
         let Some(caps) = shorthand.prefix_re().captures(rest) else {
@@ -335,7 +336,7 @@ fn scan_shorthand_citations(
         {
             continue;
         }
-        let Some(id) = parse_id(&caps) else { continue };
+        let Some(id) = parse_id(&caps, &line.config.grammar) else { continue };
         let token_end = token_start + match_end;
         findings.citations.push(Citation {
             namespace,
@@ -618,7 +619,7 @@ fn expand_shorthand_citations(
         let target_config = target.map_or(config, |target| target.config);
         let alias_len = alias.map_or(0, |(_, len)| len);
         let tail = &rest[alias_len..];
-        let Some(shorthand) = target_config.grammar.shorthand.as_ref() else {
+        let Some(shorthand) = target_config.grammar.shorthand_for(tail) else {
             continue;
         };
         // §DF-number-only-citation-shorthand.2.6: a token the full-ID pattern can
@@ -658,7 +659,7 @@ fn expand_shorthand_citations(
         if never_rewrite_context_in(docstring, line, is_md, marker_start) {
             continue;
         }
-        let Some(id) = parse_id(&caps) else { continue };
+        let Some(id) = parse_id(&caps, &target_config.grammar) else { continue };
         // §FS-fmt.2.4: only *now* are declarations needed — every gate above rejects
         // on the line text alone, and reaching for them earlier was a measured 79%
         // regression on the benchmark fixture (§GOAL-fast-feedback, §AR-ci.5).

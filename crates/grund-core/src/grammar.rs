@@ -160,10 +160,20 @@ pub struct Grammar {
     /// this being `Some`, so a `{kind}-{slug}` repo like `grund` itself compiles
     /// nothing extra and pays nothing (§FS-id.4.1).
     shorthand: Option<ShorthandGrammar>,
+    /// Number-only shorthand grammars for kinds whose override carries both a
+    /// number and a slug (§FS-config.3.2). Kept beside the legacy/default
+    /// shorthand so all consumers can select by the token's kind.
+    override_shorthands: Vec<ShorthandGrammar>,
     /// The parsed `[id] format`. Kept so `render_id` reduces a partial `Id` by
     /// the same rule the shorthand pattern was derived from, rather than a
     /// second interpretation of the template (§AR-scanner.2.6).
     elements: Vec<IdElement>,
+    /// Per-kind full-ID parsers and render templates. Detection uses one union
+    /// regex, then parsing selects the already-known kind's exact grammar
+    /// (§FS-config.3.2, §FS-config.3.4.10).
+    kind_parsers: Vec<(String, Regex)>,
+    kind_elements: BTreeMap<String, Vec<IdElement>>,
+    overridden_kinds: BTreeSet<String>,
 }
 
 impl Grammar {
@@ -188,17 +198,22 @@ impl Grammar {
     /// why the shorthand's unqualified pattern is a separate string, not a reuse.
     fn build(
         format: &str,
-        kinds: &[String],
+        kinds: &[KindConfig],
         number_pattern: &str,
         slug_pattern: &str,
         section_separator: &str,
         named_sections: bool,
         comment_prefixes: &[String],
     ) -> Result<Self> {
-        let kind_alt = if kinds.is_empty() {
+        let kind_names = kinds
+            .iter()
+            .filter(|kind| kind.citable)
+            .map(|kind| kind.kind.clone())
+            .collect::<Vec<_>>();
+        let kind_alt = if kind_names.is_empty() {
             return Err(anyhow!("[id] grammar needs at least one [[kinds]] entry"));
         } else {
-            kinds
+            kind_names
                 .iter()
                 .map(|k| regex::escape(k))
                 .collect::<Vec<_>>()
@@ -218,7 +233,7 @@ impl Grammar {
                 return Err(anyhow!("{message}"));
             }
         }
-        for kind in kinds {
+        for kind in &kind_names {
             if let Some(message) =
                 id_grammar_literal_slash_error(&format!("[[kinds]] kind `{kind}`"), kind)
             {
@@ -226,12 +241,43 @@ impl Grammar {
             }
         }
 
-        let kind_group = format!("(?P<kind>{})", kind_alt);
-        let num_group = format!("(?P<num>{})", number_pattern);
-        let slug_group = format!("(?P<slug>{})", slug_pattern);
-
         let elements = parse_id_format(format)?;
-        let id_pat = id_pattern(&elements, &kind_group, &num_group, &slug_group);
+        let mut kind_parsers = Vec::new();
+        let mut kind_elements = BTreeMap::new();
+        let mut overridden_kinds = BTreeSet::new();
+        let mut detection_patterns = Vec::new();
+        for kind in kinds.iter().filter(|kind| kind.citable) {
+            let effective = kind.format.as_deref().unwrap_or(format);
+            if let Some(message) = id_grammar_literal_slash_error(
+                &format!("[[kinds]] kind `{}` format", kind.kind),
+                effective,
+            ) {
+                return Err(anyhow!("{message}"));
+            }
+            let kind_format = parse_id_format(effective).map_err(|err| {
+                anyhow!("[[kinds]] kind `{}` format: {err}", kind.kind)
+            })?;
+            let literal_kind = regex::escape(&kind.kind);
+            let detection = id_pattern(
+                &kind_format,
+                &literal_kind,
+                &format!("(?:{})", number_pattern),
+                &format!("(?:{})", slug_pattern),
+            );
+            let parser = id_pattern(
+                &kind_format,
+                &literal_kind,
+                &format!("(?P<num>{})", number_pattern),
+                &format!("(?P<slug>{})", slug_pattern),
+            );
+            detection_patterns.push(detection);
+            kind_parsers.push((kind.kind.clone(), Regex::new(&format!("^{parser}$"))?));
+            kind_elements.insert(kind.kind.clone(), kind_format);
+            if kind.format.is_some() {
+                overridden_kinds.insert(kind.kind.clone());
+            }
+        }
+        let id_pat = format!("(?P<id>(?:{}))", detection_patterns.join("|"));
         let literals: Vec<&String> = elements
             .iter()
             .filter_map(|element| match element {
@@ -239,7 +285,9 @@ impl Grammar {
                 _ => None,
             })
             .collect();
-        let has_number = elements.contains(&IdElement::Number);
+        let has_number = kind_elements
+            .values()
+            .any(|elements| elements.contains(&IdElement::Number));
 
         // §FS-config.3.2: the section separator must be lexically distinguishable
         // from the ID grammar — otherwise a citation like `FS-foo<sep>bar` could
@@ -254,6 +302,15 @@ impl Grammar {
             return Err(anyhow!(
                 "[id].section_separator `{section_separator}` collides with a literal in [id].format"
             ));
+        }
+        for (kind, elements) in &kind_elements {
+            if elements.iter().any(|element| {
+                matches!(element, IdElement::Literal(literal) if literal.contains(section_separator))
+            }) {
+                return Err(anyhow!(
+                    "[[kinds]] kind `{kind}` format collides with [id].section_separator `{section_separator}`"
+                ));
+            }
         }
         // §FS-config.3.2: each component pattern must be a valid regex *on its
         // own*, not merely valid once spliced into `id_pat` — the number-only
@@ -319,10 +376,22 @@ impl Grammar {
         // §FS-check.1.2: the same two shapes over the slug-less element list.
         // Compiled only where the format has a shorthand at all, so `has_shorthand`
         // is the single gate the scanner, checker, `fmt`, and the LSP all read.
-        let shorthand = shorthand_elements(&elements).map(|short| {
+        let global_kinds = kinds
+            .iter()
+            .filter(|kind| kind.citable && kind.format.is_none())
+            .map(|kind| regex::escape(&kind.kind))
+            .collect::<Vec<_>>();
+        let shorthand = (!global_kinds.is_empty())
+            .then(|| shorthand_elements(&elements))
+            .flatten()
+            .map(|short| {
+            let kind_group = format!("(?P<kind>{})", global_kinds.join("|"));
+            let num_group = format!("(?P<num>{})", number_pattern);
+            let slug_group = format!("(?P<slug>{})", slug_pattern);
+            let global_id_pat = id_pattern(&elements, &kind_group, &num_group, &slug_group);
             let short_pat = id_pattern(&short, &kind_group, &num_group, &slug_group);
             ShorthandGrammar {
-                full_prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, id_pat, sec_suffix),
+                full_prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, global_id_pat, sec_suffix),
                 prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, short_pat, sec_suffix),
                 // §FS-fmt.2.4.1 clause 2: the same shorthand shape with no
                 // `<alias>/` in front of it — reusing `prefix_pattern` here would
@@ -338,6 +407,29 @@ impl Grammar {
                 number_prefix_re: once_cell::sync::OnceCell::new(),
             }
         });
+        let override_shorthands = kinds
+            .iter()
+            .filter_map(|kind| {
+                let format = kind.format.as_deref()?;
+                let elements = parse_id_format(format).ok()?;
+                let short = shorthand_elements(&elements)?;
+                let kind_group = format!("(?P<kind>{})", regex::escape(&kind.kind));
+                let num_group = format!("(?P<num>{})", number_pattern);
+                let slug_group = format!("(?P<slug>{})", slug_pattern);
+                let full = id_pattern(&elements, &kind_group, &num_group, &slug_group);
+                let short = id_pattern(&short, &kind_group, &num_group, &slug_group);
+                Some(ShorthandGrammar {
+                    full_prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, full, sec_suffix),
+                    prefix_pattern: format!(r"\A{}{}{}", namespace_prefix, short, sec_suffix),
+                    unqualified_prefix_pattern: format!(r"\A{}{}", short, sec_suffix),
+                    number_prefix_pattern: format!(r"\A(?:{})", number_pattern),
+                    full_prefix_re: once_cell::sync::OnceCell::new(),
+                    prefix_re: once_cell::sync::OnceCell::new(),
+                    unqualified_prefix_re: once_cell::sync::OnceCell::new(),
+                    number_prefix_re: once_cell::sync::OnceCell::new(),
+                })
+            })
+            .collect();
 
         Ok(Self {
             decl_re,
@@ -350,8 +442,42 @@ impl Grammar {
                 .filter(|literal| !literal.is_empty())
                 .map(|literal| NearMissGrammar::build(&kind_alt, &comment_prefix, literal)),
             shorthand,
+            override_shorthands,
             elements,
+            kind_parsers,
+            kind_elements,
+            overridden_kinds,
         })
+    }
+
+    /// Parse one already-delimited full ID using the exact grammar configured
+    /// for its kind (§FS-config.3.2).
+    fn parse_token(&self, token: &str) -> Option<Id> {
+        self.kind_parsers.iter().find_map(|(kind, parser)| {
+            let caps = parser.captures(token)?;
+            let num = caps
+                .name("num")
+                .map(|value| value.as_str().parse())
+                .transpose()
+                .ok()?;
+            let slug = caps.name("slug").map(|value| value.as_str().to_string());
+            Some(Id {
+                kind: kind.clone(),
+                num,
+                slug,
+            })
+        })
+    }
+
+    fn shorthands(&self) -> impl Iterator<Item = &ShorthandGrammar> {
+        self.shorthand
+            .iter()
+            .chain(self.override_shorthands.iter())
+    }
+
+    fn shorthand_for(&self, token: &str) -> Option<&ShorthandGrammar> {
+        self.shorthands()
+            .find(|shorthand| shorthand.prefix_re().is_match(token))
     }
 
     /// A name-shaped section matched by the opted-in grammar (§FS-check.1.1).
@@ -494,162 +620,5 @@ fn python_docstring_quote(line: &str) -> Option<&'static str> {
         Some("'''")
     } else {
         None
-    }
-}
-
-/// The near-miss half of the compiled [`Grammar`] (§FS-check.4.6): the
-/// declaration patterns with the ID grammar replaced by "a configured kind, the
-/// separator an ID puts after it, and whatever follows". Two of them for the
-/// same reason the declaration pair has two — a Python docstring line carries no
-/// comment prefix (§AR-scanner.4).
-///
-/// Derived with the rest of the grammar so the rule reads the *project's* kinds
-/// and comment prefixes rather than a second opinion about them, but **compiled
-/// on first use**, the way the shorthand patterns are: a tree whose headings all
-/// parse never matches with these, and on a small tree the fixed cost of
-/// compiling a regex is a visible share of the whole command (§GOAL-fast-feedback,
-/// §AR-benchmarks). The `expect` cannot fire: both patterns are built from an
-/// alternation of `regex::escape`d kinds and the comment-prefix group
-/// [`Grammar::build`] has already compiled on its own.
-#[derive(Clone)]
-struct NearMissGrammar {
-    decl_pattern: String,
-    docstring_pattern: String,
-    decl_re: once_cell::sync::OnceCell<Regex>,
-    docstring_re: once_cell::sync::OnceCell<Regex>,
-    /// The bytes a line in declaration position can start with — `#`, and the
-    /// first byte of every configured comment prefix. The gate below rejects on
-    /// this and on the absence of the declaration colon before the regex is
-    /// asked anything, because the regex is asked of *every* line the scan did
-    /// not take as a declaration, which is very nearly every line in the tree.
-    /// Measured on the 10k-file fixture, base against branch in one worktree:
-    /// without the gate this rule cost +0.65% of `check` on the mean and +1.69%
-    /// at worst; with it, +0.07% and +0.66% (§GOAL-fast-feedback,
-    /// §AR-benchmarks.5, whose rule the two numbers were taken under).
-    first_bytes: Vec<u8>,
-}
-
-impl NearMissGrammar {
-    /// Why the trailing `:` is the discriminator: a line that opens with an
-    /// ID-shaped token and *no* colon is prose far more often than a declaration
-    /// attempt — a wrapped comment whose continuation begins with one is the case
-    /// that found this, and the rule says nothing about the rest. The token
-    /// stopping at a backtick likewise keeps an inline-code mention
-    /// (`` `FS-login`: ``) from being one, and keeps the quoted token as written.
-    fn build(kind_alt: &str, comment_prefix: &str, after_kind: &str) -> Self {
-        // §FS-check.4.6 reads only the shape it names, `<KIND>-…: <title>`: the
-        // trailing `:` is the discriminator, and the token stops at whitespace, at
-        // the colon, and at a backtick.
-        let near = format!(
-            r"(?P<near>(?:{kind_alt}){after}[^\s:`]*):",
-            after = regex::escape(after_kind)
-        );
-        Self {
-            decl_pattern: format!(r"^\s*(?:{comment_prefix}\s+|(?P<mdhashes>#+)\s+){near}"),
-            docstring_pattern: format!(r"^\s*{near}"),
-            decl_re: once_cell::sync::OnceCell::new(),
-            docstring_re: once_cell::sync::OnceCell::new(),
-            first_bytes: first_declaration_bytes(comment_prefix),
-        }
-    }
-
-    /// Whether this line is worth asking the regex about — a cheap conservative
-    /// over-approximation of the pattern, never narrower than it. Both tests are
-    /// implied by the pattern itself: it requires the declaration colon, and it
-    /// anchors at `#` or a comment prefix unless the line is inside a Python
-    /// docstring, where a declaration carries no prefix at all (§AR-scanner.4).
-    fn could_match(&self, line: &str, in_py_docstring: bool) -> bool {
-        if !line.as_bytes().contains(&b':') {
-            return false;
-        }
-        if in_py_docstring {
-            return true;
-        }
-        line.trim_start()
-            .as_bytes()
-            .first()
-            .is_some_and(|byte| self.first_bytes.contains(byte))
-    }
-
-    /// The ID-shaped token of a heading, or `None` where no heading is. Same
-    /// position rules as [`declaration_captures`] — including the one that keeps
-    /// a Markdown-style heading in a source file from counting
-    /// (§DF-code-declarations-drop-hash) — so a near miss is only ever read
-    /// where a declaration would have been.
-    fn heading_text<'a>(
-        &self,
-        line: &'a str,
-        in_py_docstring: bool,
-        is_md: bool,
-    ) -> Option<&'a str> {
-        if !self.could_match(line, in_py_docstring) {
-            return None;
-        }
-        let caps = if in_py_docstring {
-            self.docstring_re
-                .get_or_init(|| {
-                    Regex::new(&self.docstring_pattern).expect("near-miss pattern compiles")
-                })
-                .captures(line)
-        } else {
-            self.decl_re
-                .get_or_init(|| {
-                    Regex::new(&self.decl_pattern).expect("near-miss pattern compiles")
-                })
-                .captures(line)
-                .filter(|caps| is_md || caps.name("mdhashes").is_none())
-        }?;
-        Some(caps.name("near")?.as_str())
-    }
-}
-
-/// The bytes a declaration-position line can begin with: `#` for the Markdown
-/// form, plus the first byte of every alternative in the comment-prefix group.
-/// Read off the compiled alternation rather than the raw `[scan] comment_prefixes`
-/// so it cannot drift from what the pattern actually accepts — `//` is widened to
-/// `//[/!]?` there, and both still begin with `/`.
-fn first_declaration_bytes(comment_prefix: &str) -> Vec<u8> {
-    let mut bytes = vec![b'#'];
-    for alternative in comment_prefix.trim_matches(['(', ')']).split('|') {
-        // Every alternative is `regex::escape`d, so a leading `\` is the escape
-        // of the byte that follows it.
-        let literal = alternative.strip_prefix('\\').unwrap_or(alternative);
-        if let Some(&byte) = literal.as_bytes().first() {
-            bytes.push(byte);
-        }
-    }
-    bytes.sort_unstable();
-    bytes.dedup();
-    bytes
-}
-
-/// The heading token §FS-check.4.6 reports, or `None` when this line is not one.
-/// Asked only where [`declaration_captures`] already declined, so a hit is by
-/// construction a heading that came close and missed.
-fn near_miss_heading<'a>(
-    grammar: &Grammar,
-    line: &'a str,
-    in_py_docstring: bool,
-    is_md: bool,
-) -> Option<&'a str> {
-    grammar
-        .near_miss
-        .as_ref()?
-        .heading_text(line, in_py_docstring, is_md)
-}
-
-fn declaration_captures<'a>(
-    grammar: &Grammar,
-    line: &'a str,
-    in_py_docstring: bool,
-    is_md: bool,
-) -> Option<regex::Captures<'a>> {
-    if in_py_docstring {
-        grammar.docstring_decl_re.captures(line)
-    } else {
-        grammar
-            .decl_re
-            .captures(line)
-            .filter(|caps| is_md || caps.name("mdhashes").is_none())
     }
 }

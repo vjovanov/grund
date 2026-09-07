@@ -5,6 +5,7 @@ const COMPAT_SUBCOMMANDS: &[&str] = &[
     "refs",
     "cover",
     "fmt",
+    "fetch",
     "id",
     "init",
     "config",
@@ -48,6 +49,7 @@ fn compat_print_help() {
     println!("  refs     Print every citation of an ID.");
     println!("  cover    Group the citation graph by scanned file.");
     println!("  fmt      Normalize citation markers and cross-reference links.");
+    println!("  fetch    Materialize one configured external snapshot.");
     println!("  id       Propose the next ID for a declaration.");
     println!("  init     Scaffold grund config, docs, and agent instructions.");
     println!("  config   Inspect or validate config.");
@@ -123,6 +125,25 @@ pub fn main_entry() -> ExitCode {
         Some("refs") => command_refs(&args[1..]),
         Some("cover") => command_cover(&args[1..]),
         Some("fmt") => command_fmt(&args[1..]),
+        // §FS-fetch.1: preserve the explicit-only boundary in the deprecated
+        // compatibility dispatcher as well as in the published CLI.
+        Some("fetch") => {
+            if args.len() != 2 {
+                eprintln!("error: fetch requires exactly one <ID>");
+                ExitCode::from(2)
+            } else {
+                match fetch_snapshot(&args[1], Path::new(".")) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(err) => {
+                        eprintln!("error: {}", err.message);
+                        match err.kind {
+                            FetchFailureKind::Query => ExitCode::FAILURE,
+                            FetchFailureKind::Operational => ExitCode::from(2),
+                        }
+                    }
+                }
+            }
+        }
         Some("id") => command_id(&args[1..]),
         Some("init") => command_init(&args[1..]),
         Some("config") => command_config(&args[1..]),

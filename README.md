@@ -168,6 +168,32 @@ so application code can read the source directly. See the complete
 [first-class values guide](docs/user-facing/values.md) and the runnable
 [`examples/values/`](examples/values/) repository ([§FS-values](docs/functional-spec/FS-values.md#fs-values-opted-in-kinds-bind-authored-components-to-one-declared-value)).
 
+### Cite external facts without making checks depend on the network
+
+External tickets and similar facts can use their own numeric grammar while the
+rest of the repository keeps slug IDs. Configure a committed snapshot home and
+one repository-owned fetcher, then materialize a cited fact deliberately:
+
+```toml
+[[kinds]]
+kind = "TICKET"
+file = "docs/tickets.md"
+format = "{kind}-{number}"
+resolve = "should"
+fetch = "scripts/fetch-ticket"
+```
+
+```sh
+grund fetch TICKET-1234
+```
+
+Checks, queries, formatting, completion, and the LSP never run that program;
+they resolve only the committed Markdown it produced. A missing `should`
+snapshot is a warning with the fetch command, while `must` remains an error.
+See the [external facts guide](docs/user-facing/external-facts.md) and runnable
+[`examples/external-tickets/`](examples/external-tickets/) repository
+([§FS-fetch](docs/functional-spec/FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot)).
+
 ## 4. The structure that gets cited
 
 Every fact has a stable ID. The default kinds, all configurable — `*` marks a *place* rather than an ID namespace (`citable = false`: a home, a title and citation rules, no declarations), which is what a test is, and what any directory an agent must be told about can be. See [Citation directions](docs/user-facing/citation-directions.md) for the complete `[citations]` grammar and its rendered examples:
@@ -345,6 +371,7 @@ pip install pre-commit && cargo install lychee && pre-commit install
 - **`grund refs <ID>`** — list every citation of a declaration.
 - **`grund cover`** — group the citation graph by file, for git-diff recipes.
 - **`grund fmt`** — normalize citation syntax (`$$` → `§`, optional Markdown link wrapping).
+- **`grund fetch <ID>`** — explicitly materialize one configured external snapshot.
 - **`grund id <KIND> "<title>"`** — emit the next conflict-free ID for a new declaration.
 - **`grund init`** — scaffold `AGENTS.md` and `grund.toml`.
 - **`grund config`** — validate or print the effective `grund.toml`.
@@ -364,6 +391,7 @@ That rule plus a clean `grund check` is the whole contract: every reference reso
 `grund` follows its own scheme. Start at [`AGENTS.md`](AGENTS.md), then read down through [`docs/`](docs/):
 
 - [`docs/user-facing/clickable-citations.md`](docs/user-facing/clickable-citations.md) — make citations clickable in your terminal
+- [`docs/user-facing/external-facts.md`](docs/user-facing/external-facts.md) — materialize external tickets as committed offline snapshots
 - [`docs/user-facing/values.md`](docs/user-facing/values.md) — declare and check shared values in Markdown, JSON, prose, and code comments
 - [`docs/grund.md`](docs/grund.md) — why this exists
 - [`docs/goals.md`](docs/goals.md) — what we measure ourselves against

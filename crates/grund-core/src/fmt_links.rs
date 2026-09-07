@@ -157,7 +157,7 @@ fn markdown_link_citations(
         if is_inside_inline_code(line, marker_start) {
             continue;
         }
-        let Some(id) = parse_id(&caps) else { continue };
+        let Some(id) = parse_id(&caps, &config.grammar) else { continue };
         citations.push(MarkdownLineCitation {
             marker_start,
             token_end: full.end(),
@@ -489,7 +489,7 @@ fn section_heading_text(
         if let Some(caps) =
             declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
         {
-            let found = parse_id(&caps);
+            let found = parse_id(&caps, &config.grammar);
             if in_decl && found.as_ref() != Some(id) {
                 break;
             }

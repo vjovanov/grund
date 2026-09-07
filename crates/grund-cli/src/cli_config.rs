@@ -104,13 +104,23 @@ fn print_effective_config(config: &Config) {
         "section_heading_levels = \"{}\"",
         config.section_heading_levels
     );
-    if config.id_format.contains("{number}") {
+    if config.id_format.contains("{number}")
+        || config
+            .kinds
+            .iter()
+            .any(|kind| kind.effective_format(&config).contains("{number}"))
+    {
         println!(
             "number_pattern = \"{}\"",
             escape_toml_basic(&config.number_pattern)
         );
     }
-    if config.id_format.contains("{slug}") {
+    if config.id_format.contains("{slug}")
+        || config
+            .kinds
+            .iter()
+            .any(|kind| kind.effective_format(&config).contains("{slug}"))
+    {
         println!(
             "slug_pattern = \"{}\"",
             escape_toml_basic(&config.slug_pattern)
@@ -144,9 +154,24 @@ fn print_effective_config(config: &Config) {
         }
         // §FS-config.3.4.9: false is operationally absent; an enabled row must
         // round-trip through the published effective-config surface.
-        if kind.values {
-            println!("values = true");
-        }
+                    if kind.values {
+                        println!("values = true");
+                    }
+                    // §FS-config.3.4.10: external snapshot metadata is printed
+                    // in its effective, round-trippable form.
+                    if let Some(format) = &kind.format {
+                        println!("format = \"{}\"", escape_toml_basic(format));
+                    }
+                    if let Some(resolve) = kind.resolution() {
+                        let value = match resolve {
+                            grund_core::KindResolution::Must => "must",
+                            grund_core::KindResolution::Should => "should",
+                        };
+                        println!("resolve = \"{value}\"");
+                    }
+                    if let Some(fetch) = &kind.fetch {
+                        println!("fetch = \"{}\"", escape_toml_basic(fetch));
+                    }
         // §FS-config.3.4.8: each grounding key only where the row's effective
         // value differs from the effective global printed above, so the shown
         // config loads back as itself.

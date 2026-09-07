@@ -10,13 +10,14 @@ use std::process::ExitCode;
 
 use grund_core::{
     AGENT_SETUP_INSTRUCTIONS, ApiScanError, CheckOpts, CitationDisjunction, CitationLevel,
-    CitationRules, CitationTarget, CompleteIdsOpts, Config, CoverCitation, CoverOpts, Finding,
-    FindingSite, FmtOpts, FmtScanAbort, IdOpts, IdProposal, IdProposalOutcome,
-    InitAgentEntrypointSelection, InitFsHome, InitNext, InitOpts, InitOutput, ListEntry, ListOpts,
-    NamespaceMatch, RefHit, RefsOpts, Report, ShowFormat, ShowMode, ShowOpts, ShowQueryError,
-    canonical_template_text, check_with_opts, complete_ids, cover, effective_config,
-    format_references, init, list, names_member_id_candidate, print_config_warnings, propose_id,
-    refs, render_finding_sites_json, run_integrations, show_with_scope, validate_config,
+    CitationRules, CitationTarget, CompleteIdsOpts, Config, CoverCitation, CoverOpts,
+    FetchFailureKind, Finding, FindingSite, FmtOpts, FmtScanAbort, IdOpts, IdProposal,
+    IdProposalOutcome, InitAgentEntrypointSelection, InitFsHome, InitNext, InitOpts, InitOutput,
+    ListEntry, ListOpts, NamespaceMatch, RefHit, RefsOpts, Report, ShowFormat, ShowMode, ShowOpts,
+    ShowQueryError, canonical_template_text, check_with_opts, complete_ids, cover,
+    effective_config, fetch_snapshot, format_references, init, list, names_member_id_candidate,
+    print_config_warnings, propose_id, refs, render_finding_sites_json, run_integrations,
+    show_with_scope, validate_config,
 };
 
 const SUBCOMMANDS: &[&str] = &[
@@ -26,6 +27,7 @@ const SUBCOMMANDS: &[&str] = &[
     "refs",
     "cover",
     "fmt",
+    "fetch",
     "id",
     "init",
     "config",
@@ -42,6 +44,7 @@ include!("cli_list.rs");
 include!("cli_refs.rs");
 include!("cli_cover.rs");
 include!("cli_fmt.rs");
+include!("cli_fetch.rs");
 include!("cli_id.rs");
 include!("cli_init.rs");
 include!("cli_config.rs");
