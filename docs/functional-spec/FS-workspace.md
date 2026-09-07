@@ -376,6 +376,13 @@ During `grund check`:
   source token remains the scanner's evidence, but the diagnostic names the same
   target that resolution attempted.
 
+Each lookup uses only the selected project's catalog and the effective format
+of the candidate kind in that project ([§FS-config.3.2](FS-config.md#32-id--id-grammar)). Thus an exact local or
+qualified off-grammar declaration and its exact marked citations resolve, but
+the same spelling is not borrowed from a sibling catalog. Raw spelling is
+preserved in output, and ordinary duplicate, shorthand, and section ambiguity
+rules still refuse rather than guess.
+
 Unverified is the third state, and it is reported once per namespace rather than
 once per site. The run names the namespace at the `optional_members` entry that
 made the skip legal ([§FS-check.4.9](FS-check.md#49-a-workspace-member-declared-optional-is-absent)) and says nothing where the citations are,
@@ -568,6 +575,12 @@ The workspace surface composes through the same resolver `grund check` uses
 ([AR-workspace.4](../architecture/AR-workspace.md#4-the-resolver-one-function)), so qualified-ID behavior in query commands is a UX layer over
 an already-built engine — not new resolution logic. Four shared rules apply to
 every command in this section:
+
+The shared resolver includes the catalog-backed read compatibility of
+[§FS-config.3.2](FS-config.md#32-id--id-grammar). Therefore qualified `show`/`refs`, workspace `list`, completion,
+cross-reference formatting, and `cover` all expose the same exact persisted
+off-grammar declaration and declaration-backed marked citations under the
+target project's per-kind format, without changing any command's schema.
 
 - **Discovery follows the same walk-up rule as `grund check`** ([§FS-config.1](FS-config.md#1-file-location-and-discovery),
   §5): from the CWD (or from an explicit `<path>` argument), walk up to the

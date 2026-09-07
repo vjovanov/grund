@@ -32,6 +32,12 @@ grund complete ids [<path>] [--prefix <prefix>] [--sections] [--path <path>]
 
 It prints one candidate per line on stdout, sorted lexicographically and deduplicated, with empty stderr and exit `0`.
 
+The declaration catalog includes exact off-grammar declarations retained for
+read compatibility ([§FS-config.3.2](FS-config.md#32-id--id-grammar)), so their raw IDs and section candidates
+are offered exactly as written. Completion does not promote an unmatched
+candidate or mint a nonconforming form; authoring remains governed by the
+effective format.
+
 - `<path>` / `--path <path>` choose the repo or subtree used for config discovery and scanning. Both default to `.`.
 - `--prefix <prefix>` filters candidates by byte prefix. Without it, every candidate for the selected mode is printed.
 - Without `--sections`, candidates are declared IDs, rendered in each kind's effective `[[kinds]].format` override or repository `[id].format` default ([§FS-config.3.2](FS-config.md#32-id--id-grammar)).
