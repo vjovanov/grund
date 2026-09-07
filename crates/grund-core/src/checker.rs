@@ -545,7 +545,7 @@ fn check_with_workspace(
     check_grounding(findings, config, &kind_homes, workspace, &mut report);
 
     // §FS-check.4.6: headings that open like a declaration and parse as none.
-    check_declaration_near_misses(findings, config, &mut report);
+    check_declaration_near_misses(findings, &mut report);
 
     // §FS-config.3.9 / §FS-check.3.11 / §FS-check.3.12: citation-direction
     // obligations and prohibitions, when the project declares `[citations]`.
