@@ -22,6 +22,10 @@ A recognized value binding contributes its ordinary citation to the citing scann
 
 `cover` runs the same scan as `check`, `list`, and `refs` ([AR-scanner](../architecture/AR-scanner.md#ar-scanner-how-grund-discovers-declarations-and-citations)). It does not decide whether a file is sufficiently covered, whether a hunk is behavioral, or whether a spec/test co-change is required; those are recipe concerns ([§RM-cochange-gate](../roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test)). The command only renders the `Findings` the scanner already collected.
 
+A citation parsed under a per-kind format is included even while its fetched
+snapshot is missing. Fetching changes resolution, not whether the citing file
+is covered. `cover` remains offline and never invokes the integration.
+
 Output is grouped by scanned file, sorted by path. Within a file, citations are sorted by `(line, column)`. Files with no recognised citations are still included, so a caller can distinguish "the file was scanned and cites nothing" from "the file was outside the scan scope." A citation object is the same shape `grund refs --format=json` emits: path, line, column, rendered ID, optional section, marker boolean, and the verbatim token text.
 
 Every citation the scanner recognised in the file counts, **including a cross-project `<§><alias>/<ID>`** — that is a thing the file leans on, and omitting it reports a fully grounded file as citing nothing ([§FS-workspace.8.6](FS-workspace.md#86-grund-cover), [§DF-cover-workspace-scope](../decisions/functional/DF-cover-workspace-scope.md#df-cover-workspace-scope-cover-indexes-the-whole-run-and-counts-cross-project-citations)). The rendered `id` keeps the alias the citation was written with and adds none of its own, so it is the canonical spelling of the token the file actually carries ([§FS-workspace.8.6](FS-workspace.md#86-grund-cover) gives the rule for naming the target it points at). `cover` does not judge whether the alias resolves; an unknown one is a `check` error ([§FS-workspace.8.1](FS-workspace.md#81-grund-aliasid)), not a reason to drop the row.

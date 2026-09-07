@@ -2,7 +2,7 @@
 
 ## Status
 
-Discussion.
+Superseded by [§DISC-external-facts](2026-09-07-external-facts.md#disc-external-facts-external-facts-are-committed-declarations-materialized-explicitly), which keeps external facts as committed ordinary declarations instead of introducing a URL-only resolver subsystem.
 
 ## Context
 

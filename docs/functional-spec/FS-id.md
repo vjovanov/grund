@@ -30,7 +30,11 @@ $ grund id FS "User can log in with email"        # a repo whose [id] format = {
 FS-user-can-log-in-with-email
 ```
 
-The shape of the emitted ID always follows the repo's configured `[id] format` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) — see §4.1 for the number-less formats.
+The shape of the emitted ID follows the selected kind's effective format: its
+`[[kinds]].format` override when present, otherwise `[id].format`
+([§FS-config.3.2](FS-config.md#32-id--id-grammar)). Number and slug allocation
+use the placeholders in that effective format; see §4.1 for number-less forms.
+`id` never invokes a configured fetcher ([§REQ-runs-offline](../requirements/REQ-runs-offline.md#req-runs-offline-verification-never-depends-on-an-external-service)).
 
 This is shaped for shell composition. A typical workflow:
 

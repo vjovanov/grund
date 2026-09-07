@@ -1,0 +1,3 @@
+#!/bin/sh
+touch fetcher-must-not-run-during-check
+exit 99

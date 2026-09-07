@@ -106,8 +106,9 @@ pub fn assert_case_is_deterministic(manifest_dir: &Path, case: &Path) -> CaseOut
         return CaseOutcome::NotApplicable;
     }
     let args = command_args(manifest_dir, case, name);
-    let first = run_grund(manifest_dir, &args, name);
-    let second = run_grund(manifest_dir, &args, name);
+    let cwd = command_cwd(manifest_dir, case, name);
+    let first = run_grund(&cwd, &args, name);
+    let second = run_grund(&cwd, &args, name);
     let mut mismatches = Vec::new();
     if first.status.code() != second.status.code() {
         mismatches.push(format!(
@@ -179,7 +180,8 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) -> CaseOutcome
     }
 
     let args = command_args(manifest_dir, case, name);
-    let output = run_grund(manifest_dir, &args, name);
+    let cwd = command_cwd(manifest_dir, case, name);
+    let output = run_grund(&cwd, &args, name);
     let actual_exit = output.status.code().unwrap_or(-1);
     let actual_stdout = String::from_utf8(output.stdout)
         .unwrap_or_else(|err| panic!("{name}: stdout was not UTF-8: {err}"));
@@ -262,15 +264,37 @@ const DEFAULT_COMMAND: &str = "check {repo}";
 
 fn is_mutating_case(case: &Path) -> bool {
     let command = case_command(case);
-    command.contains("--write") || command.contains("{repo_copy}")
+    let cwd = case_command_cwd(case);
+    command.contains("--write") || command.contains("{repo_copy}") || cwd.contains("{repo_copy}")
 }
 
-fn run_grund(manifest_dir: &Path, args: &[String], name: &str) -> Output {
+fn run_grund(cwd: &Path, args: &[String], name: &str) -> Output {
     Command::new(env!("CARGO_BIN_EXE_grund"))
         .args(args)
-        .current_dir(manifest_dir)
+        .current_dir(cwd)
         .output()
         .unwrap_or_else(|err| panic!("{name}: run grund: {err}"))
+}
+
+/// Optional working-directory manifest for a command whose public form relies
+/// on config discovery from `.`. This is shared by examples and e2e cases per
+/// §FS-examples.5, and accepts only `{repo}` or `{repo_copy}`.
+fn case_command_cwd(case: &Path) -> String {
+    let path = case.join("command.cwd");
+    if path.exists() {
+        read_to_string(path).trim().to_string()
+    } else {
+        String::new()
+    }
+}
+
+fn command_cwd(manifest_dir: &Path, case: &Path, name: &str) -> PathBuf {
+    match case_command_cwd(case).as_str() {
+        "" => manifest_dir.to_path_buf(),
+        "{repo}" => case.join("repo"),
+        "{repo_copy}" => manifest_dir.join("target/e2e-work").join(name).join("repo"),
+        other => panic!("{name}: command.cwd must be {{repo}} or {{repo_copy}}, got {other:?}"),
+    }
 }
 
 fn command_args(manifest_dir: &Path, case: &Path, name: &str) -> Vec<String> {
@@ -287,7 +311,7 @@ fn command_args(manifest_dir: &Path, case: &Path, name: &str) -> Vec<String> {
         .to_string_lossy()
         .into_owned();
     let command = case_command(case);
-    if command.contains("{repo_copy}") {
+    if command.contains("{repo_copy}") || case_command_cwd(case) == "{repo_copy}" {
         if let Some(parent) = repo_copy.parent() {
             let _ = fs::remove_dir_all(parent);
             fs::create_dir_all(parent)

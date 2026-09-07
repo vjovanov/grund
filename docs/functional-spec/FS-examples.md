@@ -22,6 +22,8 @@ Every maintained example must map to at least one canonical `grund` use-case. Th
 - normalizing citations with `grund fmt`;
 - validating a clean or broken tree with `grund check`;
 - validating cross-project citations in a workspace.
+- citing an external fact, materializing its committed snapshot explicitly,
+  and resolving it offline afterward ([§FS-fetch](FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot)).
 
 An example may cover multiple use-cases, but it must stay small enough that a new user can tell which workflow it is teaching without reading unrelated files.
 
@@ -42,5 +44,9 @@ When a new canonical workflow becomes part of the README or functional spec, the
 ## 5. E2E reuse without duplication
 
 Runnable examples must also be executable end-to-end tests. They may have a lighter manifest than `tests/e2e/cases/` when that keeps the user-facing directory readable, but their command invocation, expected exit code, stdout/stderr comparison, mutable-repo handling, and final-repo snapshot comparison must be run by the same test runner logic used for ordinary e2e cases.
+
+The external-ticket example uses a deterministic local stub integration. It
+must run without network access and its final-repository golden must contain
+the exact snapshot declaration the fetcher printed.
 
 The repo must not maintain a second, example-only implementation of the e2e contract. Adding a new e2e capability such as `command.args`, `{repo_copy}`, `expected.repo`, deterministic-output checks, or golden-output refresh must make that capability available to examples through shared code, not through a copied harness.

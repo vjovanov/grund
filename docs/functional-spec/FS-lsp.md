@@ -25,6 +25,12 @@ Named-section diagnostics are not a parallel editor rule. In an opted-in reposit
 
 the `unknown reference FS-confg` diagnostic anchors on the second token; the resolving first citation `FS-check.3.9` is left unmarked. Precise column information is computed once per scan and reused across the open editor session.
 
+A missing fetch-backed snapshot is not a separate editor rule. The LSP
+transports the engine's `dangling` error or `missing-snapshot` warning with the
+same message, code, severity, and range as the CLI
+([§FS-check.4.12](FS-check.md#412-missing-snapshot)). It never executes the
+configured fetcher while publishing diagnostics.
+
 ### 1.2 Hover preview
 
 Hovering a Markdown or JSON value declaration/binding uses the same exact `show --toc` slice as the CLI; no rendered or interpolated value surface is invented ([§FS-values.6](FS-values.md#6-shared-catalog-consumers)).
@@ -32,6 +38,11 @@ Hovering a Markdown or JSON value declaration/binding uses the same exact `show 
 Named citations preview the exact named section slice that `grund <ID>.<path> --toc` returns. An explicit named heading is a declaration-side title just like a numbered heading: its hover range covers the complete rendered heading title, including the handle and colon, and its usage count covers citations of that path and its descendants.
 
 `textDocument/hover` on a citation returns the body `grund <ID> --toc` would print ([§FS-show.2.1.2](FS-show.md#212-section-map---toc)), or the `--toc` body of the requested section if the citation includes one ([§FS-show.2.2](FS-show.md#22-section)). When the declaration's home is in source code (a stub points at `src/bus.rs`), the hover body is the comment-stripped prose per [§FS-show.2.3.2](FS-show.md#232-stripping-comment-markers) — the same content the CLI returns. There is no separate "IDE-only" rendering for resolving citations; citation hover and the `show --toc` query produce the same bytes. If that citation has a diagnostic instead (for example an unknown reference with a nearest-ID hint), hover returns nothing: the diagnostic already carries the actionable text — the nearest-ID hint — through `publishDiagnostics`, and an editor that renders diagnostics inside the hover popup (VSCode among them) would otherwise show that text twice. The diagnostic is the single source of the error message; hover stays reserved for previewing citations that resolve.
+
+A committed fetched snapshot is an ordinary declaration on this path: hover,
+definition, references, document links, and highlights use its scanner spans
+without contacting or executing the integration. A missing snapshot has no
+hover or navigation target.
 
 `textDocument/hover` on a declaration-side title — a Markdown declaration heading, the same declaration written inline in a doc-comment, a numbered section heading (`<ID>.<section>`, §1.3.1), or an inline-spec stub title — returns the title token and how much of the tree leans on it, with the hover range set to the whole title span. The cursor is already inside the declaration body, so a body preview would only repeat what is on screen; the *usage* is the one fact about a declaration that is visible nowhere on that screen, and reading it used to mean leaving the editor for `grund refs <ID>`. The title hover keeps its original job of giving editors such as Codium a whole-title range for the hover affordance, and the citation sites themselves are still reached on demand through go-to-definition (§1.3) and references (§1.3.1): the hover is the count, not the list.
 
@@ -109,6 +120,10 @@ These are out of scope for the first version but compatible with the architectur
 - `workspace/symbol` — fuzzy-find IDs across the project.
 
 Each addition is a separate roadmap item if and when it is taken on.
+
+Fetching a missing snapshot is reserved with code actions: this version
+advertises neither a “Fetch <ID>” action nor `workspace/executeCommand` and
+never runs `grund fetch` from the server.
 
 ## 2. Installation and lifecycle
 
