@@ -157,7 +157,8 @@ Three reasons:
 
 ## 5. Configurability
 
-Marker, trigger, and the recognized `KIND` set are read from `grund.toml` per [§GOAL-configurable](../goals.md#goal-configurable-every-default-is-overridable). The defaults are `§` and `$$` as decided in [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger).
+Marker, trigger, the recognized `KIND` set, and each kind's effective ID format
+are read from `grund.toml` per [§GOAL-configurable](../goals.md#goal-configurable-every-default-is-overridable). The defaults are `§` and `$$` as decided in [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger). Trigger, marker, shorthand, and cross-reference passes all select the kind before applying its grammar. Formatting a missing or committed external snapshot never executes its configured fetcher.
 
 Which *files* the command may rewrite is configurable too: `[fmt] exclude` takes a file out of every rewrite while leaving it walked and checked (§2.5.1). The per-region counterpart is written in the file rather than in the config (§2.5.2).
 

@@ -135,7 +135,11 @@ No ID the grammar can build may contain a `/`, and what that forbids depends on 
 
 `number_pattern` and `slug_pattern` must each be a valid regex **on their own**, not merely valid once spliced into the ID pattern. Two that balance only against each other — `number_pattern = "("` with `slug_pattern = "a)"` — would compile as one ID pattern and then fall apart the moment grund derives a narrower pattern from a subset of the format's components, which is what the number-only shorthand does ([§FS-check.1.2](FS-check.md#12-the-number-only-shorthand)). Such a config is rejected on load with the underlying regex error, rather than accepted and failed later.
 
-The chosen format is repo-wide. Mixing styles in one tree (some IDs numbered, others slug-only) is not supported — citations would look identical but resolve differently. Pick one shape per repo and keep it stable.
+The chosen format is the repository default. A citable `[[kinds]]` row may set
+its own `format` (§3.4.10), which is authoritative for IDs of that kind. Every
+consumer selects the kind from the token first and then applies that kind's
+grammar, so ordinary slug IDs and numeric ticket IDs may coexist without
+ambiguity. Kinds without an override retain the `[id].format` grammar exactly.
 
 `named_sections` is an absent-by-default Boolean gate for explicit section handles. When absent or `false`, section scanning, citation recognition, queries, formatting, completion, LSP behavior, and operational output remain the numeric-only behavior of earlier configurations. When `true`, a named component has the fixed, configuration-independent grammar `[a-z][a-z0-9-]*`; it is not derived from `slug_pattern` or from the displayed heading title. `grund init` writes the teaching default `named_sections = false` ([§FS-init.2.4](FS-init.md#24-generated-grundtoml)). Unknown values are invalid config.
 
@@ -405,6 +409,45 @@ The home is also the complete JSON source boundary: a `.json` `file` is the one 
 
 `grund config show` prints `values = true` only for an enabled row; a false or absent value prints no key. This additive key does not change `grund_config_version` (§5), and an older binary rejects it through §4.3's located unknown-key path.
 
+#### 3.4.10 `format`, `resolve`, and `fetch` — external snapshot kinds
+
+A citable kind may override the repository grammar and describe how a missing
+committed snapshot is materialized:
+
+```toml
+[[kinds]]
+kind = "TICKET"
+file = "docs/tickets.md"
+title = "External tickets (generated snapshots)"
+format = "{kind}-{number}"
+resolve = "should"
+fetch = "scripts/fetch-ticket"
+```
+
+`format` uses exactly the template placeholders and the repository's
+`number_pattern` and `slug_pattern` validation from §3.2. It overrides only
+this kind; `[id].format` remains the default for every other kind. It is valid
+without `resolve` or `fetch`, but invalid on a non-citable kind.
+
+`fetch` names the direct integration executable specified by [§FS-fetch.2](FS-fetch.md#2-integration-invocation). It requires exactly one `file` or `folder`
+home. `resolve` is the target-side obligation used when that kind's citation
+has no declaration: the closed enum is `must | should`, with no `may`.
+Explicit `resolve` is valid only when `fetch` is also present; `fetch` without
+`resolve` is valid and has the effective value `must`. Both keys are invalid on
+a non-citable kind, a row with neither home, or a row with both homes.
+
+This obligation is independent of the citing-side `[citations]` rules (§3.9).
+It selects one of two fixed finding classes rather than remapping severity:
+`must` selects the `dangling` error and `should` selects the
+`missing-snapshot` warning ([§FS-check.3.1](FS-check.md#31-dangling-citation),
+[§FS-check.4.12](FS-check.md#412-missing-snapshot)).
+
+`config show` prints an explicit `format` and `fetch`, and prints the effective
+`resolve` for a fetch-enabled kind, including the defaulted `must`. The shown
+TOML loads back to the same effective values. All three keys are optional and
+additive: a row that omits them retains the previous grammar, dangling output,
+and scan cost, and `grund_config_version` remains 1 (§5).
+
 ### 3.5 `[scan]` — what gets walked
 
 ```toml
@@ -617,7 +660,7 @@ For concrete stderr examples and the distinction between `config validate` exit 
 
 The TOML file may include a top-level `grund_config_version = N`. The current version is **1**. Future incompatible schema changes increment this; grund refuses to load a config whose version is greater than the grund binary's known maximum, with an error suggesting an upgrade. Configs with no version key are interpreted as version 1.
 
-The version tracks **incompatible** changes to the meaning of existing keys, not the arrival of new ones. Adding an optional table or key — `[workspace]`, `[citations]`, `[[kinds]].values` (§3.4.9), a future `anchor_format` profile — is additive and does not bump the version, because a config that uses it is only ever written for a binary that understands it, and an older binary meeting it fails loudly and locatably through the unknown-section / unknown-key rejection (§4.3) rather than silently misreading it. The safety net for the forward direction is the closed section and key allow-list, not the version integer. In the other direction the gate is what [§REQ-backwards-compatibility.1](../requirements/REQ-backwards-compatibility.md#1-what-is-covered) rests on: a binary that supports version `N` keeps interpreting every version `≤ N` under the semantics that version shipped with, so upgrading the binary never re-reads a config it already understood.
+The version tracks **incompatible** changes to the meaning of existing keys, not the arrival of new ones. Adding an optional table or key — `[workspace]`, `[citations]`, `[[kinds]].values` (§3.4.9), `[[kinds]].format` / `resolve` / `fetch` (§3.4.10), a future `anchor_format` profile — is additive and does not bump the version, because a config that uses it is only ever written for a binary that understands it, and an older binary meeting it fails loudly and locatably through the unknown-section / unknown-key rejection (§4.3) rather than silently misreading it. The safety net for the forward direction is the closed section and key allow-list, not the version integer. In the other direction the gate is what [§REQ-backwards-compatibility.1](../requirements/REQ-backwards-compatibility.md#1-what-is-covered) rests on: a binary that supports version `N` keeps interpreting every version `≤ N` under the semantics that version shipped with, so upgrading the binary never re-reads a config it already understood.
 
 ## 6. What is NOT configured here
 

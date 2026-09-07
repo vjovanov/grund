@@ -32,6 +32,7 @@ summarizes when to reach for each.
 |--------------------------------------------------------------|----------------------------------------------------------|
 | [`workspace/`](workspace/)                                   | Cross-project citation in a monorepo ([§FS-workspace](../docs/functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace)) |
 | [`values/`](values/)                                         | Markdown/JSON value declarations and explicit consistency bindings ([§FS-values](../docs/functional-spec/FS-values.md#fs-values-opted-in-kinds-bind-authored-components-to-one-declared-value)) |
+| [`external-tickets/`](external-tickets/)                     | Explicitly materialized external facts resolved from committed snapshots ([§FS-fetch](../docs/functional-spec/FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot)) |
 
 ## Run an example
 

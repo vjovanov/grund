@@ -15,6 +15,7 @@ The subcommands a user runs on the command line.
 - [§FS-init](FS-init.md#fs-init-grund-bootstraps-a-new-grund-conformant-repo) — grund bootstraps a new grund-conformant repo
 - [§FS-id](FS-id.md#fs-id-grund-proposes-ids-for-new-declarations) — grund proposes IDs for new declarations
 - [§FS-completions](FS-completions.md#fs-completions-grund-completes-declared-ids-in-shells) — grund completes declared IDs in shells
+- [§FS-fetch](FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot) — grund materializes one external fact snapshot
 
 ## Editor integration
 

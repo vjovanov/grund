@@ -34,9 +34,16 @@ A non-goal is not the same as "we'll do it later." Non-goals are commitments. To
 
 ## 8. Generalization beyond the ID scheme
 
-`grund` does not validate other kinds of references — RFC numbers in random codebases, bug tracker IDs, etc. — outside the configured `[[kinds]]`. If a project does not adopt the ID scheme, `grund` has nothing to offer. Reasoning: see [§GRUND-grund](../grund.md#grund-grund-agents-stay-grounded-in-the-spec) — generalization dilutes the promise without expanding the audience.
+`grund` does not validate reference syntaxes outside configured `[[kinds]]` and
+the ordinary marked citation scheme. A project may model an RFC, ticket, or
+incident as a committed declaration and explicitly materialize it with
+[§FS-fetch](FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot),
+but there is no URL-only external resolver, markerless ticket recognition,
+remote lookup during resolution, or second external-reference catalog.
 
-A *separate* concept for external references — one that could recognize a GitHub issue or a Jira ticket in the same prose without pretending it is a declaration — is an open discussion and not a plan ([§DISC-external-ticket-resolvers](../discussions/proposals/2026-05-09-external-ticket-resolvers.md#disc-external-ticket-resolvers-external-ticket-resolvers)). It stays out here because the tension it has to resolve is this section's: resolving a ticket needs the network, and §11 says a check never touches it.
+The permitted form stays inside the ID scheme: a per-kind grammar parses the
+ID, a local Markdown declaration grounds it, and every reader uses the ordinary
+scanner. [§DISC-external-facts](../discussions/proposals/2026-09-07-external-facts.md#disc-external-facts-external-facts-are-committed-declarations-materialized-explicitly) replaces the earlier external-resolver proposal and records why that boundary preserves §11.
 
 ## 9. Severity, exit code, or report-ordering customization
 
@@ -48,7 +55,9 @@ Per [§GOAL-friendliness-first.2](../goals.md#2-what-this-rules-out) and [§FS-c
 
 ## 11. Network access during a check
 
-`grund check` performs no network I/O. There is no "fetch this URL," no "validate against a remote schema," no telemetry. The only filesystem access is reading the scanned tree. Reasoning: `grund` runs in CI, in pre-commit hooks, and on laptops offline; correctness must not depend on the network.
+`grund check` performs no network I/O and executes no configured integration.
+Neither do queries, formatting, completion, or LSP requests
+([§REQ-runs-offline](../requirements/REQ-runs-offline.md#req-runs-offline-verification-never-depends-on-an-external-service)). There is no "fetch this URL," no "validate against a remote schema," and no telemetry. Explicit `grund fetch <ID>` may run the configured local integration, but correctness is evaluated only after its output is saved as a repository declaration; verification itself remains offline.
 
 ## 12. Surfaces outside `grund-core` and the LSP transport
 

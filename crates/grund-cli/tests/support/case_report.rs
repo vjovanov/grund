@@ -103,7 +103,7 @@ fn assert_expected_repo(case: &Path, manifest_dir: &Path, name: &str, mismatches
     let actual = manifest_dir.join("target/e2e-work").join(name).join("repo");
     assert!(
         actual.exists(),
-        "{name}: expected.repo requires command.args to run against {{repo_copy}}"
+        "{name}: expected.repo requires command.args or command.cwd to use {{repo_copy}}"
     );
     let expected_files = relative_files(&expected);
     let actual_files = relative_files(&actual);

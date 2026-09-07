@@ -18,7 +18,7 @@ The generated scripts complete top-level subcommands (`check`, `show`, `list`, `
 
 For the first argument, the scripts offer subcommands and, once the typed prefix is non-empty and not a flag, also ask the dynamic helper for IDs. This completes both uppercase bare IDs (`FS-login`) and lowercase workspace aliases (`api/`) in the new bare-ID default while keeping an empty prompt cheap. For explicit `show` and `refs`, the first positional argument is always an ID slot, so the helper runs for any prefix.
 
-The scripts do not complete IDs for arbitrary shell words, citations inside files, or editor buffers. They also do not complete declaration bodies, markdown links, or external ticket IDs.
+The scripts do not complete IDs for arbitrary shell words, citations inside files, or editor buffers. They also do not complete declaration bodies or markdown links. A committed external snapshot is an ordinary declared ID and is completed under its kind's effective format; a missing snapshot has no catalog candidate.
 
 ## 2. Internal dynamic helper
 
@@ -34,11 +34,14 @@ It prints one candidate per line on stdout, sorted lexicographically and dedupli
 
 - `<path>` / `--path <path>` choose the repo or subtree used for config discovery and scanning. Both default to `.`.
 - `--prefix <prefix>` filters candidates by byte prefix. Without it, every candidate for the selected mode is printed.
-- Without `--sections`, candidates are declared IDs, rendered in the repo's configured `[id].format` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)).
+- Without `--sections`, candidates are declared IDs, rendered in each kind's effective `[[kinds]].format` override or repository `[id].format` default ([§FS-config.3.2](FS-config.md#32-id--id-grammar)).
 - When `--prefix` already contains the configured `[id].section_separator`, section candidates are printed instead of bare IDs. `--sections` forces section-candidate mode even when the prefix has no separator.
 - Section candidates have the shape `<ID><section_separator><section>`, e.g. `FS-cli.1` and, in an opted-in repository, `FS-plan.goals`, `FS-plan.goals.performance`, and `FS-plan.goals.3`. They come from the same section table the ID query uses ([§FS-show.2.2](FS-show.md#22-section)), so only recorded, legal coordinates are emitted. A reserved `number.name` shape is never a candidate. Sorting and prefix filtering apply to the complete rendered candidate.
 
 Completion is invoked on every tab press, so config and scan failures are quiet: if config cannot be loaded or the tree cannot be scanned, the helper prints nothing and exits `0`. This is the one deliberate exception to the exit-code meaning ([§REQ-never-crashes.2](../requirements/REQ-never-crashes.md#2-exit-codes-are-the-api)) — a keystroke helper that reported failure would put errors in the user's prompt, and no caller reads this code. Invalid helper flags are still CLI errors (`2`) because they indicate a broken installed completion script.
+
+The helper never invokes a configured fetcher, even when its prefix names a
+fetch-enabled kind ([§REQ-runs-offline](../requirements/REQ-runs-offline.md#req-runs-offline-verification-never-depends-on-an-external-service)).
 
 ## 3. Determinism
 

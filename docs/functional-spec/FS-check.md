@@ -30,6 +30,8 @@ Two contexts are read as neither prose nor code, so nothing inside them is a cit
 
 An exact explicit value binding additionally records its authored component, but its marker-prefixed token remains one citation under every rule above. The binding grammar and its narrower recognized source-comment contexts are [§FS-values.3](FS-values.md#3-explicit-value-bindings); `[reference] strict = false` never removes the binding's marker requirement.
 
+A snapshot written by [§FS-fetch](FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot) is not a special input. Its configured file or folder home is in the ordinary scan scope ([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)); its declaration, body, sections, and marked body citations are recognized by the rules above. `check` never invokes its configured integration.
+
 ### 1.2 The number-only shorthand
 
 When `[id] format` carries **both** `{number}` and `{slug}` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) — the default `{kind}-{number}-{slug}` that `grund init` writes — the number alone already identifies a declaration within its kind, so `§FS-042` is an abbreviation of `§FS-042-user-login` rather than a different ID. `check` **recognizes** that shape, resolves it, and reports it as an error to be rewritten (§3.13). It is never silently ignored, which is what [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) means by "false negatives are bugs".
@@ -176,7 +178,15 @@ Each of the following is an error and contributes to a non-zero exit code.
 
 ### 3.1 Dangling citation
 
-A recognized citation (per §1.1) for which no declaration is found. If the
+A recognized citation (per §1.1) for which no declaration is found. This is
+also the fixed finding for a fetch-enabled kind whose effective target-side
+resolution is `must` ([§FS-config.3.4.10](FS-config.md#3410-format-resolve-and-fetch--external-snapshot-kinds)). In that case the exact message is
+`unknown reference <qualified-ID>; no snapshot in <home> — run grund fetch
+<qualified-ID>`, its JSON code remains `dangling`, its severity is `error`, and
+it contributes exit 1. For a kind without `fetch`, the historical
+`unknown reference <qualified-ID>` bytes remain unchanged.
+
+If the
 target namespace contains a declared ID of the same kind that is close by
 deterministic edit distance, the diagnostic appends one hint:
 `unknown reference FS-chek; did you mean FS-check?`. If no same-kind candidate
@@ -200,6 +210,13 @@ A number-only shorthand citation (§1.2) is exempt from this rule and reported b
 that is not a full ID under the repo's own grammar.
 
 For a value binding, this ordinary resolution finding suppresses value comparison at the same site ([§FS-values.5.1](FS-values.md#51-resolve-before-comparison)).
+
+The near-ID and escaped-inline-code hints above take precedence over the fetch
+action. The message retains `unknown reference <qualified-ID>; no snapshot in
+<home>` and substitutes the existing conditional tail for the em-dash fetch
+tail: `; did you mean <candidate>?`, `; write <§><qualified-ID> if this is an
+illustration`, or their existing combined form. One citation site still
+produces one finding.
 
 ### 3.2 Missing section
 
@@ -755,6 +772,30 @@ This is §4.3's finding in everything but its trigger, and for §4.3's own reaso
 **It stands in place of the `success` marker** (§2.1), as every warning does, and that is the whole cost of the finding rather than a detail of it: a clean repository on the old path now prints this line where it printed `success`. [§REQ-backwards-compatibility.1](../requirements/REQ-backwards-compatibility.md#1-what-is-covered) governs that as a verdict change and permits it, since the exit code does not move. This repository pays it in its own e2e corpus, which is why the fixtures that had no reason to be on `.agents/` are on the bare form and the ones that remain are the ones whose subject is discovery itself.
 
 **A warning permanently, with no release it becomes an error in.** The promise lives in [§FS-config.1.2](FS-config.md#12-the-agents-location-is-deprecated), because it is a fact about the location rather than about this message: the fallback is never removed, so there is no version constant, no roadmap milestone, and no clause in the text naming a release.
+
+### 4.12 Missing snapshot
+
+A recognized citation has no declaration and targets a fetch-enabled kind
+whose effective `resolve` is `should` ([§FS-config.3.4.10](FS-config.md#3410-format-resolve-and-fetch--external-snapshot-kinds)). It is a distinct fixed warning, not a softened dangling error:
+
+```text
+<path>:<line>: no snapshot for <qualified-ID> in <home> — run grund fetch <qualified-ID>
+```
+
+The em-dash remedy tail is exactly `— run grund fetch <qualified-ID>`, with no
+inner backticks. The JSON code is `missing-snapshot`, severity is `warning`,
+and the message field is the text after `<path>:<line>: `. A warning-only run
+exits 0 and prints no `success` marker. Every site gets one finding, remains in
+the reference and coverage indexes, and may resolve after an explicit
+[§FS-fetch](FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot).
+
+The near-ID and escaped-inline-code hints of §3.1 take precedence over the
+fetch action. The message retains `no snapshot for <qualified-ID> in <home>`
+and substitutes the existing conditional `; did you mean …`, `; write <§>…`,
+or combined tail for the em-dash fetch tail. That precedence never produces
+both a dangling and a missing-snapshot finding for one site. In a workspace,
+the ID and remedy use the complete alias-qualified spelling while `<home>` is
+rendered from the run's report base ([§FS-workspace.8.1](FS-workspace.md#81-grund-aliasid)).
 
 ## 5. What grund does not check
 

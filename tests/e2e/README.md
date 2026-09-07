@@ -36,6 +36,12 @@ A case that does not run is **not** a case that passed. The harness probes the d
 
 Most cases run `grund check <repo>`. A case may override the command with `command.args`; use `{repo}` for the fixture repo path. For write-mode tests, use `{repo_copy}` so the harness copies the fixture under `target/e2e-work/` before running the command.
 
+A command whose public form discovers configuration from the current directory
+may add `command.cwd` containing exactly `{repo}` or `{repo_copy}`. The latter
+also selects mutable-repository handling and may be paired with `expected.repo`.
+This keeps commands such as `grund fetch <ID>` in their documented form while
+the shared harness still runs them inside the isolated fixture ([§FS-examples.5](../../docs/functional-spec/FS-examples.md#5-e2e-reuse-without-duplication)).
+
 Error output is part of the contract. Non-zero cases should keep `expected.stderr` concise: one actionable diagnostic per line, no aggregate footer, and no long explanatory prose that makes editor and agent consumption harder. For a case whose command selects `--format json`, a stderr line that opens a JSON object is one complete diagnostic in the [§FS-errors.5](../../docs/functional-spec/FS-errors.md#5-json-format) / [§FS-distribution.3.0](../../docs/functional-spec/FS-distribution.md#30-language-neutral-data-shapes) shape, and the conciseness cap applies to its `message` field rather than to the serialized line — the surrounding `severity`, `path`, `line`, `code`, and `sites` are fixed scaffolding the cap was never about. A text line on the same case's stderr (`error:`, `warning:`, `hint:`) keeps the plain cap.
 
 ## Current coverage
