@@ -17,10 +17,10 @@ mod tests_declaration_near_miss {
         root
     }
 
-    /// §FS-check.4.6: the classic stumble — the `-NNN-` left out under the
-    /// default numbered format.
+    /// §FS-check.4.6 / §RM-off-grammar-declaration-error: the classic stumble
+    /// stays a warning with a named deadline before 0.15.0.
     #[test]
-    fn a_heading_missing_the_number_is_reported() {
+    fn off_grammar_heading_missing_the_number_is_reported() {
         let root = near_miss_repo(
             "a_heading_missing_the_number_is_reported",
             "# FS-login: Users can log in\n\nBody.\n",
@@ -29,10 +29,71 @@ mod tests_declaration_near_miss {
         let finding = only(&run, "declaration-near-miss");
         assert_eq!(
             finding.message,
-            "`FS-login` is heading-shaped and declares nothing — \
-             [id] format = \"{kind}-{number}-{slug}\" reads `# <KIND>-<NNN>-<slug>: <title>`"
+            "`FS-login` resolves for compatibility but does not match \
+             [id] format = \"{kind}-{number}-{slug}\" — rename it or change the \
+             effective format; this warning becomes an error in grund 0.15.0"
         );
         assert_eq!(finding.line, Some(1));
+
+        let version = |text: &str| {
+            text.trim_end_matches("-dev")
+                .split('.')
+                .map(|part| part.parse::<u32>().expect("numeric version"))
+                .collect::<Vec<_>>()
+        };
+        assert!(
+            version(env!("CARGO_PKG_VERSION")) < version("0.15.0"),
+            "this tree reached 0.15.0; land §RM-off-grammar-declaration-error \
+             instead of shipping the warning past its deadline"
+        );
+    }
+
+    /// §FS-config.3.2 / §FS-check.1.1 / §FS-show.1: a mismatch remains a
+    /// readable declaration, and only an exact marked candidate backed by that
+    /// catalog entry is promoted. Bare and unbacked malformed tokens stay text.
+    #[test]
+    fn an_off_grammar_declaration_and_its_exact_marked_citation_remain_readable() {
+        let root = near_miss_repo(
+            "an_off_grammar_declaration_and_its_exact_marked_citation_remain_readable",
+            "# FS-security-providers: Security providers\n\nLead.\n\n\
+             ## 1. Contract\n\nStable.\n",
+        );
+        write(
+            &root.join("docs/notes.md"),
+            "Backed \u{a7}FS-security-providers.1.\n\
+             Bare FS-security-providers is prose.\n\
+             Unbacked \u{a7}FS-not-declared stays text.\n",
+        );
+
+        let shown = show(
+            "FS-security-providers.1",
+            ShowOpts {
+                path: root.clone(),
+                mode: ShowMode::Full,
+                ..ShowOpts::default()
+            },
+        )
+        .expect("exact persisted declaration resolves");
+        assert!(shown.body.contains("Stable."), "{}", shown.body);
+
+        let report = check(&root).expect("check fixture");
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
+        assert_eq!(
+            report
+                .warnings
+                .iter()
+                .filter(|finding| finding.code == "declaration-near-miss")
+                .count(),
+            1
+        );
+        assert!(
+            report
+                .warnings
+                .iter()
+                .all(|finding| !finding.message.contains("never cited")),
+            "the backed citation must count as inbound use: {:?}",
+            report.warnings
+        );
     }
 
     /// §FS-check.4.6 read from the other side: a heading that *does* match
@@ -56,7 +117,7 @@ mod tests_declaration_near_miss {
     /// belonging only to the repository default must not make the overridden
     /// kind look malformed.
     #[test]
-    fn a_kind_override_owns_its_near_miss_shape_and_message() {
+    fn off_grammar_kind_override_owns_its_near_miss_shape_and_message() {
         let root = test_root("a_kind_override_owns_its_near_miss_shape_and_message");
         write(
             &root.join("grund.toml"),
@@ -83,8 +144,9 @@ mod tests_declaration_near_miss {
         assert_eq!(near_misses[0].line, Some(3));
         assert_eq!(
             near_misses[0].message,
-            "`TICKET_bad` is heading-shaped and declares nothing — \
-             [id] format = \"{kind}_{number}\" reads `# <KIND>_<NNN>: <title>`"
+            "`TICKET_bad` resolves for compatibility but does not match \
+             [id] format = \"{kind}_{number}\" — rename it or change the \
+             effective format; this warning becomes an error in grund 0.15.0"
         );
     }
 }

@@ -20,6 +20,16 @@ Per [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-re
 
 In default mode (`[reference] strict = true`), only marker-prefixed citations are recognized — bare tokens are treated as plain text and do not trigger dangling-ref errors. Repositories that still rely on bare citations may set `[reference] strict = false` as a compatibility mode after checking the migration surface with `grund fmt --marker` ([§FS-fmt](FS-fmt.md#fs-fmt-grund-normalizes-references-in-bulk)).
 
+An exact marker-prefixed candidate that is outside the effective ID grammar is
+also recognized when, and only when, the selected project's shared catalog
+contains a declaration with that exact written ID ([§FS-config.3.2](FS-config.md#32-id--id-grammar)). It then
+participates in section and dangling checks, inbound counts, grounding,
+citation directions, `refs`, formatting, and editor navigation exactly like a
+conforming citation. The declaration's mismatch is reported at its heading
+(§4.6), not at every citation. Unmarked off-grammar candidates and exact marked
+candidates without a backing declaration remain unrecognized rather than
+turning the compatibility rule into a second permissive grammar.
+
 When `[id] named_sections = true`, the scanner consumes a whole ID-and-dot-tail candidate before deciding what it means ([§FS-config.3.2](FS-config.md#32-id--id-grammar)). A marker-prefixed legal named or mixed coordinate is a citation, including when the named section is missing. An unmarked candidate with a letter-bearing tail is one prose token and is suppressed whole even under `strict = false`; it never falls back to a bare-ID citation. A reserved `number.name` candidate is likewise never truncated to its numeric prefix. Full IDs claim candidates before number-only shorthand, exactly as they do for numeric coordinates; shorthand form and section existence remain independent facts.
 
 Citations may appear in markdown prose, in source-file line/block comments, and in language doc-comments (Javadoc, JSDoc, Rustdoc, Python docstrings, etc.) — see [AR-scanner.2.3](../architecture/AR-scanner.md#23-citation-detection) and [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) for the exact contexts. In source files, a **bare** ID-shaped token whose start column falls inside a string literal is not treated as a citation (the same deterministic quote-tracking rule `grund fmt` uses — [§FS-fmt.2.3.1](FS-fmt.md#231-string-literal-exclusion-rule), [AR-scanner.2.3](../architecture/AR-scanner.md#23-citation-detection)), so an ID-shaped substring inside a runtime string does not raise a false dangling-ref. A marker-prefixed citation is recognized everywhere, string or not — the marker is the signal of intent. Markdown files have no string literals and the carve-out does not apply there.
@@ -579,23 +589,47 @@ The per-heading half — naming each heading that looks like a declaration and d
 
 ### 4.6 Declaration near miss
 
-A heading that opens the way a declaration does and does not parse as one is, today, simply not a declaration: invisible to `check`, to `grund list`, and to citation resolution, with nothing said about it. The classic stumble is `# FS-login: …` under the default `{kind}-{number}-{slug}` — the `-NNN-` left out. `check` emits one **warning** per such heading, at the line a contributor has to edit:
+A heading that opens the way a declaration does and does not match its
+effective ID format remains a declaration for read compatibility
+([§FS-config.3.2](FS-config.md#32-id--id-grammar)). The classic stumble is `# FS-login: …` under the default
+`{kind}-{number}-{slug}` — the `-NNN-` left out. Before grund 0.15.0, `check`
+emits one **warning** per such declaration, at the line a contributor has to
+edit:
 
 ```
-docs/spec.md:1: `FS-login` is heading-shaped and declares nothing — [id] format = "{kind}-{number}-{slug}" reads `# <KIND>-<NNN>-<slug>: <title>`
+docs/spec.md:1: `FS-login` resolves for compatibility but does not match [id] format = "{kind}-{number}-{slug}" — rename it or change the effective format; this warning becomes an error in grund 0.15.0
 ```
 
-**What counts.** A line in declaration position — a Markdown heading, or a comment-prefixed line in a source file under the rules of [AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments) — whose first token is a configured kind name ([§FS-config.3.4](FS-config.md#34-kinds--recognized-kinds)) followed by the literal `[id] format` puts after `{kind}`, which the ID grammar then rejects, and which is **followed by the declaration colon**.
+**What counts.** A line in declaration position — a Markdown heading, or a
+comment-prefixed line in a source file under the rules of
+[AR-scanner.4](../architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)
+— whose first token unambiguously begins with a configured citable kind
+([§FS-config.3.4](FS-config.md#34-kinds--recognized-kinds)), which the effective
+ID grammar rejects, and which is **followed by the declaration colon**. This
+also covers a per-kind format whose first literal after `{kind}` differs from
+the persisted token.
 
 That colon is the discriminator, and it earns its place: a line opening with an ID-shaped token and no colon is prose far more often than it is a declaration attempt — a comment wrapped across lines whose continuation begins with one is the case that proved it, in this repository's own source. So the rule reads exactly the shape a declaration attempt has, `<KIND>-…: <title>`, and says nothing about the rest. A near miss written without a title is not reported; that is the cost, and it buys a rule that stays quiet on prose. The token also stops at a backtick, so an inline-code mention is not one either. The position rules are the declaration rules exactly, so a near miss is only ever read where a declaration would have been: a bare `FS-login: …` in Markdown prose is not one ([§DF-code-declarations-drop-hash](../decisions/functional/DF-code-declarations-drop-hash.md#df-code-declarations-drop-hash-code-resident-declarations-may-drop-the--prefix)), and neither is anything inside a fenced block.
 
-**Three facts, and no fourth.** The message names the token as written, the configured template, and the shape that template reads. It does **not** propose the corrected ID. `check` reports facts about the tree and the config (§3 vs §4), and an ID assembled from `number_pattern` and `slug_pattern` would be a guess at what the author meant — the same line [§FS-check.4.5](FS-check.md#45-nothing-recognized) holds for the same reason. What the reader gets is the mismatch; what to do about it is theirs.
+**Facts, not a guessed rename.** The message names the token as written and the
+effective template, states that lookup remains compatible, and offers the two
+real migration choices: rename the declaration and its citations, or change
+the effective format. It does **not** propose a corrected ID; assembling one
+from component patterns would guess what the author meant.
 
-**A format with no literal after `{kind}` is not judged.** Where `[id] format` runs `{kind}` straight into what follows, "looks like a declaration" cannot be told from prose beginning with a kind name, so the rule declines rather than guess ([§FS-config.3.2](FS-config.md#32-id--id-grammar)). Every format that separates them — which is every default and every generated config — is covered.
+**Before 0.15.0 it is a warning, so the exit code is unchanged** (§4). A run
+with no errors exits successfully but prints the located warning and no
+`success` marker. The declaration still appears in `list` and resolves through
+every reader; severity never changes recognition. In grund 0.15.0 the same
+code and location become an error, the deadline clause becomes the past-tense
+release report required by
+[§FS-distribution.4.2](FS-distribution.md#42-a-release-may-not-contradict-the-releases-the-trees-own-messages-name),
+and `check` exits `1`. The release guard and
+[§RM-off-grammar-declaration-error](../roadmap.md#rm-off-grammar-declaration-error-make-off-grammar-declarations-a-check-error-in-0150)
+prevent shipping the warning at or beyond that version.
 
-**It is a warning, so the exit code is unchanged** (§4), and `grund list` is unchanged with it: a near-miss heading is still not a declaration, and this rule reports that rather than repairing it. Where every heading in a project misses this way, these findings are what the run says and [§FS-check.4.5](FS-check.md#45-nothing-recognized) is withheld under its own rule — the specific fact displaces the general one, which is the outcome that rule's "or the headings are written to a different shape than that" was standing in for.
-
-The line-oriented opt-out held in reserve while the warning was new was never needed and is not implemented: the position rules are the declaration rules, so the rule reads only the lines where a declaration would have been.
+There is no line-oriented opt-out or automatic rewrite: the position and colon
+rules bound recognition, and migration remains the repository author's choice.
 
 - **Code:** `declaration-near-miss` ([§FS-errors.5](FS-errors.md#5-json-format)).
 

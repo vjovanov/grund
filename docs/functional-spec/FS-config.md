@@ -141,6 +141,30 @@ consumer selects the kind from the token first and then applies that kind's
 grammar, so ordinary slug IDs and numeric ticket IDs may coexist without
 ambiguity. Kinds without an override retain the `[id].format` grammar exactly.
 
+The effective format is the **authoring and conformance grammar**, not a reason
+to make a persisted declaration unreadable. A heading in declaration position
+whose exact token starts with a configured citable kind and ends at the
+declaration colon is retained in that project's catalog even when the token
+does not match the kind's effective format. Its exact written spelling, body,
+sections, and location remain available to readers, and it earns the
+`declaration-near-miss` finding ([§FS-check.4.6](FS-check.md#46-declaration-near-miss)). Exact marker-prefixed candidates
+that normal grammar rejects become citations only when that same project's
+catalog contains an exact declaration spelling; an unmarked candidate or a
+marked candidate with no exact declaration gains no compatibility meaning.
+This catalog-backed boundary is decided in
+[§DF-off-grammar-declaration-compatibility](../decisions/functional/DF-off-grammar-declaration-compatibility.md#df-off-grammar-declaration-compatibility-persisted-declarations-remain-readable-without-relaxing-the-authoring-grammar).
+
+Configured full IDs keep their existing precedence. Otherwise an exact
+off-grammar declaration and number-only shorthand are considered together:
+zero targets preserves the current invalid-ID result, one target resolves, and
+multiple targets fail as ambiguous. For a possible inline section, an exact
+whole-token declaration wins; otherwise every catalog prefix followed by the
+configured section separator is considered, and competing valid
+interpretations fail. Duplicate exact declarations retain the ordinary
+duplicate/ambiguity behavior and sorted sites. None of these read rules changes
+`grund id`, `init`, `fetch`, config validation, `fmt --marker`, JSON schemas, or
+the forms those authoring surfaces create.
+
 `named_sections` is an absent-by-default Boolean gate for explicit section handles. When absent or `false`, section scanning, citation recognition, queries, formatting, completion, LSP behavior, and operational output remain the numeric-only behavior of earlier configurations. When `true`, a named component has the fixed, configuration-independent grammar `[a-z][a-z0-9-]*`; it is not derived from `slug_pattern` or from the displayed heading title. `grund init` writes the teaching default `named_sections = false` ([§FS-init.2.4](FS-init.md#24-generated-grundtoml)). Unknown values are invalid config.
 
 ### 3.3 Section paths — arbitrary nesting depth

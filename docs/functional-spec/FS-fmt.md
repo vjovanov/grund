@@ -199,6 +199,12 @@ Per [§DF-md-link-anchor-strategy.2.2](../decisions/functional/DF-md-link-anchor
 
 Idempotency holds: a second run with no intervening edits is a no-op, because the URL on disk is now equal to the canonical URL.
 
+An exact marked off-grammar citation backed by a catalog declaration
+([§FS-config.3.2](FS-config.md#32-id--id-grammar)) is the same durable source and may be wrapped or re-derived
+like any conforming citation. Unmarked and declaration-less off-grammar
+candidates stay untouched. The formatter consumes the shared scanner result
+and does not relax its marker, shorthand, or authoring grammar independently.
+
 Detection of an existing wrap, for both the rewrite and the no-double-wrap rules: the citation's immediately-preceding character is `[` and its immediately-following text begins `](`. When this matches, the wrapper computes the canonical URL and replaces the existing one if different. When it does not match, the citation is wrapped fresh.
 
 ### 6.4 What is never wrapped
