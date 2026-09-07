@@ -116,9 +116,10 @@ fn write_file_home(
     let (start, end) = if let Some(existing) = matching.first() {
         (existing.start, existing.end)
     } else {
+        let requested = grammar.render(requested, 3);
         let start = declarations
             .iter()
-            .find(|declaration| declaration.id > *requested)
+            .find(|declaration| grammar.render(&declaration.id, 3) > requested)
             .map_or(original.len(), |declaration| declaration.start);
         (start, start)
     };
@@ -239,6 +240,16 @@ fn atomic_install(path: &Path, bytes: &[u8]) -> std::result::Result<(), FetchFai
     if fs::read(path).ok().as_deref() == Some(bytes) {
         return Ok(());
     }
+    let existing_permissions = match fs::metadata(path) {
+        Ok(metadata) => Some(metadata.permissions()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
+        Err(err) => {
+            return Err(fetch_operational(format!(
+                "cannot read metadata for {}: {err}",
+                path.display()
+            )));
+        }
+    };
     let parent = path
         .parent()
         .ok_or_else(|| fetch_operational(format!("cannot write {}", path.display())))?;
@@ -276,7 +287,13 @@ fn atomic_install(path: &Path, bytes: &[u8]) -> std::result::Result<(), FetchFai
         )));
     };
     use std::io::Write;
-    if let Err(err) = file.write_all(bytes).and_then(|_| file.sync_all()) {
+    let installed = file.write_all(bytes).and_then(|_| {
+        if let Some(permissions) = existing_permissions {
+            file.set_permissions(permissions)?;
+        }
+        file.sync_all()
+    });
+    if let Err(err) = installed {
         drop(file);
         let _ = fs::remove_file(&temporary_path);
         rollback_created_directories(&created_directories);

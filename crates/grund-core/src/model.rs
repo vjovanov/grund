@@ -221,11 +221,13 @@ pub struct Findings {
 
 /// One heading that opens with a configured kind and the literal an ID puts
 /// after it, without parsing as an ID (§FS-check.4.6). `text` is the token as
-/// written, so the finding can quote it back beside the format it missed.
+/// written, so the finding can quote it back beside `format`, the candidate
+/// kind's effective template that it missed.
 pub struct NearMissHeading {
     pub file: PathBuf,
     pub line: usize,
     pub text: String,
+    pub format: String,
 }
 
 /// ID-query slice mode (§FS-show.1): each rung adds to the previous one —

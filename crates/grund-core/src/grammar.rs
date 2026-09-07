@@ -148,12 +148,12 @@ pub struct Grammar {
     /// The compiled grammar remembers the gate so every token consumer can
     /// enforce the same whole-token suppression rule (§AR-scanner.2.3).
     named_sections: bool,
-    /// The near-miss patterns (§FS-check.4.6): a heading that opens with a
-    /// configured kind and the literal an ID puts after it, without parsing as
-    /// an ID. `None` where `[id] format` puts no literal between `{kind}` and
-    /// what follows — there "looks like a declaration" cannot be told from prose
-    /// beginning with a kind name, and the rule declines rather than guess.
-    near_miss: Option<NearMissGrammar>,
+    /// The per-kind near-miss patterns (§FS-check.4.6): a heading that opens
+    /// with a configured kind and the literal its effective ID format puts
+    /// after it, without parsing as an ID. Absent for a kind whose format puts
+    /// no literal there — then "looks like a declaration" cannot be told from
+    /// prose beginning with the kind name, and the rule declines rather than guess.
+    near_misses: Vec<NearMissGrammar>,
     /// The number-only shorthand patterns (§FS-check.1.2, §AR-scanner.2.6),
     /// present only when `[id] format` carries both `{number}` and `{slug}`.
     /// `None` is the whole opt-out: every shorthand pass downstream is gated on
@@ -210,15 +210,9 @@ impl Grammar {
             .filter(|kind| kind.citable)
             .map(|kind| kind.kind.clone())
             .collect::<Vec<_>>();
-        let kind_alt = if kind_names.is_empty() {
+        if kind_names.is_empty() {
             return Err(anyhow!("[id] grammar needs at least one [[kinds]] entry"));
-        } else {
-            kind_names
-                .iter()
-                .map(|k| regex::escape(k))
-                .collect::<Vec<_>>()
-                .join("|")
-        };
+        }
         // §FS-config.3.2: the "an ID never contains `/`" invariant, enforced over
         // every component an ID is built from. `config.rs` rejects each key at its
         // own line first; this is the backstop for a `Config` assembled in code.
@@ -431,6 +425,24 @@ impl Grammar {
             })
             .collect();
 
+        let near_misses = kinds
+            .iter()
+            .filter(|kind| kind.citable)
+            .filter_map(|kind| {
+                let effective = kind.format.as_deref().unwrap_or(format);
+                literal_after_kind_placeholder(effective)
+                    .filter(|literal| !literal.is_empty())
+                    .map(|literal| {
+                        NearMissGrammar::build(
+                            &regex::escape(&kind.kind),
+                            &comment_prefix,
+                            literal,
+                            effective,
+                        )
+                    })
+            })
+            .collect();
+
         Ok(Self {
             decl_re,
             docstring_decl_re,
@@ -438,9 +450,7 @@ impl Grammar {
             citation_re,
             id_input_re,
             named_sections,
-            near_miss: literal_after_kind_placeholder(format)
-                .filter(|literal| !literal.is_empty())
-                .map(|literal| NearMissGrammar::build(&kind_alt, &comment_prefix, literal)),
+            near_misses,
             shorthand,
             override_shorthands,
             elements,

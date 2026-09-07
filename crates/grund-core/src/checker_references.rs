@@ -299,6 +299,10 @@ fn check_citation_resolution(
                 .find(|kind| kind.kind == cite.id.kind && kind.fetch.is_some());
             let in_inline_code = citation_in_markdown_inline_code(cite);
             let (code, message, warning) = if let Some(kind) = snapshot_kind {
+                // §FS-check.3.14: out-of-scope citations stay fixed dangling errors;
+                // a target kind's in-scope `should` must not demote this opt-in tier.
+                let should_warn = tier == ReferenceTier::Configured
+                    && kind.resolve == Some(KindResolution::Should);
                 let home = kind.file.as_deref().or(kind.folder.as_deref()).expect(
                     "fetch-enabled kind has exactly one home after config validation",
                 );
@@ -310,16 +314,16 @@ fn check_citation_resolution(
                     &cite.id,
                     in_inline_code,
                     &home,
-                    kind.resolve == Some(KindResolution::Must),
+                    !should_warn,
                 );
                 (
-                    if kind.resolve == Some(KindResolution::Should) {
+                    if should_warn {
                         "missing-snapshot"
                     } else {
                         "dangling"
                     },
                     message,
-                    kind.resolve == Some(KindResolution::Should),
+                    should_warn,
                 )
             } else {
                 (

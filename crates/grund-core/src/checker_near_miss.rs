@@ -11,14 +11,14 @@
 /// §FS-check.4.6: one warning per heading that came close. Sorted with the rest
 /// of the report by the shared comparator, so a run over one tree prints them in
 /// the same order every time (§FS-errors.4).
-fn check_declaration_near_misses(findings: &Findings, config: &Config, report: &mut CheckReport) {
+fn check_declaration_near_misses(findings: &Findings, report: &mut CheckReport) {
     for heading in &findings.near_miss_headings {
         report.warnings.push(Diagnostic {
             code: "declaration-near-miss",
             path: Some(heading.file.clone()),
             line: Some(heading.line),
             column: None,
-            message: near_miss_message(config, &heading.text),
+            message: near_miss_message(&heading.format, &heading.text),
             sites: Vec::new(),
         });
     }
@@ -28,11 +28,10 @@ fn check_declaration_near_misses(findings: &Findings, config: &Config, report: &
 /// that template reads. Three facts, no proposal — `check` reports facts about
 /// the tree and the config (§FS-check.3 vs §4), and the corrected ID is the one
 /// thing here that would be a guess.
-fn near_miss_message(config: &Config, text: &str) -> String {
+fn near_miss_message(format: &str, text: &str) -> String {
     format!(
         "`{text}` is heading-shaped and declares nothing — [id] format = \"{format}\" \
          reads `# {shape}: <title>`",
-        format = config.id_format,
-        shape = id_shape(&config.id_format),
+        shape = id_shape(format),
     )
 }

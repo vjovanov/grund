@@ -210,13 +210,14 @@ fn scan_file_text(
         // §FS-check.4.6: the line was not a declaration. Ask the near-miss pattern
         // whether it looked like one, here rather than in a second read of the tree —
         // the scan has the line, the position rules and the fence/docstring state.
-        if let Some(text) =
+        if let Some((text, format)) =
             near_miss_heading(&config.grammar, scan_line, scan.in_py_docstring, is_md)
         {
             findings.near_miss_headings.push(NearMissHeading {
                 file: path.to_path_buf(),
                 line: lineno,
                 text: text.to_string(),
+                format: format.to_string(),
             });
         }
 

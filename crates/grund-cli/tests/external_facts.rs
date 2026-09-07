@@ -116,6 +116,66 @@ fn external_facts_missing_snapshot_text_and_json_have_fixed_identities() {
 }
 
 #[test]
+fn external_facts_should_snapshot_is_a_full_scope_error_in_text_json_and_workspaces() {
+    let standalone = root("full-scope-should-standalone");
+    write(
+        &standalone,
+        "grund.toml",
+        &file_config(
+            "docs/tickets.md",
+            Some("should"),
+            Some("scripts/fetch-ticket"),
+        ),
+    );
+    write(&standalone, "sim/world.md", "See \u{a7}TICKET-8.\n");
+
+    let workspace = root("full-scope-should-workspace");
+    write(
+        &workspace,
+        "grund.toml",
+        "grund_config_version = 1\nproject_name = \"root\"\n\n\
+         [workspace]\nmembers = [\"api\"]\ninclude_root = false\n",
+    );
+    write(
+        &workspace,
+        "api/grund.toml",
+        &file_config_for_project(
+            "api",
+            "docs/tickets.md",
+            Some("should"),
+            Some("scripts/fetch-ticket"),
+        ),
+    );
+    write(&workspace, "api/sim/world.md", "See \u{a7}TICKET-8.\n");
+
+    for (name, root, path, home) in [
+        ("standalone", &standalone, "sim/world.md", "docs/tickets.md"),
+        (
+            "workspace",
+            &workspace,
+            "api/sim/world.md",
+            "docs/tickets.md",
+        ),
+    ] {
+        let message = format!(
+            "outside [scan] include: unknown reference TICKET-8; no snapshot in {home} — run grund fetch TICKET-8"
+        );
+        let plain = run(root, &["check", "--full", "."]);
+        assert_code(&plain, 1, &format!("{name} text"));
+        assert_eq!(stdout(&plain), format!("{path}:1: {message}\n"));
+
+        let json = run(root, &["check", "--full", ".", "--format", "json"]);
+        assert_code(&json, 1, &format!("{name} json"));
+        assert_eq!(
+            stdout(&json),
+            format!(
+                "{{\"severity\":\"error\",\"path\":\"{path}\",\"line\":1,\"code\":\"out-of-scope-dangling\",\"message\":\"{message}\",\"sites\":null}}\n"
+            )
+        );
+    }
+}
+
+#[test]
 fn external_facts_existing_hints_replace_only_the_fetch_action_at_both_levels() {
     for (resolve, base, exit) in [
         ("must", "unknown reference TICKET-1234; no snapshot in", 1),
@@ -213,11 +273,27 @@ fn external_facts_per_kind_grammar_is_shared_by_every_cli_consumer() {
         vec!["refs", "TICKET-1234"],
         vec!["list", "."],
         vec!["cover", "."],
-        vec!["fmt", "--check", "."],
     ] {
         let output = run(&root, &args);
         assert_code(&output, 0, &args.join(" "));
     }
+    let fmt = run(&root, &["fmt", "--cross-refs", "--write", "."]);
+    assert_code(&fmt, 0, "fmt --cross-refs --write");
+    assert_eq!(
+        fs::read_to_string(root.join("docs/guide.md")).unwrap(),
+        concat!(
+            "# Guide\n\nSee ",
+            "[\u{a7}FS-alpha](specs/FS-alpha.md#fs-alpha-alpha), ",
+            "[\u{a7}TICKET-8](tickets.md#ticket-8-short-provider-id), and ",
+            "[\u{a7}TICKET-1234](tickets.md#ticket-1234-ticket).\n"
+        ),
+        "§FS-fmt.5: the forced pass must parse and link both numeric ticket citations"
+    );
+    assert_code(
+        &run(&root, &["fmt", "--cross-refs", "--check", "."]),
+        0,
+        "fmt per-kind grammar idempotence",
+    );
     let completion = run(&root, &["complete", "ids", ".", "--prefix", "TICKET-"]);
     assert_code(&completion, 0, "complete ids");
     assert!(stdout(&completion).lines().any(|line| line == "TICKET-8"));

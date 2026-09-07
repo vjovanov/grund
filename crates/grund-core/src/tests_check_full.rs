@@ -32,6 +32,39 @@ mod tests_check_full {
         );
     }
 
+    /// §FS-check.1.3 / §FS-check.3.14 / §REQ-no-missed-citation.1: the
+    /// configured kind's soft in-scope obligation cannot soften the opt-in
+    /// out-of-scope resolution tier.
+    #[test]
+    fn full_scope_reports_a_should_snapshot_citation_as_dangling() {
+        let root = test_root("full_scope_reports_a_should_snapshot_citation_as_dangling");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\
+             [reference]\nstrict = true\n\n\
+             [id]\nformat = \"{kind}-{slug}\"\n\n\
+             [[kinds]]\nkind = \"TICKET\"\nfile = \"docs/tickets.md\"\n\
+             format = \"{kind}-{number}\"\nresolve = \"should\"\nfetch = \"scripts/fetch-ticket\"\n\n\
+             [scan]\ninclude = [\"docs\"]\nrespect_gitignore = false\n",
+        );
+        write(&root.join("sim/world.md"), "See §TICKET-8.\n");
+
+        let full = check_run(&root, true);
+        assert_eq!(
+            located_diagnostics(&full.config, &full.report.errors),
+            vec![
+                "sim/world.md:1: outside [scan] include: unknown reference TICKET-8; no snapshot in docs/tickets.md — run grund fetch TICKET-8"
+            ]
+        );
+        assert_eq!(full.report.errors[0].code, "out-of-scope-dangling");
+        assert!(
+            full.report
+                .warnings
+                .iter()
+                .all(|finding| finding.code != "missing-snapshot")
+        );
+    }
+
     #[test]
     fn full_scope_withholds_style_and_grounding_outside_include() {
         let root = drifted_include_repo("full_scope_withholds_style_and_grounding_outside_include");

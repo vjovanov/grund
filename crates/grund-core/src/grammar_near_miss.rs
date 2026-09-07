@@ -14,6 +14,7 @@
 /// [`Grammar::build`] has already compiled on its own.
 #[derive(Clone)]
 struct NearMissGrammar {
+    format: String,
     decl_pattern: String,
     docstring_pattern: String,
     decl_re: once_cell::sync::OnceCell<Regex>,
@@ -37,7 +38,7 @@ impl NearMissGrammar {
     /// that found this, and the rule says nothing about the rest. The token
     /// stopping at a backtick likewise keeps an inline-code mention
     /// (`` `FS-login`: ``) from being one, and keeps the quoted token as written.
-    fn build(kind_alt: &str, comment_prefix: &str, after_kind: &str) -> Self {
+    fn build(kind_alt: &str, comment_prefix: &str, after_kind: &str, format: &str) -> Self {
         // §FS-check.4.6 reads only the shape it names, `<KIND>-…: <title>`: the
         // trailing `:` is the discriminator, and the token stops at whitespace, at
         // the colon, and at a backtick.
@@ -46,6 +47,7 @@ impl NearMissGrammar {
             after = regex::escape(after_kind)
         );
         Self {
+            format: format.to_string(),
             decl_pattern: format!(r"^\s*(?:{comment_prefix}\s+|(?P<mdhashes>#+)\s+){near}"),
             docstring_pattern: format!(r"^\s*{near}"),
             decl_re: once_cell::sync::OnceCell::new(),
@@ -127,16 +129,20 @@ fn first_declaration_bytes(comment_prefix: &str) -> Vec<u8> {
 /// The heading token §FS-check.4.6 reports, or `None` when this line is not one.
 /// Asked only where [`declaration_captures`] already declined, so a hit is by
 /// construction a heading that came close and missed.
-fn near_miss_heading<'a>(
-    grammar: &Grammar,
-    line: &'a str,
+fn near_miss_heading<'line, 'grammar>(
+    grammar: &'grammar Grammar,
+    line: &'line str,
     in_py_docstring: bool,
     is_md: bool,
-) -> Option<&'a str> {
+) -> Option<(&'line str, &'grammar str)> {
     grammar
-        .near_miss
-        .as_ref()?
-        .heading_text(line, in_py_docstring, is_md)
+        .near_misses
+        .iter()
+        .find_map(|near_miss| {
+            near_miss
+                .heading_text(line, in_py_docstring, is_md)
+                .map(|text| (text, near_miss.format.as_str()))
+        })
 }
 
 fn declaration_captures<'a>(

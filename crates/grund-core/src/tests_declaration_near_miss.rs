@@ -50,4 +50,41 @@ mod tests_declaration_near_miss {
             findings(&run)
         );
     }
+
+    /// §FS-config.3.2 / §FS-check.4.6: both recognition and the displayed
+    /// template come from the candidate kind's effective grammar. A separator
+    /// belonging only to the repository default must not make the overridden
+    /// kind look malformed.
+    #[test]
+    fn a_kind_override_owns_its_near_miss_shape_and_message() {
+        let root = test_root("a_kind_override_owns_its_near_miss_shape_and_message");
+        write(
+            &root.join("grund.toml"),
+            "grund_config_version = 1\n\
+             [id]\nformat = \"{kind}-{slug}\"\n\n\
+             [[kinds]]\nkind = \"FS\"\nfolder = \"docs/specs\"\nindex = false\n\n\
+             [[kinds]]\nkind = \"TICKET\"\nfile = \"docs/tickets.md\"\n\
+             format = \"{kind}_{number}\"\n\n\
+             [scan]\ninclude = [\"docs\"]\n",
+        );
+        write(
+            &root.join("docs/tickets.md"),
+            "# Tickets\n\n## TICKET_bad: Override-shaped miss\n\n## TICKET-bad: Default-shaped prose\n",
+        );
+
+        let run = check_run(&root, false);
+        let near_misses = run
+            .report
+            .warnings
+            .iter()
+            .filter(|finding| finding.code == "declaration-near-miss")
+            .collect::<Vec<_>>();
+        assert_eq!(near_misses.len(), 1, "got {:?}", findings(&run));
+        assert_eq!(near_misses[0].line, Some(3));
+        assert_eq!(
+            near_misses[0].message,
+            "`TICKET_bad` is heading-shaped and declares nothing — \
+             [id] format = \"{kind}_{number}\" reads `# <KIND>_<NNN>: <title>`"
+        );
+    }
 }
