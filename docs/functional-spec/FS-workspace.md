@@ -657,6 +657,14 @@ Ambiguity within a project is unchanged ([§FS-show.2.2.1](FS-show.md#221-ambigu
 two *different* projects is not ambiguous — they are two declarations in two
 namespaces, and the alias picks one.
 
+Explicit `show --batch` query IDs use these same local and qualified rules, but
+an unknown alias is a per-query failure envelope so the ordered stream continues
+([§FS-show.2.6](FS-show.md#26-batch-resolution)). Exhaustive batch discovery
+spells the current project's IDs unqualified and every other project's IDs with
+its alias; when `include_root = false` leaves no current project, all generated
+IDs are qualified. The spelling is stable input to the same resolver, not a
+second namespace rule.
+
 #### 8.1.1 An unqualified ID another project declares
 
 `grund <ID>` resolves against the current project alone (§4), so an ID that only
@@ -941,6 +949,10 @@ All six surfaces above keep the exit codes they had:
 - `show` — `0` body printed, `1` ID/section not found or ambiguous, `2` CLI/
   scan error. An unknown alias is `2` (it is a CLI-shaped error, not a "found
   something else" error) and matches the standalone-mode shape in §8.1.
+- `show --batch` — `0` when every emitted query succeeds, `1` when any query
+  fails after every valid record has been emitted, `2` for malformed input or
+  invocation and configuration/scan failure. An unknown alias inside a
+  well-formed batch record is a query failure, not a run failure (§8.1).
 - `refs` — `0` always when the scan succeeds; `2` on scan/CLI error.
 - `list` — `0` always when the scan succeeds; `2` on scan/CLI error (now
   including unknown `--project`).

@@ -94,8 +94,29 @@ impl WorkspaceContext {
 /// — this helper is strictly the "load every project that's in scope" layer
 /// on top of it (§AR-workspace.5.1).
 fn load_workspace_context(path: &Path, path_provided: bool) -> Result<WorkspaceContext> {
+    record_test_workspace_load();
     load_workspace_context_with_overlays(path, path_provided, &TextOverlays::new(), false)
 }
+
+/// Test-only observation seam for §AR-workspace.8: an opted-in black-box test
+/// can count public CLI loader entries without changing the loader's result.
+#[cfg(feature = "test-workspace-load-count")]
+fn record_test_workspace_load() {
+    use std::io::Write;
+
+    let Some(path) = std::env::var_os("GRUND_TEST_WORKSPACE_LOAD_LOG") else {
+        return;
+    };
+    let mut log = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .expect("open GRUND_TEST_WORKSPACE_LOAD_LOG");
+    writeln!(log, "load").expect("write GRUND_TEST_WORKSPACE_LOAD_LOG");
+}
+
+#[cfg(not(feature = "test-workspace-load-count"))]
+fn record_test_workspace_load() {}
 
 fn load_workspace_context_with_overlays(
     path: &Path,

@@ -1,0 +1,6 @@
+{"query":{"id":"FS-alpha","section":null},"ok":true,"result":{"id":"FS-alpha","section":null,"body":"Alpha lead.\n\nAlpha second paragraph.\n","path":"docs/FS-alpha.md","line":1},"error":null}
+{"query":{"id":"FS-alpha","section":"1"},"ok":true,"result":{"id":"FS-alpha","section":"1","body":"## 1. Numeric\n\nNumeric lead.\n","path":"docs/FS-alpha.md","line":7},"error":null}
+{"query":{"id":"FS-alpha","section":"1.1"},"ok":true,"result":{"id":"FS-alpha","section":"1.1","body":"### 1.1 Child\n\nChild body.\n","path":"docs/FS-alpha.md","line":11},"error":null}
+{"query":{"id":"FS-alpha","section":"goals"},"ok":true,"result":{"id":"FS-alpha","section":"goals","body":"## goals: Named\n\nNamed body.\n","path":"docs/FS-alpha.md","line":15},"error":null}
+{"query":{"id":"member/FS-beta","section":null},"ok":true,"result":{"id":"FS-beta","section":null,"body":"Beta lead.\n","path":"member/docs/FS-beta.md","line":1},"error":null}
+{"query":{"id":"member/FS-beta","section":"2"},"ok":true,"result":{"id":"FS-beta","section":"2","body":"## 2. Member section\n\nMember body.\n","path":"member/docs/FS-beta.md","line":5},"error":null}

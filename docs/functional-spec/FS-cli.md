@@ -62,6 +62,11 @@ An unknown subcommand in help dispatch (`grund help <unknown>`), an unknown or m
 
 `0` clean / printed, `1` findings or a failed query, `2` scan or CLI-level failure — the precise meaning per subcommand is in that subcommand's spec, but the *mapping* is frozen per [§GOAL-friendliness-first.2](../goals.md#2-what-this-rules-out) and [§FS-non-goals.9](FS-non-goals.md#9-severity-exit-code-or-report-ordering-customization): it is not configurable, and a change to it goes through the [§GOAL-no-silent-breakage](../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) deprecation path. The mapping is the machine-readable half of the verdict, so freezing it is what [§REQ-backwards-compatibility](../requirements/REQ-backwards-compatibility.md#req-backwards-compatibility-an-upgrade-never-changes-a-verdict-quietly) rests on.
 
+For `show --batch`, `1` is the aggregate failed-query verdict: all valid query
+records are emitted before the process returns it. Exit `2` is reserved for a
+malformed invocation or input stream, configuration failure, or scan failure that
+prevents the batch from running ([§FS-show.2.6](FS-show.md#26-batch-resolution)).
+
 ## 6. What is deliberately absent
 
 - No generic `--quiet` / `--verbose` knobs — severity is fixed ([§FS-non-goals.9](FS-non-goals.md#9-severity-exit-code-or-report-ordering-customization)), and a passing text `grund check` already has a single fixed `success` line ([§GOAL-friendliness-first.1](../goals.md#1-hard-requirements)). The explicit `check --only <code>` / `--ignore <code>` surface is a scoped query over stable diagnostic identities, not a presentation mode or a project policy knob ([§FS-check.1](FS-check.md#1-inputs)).
