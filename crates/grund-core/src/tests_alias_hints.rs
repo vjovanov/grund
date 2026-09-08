@@ -10,6 +10,109 @@
 mod tests_alias_hints {
     use super::*;
 
+    /// §FS-check.3.8: the first tier is a proper prefix of slash-separated
+    /// segments. Exact paths and byte prefixes without a segment boundary do
+    /// not join it, nor does a path that merely ends with the written segments.
+    #[test]
+    fn proper_prefix_tier_is_segment_aware() {
+        assert_eq!(
+            nearest_project_aliases(
+                "group",
+                ["group", "group/alpha", "grouped/alpha", "other/group"].into_iter()
+            ),
+            vec!["group/alpha".to_string()]
+        );
+        assert_eq!(
+            nearest_project_aliases(
+                "group/alpha",
+                [
+                    "group/alpha",
+                    "group/alpha/beta",
+                    "grouped/alpha/beta",
+                    "other/group/alpha",
+                ]
+                .into_iter()
+            ),
+            vec!["group/alpha/beta".to_string()]
+        );
+    }
+
+    /// §FS-check.3.8: a proper-prefix winner suppresses every lower tier.
+    #[test]
+    fn proper_prefix_tier_outranks_suffix_leaf_and_typo_candidates() {
+        let known = ["x/group", "wrong/group", "grouq", "group/alpha"];
+        assert_eq!(
+            nearest_project_aliases("group", known.into_iter()),
+            vec!["group/alpha".to_string()]
+        );
+    }
+
+    /// §FS-check.3.8 / §REQ-deterministic-output: deeper aliases are byte-sorted
+    /// before the same three-candidate cap as every other tier.
+    #[test]
+    fn proper_prefix_candidates_are_sorted_and_truncated_to_three() {
+        let known = ["group/zeta", "group/beta", "group/alpha", "group/mid"];
+        assert_eq!(
+            nearest_project_aliases("group", known.into_iter()),
+            vec![
+                "group/alpha".to_string(),
+                "group/beta".to_string(),
+                "group/mid".to_string()
+            ]
+        );
+    }
+
+    /// §FS-errors.3: the proper-prefix tier uses the frozen one-, two-, and
+    /// three-candidate message forms without changing the base error.
+    #[test]
+    fn proper_prefix_messages_use_the_exact_candidate_phrasing() {
+        assert_eq!(
+            unknown_project_message("group", ["group/alpha"].into_iter(), ""),
+            "unknown project alias group; did you mean group/alpha?"
+        );
+        assert_eq!(
+            unknown_project_message(
+                "group",
+                ["group/beta", "group/alpha"].into_iter(),
+                ""
+            ),
+            "unknown project alias group; did you mean group/alpha or group/beta?"
+        );
+        assert_eq!(
+            unknown_project_message(
+                "group",
+                ["group/gamma", "group/alpha", "group/beta"].into_iter(),
+                ""
+            ),
+            "unknown project alias group; did you mean group/alpha, group/beta or group/gamma?"
+        );
+    }
+
+    /// §FS-check.3.8: narrowed runs still suppress the new tier. When `--full`
+    /// finds the same error outside `include`, its scope clause remains first.
+    #[test]
+    fn proper_prefix_hint_preserves_scope_decorations() {
+        let known = ["group/alpha"];
+        assert_eq!(
+            unknown_project_message("group", known.into_iter(), "left"),
+            "unknown project alias group; only the left subtree is in scope here — check from the workspace root for a path outside it"
+        );
+        let diagnostic = Diagnostic {
+            code: "unknown-project",
+            path: None,
+            line: None,
+            column: None,
+            message: unknown_project_message("group", known.into_iter(), ""),
+            sites: Vec::new(),
+        };
+        let diagnostic = tag_out_of_scope(diagnostic);
+        assert_eq!(diagnostic.code, "out-of-scope-unknown-project");
+        assert_eq!(
+            diagnostic.message,
+            "outside [scan] include: unknown project alias group; did you mean group/alpha?"
+        );
+    }
+
     /// §FS-check.3.8: the dropped-prefix tier — a project whose path *ends with*
     /// what was written. The mistake whole alias paths invite (§FS-workspace.6.1).
     #[test]

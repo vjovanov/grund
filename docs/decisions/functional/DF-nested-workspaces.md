@@ -93,6 +93,18 @@ This is what makes the tradeoff acceptable rather than merely defensible: the
 failure mode of the model we chose is a compile-time error carrying its own fix,
 not a silent misresolution and not a search through the config.
 
+**Compatibility consequence.** Nested grouping nodes add the opposite likely
+mistake: writing the grouping path `group` when only deeper projects such as
+`group/alpha` exist. The diagnostic therefore checks a whole-segment proper
+prefix before the suffix, last-segment, and edit-distance tiers and offers the
+deeper project paths ([§FS-check.3.8](../../functional-spec/FS-check.md#38-cross-project-citation-failure)).
+It does not turn the grouping node into a project or resolve the citation. Before
+1.0, appending this actionable suffix to an already-failing finding is preferred
+to preserving its exact old bytes behind a second mode: the latter adds a public
+choice without semantic benefit. The stable code and failure verdict remain
+unchanged; only text and JSON `message` gain the suffix, under the documented
+pre-1.0 exception to [§REQ-backwards-compatibility](../../requirements/REQ-backwards-compatibility.md#req-backwards-compatibility-an-upgrade-never-changes-a-verdict-quietly).
+
 ### 3.3 One string, not a list of segments
 
 The namespace stays a single string with `/` inside it. That is the difference
