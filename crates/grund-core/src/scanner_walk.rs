@@ -94,10 +94,16 @@ fn walk_scannable_files_reporting(
         }
         let canonical_scan_root =
             fs::canonicalize(&scan_root).unwrap_or_else(|_| scan_root.to_path_buf());
-        // §AR-workspace.6: a root scan starts outside member namespaces; an included
-        // path at or below a member boundary belongs to the member scan, and one inside
-        // any *other* project of the run belongs to that project (§FS-workspace.6).
-        if config
+        // §FS-config.3.5.1: a directory link used as a scan root is the same
+        // traversal boundary as one met during descent. A plain external root is
+        // intentional scope, and an aliased config root still resolves to this
+        // project's physical root, so neither is rejected by this gate.
+        // §AR-workspace.6: a root scan starts outside member namespaces; an
+        // included path at or below a member boundary belongs to the member scan,
+        // and one inside any *other* project of the run belongs to that project
+        // (§FS-workspace.6).
+        if outward_directory_link_root(&scan_root, &canonical_scan_root, &physical_root)
+            || config
             .workspace_boundary_roots
             .iter()
             .any(|root| canonical_scan_root.starts_with(root))
@@ -239,7 +245,8 @@ fn walk_scannable_files_reporting(
 
 /// The walker one scan root is traversed with (§AR-scanner.1): the hidden-name and
 /// ignore-file rules the builder carries, and the workspace boundary, `[scan]
-/// exclude`, unwalked-home and E2E-case prunes [`WalkDirFilter`] carries.
+/// exclude`, canonical project-root boundary, unwalked-home and E2E-case prunes
+/// [`WalkDirFilter`] carries.
 ///
 /// Built apart from the walk above so [`walk_reads_any_file`] traverses through the
 /// same one. That is not a tidiness point: §FS-check.4.10 reports a tree *because*
@@ -312,14 +319,14 @@ fn scannable_walker(
 /// early exit: the cost is "is there one file here", not the size of the tree, and
 /// only a block that opted out ever pays it (§GOAL-fast-feedback).
 ///
-/// Every root is **gated first**, exactly as the reporting walk gates it: a canonical
-/// root inside one of this config's boundary roots, or one another project of the run
-/// owns, is that project's tree rather than this block's (§FS-workspace.6). The gate
-/// has to be applied to the root by hand, because the filter below is never asked
-/// about it — a walk root is never pruned at depth zero (§FS-config.3.5), and a file
-/// root reaches no filter at all. That is the direction a member list cannot see: a
-/// scope root that is *itself* a link into another project, which without this earns
-/// the caution over a tree that project reads.
+/// Every root is **gated first**, exactly as the reporting walk gates it: an
+/// outward directory link crosses the canonical project-root fence
+/// (§FS-config.3.5.1), while a canonical root inside one of this config's
+/// boundary roots, or one another project of the run owns, is that project's
+/// tree rather than this block's (§FS-workspace.6). The gate has to be applied
+/// to the root by hand, because the filter below is never asked about it — a walk
+/// root is never pruned at depth zero (§FS-config.3.5), and a file root reaches
+/// no filter at all.
 ///
 /// A root that is not a directory takes `is_scannable` directly, which is the same
 /// answer the walk above gives a file root — including that a hidden *file* is
@@ -337,9 +344,11 @@ fn walk_reads_any_file(config: &Config, scan_root: &Path) -> bool {
     let canonical_scan_root =
         fs::canonicalize(scan_root).unwrap_or_else(|_| scan_root.to_path_buf());
     let physical_root = canonical_config_root(config);
-    // §FS-workspace.6: the reporting walk's own scan-root gate, ahead of the branch
-    // below, because neither a file root nor a walk root ever reaches the filter.
-    if config
+    // §FS-config.3.5.1, §FS-workspace.6: the reporting walk's own scan-root
+    // gates, ahead of the branch below, because neither a file root nor a walk
+    // root ever reaches the filter.
+    if outward_directory_link_root(scan_root, &canonical_scan_root, &physical_root)
+        || config
         .workspace_boundary_roots
         .iter()
         .any(|root| canonical_scan_root.starts_with(root))
@@ -376,12 +385,13 @@ fn walk_reads_any_file(config: &Config, scan_root: &Path) -> bool {
 ///
 /// The **name** tests read the in-tree path, so a followed link is pruned under
 /// the name it wears in the tree — `docs/node_modules -> ../../node_modules` is
-/// excluded exactly as a real directory of that name would be. The two
-/// **boundary** tests read the canonical path as well, because a member root and
-/// a case directory are properties of the directory rather than of the name it
-/// is reached under (§AR-scanner.1): reached through a link they match neither
-/// the precomputed suffix nor the parent compare, and the walk would descend
-/// into a namespace that is not its to read.
+/// excluded exactly as a real directory of that name would be. The canonical
+/// project-root fence and the two **ownership** tests read the canonical path as
+/// well, because the physical root, a member root, and a case directory are
+/// properties of the directory rather than of the name it is reached under
+/// (§AR-scanner.1): reached through a link they match neither the in-tree
+/// prefix, the precomputed suffix, nor the parent compare, and the walk would
+/// descend into a namespace that is not its to read.
 ///
 /// `link_roots` is how a link-reached directory is recognized without a syscall
 /// per entry. The sequential walker filters a directory before its children, so
@@ -459,7 +469,7 @@ impl WalkDirFilter {
         let path = entry.path();
         let resolved = self.resolved_link_dir(entry);
         let resolved = resolved.as_deref();
-        if self.crosses_a_project_boundary(path, resolved) || is_hidden(path) {
+        if self.crosses_a_scan_boundary(path, resolved) || is_hidden(path) {
             return false;
         }
         if self.is_e2e_case_dir(path) || resolved.is_some_and(|path| self.is_e2e_case_dir(path)) {
@@ -508,12 +518,11 @@ impl WalkDirFilter {
             .flatten()
     }
 
-    /// §AR-workspace.6: a member root is out of bounds for the root scan under
-    /// every name it wears — the precomputed suffix for an ordinary descent, the
-    /// canonical member root for a directory reached through a link — and so is
-    /// any directory another project of the run owns, which is the same boundary
-    /// read in the directions the member list cannot see (§FS-workspace.6).
-    fn crosses_a_project_boundary(&self, path: &Path, resolved: Option<&Path>) -> bool {
+    /// A link-reached directory outside the canonical project root is out of
+    /// bounds (§FS-config.3.5.1, §AR-scanner.1). Loaded-workspace ownership is
+    /// stronger: another project remains out of bounds even when it lies inside
+    /// this project's physical root (§FS-workspace.6, §AR-workspace.6).
+    fn crosses_a_scan_boundary(&self, path: &Path, resolved: Option<&Path>) -> bool {
         if let Ok(relative) = path.strip_prefix(&self.scan_root)
             && self
                 .boundary_suffixes
@@ -523,7 +532,9 @@ impl WalkDirFilter {
             return true;
         }
         resolved.is_some_and(|resolved| {
-            self.boundary_roots
+            !resolved.starts_with(&self.physical_root)
+                || self
+                    .boundary_roots
                 .iter()
                 .any(|root| resolved.starts_with(root))
                 || owned_by_another_project(&self.config, &self.physical_root, resolved)
@@ -538,9 +549,10 @@ impl WalkDirFilter {
 /// Whether a canonical path belongs to a project of this run that is **not** the
 /// one doing the walking (§FS-workspace.6, §AR-workspace.6). The owner is the
 /// innermost project root containing it, since a nested member's root sits inside
-/// the block that listed it; a path no project owns is not a boundary at all, but
-/// outside content the tree linked in deliberately (§FS-config.3.5.1). Empty list —
-/// every run that loaded no workspace — answers `false` without a comparison.
+/// the block that listed it. A path no loaded project owns does not cross this
+/// ownership boundary; the canonical project-root fence is answered separately
+/// by the caller (§FS-config.3.5.1). Empty list — every run that loaded no
+/// workspace — answers `false` without a comparison.
 fn owned_by_another_project(config: &Config, own_root: &Path, canonical: &Path) -> bool {
     config
         .workspace_project_roots
@@ -548,6 +560,21 @@ fn owned_by_another_project(config: &Config, own_root: &Path, canonical: &Path) 
         .filter(|root| canonical.starts_with(root))
         .max_by_key(|root| root.components().count())
         .is_some_and(|owner| owner.as_path() != own_root)
+}
+
+/// Whether a directory scan root is itself a symlink whose target escapes the
+/// canonical project root (§FS-config.3.5.1, §AR-scanner.1). Testing the link's
+/// own metadata keeps a plain parent-relative external root readable, while the
+/// physical-root comparison keeps an aliased config root readable.
+fn outward_directory_link_root(
+    scan_root: &Path,
+    canonical_scan_root: &Path,
+    physical_root: &Path,
+) -> bool {
+    scan_root.is_dir()
+        && fs::symlink_metadata(scan_root)
+            .is_ok_and(|metadata| metadata.file_type().is_symlink())
+        && !canonical_scan_root.starts_with(physical_root)
 }
 
 /// Whether the walk reached this path *through* one of the directory links it
