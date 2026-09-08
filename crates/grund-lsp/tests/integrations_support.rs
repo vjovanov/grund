@@ -10,8 +10,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+const EXECUTABLE_ENV: &str = "GRUND_LSP_LSP4IJ_EXECUTABLE";
 const CMD_QUOTE_ENV: &str = "GRUND_LSP_LSP4IJ_QUOTE";
-const CMD_PERCENT_ENV: &str = "GRUND_LSP_LSP4IJ_PERCENT";
 
 pub const DEFAULT_EXTENSIONS: &[&str] = &[
     "md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb",
@@ -25,6 +25,14 @@ pub struct Sandbox {
 
 impl Sandbox {
     pub fn with_binary(source: &Path, label: &str) -> Self {
+        Self::with_binary_dir(
+            source,
+            label,
+            "installed binary β & '() $;! %PATH% ^ with spaces",
+        )
+    }
+
+    pub fn with_binary_dir(source: &Path, label: &str, binary_dir: &str) -> Self {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock after epoch")
@@ -33,7 +41,7 @@ impl Sandbox {
             "grund-lsp-integrations-{label}-{}-{nonce}",
             std::process::id()
         ));
-        let binary_dir = root.join("installed binary β & '() $;! with spaces");
+        let binary_dir = root.join(binary_dir);
         fs::create_dir_all(&binary_dir).expect("create isolated binary directory");
         let binary = binary_dir.join(format!("grund-lsp{}", std::env::consts::EXE_SUFFIX));
         fs::copy(source, &binary).expect("copy grund-lsp into isolated installation");
@@ -110,7 +118,7 @@ pub fn assert_template(template: &Value, extensions: &[&str], executable: &Path)
 
     assert_program_arg_boundaries(
         template,
-        Path::new("project Ω & '() $;! with spaces"),
+        r"C:\repo%PATH%\project Ω & '() $;! ^ with spaces",
         executable,
     );
     let executable = executable.to_string_lossy();
@@ -118,13 +126,18 @@ pub fn assert_template(template: &Value, extensions: &[&str], executable: &Path)
         .as_object()
         .expect("programArgs object");
     assert_eq!(args.len(), 2, "only host command forms are emitted");
+    assert_eq!(template["workingDir"], "$PROJECT_DIR$");
+    assert_eq!(
+        template["env"]["variables"][EXECUTABLE_ENV],
+        executable.as_ref()
+    );
     for key in ["default", "windows"] {
         let command = args[key].as_str().expect("command string");
-        assert!(command.contains("$PROJECT_DIR$"), "{key} does not set cwd");
         assert!(
-            command.contains(executable.as_ref()),
-            "{key} does not use the running executable: {command}"
+            !command.contains("$PROJECT_DIR$") && !command.contains(executable.as_ref()),
+            "{key} exposes path bytes to command tokenization: {command}"
         );
+        assert!(command.contains(EXECUTABLE_ENV));
         assert!(!command.contains("cargo run"), "{key} depends on Cargo");
     }
     let expected = extensions
@@ -174,37 +187,30 @@ pub fn lsp4ij_commands(command_line: &str) -> Vec<String> {
     commands
 }
 
-fn assert_program_arg_boundaries(template: &Value, project: &Path, executable: &Path) {
+fn assert_program_arg_boundaries(template: &Value, project: &str, executable: &Path) {
     let args = template["programArgs"]
         .as_object()
         .expect("programArgs object");
-    let project = project.to_string_lossy();
     let executable = executable.to_string_lossy();
 
-    let default = args["default"]
-        .as_str()
-        .expect("default command")
-        .replace("$PROJECT_DIR$", &project);
+    let default = args["default"].as_str().expect("default command");
     assert_eq!(
         lsp4ij_commands(&default),
-        [
-            "sh",
-            "-c",
-            "set -f; IFS=; cd -- $1 && exec $2",
-            "sh",
-            project.as_ref(),
-            executable.as_ref(),
+        vec![
+            "sh".to_owned(),
+            "-c".to_owned(),
+            format!("set -f; IFS=; exec ${EXECUTABLE_ENV}"),
         ],
         "default command does not survive LSP4IJ tokenization"
     );
 
     assert_eq!(template["env"]["includeSystemEnvironmentVariables"], true);
     assert_eq!(template["env"]["variables"][CMD_QUOTE_ENV], "\"");
-    assert_eq!(template["env"]["variables"][CMD_PERCENT_ENV], "%");
-    let windows = args["windows"]
-        .as_str()
-        .expect("windows command")
-        .replace("$PROJECT_DIR$", &project);
+    assert_eq!(
+        template["env"]["variables"][EXECUTABLE_ENV],
+        executable.as_ref()
+    );
+    let windows = args["windows"].as_str().expect("windows command");
     let windows = lsp4ij_commands(&windows);
     assert_eq!(
         &windows[..5],
@@ -212,35 +218,71 @@ fn assert_program_arg_boundaries(template: &Value, project: &Path, executable: &
         "windows shell arguments changed"
     );
     assert_eq!(windows.len(), 6, "windows script split during tokenization");
-    let expanded_script = windows[5]
-        .replace(&format!("%{CMD_QUOTE_ENV}%"), "\"")
-        .replace(&format!("%{CMD_PERCENT_ENV}%"), "%");
+    let expanded_script = expand_cmd_variables_once(
+        &windows[5],
+        &[(CMD_QUOTE_ENV, "\""), (EXECUTABLE_ENV, &executable)],
+    );
     assert_eq!(
         expanded_script,
-        format!("cd /D \"{project}\" && \"{executable}\""),
-        "windows paths are not quoted after command-environment expansion"
+        format!("\"{executable}\""),
+        "windows executable is not quoted after one cmd expansion"
     );
+    assert_eq!(
+        template["workingDir"]
+            .as_str()
+            .expect("working directory")
+            .replace("$PROJECT_DIR$", project),
+        project,
+        "Windows project macro changed before reaching the process working directory"
+    );
+}
+
+/// Model cmd's single percent-variable expansion pass. Percent-delimited text
+/// introduced by a variable's value is data and is not expanded recursively.
+fn expand_cmd_variables_once(script: &str, variables: &[(&str, &str)]) -> String {
+    let mut expanded = String::new();
+    let mut rest = script;
+    while let Some(start) = rest.find('%') {
+        expanded.push_str(&rest[..start]);
+        let after_start = &rest[start + 1..];
+        let Some(end) = after_start.find('%') else {
+            expanded.push_str(&rest[start..]);
+            return expanded;
+        };
+        let name = &after_start[..end];
+        if let Some((_, value)) = variables.iter().find(|(candidate, _)| *candidate == name) {
+            expanded.push_str(value);
+        }
+        rest = &after_start[end + 1..];
+    }
+    expanded.push_str(rest);
+    expanded
 }
 
 /// Tokenize exactly as LSP4IJ does, substitute its project macro, and prove
 /// the host-selected command reaches the copied stdio server from that root.
-pub fn assert_host_command_launches(template: &Value, project: &Path, inherited_cwd: &Path) {
+pub fn assert_host_command_launches(template: &Value, project: &Path) {
     let key = if cfg!(windows) { "windows" } else { "default" };
     let project_text = project.to_str().expect("UTF-8 project path");
-    let command_line = template["programArgs"][key]
-        .as_str()
-        .expect("host command")
-        .replace("$PROJECT_DIR$", project_text);
+    let command_line = template["programArgs"][key].as_str().expect("host command");
     let commands = lsp4ij_commands(&command_line);
+    let working_dir = template["workingDir"]
+        .as_str()
+        .expect("host working directory")
+        .replace("$PROJECT_DIR$", project_text);
     let mut command = Command::new(&commands[0]);
     command
         .args(&commands[1..])
-        .current_dir(inherited_cwd)
-        .env(CMD_QUOTE_ENV, "\"")
-        .env(CMD_PERCENT_ENV, "%")
+        .current_dir(&working_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    for (name, value) in template["env"]["variables"]
+        .as_object()
+        .expect("host environment")
+    {
+        command.env(name, value.as_str().expect("environment value"));
+    }
     let mut child = command.spawn().expect("launch generated host command");
     let mut stdin = child.stdin.take().expect("host command stdin");
     let receiver = crate::support::read_messages(child.stdout.take().expect("host command stdout"));

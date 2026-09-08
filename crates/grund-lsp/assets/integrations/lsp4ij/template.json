@@ -4,10 +4,10 @@
   "env": {
     "includeSystemEnvironmentVariables": true,
     "variables": {
-      "GRUND_LSP_LSP4IJ_PERCENT": "%",
       "GRUND_LSP_LSP4IJ_QUOTE": "\""
     }
   },
+  "workingDir": "$PROJECT_DIR$",
   "programArgs": {},
   "fileTypeMappings": []
 }

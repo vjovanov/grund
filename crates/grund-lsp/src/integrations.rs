@@ -9,8 +9,8 @@ use std::path::Path;
 
 const LSP4IJ_TEMPLATE: &str = include_str!("../assets/integrations/lsp4ij/template.json");
 const LSP4IJ_README: &str = include_str!("../assets/integrations/lsp4ij/README.md");
+const EXECUTABLE_ENV: &str = "GRUND_LSP_LSP4IJ_EXECUTABLE";
 const CMD_QUOTE_ENV: &str = "GRUND_LSP_LSP4IJ_QUOTE";
-const CMD_PERCENT_ENV: &str = "GRUND_LSP_LSP4IJ_PERCENT";
 
 pub fn dispatch(args: &[OsString]) -> Result<()> {
     match args {
@@ -111,7 +111,14 @@ fn render_lsp4ij() -> Result<RenderedIntegration> {
     let object = template
         .as_object_mut()
         .ok_or_else(|| anyhow!("the embedded LSP4IJ template is not a JSON object"))?;
-    object.insert("programArgs".into(), program_args(executable));
+    let variables = object
+        .get_mut("env")
+        .and_then(Value::as_object_mut)
+        .and_then(|env| env.get_mut("variables"))
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| anyhow!("the embedded LSP4IJ environment is not a JSON object"))?;
+    variables.insert(EXECUTABLE_ENV.into(), executable.into());
+    object.insert("programArgs".into(), program_args());
     object.insert(
         "fileTypeMappings".into(),
         Value::Array(
@@ -136,28 +143,21 @@ fn render_lsp4ij() -> Result<RenderedIntegration> {
     })
 }
 
-fn program_args(executable: &str) -> Value {
+/// Keep both paths in fields LSP4IJ passes without command-line parsing.
+/// The shell expands only the executable environment value. §FS-lsp.2.4
+fn program_args() -> Value {
     let mut args = Map::new();
     args.insert(
         "default".into(),
-        Value::String(format!(
-            "sh -c \"set -f; IFS=; cd -- $1 && exec $2\" sh \"$PROJECT_DIR$\" \"{executable}\""
-        )),
+        Value::String(format!("sh -c \"set -f; IFS=; exec ${EXECUTABLE_ENV}\"")),
     );
     args.insert(
         "windows".into(),
         Value::String(format!(
-            "cmd /D /V:OFF /S /C \"cd /D %{CMD_QUOTE_ENV}%$PROJECT_DIR$%{CMD_QUOTE_ENV}% && %{CMD_QUOTE_ENV}%{}%{CMD_QUOTE_ENV}%\"",
-            quote_cmd_contents(executable)
+            "cmd /D /V:OFF /S /C \"%{CMD_QUOTE_ENV}%%{EXECUTABLE_ENV}%%{CMD_QUOTE_ENV}%\""
         )),
     );
     Value::Object(args)
-}
-
-fn quote_cmd_contents(value: &str) -> String {
-    value
-        .replace('%', &format!("%{CMD_PERCENT_ENV}%"))
-        .replace('"', &format!("%{CMD_QUOTE_ENV}%"))
 }
 
 fn language_id(extension: &str) -> &str {
