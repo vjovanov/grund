@@ -349,6 +349,15 @@ member tree preserves any pre-existing qualified wraps as-is and emits
 no new ones ([§FS-workspace.8.5](../functional-spec/FS-workspace.md#85-grund-fmt---cross-refs)). No command re-implements the resolver,
 the citation regex, or the alias derivation.
 
+`grund show --batch` is one consumer invocation, not a loop around the public
+single-query API. A non-empty explicit batch or `--all` calls the shared loader
+exactly once, then resolves, slices, and renders every coordinate against the
+returned context ([§FS-show.2.6](../functional-spec/FS-show.md#26-batch-resolution)).
+The exhaustive coordinate collector reads the declarations and recorded section
+maps already in that context; it performs no preliminary completion/list scan.
+The loader exposes an opt-in test-only counting observer so focused black-box
+tests count one load for many explicit queries and one for exhaustive discovery.
+
 `grund cover` applies **no** filter: it is keyed by file, so every project
 the loader returned contributes its scanned files and every citation in
 them, qualified or not ([§FS-workspace.8.6](../functional-spec/FS-workspace.md#86-grund-cover), [§DF-cover-workspace-scope](../decisions/functional/DF-cover-workspace-scope.md#df-cover-workspace-scope-cover-indexes-the-whole-run-and-counts-cross-project-citations)). That
@@ -407,6 +416,7 @@ outlive what it cites:
 | `config validate` at a workspace root loads every member config; a member config that does not load, or a `members` list that cannot expand, fails it with exit 1 | `tests/e2e/cases/config-validate-workspace-broken-member`; `tests/e2e/cases/config-validate-workspace-missing-member`; `tests/e2e/cases/config-validate-workspace-ok`; `validate_config_at_a_workspace_root_fails_on_a_broken_member` (`crates/grund-core/src/tests_api.rs`) |
 | `check --format json` shape in a workspace       | `tests/e2e/cases/workspace-check-json` |
 | `list` / `refs` / `fmt` skip qualified citations  | `tests/e2e/cases/list-ignore-qualified-project-local`; `tests/e2e/cases/refs-ignore-qualified-project-local`; `tests/e2e/cases/fmt-cross-refs-ignore-qualified-project-local` |
+| Batch show reuses one loaded context for explicit and exhaustive queries | `show_batch_loads_one_workspace_for_many_queries_and_for_all` (`crates/grund-cli/tests/show_batch_contract.rs`); `tests/e2e/cases/show-batch-mixed-json`; `tests/e2e/cases/show-batch-all-json` |
 | `cover` counts a qualified citation, workspace or not | `tests/e2e/cases/cover-counts-qualified-project-local`; `tests/e2e/cases/workspace-cover-text` |
 | `cover` at a workspace root indexes every member, and a member's scan error fails the run | `tests/e2e/cases/workspace-cover-json`; `tests/e2e/cases/workspace-cover-member-scan-error`; `cover_at_a_workspace_root_indexes_every_member` (`crates/grund-core/src/tests_cover_workspace.rs`) |
 | `cover` under a member path stays member-local    | `tests/e2e/cases/workspace-cover-member-local` |

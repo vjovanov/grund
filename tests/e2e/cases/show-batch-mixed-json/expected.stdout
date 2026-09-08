@@ -1,0 +1,5 @@
+{"query":{"id":"FS-alpha","section":null},"ok":true,"result":{"id":"FS-alpha","section":null,"body":"Alpha lead.\n\nAlpha second paragraph.\n","path":"docs/FS-alpha.md","line":1},"error":null}
+{"query":{"id":"FS-alpha","section":"1"},"ok":true,"result":{"id":"FS-alpha","section":"1","body":"## 1. Numeric\n\nNumeric lead.\n","path":"docs/FS-alpha.md","line":7},"error":null}
+{"query":{"id":"FS-missing","section":null},"ok":false,"result":null,"error":{"severity":"error","path":null,"line":null,"code":"not-found","message":"ID not found: FS-missing","sites":null}}
+{"query":{"id":"missing/FS-alpha","section":null},"ok":false,"result":null,"error":{"severity":"error","path":null,"line":null,"code":"unknown-project","message":"unknown project alias `missing`\nknown aliases: root, member","sites":null}}
+{"query":{"id":"FS-alpha","section":"1"},"ok":true,"result":{"id":"FS-alpha","section":"1","body":"## 1. Numeric\n\nNumeric lead.\n","path":"docs/FS-alpha.md","line":7},"error":null}

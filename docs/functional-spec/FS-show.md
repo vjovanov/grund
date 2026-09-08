@@ -1,11 +1,19 @@
 # FS-show: grund reads a single declaration body by ID
 
-The `show` subcommand prints a slice of a declaration's body, given an ID. By default it prints the *lead* — the section's prose down to its first child heading — which is the cheap "what is this declaration about?" read. Bigger slices (`--toc`, `--full`) and a smaller one (`--brief`) are one mutually-exclusive flag away. It exists so an agent — human or AI — can pull a single grounded fact into context without loading the whole file. Serves [§GOAL-friendliness-first](../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible) and [§GOAL-token-economy](../goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file).
+The `show` subcommand prints slices of declaration bodies by ID. Its established
+single-coordinate form is the cheap way to pull one grounded fact into context;
+its opt-in batch forms reuse one loaded workspace for an ordered query stream or
+for every resolvable coordinate. Serves
+[§GOAL-friendliness-first](../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible),
+[§GOAL-token-economy](../goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file),
+and [§GOAL-fast-feedback.1](../goals.md#1-performance-targets).
 
 ## 1. Inputs
 
 ```
 grund [show] <ID> [<path>] [--section <s>] [--brief | --toc | --full] [--format <text|md|json>]
+grund show --batch [<path>] --format=json [--brief | --toc | --full] [--path <path>]
+grund show --batch --all [<path>] --format=json [--brief | --toc | --full] [--path <path>]
 ```
 
 - `<ID>` — the full ID without the marker (e.g. `FS-check`). May include an inline section (`FS-check.3.1`). Parsing first accepts the named kind's effective grammar, then exact written IDs retained in that project's shared catalog for read compatibility ([§FS-config.3.2](FS-config.md#32-id--id-grammar)); an off-grammar string with no exact declaration remains invalid. The dotted form uses the configured `[id] section_separator`. When the separator is non-default (e.g., `:` or `#`) the inline form may collide with the slug grammar; use `--section` instead. In a kind whose effective format carries both `{number}` and `{slug}`, the number-only shorthand is also accepted — `grund FS-042` and `grund FS-042.1` read `FS-042-user-login` ([§FS-check.1.2](FS-check.md#12-the-number-only-shorthand)). Nothing is persisted by a query, so the shorthand is convenience here rather than the error it is in a file; shorthand, duplicate, exact-ID, and section interpretations obey [§FS-config.3.2](FS-config.md#32-id--id-grammar)'s fail-rather-than-guess precedence. All four whole-declaration slices and both section forms apply unchanged to an exact off-grammar declaration. A missing fetch-backed snapshot is still a failed offline query; `show` never invokes its fetcher ([§REQ-runs-offline](../requirements/REQ-runs-offline.md#req-runs-offline-verification-never-depends-on-an-external-service)).
@@ -18,6 +26,21 @@ grund [show] <ID> [<path>] [--section <s>] [--brief | --toc | --full] [--format 
 - `--full` — print the entire body: heading down to the next same-or-shallower ID heading, all subsections recursively included. The escalation when narrower slices are not enough (§2.1.3).
 - `--brief`, `--toc`, and `--full` are mutually exclusive — each picks one rung on the "how much" ladder: title + 1 paragraph → lead prose → lead + section map → full body. The rungs are strictly nested (each contains the previous), so escalating is always one more flag.
 - `--format` — output shape; defaults to `text` (just the body, no headers).
+- `--batch` is available only on the explicit `show` subcommand and requires
+  `--format=json`. Without `--all`, it reads one query object per non-empty stdin
+  line: `{"id":"api/FS-login","section":"3.1"}`. `id` is required and must be a
+  string; `section` is optional and must be a string or `null`; unknown fields,
+  malformed JSON, and any other shape are batch-input errors. The `id` field
+  accepts every local, qualified, shorthand, and inline-section spelling the
+  single-coordinate form accepts. An explicit non-null `section` and an inline
+  section in `id` form a valid record whose query fails rather than malformed
+  input. The whole input is validated before configuration discovery or scanning.
+- `--batch --all` reads no stdin and discovers its query set from the selected
+  scope (§2.6). `--all` requires `--batch`; stdin supplied with `--all` is not a
+  query source. Both batch forms use one invocation-level slice mode. `--section`
+  is rejected in batch mode because each explicit record owns its section and the
+  exhaustive form generates sections. `<path>` and `--path` retain their existing
+  equivalence and mutual exclusion.
 
 ## 2. Behavior
 
@@ -197,6 +220,39 @@ This is the carve-out [§FS-check.1.1](FS-check.md#11-recognized-citations) alre
 
 The rule is Markdown's. Inside a code or docstring comment block (§2.3) a fence is not tracked, on either side: the scan does not track it there either, so the two still agree.
 
+### 2.6 Batch resolution
+
+A non-empty explicit batch and an exhaustive batch each load exactly one
+workspace context and answer every query from that context. The loader is not
+called once per coordinate. An empty explicit stream exits successfully without
+loading configuration or scanning. An exhaustive run always performs its one
+load; an empty catalog then succeeds with no records.
+
+Explicit queries retain input order and duplicates. Every well-formed query is
+attempted, even after an earlier query fails. It uses the same project selection,
+ID and section resolution, body extraction, cross-reference flattening, and
+default/`--brief`/`--toc`/`--full` renderer as single-coordinate `show`; the one
+invocation-level mode applies to every record.
+
+The exhaustive form generates one query for every unique declaration and every
+recorded legal numeric or named section of that declaration. Generated queries
+sort bytewise by their workspace-qualified ID, with the whole declaration first
+and its section paths byte-sorted after it. IDs in the current project are
+unqualified; IDs in every other loaded project use that project's stable alias.
+When a workspace excludes its root and therefore has no current project, every
+generated ID is qualified. Duplicate declarations or section claimants generate
+one coordinate and let normal resolution report its ambiguity.
+
+A well-formed query that names an invalid, missing, or ambiguous ID; a missing or
+ambiguous section; a broken stub; an unknown project alias; or both an inline and
+explicit section produces that query's failed envelope (§3) and does not stop
+later records. Malformed input or invocation, configuration failure, and any scan
+failure are run-level errors: stdout stays empty, stderr carries the error, and no
+query is attempted. In particular, malformed explicit input is diagnosed as
+`error: batch input line <N>: <reason>` before the workspace loader is called.
+The new operation is additive: the existing one-query core API and every
+single-coordinate CLI spelling keep their signatures and behavior.
+
 ## 3. Outputs
 
 - `0` — printed successfully.
@@ -204,6 +260,15 @@ The rule is Markdown's. Inside a code or docstring comment block (§2.3) a fence
 - `2` — I/O error, or a CLI-level failure that stops the query before it runs: the commonest is a qualified ID naming a project this run does not hold, which exits `2` with `error: unknown project alias` however many segments the path has ([§FS-workspace.8.1](FS-workspace.md#81-grund-aliasid)). An ID the grammar rejects is *not* one of these — `invalid ID` is a failed query, `1` (below).
 
 Stdout carries the body (or, with `--format=json`, the result object — one JSON object, never NDJSON, per [§FS-errors.5](FS-errors.md#5-json-format)). Stderr carries errors. Stdout is empty on error.
+
+Batch mode is the explicit exception to the single-coordinate stream shape. It
+emits one NDJSON envelope on stdout for every well-formed query, in query order;
+query failures move inside their envelope so they cannot hide later outcomes.
+Stderr is empty for all per-query successes and failures. The aggregate exits `0`
+when every query succeeds (including an empty explicit stream or empty exhaustive
+catalog), `1` after emitting all records when any query fails, and `2` with empty
+stdout for a malformed invocation/input or configuration/scan failure. These
+batch rules do not change any single-coordinate byte, stream, or exit behavior.
 
 A failed query (`1`) prints the bare result line and, where the next step is obvious, one extra `hint:` line on stderr below it — never on stdout. With `--format=json`, stderr instead carries one diagnostic JSON object per [§FS-errors.5](FS-errors.md#5-json-format), with `path` and `line` set to `null` because the failure has no single source location:
 

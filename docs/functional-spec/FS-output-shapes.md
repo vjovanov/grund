@@ -88,6 +88,29 @@ For an E2E case, `show --format=json` uses the E2E manifest shape from [§FS-sho
 
 Failed queries emit one diagnostic object on stderr and leave stdout empty; launch-time errors stay raw `error:` text.
 
+### 4.1 `show --batch --format=json`
+
+Batch output is NDJSON with exactly one envelope per query. Object keys have the
+fixed order shown here:
+
+```json
+{"query":{"id":"FS-login","section":"1"},"ok":true,"result":{"id":"FS-login","section":"1","body":"## 1. Login\n","path":"docs/functional-spec/FS-login.md","line":5},"error":null}
+{"query":{"id":"FS-missing","section":null},"ok":false,"result":null,"error":{"severity":"error","path":null,"line":null,"code":"not-found","message":"ID not found: FS-missing","sites":null}}
+```
+
+`query.id` preserves the caller's spelling for explicit input and carries the
+generated local-or-qualified spelling for `--all`; `query.section` is the
+explicit or generated section string, or `null`. A success places the unchanged
+current single-show JSON object in `result` and sets `error` to `null`. A failed
+query sets `result` to `null` and places the unchanged current diagnostic object
+in `error`. Every envelope is on stdout in explicit-input or exhaustive order;
+stderr is empty for per-query failures. Run-level failures emit no envelopes
+([§FS-errors.5](FS-errors.md#5-json-format)).
+
+The batch-only diagnostic for an unknown alias uses code `unknown-project`, the
+same stable code as citation resolution, and the single-show message without its
+CLI `error:` prefix (including the `known aliases:` or standalone `note:` line).
+
 For a JSON value declaration, every read mode's `body` is the exact available member or element source slice and `path`/`line` is that slice's exact span start; no Markdown heading or title is synthesized ([§FS-values.6](FS-values.md#6-shared-catalog-consumers)).
 
 ## 5. `list --format=json`

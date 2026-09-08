@@ -1,0 +1,15 @@
+grund_config_version = 1
+project_name = "root"
+
+[reference]
+strict = false
+
+[id]
+format = "{kind}-{slug}"
+named_sections = true
+
+[scan]
+include = ["docs"]
+
+[workspace]
+members = ["member"]

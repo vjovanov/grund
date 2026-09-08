@@ -1,8 +1,9 @@
 // §FS-errors.4: golden CLI cases verify byte-for-byte command behavior.
 use std::collections::BTreeSet;
 use std::fs;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use std::sync::OnceLock;
 
 // The citable half of the canonical kind set (§FS-config.3.4). The two default
@@ -107,8 +108,8 @@ pub fn assert_case_is_deterministic(manifest_dir: &Path, case: &Path) -> CaseOut
     }
     let args = command_args(manifest_dir, case, name);
     let cwd = command_cwd(manifest_dir, case, name);
-    let first = run_grund(&cwd, &args, name);
-    let second = run_grund(&cwd, &args, name);
+    let first = run_grund(case, &cwd, &args, name);
+    let second = run_grund(case, &cwd, &args, name);
     let mut mismatches = Vec::new();
     if first.status.code() != second.status.code() {
         mismatches.push(format!(
@@ -201,7 +202,7 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) -> CaseOutcome
 
     let args = command_args(manifest_dir, case, name);
     let cwd = command_cwd(manifest_dir, case, name);
-    let output = run_grund(&cwd, &args, name);
+    let output = run_grund(case, &cwd, &args, name);
     let actual_exit = output.status.code().unwrap_or(-1);
     let actual_stdout = String::from_utf8(output.stdout)
         .unwrap_or_else(|err| panic!("{name}: stdout was not UTF-8: {err}"));
@@ -297,12 +298,35 @@ fn is_mutating_case(case: &Path) -> bool {
     command.contains("--write") || command.contains("{repo_copy}") || cwd.contains("{repo_copy}")
 }
 
-fn run_grund(cwd: &Path, args: &[String], name: &str) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_grund"))
-        .args(args)
-        .current_dir(cwd)
-        .output()
-        .unwrap_or_else(|err| panic!("{name}: run grund: {err}"))
+fn run_grund(case: &Path, cwd: &Path, args: &[String], name: &str) -> Output {
+    let input_path = case.join("command.stdin");
+    let mut command = Command::new(env!("CARGO_BIN_EXE_grund"));
+    command.args(args).current_dir(cwd);
+    if !input_path.exists() {
+        return command
+            .output()
+            .unwrap_or_else(|err| panic!("{name}: run grund: {err}"));
+    }
+
+    // §FS-show.1: an e2e manifest can exercise an stdin query stream without
+    // wrapping the public command in a shell.
+    let input = fs::read(&input_path)
+        .unwrap_or_else(|err| panic!("{name}: read {}: {err}", input_path.display()));
+    let mut child = command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|err| panic!("{name}: run grund: {err}"));
+    let write_result = child.stdin.take().expect("piped stdin").write_all(&input);
+    if let Err(err) = write_result
+        && err.kind() != std::io::ErrorKind::BrokenPipe
+    {
+        panic!("{name}: write stdin: {err}");
+    }
+    child
+        .wait_with_output()
+        .unwrap_or_else(|err| panic!("{name}: read grund output: {err}"))
 }
 
 /// Optional working-directory manifest for a command whose public form relies
