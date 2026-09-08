@@ -2,7 +2,7 @@
 
 `grund` ships an optional Language Server Protocol server, `grund-lsp`, as a separate binary that any LSP-aware editor can talk to: VSCode, Neovim, Emacs (eglot or lsp-mode), Helix, Zed, Sublime Text, and the IntelliJ family via LSP4IJ. Users who want editor integration install `grund-lsp` and configure their editor once; users who do not — CI pipelines, pre-commit hooks, contributors who only run `grund check` — install nothing extra and pay no dependency cost. The architectural choice (separate binary rather than a Cargo feature or a bundled library) is decided in [§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary). The Cargo crate and its release path shipped in 0.4.1; npm/PyPI packaging of the same server rides with [§RM-distribution](../roadmap.md#rm-distribution-cargo--npm--pypi-from-one-engine).
 
-`grund` does not ship per-editor wrappers. The only first-party editor surface is the LSP server; per-editor configuration is one-time work the user does, with example snippets in the user-facing LSP setup guide. See [§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) for the non-goal that pins this.
+`grund` does not ship per-editor wrappers. The first-party executable editor surface is the LSP server; per-editor configuration is one-time work the user does, with example snippets and importable configuration data in the user-facing LSP setup guide. See [§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) for the non-goal that pins this.
 
 ## 1. Capabilities
 
@@ -129,7 +129,7 @@ never runs `grund fetch` from the server.
 
 ### 2.1 Install
 
-`grund-lsp` is a separate Cargo package per [§FS-distribution](FS-distribution.md#fs-distribution-grund-distribution-targets): after a release, users install it with `cargo install grund-lsp`; from a checkout, contributors install it with `cargo install --path crates/grund-lsp`. It is not pulled in by `cargo install grund`. The npm and PyPI `grund-lsp` packages are future distribution targets, so `npm install -g grund-lsp` and `pipx install grund-lsp` are not documented as available until those frontends exist. A user with no editor integration installs the CLI alone.
+`grund-lsp` is a separate Cargo package per [§FS-distribution](FS-distribution.md#fs-distribution-grund-distribution-targets): after a release, users install it with `cargo install grund-lsp`; from a checkout, contributors install it with `cargo install --path crates/grund-lsp`. The package embeds the editor-configuration artifacts §2.4 exposes, so an installed binary does not need this repository's `editor/` tree. It is not pulled in by `cargo install grund`. The npm and PyPI `grund-lsp` packages are future distribution targets, so `npm install -g grund-lsp` and `pipx install grund-lsp` are not documented as available until those frontends exist. A user with no editor integration installs the CLI alone.
 
 ### 2.2 Lifecycle
 
@@ -155,13 +155,25 @@ The user-facing LSP setup guide ships example LSP-client snippets for the editor
 - **Emacs** — `eglot-server-programs` or `lsp-mode` registration (~5 lines).
 - **VSCode** — install a generic LSP client extension and point it at `grund-lsp`. A first-party VSCode extension is **not** shipped ([§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do)).
 - **Sublime Text** — LSP package client configuration for Markdown and scanned source syntaxes.
-- **IntelliJ family** — LSP4IJ plugin with a `grund-lsp` server registration.
+- **IntelliJ family** — generate the import directory with §2.4, then explicitly import it through LSP4IJ's **Settings | Languages & Frameworks | Language Servers**, **+ | New Language Server**, **Import from custom template...** flow.
 
 Adding a new editor's snippet to the user-facing guide is a small contribution; it does not require a release.
 
+### 2.4 Installed editor integrations
+
+`grund-lsp integrations` is the batch surface for editor-client configuration carried by the installed `grund-lsp` version. It is distinct from `grund integrations`, which configures clickable-citation rendering clients ([§FS-integrations](FS-integrations.md#fs-integrations-grund-prints-and-installs-its-rendering-layer-integrations)). The initial catalog contains one entry, `lsp4ij`, with a one-line description. Listing prints the catalog on stdout, writes nothing, leaves stderr empty, and exits `0`.
+
+`grund-lsp integrations lsp4ij` is a read-only preview. It prints the complete generated `template.json` object followed by the exact explicit IntelliJ import steps from §2.3 on stdout, writes no file or directory, leaves stderr empty, and exits `0`. `grund-lsp integrations lsp4ij --write <directory>` treats `<directory>` as the LSP4IJ import root and creates exactly `template.json` and `README.md`; success prints `created <directory>` and the import steps on stdout and exits `0`. Repeating the write against those two byte-identical files is an idempotent success that prints `unchanged <directory>` and the same steps. A pre-existing root with a missing, extra, or byte-different entry is a conflict: every existing byte remains untouched, stdout is empty, and one `error:` diagnostic on stderr tells the user to move or remove the root before retrying ([§REQ-no-data-loss.2](../requirements/REQ-no-data-loss.md#2-writers-touch-only-what-they-own)). There is no force option.
+
+Generation starts at the process current working directory, uses the same upward configuration discovery as §3, and reads the resulting effective `[scan].extensions` ([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)). With no config it therefore uses the canonical default extensions. Each extension becomes one `*.ext` file pattern. Conventional language IDs are used for known extensions — including `md` → `markdown`, `rs` → `rust`, `ts` → `typescript`, and every canonical default — while an unknown extension uses the extension itself as its non-empty language ID. Mappings are a deterministic snapshot of the effective config at generation time; a later config change requires regeneration.
+
+The embedded LSP4IJ template contains both `programArgs.default` and `programArgs.windows`. Both change to `$PROJECT_DIR$` before launch and quote the absolute path returned for the running `grund-lsp` executable, the former for a POSIX shell and the latter for Windows `cmd`; the command selected on the generating host must be executable there. Spaces, non-ASCII characters, and JSON or command metacharacters in paths cannot change the command or corrupt the JSON. Neither command invokes Cargo or relies on shell `PATH` lookup. The generated README contains the same explicit import steps as preview. The generator does not install LSP4IJ, edit JetBrains-owned files, or add editor-specific protocol behavior (§5).
+
+Top-level help and `integrations` help explain this boundary, show list, preview, and write forms, and document exits `0` and `2`. `--version` retains its existing output. An unknown template, malformed arguments, invalid discovered config, render failure, path failure, or write conflict leaves stdout empty, prints one `error:` diagnostic on stderr, and exits `2`. Any argument is handled or rejected as batch input and never enters the protocol loop; exactly no arguments retains the stdio lifecycle of §2.2 with protocol stdout pristine.
+
 ## 3. Configuration
 
-The server reads the `grund.toml` via the same discovery logic as `grund check` ([§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)), walking up from every workspace-folder anchor supplied by the editor's LSP `initialize` request (§2.2). There is no separate LSP config; one source of truth drives both the CLI and the LSP. A workspace folder with no config under either name falls back to the canonical defaults rooted at that folder ([§GOAL-zero-config](../goals.md#goal-zero-config-works-on-any-conformant-tree)).
+The server reads the `grund.toml` via the same discovery logic as `grund check` ([§FS-config](FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)), walking up from every workspace-folder anchor supplied by the editor's LSP `initialize` request (§2.2). Batch integration generation instead walks upward from the process current working directory (§2.4). Both consume the same effective core configuration; there is no separate LSP config or second parser. A workspace folder with no config under either name falls back to the canonical defaults rooted at that folder ([§GOAL-zero-config](../goals.md#goal-zero-config-works-on-any-conformant-tree)).
 
 Editor-side LSP configuration (server arguments, workspace folders) is the user's responsibility per §2.3 and is not part of `grund.toml`.
 
@@ -179,7 +191,7 @@ The LSP server does not have an "interactive" mode, a confirmation prompt, or an
 
 ## 5. Out of scope
 
-- **Per-editor wrappers**: VSCode/IntelliJ/Vim/Emacs first-party plugins are not shipped ([§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do)). The LSP server is the surface; editor configuration is the user's.
+- **Per-editor wrappers**: VSCode/IntelliJ/Vim/Emacs first-party plugins are not shipped ([§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do)). The LSP server is the executable surface; §2.4 ships importable configuration data but the user installs the generic client and performs the import.
 - **Refactoring (rename ID)**: `grund` does not rename IDs; the scheme says IDs are forever ([§FS-non-goals.4](FS-non-goals.md#4-cross-workspace-id-renaming)).
 - **Inline editing of declaration bodies from the hover popup**: editors already do this well; `grund-lsp` does not implement it.
 - **Network access**: the server performs no network I/O ([§FS-non-goals.11](FS-non-goals.md#11-network-access-during-a-check)). All scanning is local.

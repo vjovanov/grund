@@ -1,5 +1,5 @@
 //! Lifecycle, navigation, and diagnostics cases driven against a real server
-//! process over stdio (§FS-lsp.1, §FS-lsp.2.2). `textDocument/hover` has its
+//! process over stdio (§FS-lsp.1, §FS-lsp.2.2, §FS-lsp.2.4). `textDocument/hover` has its
 //! own suite in `tests/hover.rs`.
 
 mod support;
@@ -11,7 +11,7 @@ use support::*;
 #[test]
 fn shutdown_exit_terminates_stdio_server() {
     // The editor owns the lifecycle and talks to grund-lsp over stdio only.
-    // §FS-lsp.2.2 §AR-lsp.4
+    // §FS-lsp.2.2 §FS-lsp.2.4 §AR-lsp.4
     let root = test_root("shutdown");
     let (mut child, mut stdin, receiver) = start_server(&root);
 

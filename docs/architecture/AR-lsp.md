@@ -4,11 +4,12 @@ Implements [§FS-lsp](../functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optiona
 
 ## 1. Crate boundary
 
-`grund-lsp` is a binary crate with one job: speak LSP over stdio and translate each request into a `grund-core` call. The crate has:
+`grund-lsp` is a binary crate with one product boundary: the optional server and the editor-client configuration that launches it. Its no-argument path speaks LSP over stdio and translates each request into a `grund-core` call; a thin pre-transport batch path lists, renders, or materializes the embedded integration artifacts of [§FS-lsp.2.4](../functional-spec/FS-lsp.md#24-installed-editor-integrations). The crate has:
 
 - No scanner, no checker, no `show` extraction, no `fmt` planning. All four are imports from `grund-core`.
 - No `lsp-server`/`lsp-types` references in `grund-core`. The JSON-RPC loop and LSP protocol data types live entirely in `grund-lsp`. `grund-cli` continues to be synchronous and pulls none of this in.
 - No filesystem walking outside what `grund-core::scan` already does. The LSP server does not invent its own walker.
+- No second config loader. Batch rendering calls `grund-core` for upward discovery and effective scan extensions, while a focused integration module owns only deterministic rendering and conflict-safe materialization.
 
 This is the architectural shape that lets the LSP be optional ([§DA-lsp-optional](../decisions/architectural/DA-lsp-optional.md#da-lsp-optional-lsp-server-ships-as-a-separate-optional-binary)): the dependency cost stays in `grund-lsp`, and a user installing only `grund` (the CLI) pays none of it.
 
@@ -42,7 +43,9 @@ The incremental path keeps the single source of truth in `grund-core::scan`; `gr
 
 ## 4. Transport
 
-LSP over **stdio only**. No TCP, no Unix socket, no named pipe. Reasoning: stdio is what every LSP-aware editor expects by default, has no port-conflict surface, and avoids the need for any local listener that could be reached by another process. The server is invoked by the editor's LSP client as a child process and reads/writes JSON-RPC framed messages on stdin/stdout. Diagnostic logging goes to stderr in the LSP-canonical `[LEVEL] message` form; editors that surface server logs render it as-is.
+LSP transport is **stdio only**. No TCP, no Unix socket, no named pipe. Reasoning: stdio is what every LSP-aware editor expects by default, has no port-conflict surface, and avoids the need for any local listener that could be reached by another process. Exactly no arguments enters this transport: the editor invokes the server as a child process and it reads/writes JSON-RPC framed messages on stdin/stdout. Diagnostic logging goes to stderr in the LSP-canonical `[LEVEL] message` form; editors that surface server logs render it as-is.
+
+Any argument is dispatched before the transport is constructed. Valid batch commands write only their documented CLI output, and help, malformed input, and batch failures return without reading protocol stdin or writing a JSON-RPC frame. This keeps protocol stdout pristine while allowing the installed binary to expose its own editor configuration ([§FS-lsp.2.4](../functional-spec/FS-lsp.md#24-installed-editor-integrations)).
 
 ## 5. Determinism and parity tests
 
@@ -63,6 +66,6 @@ This is what makes the LSP "the same engine with a different transport" rather t
 
 ## 6. What this does not contain
 
-- No editor-specific code. Per [§FS-lsp](../functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server) and [§FS-non-goals](../functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do), no first-party VSCode/IntelliJ/Vim/Emacs wrappers ship; this crate is the only editor-facing surface.
+- No editor-specific protocol code or wrapper. Per [§FS-lsp](../functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server) and [§FS-non-goals](../functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do), no first-party VSCode/IntelliJ/Vim/Emacs plugin ships; the embedded LSP4IJ files are inert configuration data that the user explicitly imports.
 - No process supervision. The editor owns the lifecycle ([§FS-lsp.2.2](../functional-spec/FS-lsp.md#22-lifecycle)); `grund-lsp` does not respawn itself, does not background, does not write a PID file.
 - No telemetry, no auto-update, no crash reporter ([§FS-non-goals.11](../functional-spec/FS-non-goals.md#11-network-access-during-a-check) — no network I/O).
