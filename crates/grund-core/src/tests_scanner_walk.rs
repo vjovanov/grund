@@ -332,11 +332,15 @@ mod tests_scanner_walk {
         );
     }
 
-    /// A directory no project owns is not a boundary — the walk was handed it by
-    /// a link the repository wrote, and that is §FS-config.3.5.1's whole point.
+    /// §FS-config.3.5.1: the canonical project root fences directory-link
+    /// traversal even when a loaded workspace says no other project owns the
+    /// target. Ownership remains the stronger in-root boundary; it is not the
+    /// only boundary.
     #[test]
-    fn a_link_to_content_no_project_owns_is_still_followed() {
-        let root = test_root("a_link_to_content_no_project_owns_is_still_followed");
+    fn a_link_to_content_no_project_owns_is_pruned_outside_the_physical_root() {
+        let root = test_root(
+            "a_link_to_content_no_project_owns_is_pruned_outside_the_physical_root",
+        );
         write(
             &root.join("packages/other/docs/functional-spec/FS-001-alpha.md"),
             "# FS-001-alpha: Alpha\n",
@@ -349,11 +353,53 @@ mod tests_scanner_walk {
 
         assert_eq!(
             scanned(&config, &findings),
-            vec![
-                "docs/functional-spec/FS-001-alpha.md",
-                "docs/shared/notes.md",
-            ],
-            "§FS-config.3.5.1: outside content is read at the path the link gives it"
+            vec!["docs/functional-spec/FS-001-alpha.md"],
+            "§FS-config.3.5.1: an outward directory link is pruned even when no loaded project owns its target"
+        );
+    }
+
+    /// §FS-config.3.5.1: the directory-link fence also applies before descent
+    /// when the configured scan root itself is the outward link.
+    #[test]
+    fn an_outward_directory_link_used_as_a_scan_root_is_pruned() {
+        let base = test_root("an_outward_directory_link_used_as_a_scan_root_is_pruned");
+        let root = base.join("project");
+        write(
+            &base.join("shared/FS-002-beta.md"),
+            "# FS-002-beta: Beta\n",
+        );
+        symlink("../shared", &root.join("linked-docs"));
+
+        let mut config = legacy_fs_folder_config(root);
+        config.include = Some(vec!["linked-docs".into()]);
+        let (findings, _) = scan_tree(&config, None, false).expect("scan configured roots");
+
+        assert!(
+            scanned(&config, &findings).is_empty(),
+            "§FS-config.3.5.1: an outward directory link is pruned when it is the scan root"
+        );
+    }
+
+    /// §FS-config.3.5.1: a plain parent-relative scan root states its external
+    /// scope directly, so it is not treated as directory-link traversal.
+    #[test]
+    fn a_parent_relative_scan_root_outside_the_project_is_still_followed() {
+        let base = test_root("a_parent_relative_scan_root_outside_the_project_is_still_followed");
+        let root = base.join("project");
+        write(
+            &base.join("shared/FS-002-beta.md"),
+            "# FS-002-beta: Beta\n",
+        );
+        std::fs::create_dir_all(&root).expect("create project root");
+
+        let mut config = legacy_fs_folder_config(root);
+        config.include = Some(vec!["../shared".into()]);
+        let (findings, _) = scan_tree(&config, None, false).expect("scan configured roots");
+
+        assert_eq!(
+            scanned(&config, &findings),
+            vec!["../shared/FS-002-beta.md"],
+            "§FS-config.3.5.1: a non-symlink parent-relative root remains intentional scan scope"
         );
     }
 

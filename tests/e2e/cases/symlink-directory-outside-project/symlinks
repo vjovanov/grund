@@ -1,0 +1,3 @@
+# The target is inside the copied fixture but outside the independently checked
+# `project` root. Neither declaration nor citation below it belongs to the scan.
+project/docs/external -> ../../external

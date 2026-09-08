@@ -141,6 +141,12 @@ alias like `payments/FS-refunds` resolving to a neighboring repo — are not yet
 supported.
 See [§FS-workspace](docs/functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace).
 
+An independently checked project's canonical root also bounds directory
+symlinks: outward directory targets are not scanned, including from inside a
+workspace member, while in-root directory links, file links, and intentional
+parent-relative `[scan] include` paths remain readable
+([§FS-config.3.5.1](docs/functional-spec/FS-config.md#351-a-symlink-in-the-tree-is-followed)).
+
 ### Keep shared values consistent
 
 A citable kind can opt its numbered fields into exact value checking:

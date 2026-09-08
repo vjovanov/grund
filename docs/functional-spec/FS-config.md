@@ -498,7 +498,7 @@ Every default comment prefix has a path through the default extension list: `;` 
 
 This closes a trap that had nothing to do with non-citable kinds and everything to do with why one would be configured: a `folder` or `file` outside `include` was never walked, so its declarations did not exist and its citations were **invisible rather than dangling** — no resolution, no finding, nothing to notice. A kind whose entire content is "this directory matters" would have fallen into it on its first line of config. **Upgrade note:** a repository that had a home outside `include` starts seeing that home's findings; they were always true of the tree, and the run was simply not reading it.
 
-`include` is a **scan scope, not a fence**. A citation in a file outside it is invisible rather than merely unchecked — it does not resolve and it does not dangle — so `grund check --full` ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)) walks the whole config root past this key and reports the references that resolve to nothing out there ([§FS-check.3.14](FS-check.md#314-out-of-scope-unresolvable-citation---full-only)), which is how a forgotten directory is found without first guessing which one to add here. The flag cancels `include` alone: `exclude`, the ignore files, and `extensions` below apply to that walk unchanged.
+`include` is a **scan scope, not a fence**. A citation in a file outside it is invisible rather than merely unchecked — it does not resolve and it does not dangle — so `grund check --full` ([§FS-check.1.3](FS-check.md#13-the-full-tree-scope---full)) walks the whole config root past this key and reports the references that resolve to nothing out there ([§FS-check.3.14](FS-check.md#314-out-of-scope-unresolvable-citation---full-only)), which is how a forgotten directory is found without first guessing which one to add here. The flag cancels `include` alone: `exclude`, the ignore files, and `extensions` below apply to that walk unchanged. A plain parent-relative entry such as `../shared` intentionally names external content and is still walked; §3.5.1's project-root boundary applies only when a **directory symlink** carries traversal outside the project.
 
 `respect_gitignore` (default `true`) makes the scanner honor every form of ignore file the `ignore` crate recognizes — `.gitignore` at any depth, `.git/info/exclude`, the global `core.excludesFile`, and `.ignore` files. Set to `false` only when you genuinely need to scan ignored paths. The directory-level `exclude` list above is applied **in addition** to ignore-file rules, never instead of them. See [AR-scanner.1.1](../architecture/AR-scanner.md#11-respecting-gitignore-and-friends).
 
@@ -506,7 +506,21 @@ This closes a trap that had nothing to do with non-citable kinds and everything 
 
 #### 3.5.1 A symlink in the tree is followed
 
-A **symlink inside a walked tree is followed**, file and directory alike: the link is part of the tree by the path you wrote, so what it points at is read there and its citations are checked — including when the target resolves outside the config root, because the tree is what the walk was handed and the file is in it.
+A **file symlink** inside a walked tree is followed wherever its target resolves. A
+**directory symlink** is followed only while its canonical target remains inside
+the independently checked project's canonical root; when the target is outside
+that root, the directory is pruned and no file below it is scanned. The same gate
+applies when a configured or explicit scan root is itself a directory symlink.
+
+This is a boundary on link traversal, not on scan paths generally: a non-symlink
+parent-relative `include` may still name external content. Nor does resolving the
+project's own config root make it an outward link: when the repository itself was
+reached through a symlink, its canonical root is the fence and its tree remains
+readable. In-root directory links keep their in-tree spelling and are followed as
+before. A loaded workspace adds the stronger ownership boundary of
+[§FS-workspace.6](FS-workspace.md#6-nested-project-boundary), so a link into
+another loaded project is pruned even when that project is physically inside the
+current project's root.
 
 #### 3.5.2 A finding names the in-tree link path
 
