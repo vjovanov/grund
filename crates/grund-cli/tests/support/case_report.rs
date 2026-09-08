@@ -213,12 +213,22 @@ mod verdict_tests {
     use std::path::PathBuf;
     use std::process::Command;
 
+    const DEFAULT_VERDICT_PROBE: &str = "run_case_names_every_mismatched_case_and_surface";
     const INHERITED_REFRESH_PROBE: &str = "inherited-update-expected";
 
-    fn verdict_scratch(name: &str) -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../target/e2e-harness-tests")
-            .join(name)
+    fn verdict_scratch(probe: Option<&str>) -> PathBuf {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target/e2e-harness-tests");
+        match probe {
+            None => root.join(DEFAULT_VERDICT_PROBE),
+            Some(INHERITED_REFRESH_PROBE) => root.join(INHERITED_REFRESH_PROBE),
+            Some(_) => root.join(format!("unrecognized-probe-{}", std::process::id())),
+        }
+    }
+
+    fn selected_verdict_scratch() -> PathBuf {
+        let probe = std::env::var("GRUND_SYNTHETIC_VERDICT_PROBE").ok();
+        verdict_scratch(probe.as_deref())
     }
 
     #[test]
@@ -271,9 +281,7 @@ mod verdict_tests {
     #[test]
     fn run_case_names_every_mismatched_case_and_surface() {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let scratch_name = std::env::var("GRUND_SYNTHETIC_VERDICT_PROBE")
-            .unwrap_or_else(|_| "run_case_names_every_mismatched_case_and_surface".to_string());
-        let scratch = verdict_scratch(&scratch_name);
+        let scratch = selected_verdict_scratch();
         let _ = fs::remove_dir_all(&scratch);
         let source = manifest_dir.join("tests/e2e/cases/cli-version");
         let cases_dir = scratch.join("tests/e2e/cases");
@@ -346,7 +354,7 @@ mod verdict_tests {
             .env("GRUND_SYNTHETIC_VERDICT_PROBE", INHERITED_REFRESH_PROBE)
             .output()
             .expect("run synthetic verdict probe with inherited refresh selection");
-        let _ = fs::remove_dir_all(verdict_scratch(INHERITED_REFRESH_PROBE));
+        let _ = fs::remove_dir_all(verdict_scratch(Some(INHERITED_REFRESH_PROBE)));
 
         assert!(
             output.status.success(),
@@ -354,5 +362,48 @@ mod verdict_tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr),
         );
+    }
+
+    /// Recursive cleanup for the synthetic verdict probe stays under its
+    /// code-owned scratch root (§FS-examples.5.1).
+    #[test]
+    fn inherited_absolute_probe_cannot_redirect_recursive_cleanup() {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let outside = manifest_dir.join("target").join(format!(
+            "e2e-harness-untrusted-probe-{}",
+            std::process::id()
+        ));
+        let marker = outside.join("marker");
+        fs::create_dir_all(&outside).expect("create absolute cleanup decoy");
+        fs::write(&marker, "must survive\n").expect("write cleanup decoy marker");
+
+        assert!(outside.is_absolute(), "decoy must exercise an absolute value");
+        let scratch = verdict_scratch(outside.to_str());
+        let default_scratch = verdict_scratch(None);
+        let scratch_root = default_scratch
+            .parent()
+            .expect("default scratch has a parent");
+        assert!(scratch.starts_with(scratch_root));
+        assert_eq!(scratch, verdict_scratch(Some("../../outside")));
+        let output = Command::new(std::env::current_exe().expect("current e2e test binary"))
+            .args([
+                "--exact",
+                "case_runner::verdict_tests::run_case_names_every_mismatched_case_and_surface",
+            ])
+            .env_remove("UPDATE_EXPECTED")
+            .env("GRUND_SYNTHETIC_VERDICT_PROBE", &outside)
+            .output()
+            .expect("run synthetic verdict probe with an inherited absolute value");
+
+        assert!(
+            output.status.success(),
+            "probe with an unrecognized selector must still compare its corpus\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
+        assert!(outside.is_dir(), "recursive cleanup removed the decoy");
+        assert!(marker.is_file(), "recursive cleanup removed the marker");
+
+        fs::remove_dir_all(&outside).expect("remove cleanup decoy");
     }
 }
