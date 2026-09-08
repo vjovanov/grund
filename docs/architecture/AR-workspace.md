@@ -439,7 +439,9 @@ asserted, so a mismatch on the first case, or the first surface of a case, does 
 fails once, after the last case, naming every mismatched case in discovery order with each surface that differed
 under it — the same "account for and name every case, then decide once" shape the skip accounting above already
 uses. A fixture-validity error — a malformed manifest, an unreadable golden, a non-concise `expected.stderr` —
-still aborts at the case: the case itself cannot be judged, which is a harness error, not a verdict.
+still aborts at the case: the case itself cannot be judged, which is a harness error, not a verdict. The synthetic
+probe that pins this verdict is always a comparison run, independent of inherited refresh selection
+([§FS-examples.5.1](../functional-spec/FS-examples.md#51-synthetic-verdict-probes-always-compare)).
 
 ### 9.1 A golden has one on-disk spelling
 
