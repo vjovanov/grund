@@ -9,6 +9,8 @@ use std::path::Path;
 
 const LSP4IJ_TEMPLATE: &str = include_str!("../assets/integrations/lsp4ij/template.json");
 const LSP4IJ_README: &str = include_str!("../assets/integrations/lsp4ij/README.md");
+const CMD_QUOTE_ENV: &str = "GRUND_LSP_LSP4IJ_QUOTE";
+const CMD_PERCENT_ENV: &str = "GRUND_LSP_LSP4IJ_PERCENT";
 
 pub fn dispatch(args: &[OsString]) -> Result<()> {
     match args {
@@ -139,29 +141,23 @@ fn program_args(executable: &str) -> Value {
     args.insert(
         "default".into(),
         Value::String(format!(
-            "sh -c 'cd \"$PROJECT_DIR$\" && exec {}'",
-            quote_posix(executable)
+            "sh -c \"set -f; IFS=; cd -- $1 && exec $2\" sh \"$PROJECT_DIR$\" \"{executable}\""
         )),
     );
     args.insert(
         "windows".into(),
         Value::String(format!(
-            "cmd /D /V:OFF /S /C \"cd /D \"\"$PROJECT_DIR$\"\" && \"\"{}\"\"\"",
+            "cmd /D /V:OFF /S /C \"cd /D %{CMD_QUOTE_ENV}%$PROJECT_DIR$%{CMD_QUOTE_ENV}% && %{CMD_QUOTE_ENV}%{}%{CMD_QUOTE_ENV}%\"",
             quote_cmd_contents(executable)
         )),
     );
     Value::Object(args)
 }
 
-fn quote_posix(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "'\"'\"'"))
-}
-
 fn quote_cmd_contents(value: &str) -> String {
     value
-        .replace('^', "^^")
-        .replace('%', "%%")
-        .replace('"', "\"\"")
+        .replace('%', &format!("%{CMD_PERCENT_ENV}%"))
+        .replace('"', &format!("%{CMD_QUOTE_ENV}%"))
 }
 
 fn language_id(extension: &str) -> &str {

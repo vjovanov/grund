@@ -3,6 +3,7 @@
 //! must carry the complete artifact without the repository `editor/` tree.
 
 mod integrations_support;
+mod support;
 
 use integrations_support::*;
 use std::fs;
@@ -24,7 +25,15 @@ fn help_list_and_errors_dispatch_without_starting_lsp() {
         );
         assert!(help.to_lowercase().contains("editor"));
         assert!(help.contains("grund integrations"));
-        assert!(help.contains("exit") || help.contains("Exit"));
+        let help_lower = help.to_ascii_lowercase();
+        assert!(help_lower.contains("exits:"), "help omits exit statuses");
+        for status in ["0", "2"] {
+            assert!(
+                help.lines()
+                    .any(|line| line.split_whitespace().next() == Some(status)),
+                "help omits exit status {status}:\n{help}"
+            );
+        }
     }
 
     let listed = run(&sandbox.binary, &project, ["integrations"]);
@@ -69,7 +78,7 @@ fn invalid_config_is_a_batch_error() {
 #[test]
 fn preview_snapshots_effective_extensions_and_quoted_commands() {
     let sandbox = Sandbox::with_binary(&workspace_binary(), "preview");
-    let default_project = sandbox.project("default project Ω");
+    let default_project = sandbox.project("default project Ω & '() $;! with spaces");
 
     let preview = run(
         &sandbox.binary,
@@ -86,11 +95,14 @@ fn preview_snapshots_effective_extensions_and_quoted_commands() {
     );
     let preview_text = stdout(&preview);
     assert_import_steps(&preview_text);
-    assert_template(
-        &template_from(&preview_text),
-        DEFAULT_EXTENSIONS,
-        &sandbox.binary,
-    );
+    let default_template = template_from(&preview_text);
+    assert_template(&default_template, DEFAULT_EXTENSIONS, &sandbox.binary);
+    fs::write(
+        default_project.join("grund.toml"),
+        "grund_config_version = 1\n[reference]\ntrigger = \"%%\"\n",
+    )
+    .expect("write launch cwd config");
+    assert_host_command_launches(&default_template, &default_project, &sandbox.root);
 
     let parent = sandbox.project("custom project Δ");
     let nested = parent.join("nested/working directory");

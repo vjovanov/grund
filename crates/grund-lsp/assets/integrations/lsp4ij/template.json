@@ -1,6 +1,13 @@
 {
   "id": "grund-lsp",
   "name": "grund LSP",
+  "env": {
+    "includeSystemEnvironmentVariables": true,
+    "variables": {
+      "GRUND_LSP_LSP4IJ_PERCENT": "%",
+      "GRUND_LSP_LSP4IJ_QUOTE": "\""
+    }
+  },
   "programArgs": {},
   "fileTypeMappings": []
 }
