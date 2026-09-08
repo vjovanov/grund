@@ -1,6 +1,6 @@
 grund check — validate every ID citation across the repo.
 
-Usage:  grund check [PATH] [--full] [--require-grounding] [--suggestions] [--format text|json]
+Usage:  grund check [PATH] [--full] [--require-grounding] [--suggestions] [--only CODE] [--ignore CODE] [--format text|json]
 
 PATH defaults to `.`; config is discovered by walking up from it — the root `grund.toml` is the home, `.agents/grund.toml` a deprecated fallback.
 With no config, grund scans `docs/`, `e2e/`, and `src/`; set `[scan] include` to widen it.
@@ -12,10 +12,58 @@ Options:
   --full               also walk past [scan] include and report the references that resolve to nothing out there.
   --require-grounding  also require every source file to cite a declared ID ([reference] require_grounding; a [[kinds]] row that sets it false stays exempt).
   --suggestions        also surface should/should-not citation-direction findings ([citations]).
+  --only <code>        retain one exact finding code; repeat for a union (`--only=<code>` also works).
+  --ignore <code>      remove one exact finding code; repeat for a union; ignore wins over only (`--ignore=<code>` also works).
 
 Findings go to stdout (the linter convention) — `grund check | …` and `grund check
 --format json | jq` need no redirect. Only run-level `error:` / `warning:` lines
 (unreadable path, empty scan) go to stderr; a clean text run prints `success`.
+
+Selection happens after the complete check. It filters errors, warnings, and enabled
+suggestions by exact code; operational failures remain visible and exit 2. Exit 0 means
+the selected report has no errors, not that the unselected repository is clean.
+
+Supported check finding codes:
+  agents-init
+  broken-stub
+  dangling
+  declaration-near-miss
+  deprecated-config-location
+  discouraged-citation
+  duplicate
+  duplicate-section
+  empty-citation-obligation
+  empty-scan
+  escaped-citation-resolves
+  forbidden-citation
+  full-scope-ignored
+  inline-citation-style
+  invalid-value-binding
+  invalid-value-declaration
+  io
+  misplaced-declaration
+  missing-citation
+  missing-index-entry
+  missing-section
+  missing-snapshot
+  nothing-recognized
+  optional-member-absent
+  orphan-section
+  out-of-scope-dangling
+  out-of-scope-missing-section
+  out-of-scope-shorthand-citation
+  out-of-scope-unknown-project
+  redundant-config
+  section-heading-level
+  shorthand-citation
+  shorthand-numeric-run
+  suggested-citation
+  ungrounded
+  unknown-project
+  unlinked-index-entry
+  unlisted-workspace-block
+  unused
+  value-mismatch
 
 Exit:  0 clean · 1 dangling / duplicate / unknown-section / ungrounded findings · 2 unreadable tree or CLI error.
 
@@ -23,4 +71,5 @@ Examples:
   grund check              # check the whole repo
   grund check docs/        # check one subtree
   grund check --full       # plus dangling citations outside [scan] include
+  grund check --ignore agents-init # ask whether the selected content report has errors
   grund check --format json | jq # machine-readable diagnostics for CI

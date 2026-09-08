@@ -102,6 +102,27 @@ not inline code. An existing near-ID or illustration hint wins: the
 snapshot-and-home base remains, while the existing semicolon-prefixed hint
 replaces the em-dash fetch-action tail.
 
+The five `agents-init` messages migrate over two releases. In the first release,
+each existing message stays as a verbatim contiguous prefix and gains exactly
+` — repo maintenance; citation checks still ran; wording changes in grund
+0.14.0`. This compatibility form both preserves prefix consumers and tells a
+reader that the complete citation check already ran. Exact-line consumers must
+migrate during this window to the stable `code == "agents-init"`; code, error
+severity, and the default exit verdict do not change.
+
+In `0.14.0`, the compatibility tail is removed and the five final templates are:
+
+```text
+repo maintenance: malformed grund managed block: <detail> (does not affect citation validity)
+repo maintenance: outdated grund init block v<found> — run `grund init` to update to v<current> (does not affect citation validity)
+repo maintenance: unsupported grund init block v<found> — this grund supports v<current> (does not affect citation validity)
+repo maintenance: stale grund init block: <section> differ from grund.toml — run `grund init` to refresh (does not affect citation validity)
+repo maintenance: missing grund init block v<current> — run `grund init` to install it (does not affect citation validity)
+```
+
+These are message classifications only: `repo maintenance` is not a finding
+category or selector value ([§FS-check.1](FS-check.md#1-inputs)).
+
 ## 4. Determinism
 
 Two runs of the same subcommand on the same input must produce byte-identical stdout *and* stderr ([§REQ-deterministic-output](../requirements/REQ-deterministic-output.md#req-deterministic-output-same-input-same-bytes)). This rules out:
@@ -112,6 +133,11 @@ Two runs of the same subcommand on the same input must produce byte-identical st
 - Platform-native path separators in repo-relative output. Any path that appears in a report, JSON field, e2e case manifest, duplicate-site list, stub-link note, or formatter summary is rendered with `/`, so Windows and Unix runs over the same tree compare byte-for-byte.
 
 A message that would otherwise be non-deterministic (e.g. the order of duplicate-declaration sites) is sorted before printing.
+
+`grund check --only` and `--ignore` preserve this contract: selection precedes
+sorting and rendering, retained diagnostics keep their ordinary bytes and
+relative order, and reordering or duplicating selector flags cannot alter the
+result ([§FS-check.2.1](FS-check.md#21-report-format)).
 
 ## 5. JSON format
 
@@ -125,6 +151,59 @@ The subcommands with a machine-readable result or finding surface accept `--form
 So `grund check --format=json | jq …`, `grund <ID> --format=json | jq …`, `grund list --format=json | jq …` all work with no stream juggling, and `grund <missing> --format=json | jq …` does not choke because the diagnostic is on stderr where the pipe does not see it.
 
 The text-form messages defined above remain the default. JSON is opt-in.
+
+For `grund check`, `code` is also the exact public selector vocabulary for
+[§FS-check.1](FS-check.md#1-inputs). The supported catalog is sorted and is:
+
+```text
+agents-init
+broken-stub
+dangling
+declaration-near-miss
+deprecated-config-location
+discouraged-citation
+duplicate
+duplicate-section
+empty-citation-obligation
+empty-scan
+escaped-citation-resolves
+forbidden-citation
+full-scope-ignored
+inline-citation-style
+invalid-value-binding
+invalid-value-declaration
+io
+misplaced-declaration
+missing-citation
+missing-index-entry
+missing-section
+missing-snapshot
+nothing-recognized
+optional-member-absent
+orphan-section
+out-of-scope-dangling
+out-of-scope-missing-section
+out-of-scope-shorthand-citation
+out-of-scope-unknown-project
+redundant-config
+section-heading-level
+shorthand-citation
+shorthand-numeric-run
+suggested-citation
+ungrounded
+unknown-project
+unlinked-index-entry
+unlisted-workspace-block
+unused
+value-mismatch
+```
+
+Every future check diagnostic code enters this catalog in the release that
+introduces it; renaming or removing one requires compatibility treatment. The
+catalog changes neither the NDJSON object nor the library/LSP report. `io` is a
+recognized code but an incomplete-scan safety diagnostic remains retained and
+exit `2` even when `--ignore io` or an excluding `--only` set is present
+([§FS-check.2](FS-check.md#2-outputs)).
 
 ## 6. The `grund init` transcript
 

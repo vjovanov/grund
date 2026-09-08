@@ -141,6 +141,7 @@ include!("tests_fmt_workspace.rs");
 include!("tests_citation_directions.rs");
 include!("tests_citation_directions_render.rs");
 include!("tests_managed_block_drift.rs");
+include!("tests_check_finding_selection.rs");
 include!("tests_workspace.rs");
 include!("tests_workspace_message_paths.rs");
 include!("tests_workspace_nested.rs");
