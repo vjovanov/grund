@@ -5,9 +5,13 @@
 use serde_json::{Value, json};
 use std::ffi::OsStr;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+const CMD_QUOTE_ENV: &str = "GRUND_LSP_LSP4IJ_QUOTE";
+const CMD_PERCENT_ENV: &str = "GRUND_LSP_LSP4IJ_PERCENT";
 
 pub const DEFAULT_EXTENSIONS: &[&str] = &[
     "md", "rs", "go", "java", "kt", "ts", "tsx", "js", "py", "c", "cpp", "swift", "scala", "rb",
@@ -29,7 +33,7 @@ impl Sandbox {
             "grund-lsp-integrations-{label}-{}-{nonce}",
             std::process::id()
         ));
-        let binary_dir = root.join("installed binary β with spaces");
+        let binary_dir = root.join("installed binary β & '() $;! with spaces");
         fs::create_dir_all(&binary_dir).expect("create isolated binary directory");
         let binary = binary_dir.join(format!("grund-lsp{}", std::env::consts::EXE_SUFFIX));
         fs::copy(source, &binary).expect("copy grund-lsp into isolated installation");
@@ -104,6 +108,11 @@ pub fn assert_template(template: &Value, extensions: &[&str], executable: &Path)
     assert_eq!(template["id"], "grund-lsp");
     assert_eq!(template["name"], "grund LSP");
 
+    assert_program_arg_boundaries(
+        template,
+        Path::new("project Ω & '() $;! with spaces"),
+        executable,
+    );
     let executable = executable.to_string_lossy();
     let args = template["programArgs"]
         .as_object()
@@ -117,15 +126,7 @@ pub fn assert_template(template: &Value, extensions: &[&str], executable: &Path)
             "{key} does not use the running executable: {command}"
         );
         assert!(!command.contains("cargo run"), "{key} depends on Cargo");
-        assert!(
-            command.contains(&format!("\"{executable}\""))
-                || command.contains(&format!("'{executable}'")),
-            "{key} does not quote the executable path: {command}"
-        );
     }
-    assert!(args["default"].as_str().unwrap().contains("sh"));
-    assert!(args["windows"].as_str().unwrap().contains("cmd"));
-
     let expected = extensions
         .iter()
         .map(|extension| {
@@ -147,6 +148,133 @@ pub fn assert_template(template: &Value, extensions: &[&str], executable: &Path)
         })
         .collect::<Vec<_>>();
     assert_eq!(actual, expected, "generated mapping snapshot changed");
+}
+
+/// Mirror LSP4IJ `CommandUtils.createCommands`: only double quotes group text,
+/// and those grouping quotes are removed from the resulting argument.
+pub fn lsp4ij_commands(command_line: &str) -> Vec<String> {
+    let mut commands = Vec::new();
+    let mut command_part = String::new();
+    let mut in_string = false;
+    for ch in command_line.chars() {
+        match ch {
+            '"' => in_string = !in_string,
+            ' ' if !in_string => {
+                if !command_part.trim().is_empty() {
+                    commands.push(command_part.trim().to_owned());
+                }
+                command_part.clear();
+            }
+            _ => command_part.push(ch),
+        }
+    }
+    if !command_part.trim().is_empty() {
+        commands.push(command_part.trim().to_owned());
+    }
+    commands
+}
+
+fn assert_program_arg_boundaries(template: &Value, project: &Path, executable: &Path) {
+    let args = template["programArgs"]
+        .as_object()
+        .expect("programArgs object");
+    let project = project.to_string_lossy();
+    let executable = executable.to_string_lossy();
+
+    let default = args["default"]
+        .as_str()
+        .expect("default command")
+        .replace("$PROJECT_DIR$", &project);
+    assert_eq!(
+        lsp4ij_commands(&default),
+        [
+            "sh",
+            "-c",
+            "set -f; IFS=; cd -- $1 && exec $2",
+            "sh",
+            project.as_ref(),
+            executable.as_ref(),
+        ],
+        "default command does not survive LSP4IJ tokenization"
+    );
+
+    assert_eq!(template["env"]["includeSystemEnvironmentVariables"], true);
+    assert_eq!(template["env"]["variables"][CMD_QUOTE_ENV], "\"");
+    assert_eq!(template["env"]["variables"][CMD_PERCENT_ENV], "%");
+    let windows = args["windows"]
+        .as_str()
+        .expect("windows command")
+        .replace("$PROJECT_DIR$", &project);
+    let windows = lsp4ij_commands(&windows);
+    assert_eq!(
+        &windows[..5],
+        ["cmd", "/D", "/V:OFF", "/S", "/C"],
+        "windows shell arguments changed"
+    );
+    assert_eq!(windows.len(), 6, "windows script split during tokenization");
+    let expanded_script = windows[5]
+        .replace(&format!("%{CMD_QUOTE_ENV}%"), "\"")
+        .replace(&format!("%{CMD_PERCENT_ENV}%"), "%");
+    assert_eq!(
+        expanded_script,
+        format!("cd /D \"{project}\" && \"{executable}\""),
+        "windows paths are not quoted after command-environment expansion"
+    );
+}
+
+/// Tokenize exactly as LSP4IJ does, substitute its project macro, and prove
+/// the host-selected command reaches the copied stdio server from that root.
+pub fn assert_host_command_launches(template: &Value, project: &Path, inherited_cwd: &Path) {
+    let key = if cfg!(windows) { "windows" } else { "default" };
+    let project_text = project.to_str().expect("UTF-8 project path");
+    let command_line = template["programArgs"][key]
+        .as_str()
+        .expect("host command")
+        .replace("$PROJECT_DIR$", project_text);
+    let commands = lsp4ij_commands(&command_line);
+    let mut command = Command::new(&commands[0]);
+    command
+        .args(&commands[1..])
+        .current_dir(inherited_cwd)
+        .env(CMD_QUOTE_ENV, "\"")
+        .env(CMD_PERCENT_ENV, "%")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command.spawn().expect("launch generated host command");
+    let mut stdin = child.stdin.take().expect("host command stdin");
+    let receiver = crate::support::read_messages(child.stdout.take().expect("host command stdout"));
+    crate::support::send_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "processId": std::process::id(),
+                "capabilities": {}
+            }
+        }),
+    );
+    let initialized = crate::support::recv_response_or_panic(&receiver, &mut child, 1);
+    assert_eq!(
+        initialized["result"]["capabilities"]["documentOnTypeFormattingProvider"]["firstTriggerCharacter"],
+        "%",
+        "generated command did not start the server from the project root"
+    );
+    crate::support::send_message(
+        &mut stdin,
+        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
+    );
+    crate::support::send_message(
+        &mut stdin,
+        json!({ "jsonrpc": "2.0", "id": 2, "method": "shutdown", "params": null }),
+    );
+    crate::support::recv_response_or_panic(&receiver, &mut child, 2);
+    crate::support::send_message(&mut stdin, json!({ "jsonrpc": "2.0", "method": "exit" }));
+    stdin.flush().expect("flush exit notification");
+    drop(stdin);
+    crate::support::wait_for_exit(&mut child);
 }
 
 fn language_id(extension: &str) -> &str {
