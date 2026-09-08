@@ -60,13 +60,41 @@ A first-party VSCode extension is intentionally not shipped ([§FS-non-goals](..
 
 ## IntelliJ family
 
-Install LSP4IJ, then add a server named `grund-lsp`:
+Install LSP4IJ, then generate an importable template from the project root. The
+generator discovers that project's `grund.toml`, snapshots its effective
+`[scan].extensions`, and records the absolute path of the installed server
+([§FS-lsp.2.4](../functional-spec/FS-lsp.md#24-installed-editor-integrations)):
 
-- Command: `grund-lsp`
-- Working directory: the project root
-- File mappings: Markdown plus the source file patterns in your `[scan] extensions`
+```bash
+cd /path/to/project
+grund-lsp integrations                 # list the templates in this installation
+grund-lsp integrations lsp4ij          # preview JSON and import instructions
+grund-lsp integrations lsp4ij --write .grund-lsp-lsp4ij
+```
 
-Apply the server to the project and open a file containing a `§` citation. A first-party JetBrains plugin is intentionally not shipped ([§FS-non-goals](../functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do)).
+Preview writes nothing. The write creates `.grund-lsp-lsp4ij/template.json` and
+`.grund-lsp-lsp4ij/README.md`; an identical repeat is harmless. If that
+directory has been modified, has a missing file, or contains anything extra,
+the command preserves it and asks you to move or remove the whole directory.
+Move it aside if you need its contents, or remove it, then run the command again
+to deliberately regenerate from the current config.
+
+Import the result explicitly:
+
+1. Open **Settings | Languages & Frameworks | Language Servers**.
+2. Choose **+ | New Language Server**.
+3. Select **Import from custom template...**.
+4. Choose the generated `.grund-lsp-lsp4ij` directory.
+5. Create the server and apply it to the project.
+
+The imported template launches the installed `grund-lsp` from the IntelliJ
+project root and maps every effective scan extension. It does not install the
+plugin or edit IntelliJ-owned configuration. If `[scan].extensions` changes,
+regenerate and import the directory again.
+
+Open a file containing a `§` citation and verify hover, navigation, and
+diagnostics as described in [Check the wiring](#check-the-wiring). A first-party
+JetBrains plugin is intentionally not shipped ([§FS-non-goals](../functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do)).
 
 ## Vim / Neovim
 
