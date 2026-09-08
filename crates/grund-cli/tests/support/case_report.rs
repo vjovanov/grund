@@ -211,6 +211,15 @@ mod verdict_tests {
     use std::fs;
     use std::panic::{self, AssertUnwindSafe};
     use std::path::PathBuf;
+    use std::process::Command;
+
+    const INHERITED_REFRESH_PROBE: &str = "inherited-update-expected";
+
+    fn verdict_scratch(name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target/e2e-harness-tests")
+            .join(name)
+    }
 
     #[test]
     fn mismatch_summary_names_every_failed_case_and_surface_and_panics_once() {
@@ -262,9 +271,9 @@ mod verdict_tests {
     #[test]
     fn run_case_names_every_mismatched_case_and_surface() {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let scratch = manifest_dir
-            .join("target/e2e-harness-tests")
-            .join("run_case_names_every_mismatched_case_and_surface");
+        let scratch_name = std::env::var("GRUND_SYNTHETIC_VERDICT_PROBE")
+            .unwrap_or_else(|_| "run_case_names_every_mismatched_case_and_surface".to_string());
+        let scratch = verdict_scratch(&scratch_name);
         let _ = fs::remove_dir_all(&scratch);
         let source = manifest_dir.join("tests/e2e/cases/cli-version");
         let cases_dir = scratch.join("tests/e2e/cases");
@@ -322,5 +331,28 @@ mod verdict_tests {
         assert!(broken_a_at < broken_c_at, "discovery order:\n{summary}");
 
         let _ = fs::remove_dir_all(&scratch);
+    }
+
+    /// The synthetic verdict probe is a comparison run even when its caller is
+    /// refreshing ordinary goldens (§FS-examples.5.1).
+    #[test]
+    fn synthetic_verdict_probe_is_hermetic_to_inherited_update_expected() {
+        let output = Command::new(std::env::current_exe().expect("current e2e test binary"))
+            .args([
+                "--exact",
+                "case_runner::verdict_tests::run_case_names_every_mismatched_case_and_surface",
+            ])
+            .env("UPDATE_EXPECTED", "1")
+            .env("GRUND_SYNTHETIC_VERDICT_PROBE", INHERITED_REFRESH_PROBE)
+            .output()
+            .expect("run synthetic verdict probe with inherited refresh selection");
+        let _ = fs::remove_dir_all(verdict_scratch(INHERITED_REFRESH_PROBE));
+
+        assert!(
+            output.status.success(),
+            "inherited UPDATE_EXPECTED must not refresh the synthetic mismatch corpus\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
     }
 }

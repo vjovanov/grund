@@ -50,3 +50,13 @@ must run without network access and its final-repository golden must contain
 the exact snapshot declaration the fetcher printed.
 
 The repo must not maintain a second, example-only implementation of the e2e contract. Adding a new e2e capability such as `command.args`, `{repo_copy}`, `expected.repo`, deterministic-output checks, or golden-output refresh must make that capability available to examples through shared code, not through a copied harness.
+
+### 5.1 Synthetic verdict probes always compare
+
+The harness tests its mismatch verdict with scratch cases whose goldens are
+deliberately wrong. Those probes are comparison runs even when the process that
+invoked the test suite has `UPDATE_EXPECTED` in its environment: inherited
+refresh selection must not rewrite the scratch goldens or turn their mismatches
+into successful runs. The probe collects every case before deciding and names
+every mismatched case and surface, so a caller's refresh workflow cannot mask a
+regression in the verdict it relies on.
