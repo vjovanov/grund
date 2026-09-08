@@ -1,3 +1,12 @@
+const AGENTS_INIT_COMPATIBILITY_TAIL: &str =
+    " — repo maintenance; citation checks still ran; wording changes in grund 0.14.0";
+
+/// Preserve the legacy diagnostic as a contiguous prefix while giving readers
+/// the maintenance classification during the two-release migration (§FS-errors.3).
+fn agents_init_compatibility_message(legacy: String) -> String {
+    format!("{legacy}{AGENTS_INIT_COMPATIBILITY_TAIL}")
+}
+
 /// Validate the managed agent-entrypoint blocks (§FS-check.3.5): the begin/end
 /// marker pair must be present and intact, and the `vN` version must match this
 /// binary — an older `vN` is "run `grund init`" (§FS-init.2.3), a newer one is
@@ -75,7 +84,9 @@ fn check_agent_block_path(
                 path: Some(path.to_path_buf()),
                 line: Some(line_for_byte_index(&text, at)),
                 column: None,
-                message: format!("malformed grund managed block: {message}"),
+                message: agents_init_compatibility_message(format!(
+                    "malformed grund managed block: {message}"
+                )),
                 sites: Vec::new(),
             });
             return;
@@ -91,10 +102,10 @@ fn check_agent_block_path(
                 path: Some(path.to_path_buf()),
                 line: Some(line),
                 column: None,
-                message: format!(
+                message: agents_init_compatibility_message(format!(
                     "outdated grund init block v{} (run `grund init` to update to v{})",
                     block.version, AGENTS_BLOCK_VERSION
-                ),
+                )),
                 sites: Vec::new(),
             });
         } else if block.version > AGENTS_BLOCK_VERSION {
@@ -103,10 +114,10 @@ fn check_agent_block_path(
                 path: Some(path.to_path_buf()),
                 line: Some(line),
                 column: None,
-                message: format!(
+                message: agents_init_compatibility_message(format!(
                     "unsupported grund init block v{} (this grund supports v{})",
                     block.version, AGENTS_BLOCK_VERSION
-                ),
+                )),
                 sites: Vec::new(),
             });
         } else {
@@ -136,9 +147,9 @@ fn check_agent_block_path(
                         path: Some(path.to_path_buf()),
                         line: Some(line),
                         column: None,
-                        message: format!(
+                        message: agents_init_compatibility_message(format!(
                             "stale grund init block: {noun} differ from grund.toml (run `grund init` to refresh)"
-                        ),
+                        )),
                         sites: Vec::new(),
                     });
                 }
@@ -154,7 +165,10 @@ fn check_agent_block_path(
         path: Some(path.to_path_buf()),
         line: Some(1),
         column: None,
-        message: format!("missing grund init block v{}", AGENTS_BLOCK_VERSION),
+        message: agents_init_compatibility_message(format!(
+            "missing grund init block v{}",
+            AGENTS_BLOCK_VERSION
+        )),
         sites: Vec::new(),
     });
 }

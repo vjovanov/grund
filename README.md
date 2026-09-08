@@ -101,6 +101,14 @@ docs/requirements/REQ-no-wrong-citation.md:7: missing section FS-check.3.2
 
 A passing text check prints `success` and exits 0. Findings go to stdout as `<path>:<line>: <message>` so editors and agents jump straight to the source, and `grund check | …` / `grund check --format=json | jq` work without redirection (the linter convention — only run-level `error:` lines, like an unreadable path, go to stderr). JSON output remains diagnostics-only, so a clean `grund check --format=json` prints nothing.
 
+When you need a narrower answer without weakening the repository's default check,
+select its stable finding codes: `grund check --ignore agents-init` asks whether
+the remaining content report has errors, while repeatable `--only <code>` and
+`--ignore <code>` compose as sets ([§FS-check.1](docs/functional-spec/FS-check.md#1-inputs)).
+Selection happens only after the complete scan, and operational failures remain
+visible; selected `success` describes only that view, not an all-findings
+repository verdict ([§FS-check.2](docs/functional-spec/FS-check.md#2-outputs)).
+
 `grund` does **not** check Markdown links, URLs, spelling, or grammar. Use [`lychee`](https://github.com/lycheeverse/lychee), `vale`, etc. for those.
 
 ### Workspaces and sub-projects

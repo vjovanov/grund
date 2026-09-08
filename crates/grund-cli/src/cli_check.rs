@@ -1,3 +1,6 @@
+/// Parse and validate the complete `grund check` input, including repeatable
+/// exact-code selectors (§FS-check.1), then select only after the full scan and
+/// before rendering and the exit decision (§FS-check.2.1).
 fn command_check(args: &[String]) -> ExitCode {
     let mut path = PathBuf::from(".");
     let mut path_provided = false;
@@ -5,6 +8,7 @@ fn command_check(args: &[String]) -> ExitCode {
     let mut require_grounding = false;
     let mut include_suggestions = false;
     let mut full = false;
+    let mut selection = CheckFindingSelection::default();
     let mut idx = 0;
     while idx < args.len() {
         match args[idx].as_str() {
@@ -21,6 +25,40 @@ fn command_check(args: &[String]) -> ExitCode {
             }
             "--require-grounding" => require_grounding = true,
             "--suggestions" => include_suggestions = true,
+            other if other.starts_with("--only=") => {
+                if let Err(err) = selection.add_only(other.trim_start_matches("--only=")) {
+                    eprintln!("error: {err}");
+                    return ExitCode::from(2);
+                }
+            }
+            "--only" => {
+                idx += 1;
+                if idx >= args.len() {
+                    eprintln!("error: --only requires a finding code");
+                    return ExitCode::from(2);
+                }
+                if let Err(err) = selection.add_only(&args[idx]) {
+                    eprintln!("error: {err}");
+                    return ExitCode::from(2);
+                }
+            }
+            other if other.starts_with("--ignore=") => {
+                if let Err(err) = selection.add_ignore(other.trim_start_matches("--ignore=")) {
+                    eprintln!("error: {err}");
+                    return ExitCode::from(2);
+                }
+            }
+            "--ignore" => {
+                idx += 1;
+                if idx >= args.len() {
+                    eprintln!("error: --ignore requires a finding code");
+                    return ExitCode::from(2);
+                }
+                if let Err(err) = selection.add_ignore(&args[idx]) {
+                    eprintln!("error: {err}");
+                    return ExitCode::from(2);
+                }
+            }
             // §FS-check.1.3: widen the walk past `[scan] include` for this run.
             "--full" => full = true,
             other if other.starts_with('-') => {
@@ -44,7 +82,7 @@ fn command_check(args: &[String]) -> ExitCode {
         eprintln!("error: unsupported check format `{format}`");
         return ExitCode::from(2);
     }
-    let output = match check_with_opts(CheckOpts {
+    let mut output = match check_with_opts(CheckOpts {
         path,
         path_provided,
         require_grounding,
@@ -62,6 +100,20 @@ fn command_check(args: &[String]) -> ExitCode {
         eprintln!("error: unsupported check format `{format}`");
         return ExitCode::from(2);
     }
+    // §FS-check.2.1: the complete API report exists before the CLI applies its
+    // presentation query; retained diagnostics then use ordinary rendering.
+    output
+        .report
+        .errors
+        .retain(|finding| selection.retains(finding.code));
+    output
+        .report
+        .warnings
+        .retain(|finding| selection.retains(finding.code));
+    output
+        .report
+        .suggestions
+        .retain(|finding| selection.retains(finding.code));
     if format == "json" {
         render_check_json(&output.report);
     } else {

@@ -19,6 +19,7 @@ use grund_core::{
     print_config_warnings, propose_id, refs, render_finding_sites_json, run_integrations,
     show_with_scope, validate_config,
 };
+use grund_core::{CHECK_FINDING_CODES, CheckFindingSelection};
 
 const SUBCOMMANDS: &[&str] = &[
     "check",
@@ -37,6 +38,7 @@ const SUBCOMMANDS: &[&str] = &[
 ];
 
 include!("cli_help.rs");
+include!("cli_help_check.rs");
 include!("cli.rs");
 include!("cli_check.rs");
 include!("cli_show.rs");
