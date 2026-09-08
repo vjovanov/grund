@@ -2,6 +2,7 @@ grund show — print one declaration's body by ID, so an agent pulls a single fa
 into context without loading the whole document. `show` is the default command.
 
 Usage:  grund [show] <ID>[.<section>] [PATH] [--section S] [--brief|--toc|--full] [--format text|md|json] [--path PATH]
+        grund show --batch [--all] [PATH] --format=json [--brief|--toc|--full] [--path PATH]
 
 Modes form an ordered ladder (each adds to the previous):
   --brief                heading + first paragraph    e.g. grund --brief FS-login
@@ -13,13 +14,18 @@ Other options:
   --section S            show only that section path, e.g. --section 3.1
   --format text|md|json  text (default) is the body; md keeps the heading; json wraps it
   --path PATH            repo or subtree to resolve the ID in (default `.`)
+  --batch                 read ordered {"id":…,"section":…} NDJSON queries from stdin
+  --all                   with --batch, query every declaration and section
 
 Exit:  0 printed · 1 ID not found / ambiguous / broken stub / unknown section · 2 unknown project alias, or CLI error.
+Batch: 0 all queries succeeded · 1 any query failed · 2 invocation, input, or scan error.
 
 Examples:
   grund FS-login                   # the lead — the cheap default
   grund FS-login --toc             # lead + section map
   grund FS-login.3.1               # the lead of that nested section
   grund FS-login --full            # the whole declaration body
+  printf '%s\n' '{"id":"FS-login"}' | grund show --batch --format=json
+  grund show --batch --all --format=json # every coordinate, one scan
 
 ID not found? `grund list` shows every declared ID; `grund id <KIND> "…"` proposes a new one.
