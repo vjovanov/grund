@@ -58,7 +58,7 @@ include!("checker_grounding.rs");
 include!("checker_index.rs");
 include!("checker_near_miss.rs");
 include!("checker_index_entries.rs");
-include!("check_selection.rs");
+include!("checker_selection.rs");
 include!("checker_cmd.rs");
 include!("workspace_scope.rs");
 include!("workspace_members.rs");
