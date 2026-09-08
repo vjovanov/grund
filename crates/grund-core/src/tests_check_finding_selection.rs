@@ -19,6 +19,20 @@ mod tests_check_finding_selection {
         assert_eq!(
             command_check(&[
                 path.clone(),
+                "--only=--only=agents-init".to_string(),
+            ]),
+            ExitCode::from(2),
+        );
+        assert_eq!(
+            command_check(&[
+                path.clone(),
+                "--ignore=--ignore=agents-init".to_string(),
+            ]),
+            ExitCode::from(2),
+        );
+        assert_eq!(
+            command_check(&[
+                path.clone(),
                 "--ignore".to_string(),
                 "agents-init".to_string(),
             ]),

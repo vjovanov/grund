@@ -28,7 +28,10 @@ fn command_check(args: &[String]) -> ExitCode {
             "--full" => full = true,
             "--suggestions" => include_suggestions = true,
             other if other.starts_with("--only=") => {
-                if let Err(err) = selection.add_only(other.trim_start_matches("--only=")) {
+                let value = other
+                    .strip_prefix("--only=")
+                    .expect("guarded by starts_with");
+                if let Err(err) = selection.add_only(value) {
                     eprintln!("error: {err}");
                     return ExitCode::from(2);
                 }
@@ -45,7 +48,10 @@ fn command_check(args: &[String]) -> ExitCode {
                 }
             }
             other if other.starts_with("--ignore=") => {
-                if let Err(err) = selection.add_ignore(other.trim_start_matches("--ignore=")) {
+                let value = other
+                    .strip_prefix("--ignore=")
+                    .expect("guarded by starts_with");
+                if let Err(err) = selection.add_ignore(value) {
                     eprintln!("error: {err}");
                     return ExitCode::from(2);
                 }
