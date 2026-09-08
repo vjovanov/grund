@@ -1,6 +1,7 @@
-/// `grund check [path] [--format text|json]`: scan the tree, run the checker
-/// (§FS-check), print the report, and exit `0` clean
-/// / `1` on a finding / `2` on a CLI or I/O error (§FS-check.2.1, §FS-cli.5).
+/// `grund check [path]`: validate repeatable exact-code selectors before config
+/// discovery (§FS-check.1), scan the whole tree, select the completed report,
+/// and exit `0` clean / `1` on a retained error / `2` on a CLI or I/O failure
+/// (§FS-check.2.1, §FS-cli.5).
 fn command_check(args: &[String]) -> ExitCode {
     let mut path = PathBuf::from(".");
     let mut path_provided = false;
@@ -8,6 +9,7 @@ fn command_check(args: &[String]) -> ExitCode {
     let mut require_grounding = false;
     let mut include_suggestions = false;
     let mut full = false;
+    let mut selection = CheckFindingSelection::default();
     let mut idx = 0;
     while idx < args.len() {
         match args[idx].as_str() {
@@ -25,6 +27,40 @@ fn command_check(args: &[String]) -> ExitCode {
             "--require-grounding" => require_grounding = true,
             "--full" => full = true,
             "--suggestions" => include_suggestions = true,
+            other if other.starts_with("--only=") => {
+                if let Err(err) = selection.add_only(other.trim_start_matches("--only=")) {
+                    eprintln!("error: {err}");
+                    return ExitCode::from(2);
+                }
+            }
+            "--only" => {
+                idx += 1;
+                if idx >= args.len() {
+                    eprintln!("error: --only requires a finding code");
+                    return ExitCode::from(2);
+                }
+                if let Err(err) = selection.add_only(&args[idx]) {
+                    eprintln!("error: {err}");
+                    return ExitCode::from(2);
+                }
+            }
+            other if other.starts_with("--ignore=") => {
+                if let Err(err) = selection.add_ignore(other.trim_start_matches("--ignore=")) {
+                    eprintln!("error: {err}");
+                    return ExitCode::from(2);
+                }
+            }
+            "--ignore" => {
+                idx += 1;
+                if idx >= args.len() {
+                    eprintln!("error: --ignore requires a finding code");
+                    return ExitCode::from(2);
+                }
+                if let Err(err) = selection.add_ignore(&args[idx]) {
+                    eprintln!("error: {err}");
+                    return ExitCode::from(2);
+                }
+            }
             other if other.starts_with('-') => {
                 eprintln!("error: unknown flag `{other}`");
                 return ExitCode::from(2);
@@ -48,7 +84,7 @@ fn command_check(args: &[String]) -> ExitCode {
         eprintln!("error: unsupported check format `{format}`");
         return ExitCode::from(2);
     }
-    let run = match run_check(&path, path_provided, require_grounding, full) {
+    let mut run = match run_check(&path, path_provided, require_grounding, full) {
         Ok(run) => run,
         Err(err) => {
             eprintln!("error: {err:#}");
@@ -60,6 +96,17 @@ fn command_check(args: &[String]) -> ExitCode {
         eprintln!("error: unsupported check format `{format}`");
         return ExitCode::from(2);
     }
+    // §FS-check.2.1: filter only after the ordinary checker completed, before
+    // the existing sort, rendering, and selected-report exit decision.
+    run.report
+        .errors
+        .retain(|diagnostic| selection.retains(diagnostic.code));
+    run.report
+        .warnings
+        .retain(|diagnostic| selection.retains(diagnostic.code));
+    run.report
+        .suggestions
+        .retain(|diagnostic| selection.retains(diagnostic.code));
     if format == "json" {
         print_json_report(&run.config, &run.report, include_suggestions);
     } else {
