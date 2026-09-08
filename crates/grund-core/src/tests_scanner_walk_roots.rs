@@ -86,7 +86,9 @@ mod tests_scanner_walk_roots {
 
         assert_eq!(
             scanned(&config, &external),
-            vec![base.join("external/FS-001-external.md").display().to_string()],
+            vec![canonical_test_path(&base.join("external/FS-001-external.md"))
+                .display()
+                .to_string()],
             "§FS-config.3.5.1: a plain non-link external root remains intentional scope"
         );
         assert_eq!(
