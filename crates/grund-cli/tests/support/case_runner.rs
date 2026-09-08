@@ -208,7 +208,7 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) -> CaseOutcome
     let actual_stderr = String::from_utf8(output.stderr)
         .unwrap_or_else(|err| panic!("{name}: stderr was not UTF-8: {err}"));
 
-    if std::env::var_os("UPDATE_EXPECTED").is_some() {
+    if should_update_expected(manifest_dir) {
         write_expected(&case.join("expected.exit"), &format!("{actual_exit}\n"));
         write_expected(&case.join("expected.stdout"), &actual_stdout);
         write_expected(&case.join("expected.stderr"), &actual_stderr);
@@ -259,6 +259,15 @@ pub fn run_case(manifest_dir: &Path, case: &Path, kind: CaseKind) -> CaseOutcome
             mismatches,
         }
     }
+}
+
+/// Keep the scratch verdict corpus in comparison mode while preserving inherited
+/// refresh selection for ordinary goldens (§FS-examples.5.1).
+fn should_update_expected(manifest_dir: &Path) -> bool {
+    let synthetic_verdict_root =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/e2e-harness-tests");
+    std::env::var_os("UPDATE_EXPECTED").is_some()
+        && !manifest_dir.starts_with(synthetic_verdict_root)
 }
 
 fn case_name(case: &Path) -> &str {
