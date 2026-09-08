@@ -60,7 +60,7 @@ repos:
         stages: [pre-commit]
       - id: cargo-test
         name: cargo test
-        entry: cargo test --workspace --all-targets --locked
+        entry: cargo test --workspace --all-targets --locked --features grund/test-workspace-load-count
         language: system
         pass_filenames: false
         always_run: true

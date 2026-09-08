@@ -112,7 +112,7 @@ jobs:
       # covers the file-content / config-validation contract for `grund init`. So
       # `cargo test` runs the full e2e suite plus the core and CLI unit tests.
       - name: cargo test
-        run: cargo test --workspace --all-targets --locked
+        run: cargo test --workspace --all-targets --locked --features grund/test-workspace-load-count
 
   # `pre-commit run --all-files` cannot reproduce the `commit-msg` stage — it takes a
   # message file, not a file list — so a trailer that lives only in a commit message
