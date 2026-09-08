@@ -16,18 +16,14 @@ exclude = [
 
 [dependencies]
 grund-core = { path = "../grund-core", version = "0.13.2-dev" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 # Bench-only — pulled in solely by the `bench` feature (see `[features]` below),
 # so a plain `cargo build` / `cargo install grund` and the `cargo test` matrix
 # never compile it. Optional dev-dependencies aren't allowed by Cargo, hence an
 # optional regular dependency rather than a `[dev-dependencies]` entry.
 iai-callgrind = { version = "0.16.1", optional = true }
-
-[dev-dependencies]
-# Parses the diagnostic objects on a `--format json` case's stderr so the e2e
-# harness can judge their `message` field rather than the serialized line
-# (§FS-errors.5).
-serde_json = "1"
 
 [features]
 # Gates the real `instructions` benchmark body and the only thing that pulls in

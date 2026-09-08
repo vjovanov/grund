@@ -70,6 +70,16 @@ A citation with a section suffix (`§FS-<user-login>.3.1`) where the declaration
 - `grund <ID> --full` — the full declaration body when the narrower reads are not enough
 - `grund <ID> --format json` — for tooling
 
+For many reads, the explicit batch form accepts ordered NDJSON and reuses one
+workspace scan; `--all` discovers every declaration and section from that same
+loaded catalog ([§FS-show.2.6](docs/functional-spec/FS-show.md#26-batch-resolution)):
+
+```bash
+printf '%s\n' '{"id":"FS-check"}' '{"id":"FS-check","section":"3.2"}' \
+  | grund show --batch --format=json
+grund show --batch --all --format=json
+```
+
 `grund refs <ID> --summary` gives the blast radius one file per line before a full citation dump, and `grund list --kind FS,AR` keeps discovery scoped. That's the "cheap grounding" half of the workflow: every agent fetches the same bytes for the same ID, every time.
 
 ## 3. Check for dangling pointers
