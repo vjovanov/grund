@@ -36,7 +36,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 ### Added
 
 - [§FS-check.1](functional-spec/FS-check.md#1-inputs), [§FS-errors.3](functional-spec/FS-errors.md#3-message-text): add repeatable exact-code `grund check --only` / `--ignore` queries while preserving the complete default check and `0`/`1`/`2` verdict; `agents-init` messages enter their two-release maintenance-wording migration so readers know citation checks still ran. Closes issue #49. (PR #213)
-
+- [§FS-check.3.8](functional-spec/FS-check.md#38-cross-project-citation-failure): suggest known deeper project alias paths when an unknown alias is their proper segment prefix, before lower-confidence candidates. Closes issue #73. (PR #214)
 - [§FS-config.3.4.10](functional-spec/FS-config.md#3410-format-resolve-and-fetch--external-snapshot-kinds), [§FS-check.4.12](functional-spec/FS-check.md#412-missing-snapshot), [§FS-fetch](functional-spec/FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot): add per-kind ID formats, fixed `must`/`should` snapshot resolution, and explicit `grund fetch <ID>` materialization into committed file or folder homes. Fetch integrations run directly only on request; every check and query stays offline. `KindConfig` gains public `format`, `resolve`, and `fetch` fields, so downstream exhaustive struct literals must initialize them; `grund_config_version` remains 1 because all configuration keys are optional and absent keys retain prior behavior. Closes issue #93. (PR #208)
 
 ## 2. [0.13.1] — 2026-09-07
