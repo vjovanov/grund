@@ -4,8 +4,8 @@
 /// project a written alias path is allowed to be read as. The e2e corpus pins the
 /// rendered diagnostics (`workspace-nested-alias-hint-worked-examples`, the
 /// narrowed-run cases); these pin the rules a message shape cannot show — that
-/// the tiers never mix, that a narrowed run reaches none of them, that the list
-/// is sorted and cut at three, and how it is joined.
+/// the tiers never mix, when a narrowed run may reach them, that the list is
+/// sorted and cut at three, and how it is joined.
 #[cfg(test)]
 mod tests_alias_hints {
     use super::*;
@@ -139,21 +139,57 @@ mod tests_alias_hints {
         );
     }
 
-    /// §FS-check.3.8: a narrowed run offers **no candidate at all**, not even the
-    /// dropped-prefix tier. This is the case that shipped wrong: `left` holds a
-    /// nested `api`, the citation names the top-level `api` the run cannot see,
-    /// and the hint re-pointed a citation the workspace-root run accepts at a
-    /// different declaration — green before, green after.
+    /// §FS-check.3.8.1: only a strict, segment-wise extension is eligible in a
+    /// narrowed run. Shorter, equal, outside-prefix, and lexical-prefix paths all
+    /// keep the same scope-only diagnostic.
     #[test]
-    fn a_narrowed_run_offers_no_candidate_even_for_a_dropped_prefix() {
+    fn a_narrowed_alias_run_rejects_paths_that_are_not_strict_segment_extensions() {
+        let cases = [
+            ("group", "group/alpha"),
+            ("group/alpha", "group/alpha"),
+            ("outside/alpha", "group"),
+            ("grouped/alpha", "group"),
+        ];
+        for (namespace, scope) in cases {
+            assert_eq!(
+                unknown_project_message(
+                    namespace,
+                    ["group", "group/alpha", "group/alpha/beta"].into_iter(),
+                    scope,
+                ),
+                format!(
+                    "unknown project alias {namespace}; only the {scope} subtree is in scope here — check from the workspace root for a path outside it"
+                ),
+                "§FS-check.3.8.1: {namespace:?} must not be treated as inside {scope:?}"
+            );
+        }
+    }
+
+    /// §FS-check.3.8.1: the admission check is segment-wise at every depth. A
+    /// typo below a two-segment scope may use the aliases loaded below it.
+    #[test]
+    fn a_narrowed_alias_run_hints_for_a_strict_multi_segment_extension() {
         assert_eq!(
-            unknown_project_message("api", ["left", "left/api"].into_iter(), "left"),
-            "unknown project alias api; only the left subtree is in scope here — check from the workspace root for a path outside it"
+            unknown_project_message(
+                "group/alpha/bet",
+                ["group/alpha", "group/alpha/beta"].into_iter(),
+                "group/alpha",
+            ),
+            "unknown project alias group/alpha/bet; did you mean group/alpha/beta?"
         );
+    }
+
+    /// §FS-check.3.8.1: admission permits a candidate search; it does not invent
+    /// a candidate. An eligible path with no match uses the established bare form.
+    #[test]
+    fn a_narrowed_alias_eligible_path_without_a_candidate_uses_the_bare_message() {
         assert_eq!(
-            unknown_project_message("lef", ["left", "left/api"].into_iter(), "left"),
-            "unknown project alias lef; only the left subtree is in scope here — check from the workspace root for a path outside it",
-            "§FS-check.3.8: the typo tier is off too — one rule for the whole narrowed run"
+            unknown_project_message(
+                "group/payments/refunds",
+                ["group", "group/hardware/sprayer"].into_iter(),
+                "group",
+            ),
+            "unknown project alias group/payments/refunds"
         );
     }
 
