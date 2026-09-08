@@ -347,10 +347,34 @@ docs/FS-root.md:4: unknown project alias api; did you mean left/api or right/api
 docs/FS-root.md:5: unknown project alias group; did you mean group/alpha?
 ```
 
-A run narrowed to a subtree ([§FS-workspace.5](FS-workspace.md#5-command-scope), [§FS-workspace.6.1](FS-workspace.md#61-nested-workspaces)) holds only part of the tree, so a path naming a project outside it is unknown *here* while being exactly right at the workspace root. Such a run therefore offers **no candidate at all**. It cannot tell a dropped prefix from a path that correctly names a project outside its subtree, and every tier reads it as the first: the dropped-prefix tier included, because a *shorter* written path is itself a complete alias path whenever a top-level project carries that name, so re-pointing it at a deeper namesake rewrites a citation CI accepts into a different project's — green before and green after, so nothing catches it. One rule for the whole narrowed run, and no residual misdirection: it names the subtree it covers — as a *subtree*, since that scope's own alias path is one project among the several it holds — rather than reporting the path bare, which is neither "delete this" nor "re-prefix this" but "check this from the root":
+A run narrowed to a subtree ([§FS-workspace.5](FS-workspace.md#5-command-scope), [§FS-workspace.6.1](FS-workspace.md#61-nested-workspaces)) holds only part of the tree, so a path naming a project outside it is unknown *here* while being exactly right at the workspace root. Except for the visibly in-scope case in §3.8.1, such a run therefore offers **no candidate at all**. It cannot tell a dropped prefix from a path that correctly names a project outside its subtree, and every tier reads it as the first: the dropped-prefix tier included, because a *shorter* written path is itself a complete alias path whenever a top-level project carries that name, so re-pointing it at a deeper namesake rewrites a citation CI accepts into a different project's — green before and green after, so nothing catches it. In every ineligible case it names the subtree it covers — as a *subtree*, since that scope's own alias path is one project among the several it holds — rather than reporting the path bare, which is neither "delete this" nor "re-prefix this" but "check this from the root":
 
 ```text
 docs/AR-bus.md:3: unknown project alias final/pod; only the hardware subtree is in scope here — check from the workspace root for a path outside it
+```
+
+#### 3.8.1 A strict extension of the narrowed scope is safe to hint
+
+A narrowed run may search for a candidate only when its non-empty scope path is
+a strict, segment-wise prefix of the written alias path: the written path starts
+with every scope segment and has at least one segment after them. Thus
+`group/alph` is eligible in scope `group`, and `group/alpha/bet` is eligible in
+scope `group/alpha`. The search sees only the aliases the narrowed run loaded,
+so every candidate it can name is inside the subtree the run can judge.
+
+An eligible path uses the same ordered candidate tiers, deterministic sorting,
+three-result limit, prose joining, and `; did you mean …?` rendering as an
+outermost-root run. When those loaded aliases yield no candidate, the message is
+the existing bare `unknown project alias <path>` form. Outermost-root runs keep
+their existing unconditional candidate search.
+
+Shorter and equal paths, paths whose segments do not begin with the scope, and
+merely lexical prefixes remain ineligible. In scope `group`, that excludes
+`alpha`, `group`, `outside/alpha`, and `grouped/alpha` alike. Each keeps the
+existing scope-only bytes:
+
+```text
+unknown project alias <path>; only the group subtree is in scope here — check from the workspace root for a path outside it
 ```
 
 ### 3.9 Section heading level mismatch

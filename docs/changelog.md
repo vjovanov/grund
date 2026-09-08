@@ -40,6 +40,10 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 - [§FS-show.2.6](functional-spec/FS-show.md#26-batch-resolution), [§FS-output-shapes.4.1](functional-spec/FS-output-shapes.md#41-show---batch---formatjson): add JSON-only `grund show --batch` for ordered NDJSON queries and `--batch --all` for exhaustive declaration-and-section reads, both reusing one workspace scan while preserving per-coordinate results and failures. (PR #215)
 - [§FS-config.3.4.10](functional-spec/FS-config.md#3410-format-resolve-and-fetch--external-snapshot-kinds), [§FS-check.4.12](functional-spec/FS-check.md#412-missing-snapshot), [§FS-fetch](functional-spec/FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot): add per-kind ID formats, fixed `must`/`should` snapshot resolution, and explicit `grund fetch <ID>` materialization into committed file or folder homes. Fetch integrations run directly only on request; every check and query stays offline. `KindConfig` gains public `format`, `resolve`, and `fetch` fields, so downstream exhaustive struct literals must initialize them; `grund_config_version` remains 1 because all configuration keys are optional and absent keys retain prior behavior. Closes issue #93. (PR #208)
 
+### Fixed
+
+- [§FS-check.3.8.1](functional-spec/FS-check.md#381-a-strict-extension-of-the-narrowed-scope-is-safe-to-hint): let a narrowed `grund check` offer loaded alias candidates for a written path that strictly extends its own scope segment by segment. Shorter, equal, outside-prefix, and merely lexical-prefix paths retain the existing scope-only diagnostic. (PR #N)
+
 ## 2. [0.13.1] — 2026-09-07
 
 ### Added
