@@ -1,0 +1,3 @@
+# A member-local run loads no workspace map. Its own canonical root must still
+# fence this outward directory link so the sibling declaration stays foreign.
+packages/other/docs/blink -> ../../sub

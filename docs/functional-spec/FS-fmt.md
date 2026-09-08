@@ -37,7 +37,7 @@ This list is the ownership boundary for the one command that edits files in plac
 - Citations inside Markdown inline code spans (where rewriting would change a literal command, path, or example).
 - ID-shaped text inside Markdown link destinations (where rewriting would change the URL rather than the visible citation) — and, off strict mode, such a **bare** token is not recognized as a citation there at all ([§FS-check.1.1](FS-check.md#11-recognized-citations)), the same never-rewrite zone keeping `check` from demanding an edit this command refuses to make.
 - Files outside the configured scan set.
-- Files reached through a symlink that leaves the config root — `--write` reads them and does not write through them (§2.3.2).
+- External file-symlink targets — `--write` reads them and does not write through them (§2.3.2). Files below an external directory symlink never reach `fmt` because the scanner prunes the directory.
 - Everything in a **suppressed scope**: a file the `[fmt] exclude` list names, and a region between a `grund:fmt off` directive and the `grund:fmt on` that closes it (§2.5). Unlike every other entry in this list, these two are asked for by the repository rather than forced by the text, and they are the only ones an index carve-out outranks (§2.5.3).
 
 #### 2.3.1 String-literal exclusion rule
@@ -58,11 +58,26 @@ This gives two correctly-configured installs identical output on identical input
 
 #### 2.3.2 A link that leaves the config root is not written through
 
-`--write` does not rewrite a file whose path is in the tree but whose bytes are not: one reached through a symlink — the file itself, or a directory above it — whose target resolves **outside the config root**. The walk still reads it and its citations are still checked, exactly as [§FS-config.3.5.1](FS-config.md#351-a-symlink-in-the-tree-is-followed) says; what stops at the boundary is the write. Putting this project's rewrites into a file the project does not own is the one thing the in-place editor must not do on its own initiative ([§REQ-no-data-loss.2](../requirements/REQ-no-data-loss.md#2-writers-touch-only-what-they-own)), and the file it would edit sits at a path this project's own report cannot render ([§FS-config.3.6](FS-config.md#36-output--report-format)). Each refused file is named once on stderr — `warning: <path>: not rewritten: the symlink target is outside the config root`, the CLI-level shape of [§FS-errors.2.2](FS-errors.md#22-cli-level-message) — and the exit code is unchanged, because the refusal is the intended behavior and not a failure of the run (§3).
+`--write` does not rewrite an external **file-symlink** target: the walk still
+reads that file and checks its citations, exactly as
+[§FS-config.3.5.1](FS-config.md#351-a-symlink-in-the-tree-is-followed)
+says, but the write stops at the boundary. Files below an external directory
+symlink never reach `fmt`, because the shared tree walk prunes that directory;
+they produce neither a rewrite nor a refusal warning. Putting this project's
+rewrites into a file the project does not own is the one thing the in-place
+editor must not do on its own initiative
+([§REQ-no-data-loss.2](../requirements/REQ-no-data-loss.md#2-writers-touch-only-what-they-own)),
+and the file it would edit sits at a path this project's own report cannot
+render ([§FS-config.3.6](FS-config.md#36-output--report-format)). Each refused
+file link is named once on stderr — `warning: <path>: not rewritten: the symlink
+target is outside the config root`, the CLI-level shape of
+[§FS-errors.2.2](FS-errors.md#22-cli-level-message) — and the exit code is
+unchanged, because the refusal is the intended behavior and not a failure of the
+run (§3).
 
 **The dry run refuses the same file**, with the same `warning:` line, and does not list a rewrite for it. A dry run predicts what `--write` does (§3); a pending rewrite that `--write` will never perform is one no edit can clear, so `fmt --check` on a tree holding such a link would exit `1` forever and every CI gate and pre-commit hook built on it could never pass. Reporting what the tree contains is not worth a report nobody can act on — and the refusal, printed where the rewrite would have been, is the actionable half: it names the link to resolve.
 
-A link whose target is **inside** the config root is written through, and one consequence of that is named here rather than fixed. One physical file reached under two spellings is read once, under the surviving spelling ([§FS-config.3.5.4](FS-config.md#354-one-physical-file-is-read-once)), so `--cross-refs` computes every relative target from *that* spelling: the link it writes is correct when the file is opened where grund read it and wrong when it is opened at its other name. No rewrite can be right both ways — a single relative path is resolved against whichever directory the reader opened the file from — so the fix is not a better anchor but not giving one file two names. Decided in [§DF-symlink-scan.2.5](../decisions/functional/DF-symlink-scan.md#25-fmt---write-refuses-a-link-that-leaves-the-config-root-and-nothing-else).
+A link whose target is **inside** the config root is written through, and one consequence of that is named here rather than fixed. One physical file reached under two spellings is read once, under the surviving spelling ([§FS-config.3.5.4](FS-config.md#354-one-physical-file-is-read-once)), so `--cross-refs` computes every relative target from *that* spelling: the link it writes is correct when the file is opened where grund read it and wrong when it is opened at its other name. No rewrite can be right both ways — a single relative path is resolved against whichever directory the reader opened the file from — so the fix is not a better anchor but not giving one file two names. Decided in [§DF-symlink-scan.2.5](../decisions/functional/DF-symlink-scan.md#25-fmt---write-refuses-an-external-file-link-external-directory-links-never-reach-it).
 
 ### 2.4 Shorthand-to-canonical
 

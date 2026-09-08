@@ -1,0 +1,2 @@
+# The workspace-root run already knows both project roots and stays bounded.
+packages/other/docs/blink -> ../../sub

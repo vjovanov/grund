@@ -143,24 +143,18 @@ mod tests_unread_opted_out_block {
         assert_eq!(cautioned_blocks(&root), 0);
     }
 
-    /// §FS-check.4.10: the other direction, and the one that makes the two above
-    /// evidence rather than a way of never firing — a link out of the block to
-    /// content **no project of the run owns** is content nobody reads, so the
-    /// caution is exactly right there.
-    ///
-    /// The target is a sibling of the workspace rather than an unscanned corner
-    /// of it. A directory inside the enclosing project is *owned* by it, and the
-    /// block would have stopped at that project's root had it been one, so the
-    /// silence there is the same answer read from the same rule — ownership is
-    /// per project root, not per scan root (§FS-workspace.6).
+    /// §FS-check.4.10, §FS-config.3.5.1: the probe shares the reporting walk's
+    /// canonical-root fence. A scope root that is an outward directory link is
+    /// pruned even when no loaded project owns its target, so it is not evidence
+    /// that this opted-out block would have read content as a project.
     #[cfg(unix)]
     #[test]
-    fn warns_when_the_scope_root_links_outside_every_project() {
-        let root = opted_out_block("unread_block_scope_root_links_outside_every_project");
-        let outside = test_root("unread_block_scope_root_links_outside_every_project_target");
+    fn silent_when_the_scope_root_links_outside_the_physical_project() {
+        let root = opted_out_block("unread_block_scope_root_links_outside_the_physical_project");
+        let outside = test_root("unread_block_scope_root_links_outside_the_physical_project_target");
         write(&outside.join("FS-x.md"), "# FS-x: X\n\nX.\n");
         std::os::unix::fs::symlink(&outside, root.join("group/docs")).expect("symlink outside");
 
-        assert_eq!(cautioned_blocks(&root), 1);
+        assert_eq!(cautioned_blocks(&root), 0);
     }
 }

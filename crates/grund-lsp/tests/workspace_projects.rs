@@ -140,10 +140,10 @@ fn folder_list(folders: &[(&Path, &str)]) -> Value {
 
 #[test]
 #[cfg(unix)]
-fn a_symlinked_include_root_outside_the_project_still_answers() {
-    // `[scan] include` is a scan scope, not a fence: a symlinked include
-    // resolves outside the project root, so a root prefix alone cannot decide
-    // which project owns a document (§FS-lsp.2.2).
+fn an_external_directory_link_has_no_diagnostics_or_hover() {
+    // §FS-lsp.2.2: the LSP consumes the shared scan. A document reachable only
+    // below an outward directory link is therefore neither diagnosed nor
+    // answerable by this project.
     let base = std::env::temp_dir().join(format!("grund-lsp-symlink-{}", std::process::id()));
     let _ = fs::remove_dir_all(&base);
     let root = base.join("repo");
@@ -163,13 +163,10 @@ fn a_symlinked_include_root_outside_the_project_still_answers() {
     symlink(&outside, root.join("docs")).expect("symlink the include root");
 
     let (mut child, mut stdin, receiver) = start_server_with_workspace_folders(&root, &[&root]);
-    // Diagnostics first: a request read discards the notifications queued
-    // behind it. The owning project publishes for this file even though it is
-    // not under the project root — the ownership filter must not drop it.
-    let diagnostics = recv_diagnostics(&receiver, &mut child, "FS-002-user");
+    let pushes = diagnostic_pushes(&receiver, "FS-002-user");
     assert!(
-        diagnostic_codes(&diagnostics).contains(&"dangling"),
-        "the dangling citation is still reported: {diagnostics:?}"
+        pushes.is_empty(),
+        "§FS-lsp.2.2: content below an external directory link has no diagnostics: {pushes:?}"
     );
     let hover = hover_citation(
         &mut child,
@@ -179,10 +176,8 @@ fn a_symlinked_include_root_outside_the_project_still_answers() {
         &root.join("docs/FS-002-user.md"),
     );
     assert!(
-        hover["contents"]["value"]
-            .as_str()
-            .is_some_and(|body| body.contains("FS-001-example")),
-        "a citation in a symlinked include root must still resolve: {hover}"
+        hover.is_null(),
+        "§FS-lsp.2.2: content below an external directory link has no hover: {hover}"
     );
 
     stop_server(&mut child, &mut stdin, &receiver, 3);
