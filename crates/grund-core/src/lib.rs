@@ -33,6 +33,7 @@ include!("comment_block.rs");
 include!("inline_note_layout.rs");
 include!("markdown_fence.rs");
 include!("scanner_walk.rs");
+include!("scanner_walk_boundaries.rs");
 include!("scanner_walk_errors.rs");
 include!("scanner.rs");
 include!("scanner_value_context.rs");
