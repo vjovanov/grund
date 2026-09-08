@@ -394,6 +394,7 @@ fn check_citation_resolution(
 /// target by the whole alias path (§FS-workspace.6.1), and the mistake that
 /// invites is writing a project's short name where its path is required. So
 /// before giving up, look for a project the citation could have meant: one
+/// whose path continues the written segments (`group/alpha` for `group`), one
 /// whose path *ends* with what was written (`sprayer` for `group/sprayer`), one
 /// whose last segment matches under a different parent (a wrong prefix), or one
 /// a typo away. §GOAL-friendliness-first — the reader who has the tree in front
@@ -429,16 +430,19 @@ fn unknown_project_message<'a>(
 }
 
 /// The projects a written alias path plausibly meant, best tier first. Tiers do
-/// not mix: a suffix match is a near-certain "you dropped the prefix", and
-/// diluting it with edit-distance noise would make the good hint harder to act
-/// on. Only the outermost root asks — a narrowed run offers nothing at all
+/// not mix: a proper-prefix continuation or suffix match is near-certain, and
+/// diluting either with edit-distance noise would make the good hint harder to
+/// act on. Only the outermost root asks — a narrowed run offers nothing at all
 /// (§FS-check.3.8), so no tier here is conditional on scope.
 fn nearest_project_aliases<'a>(namespace: &str, known: impl Iterator<Item = &'a str>) -> Vec<String> {
     let written: Vec<&str> = namespace.split('/').collect();
-    let (mut suffix, mut same_leaf, mut near) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut prefix, mut suffix, mut same_leaf, mut near) =
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new());
     for candidate in known {
         let segments: Vec<&str> = candidate.split('/').collect();
-        if segments.len() > written.len() && segments.ends_with(&written) {
+        if segments.len() > written.len() && segments.starts_with(&written) {
+            prefix.push(candidate.to_string());
+        } else if segments.len() > written.len() && segments.ends_with(&written) {
             suffix.push(candidate.to_string());
         } else if segments.last() == written.last() {
             same_leaf.push(candidate.to_string());
@@ -450,7 +454,9 @@ fn nearest_project_aliases<'a>(namespace: &str, known: impl Iterator<Item = &'a 
             near.push(candidate.to_string());
         }
     }
-    let mut best = if !suffix.is_empty() {
+    let mut best = if !prefix.is_empty() {
+        prefix
+    } else if !suffix.is_empty() {
         suffix
     } else if !same_leaf.is_empty() {
         same_leaf
@@ -458,6 +464,7 @@ fn nearest_project_aliases<'a>(namespace: &str, known: impl Iterator<Item = &'a 
         near
     };
     best.sort();
+    best.dedup();
     // Three is enough to disambiguate the common `api` collision without
     // turning one finding into a catalogue; `grund list` is the catalogue.
     best.truncate(3);
