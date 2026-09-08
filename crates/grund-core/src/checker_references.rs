@@ -400,21 +400,19 @@ fn check_citation_resolution(
 /// a typo away. §GOAL-friendliness-first — the reader who has the tree in front
 /// of them is the one who does not need this; the agent editing one file is.
 ///
-/// Every tier is off in a **narrowed** run (non-empty `scope_path`), which sees
-/// only its own subtree: it cannot tell a path that dropped a prefix from one
-/// that correctly names a project above or beside the subtree, so every
-/// candidate it could offer is a rewrite of a citation the run CI performs
-/// accepts — green before and green after, with nothing left to catch it. Such a
-/// run names the scope it covers and offers nothing (§FS-check.3.8,
-/// §FS-workspace.6.1). It names it as a *subtree*, because the scope path is one
-/// project among several in scope — `alpha` with `alpha/beta` below it — and
-/// "only alpha is in scope" reads as "alpha is the only project".
+/// A **narrowed** run (non-empty `scope_path`) normally withholds every tier:
+/// it cannot tell a path that dropped a prefix from one that correctly names a
+/// project above or beside the subtree. A written path that strictly extends
+/// the scope segment by segment is the exception, because every candidate the
+/// run loaded for that path is inside the subtree it can judge
+/// (§FS-check.3.8.1). Ineligible paths keep the scope-only message
+/// (§FS-check.3.8, §FS-workspace.6.1).
 fn unknown_project_message<'a>(
     namespace: &str,
     known: impl Iterator<Item = &'a str>,
     scope_path: &str,
 ) -> String {
-    if !scope_path.is_empty() {
+    if !scope_path.is_empty() && !alias_strictly_extends_scope(namespace, scope_path) {
         return format!(
             "unknown project alias {namespace}; only the {scope_path} subtree is in scope here — check from the workspace root for a path outside it"
         );
@@ -429,11 +427,22 @@ fn unknown_project_message<'a>(
     )
 }
 
+/// §FS-check.3.8.1: eligibility is a strict segment-prefix relation, not a
+/// lexical prefix (`grouped/alpha` is outside scope `group`).
+fn alias_strictly_extends_scope(namespace: &str, scope_path: &str) -> bool {
+    let mut namespace_segments = namespace.split('/');
+    scope_path
+        .split('/')
+        .all(|segment| namespace_segments.next() == Some(segment))
+        && namespace_segments.next().is_some()
+}
+
 /// The projects a written alias path plausibly meant, best tier first. Tiers do
 /// not mix: a proper-prefix continuation or suffix match is near-certain, and
 /// diluting either with edit-distance noise would make the good hint harder to
-/// act on. Only the outermost root asks — a narrowed run offers nothing at all
-/// (§FS-check.3.8), so no tier here is conditional on scope.
+/// act on. The outermost root always asks; a narrowed run asks only for a
+/// strict extension of its scope (§FS-check.3.8.1), so no tier here is
+/// conditional on scope.
 fn nearest_project_aliases<'a>(namespace: &str, known: impl Iterator<Item = &'a str>) -> Vec<String> {
     let written: Vec<&str> = namespace.split('/').collect();
     let (mut prefix, mut suffix, mut same_leaf, mut near) =
