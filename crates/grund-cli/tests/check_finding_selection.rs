@@ -247,6 +247,14 @@ fn issue_49_selector_errors_are_exact_and_happen_before_scanning() {
             "error: invalid finding code \"agents-init,dangling\" (expected lowercase kebab-case)\n",
         ),
         (
+            &["--only=--only=agents-init"],
+            "error: invalid finding code \"--only=agents-init\" (expected lowercase kebab-case)\n",
+        ),
+        (
+            &["--ignore=--ignore=agents-init"],
+            "error: invalid finding code \"--ignore=agents-init\" (expected lowercase kebab-case)\n",
+        ),
+        (
             &["--only=not-real"],
             concat!(
                 "error: unknown check finding code \"not-real\"; ",
