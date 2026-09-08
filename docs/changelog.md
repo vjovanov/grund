@@ -42,7 +42,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Fixed
 
-- [§FS-check.3.8.1](functional-spec/FS-check.md#381-a-strict-extension-of-the-narrowed-scope-is-safe-to-hint): let a narrowed `grund check` offer loaded alias candidates for a written path that strictly extends its own scope segment by segment. Shorter, equal, outside-prefix, and merely lexical-prefix paths retain the existing scope-only diagnostic. (PR #N)
+- [§FS-check.3.8.1](functional-spec/FS-check.md#381-a-strict-extension-of-the-narrowed-scope-is-safe-to-hint): let a narrowed `grund check` offer loaded alias candidates for a written path that strictly extends its own scope segment by segment. Shorter, equal, outside-prefix, and merely lexical-prefix paths retain the existing scope-only diagnostic. (PR #217)
 
 ## 2. [0.13.1] — 2026-09-07
 
