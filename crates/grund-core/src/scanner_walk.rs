@@ -94,15 +94,18 @@ fn walk_scannable_files_reporting(
         }
         let canonical_scan_root =
             fs::canonicalize(&scan_root).unwrap_or_else(|_| scan_root.to_path_buf());
-        // §FS-config.3.5.1: a directory link used as a scan root is the same
-        // traversal boundary as one met during descent. A plain external root is
-        // intentional scope, and an aliased config root still resolves to this
-        // project's physical root, so neither is rejected by this gate.
+        // §FS-config.3.5.1: a scan root reached through a directory link uses
+        // the same canonical project-root boundary as a link met during descent.
+
         // §AR-workspace.6: a root scan starts outside member namespaces; an
         // included path at or below a member boundary belongs to the member scan,
-        // and one inside any *other* project of the run belongs to that project
-        // (§FS-workspace.6).
-        if outward_directory_link_root(&scan_root, &canonical_scan_root, &physical_root)
+        // and one in another project belongs there (§FS-workspace.6).
+        if outward_directory_link_root(
+            &scan_root,
+            &canonical_scan_root,
+            &config.root,
+            &physical_root,
+        )
             || config
             .workspace_boundary_roots
             .iter()
@@ -347,7 +350,12 @@ fn walk_reads_any_file(config: &Config, scan_root: &Path) -> bool {
     // §FS-config.3.5.1, §FS-workspace.6: the reporting walk's own scan-root
     // gates, ahead of the branch below, because neither a file root nor a walk
     // root ever reaches the filter.
-    if outward_directory_link_root(scan_root, &canonical_scan_root, &physical_root)
+    if outward_directory_link_root(
+        scan_root,
+        &canonical_scan_root,
+        &config.root,
+        &physical_root,
+    )
         || config
         .workspace_boundary_roots
         .iter()
@@ -562,19 +570,36 @@ fn owned_by_another_project(config: &Config, own_root: &Path, canonical: &Path) 
         .is_some_and(|owner| owner.as_path() != own_root)
 }
 
-/// Whether a directory scan root is itself a symlink whose target escapes the
-/// canonical project root (§FS-config.3.5.1, §AR-scanner.1). Testing the link's
-/// own metadata keeps a plain parent-relative external root readable, while the
-/// physical-root comparison keeps an aliased config root readable.
+/// Whether directory-link traversal carried a scan root outside the canonical
+/// project root (§FS-config.3.5.1, §AR-scanner.1). For an in-project spelling,
+/// every component below the project root is checked: the named root may be a
+/// descendant of the link rather than the link itself. An external spelling is
+/// rejected only when the named root itself is a link, so a plain parent-relative
+/// external root remains intentional scope. Comparing the resolved roots first
+/// keeps an aliased config root and in-root links readable.
 fn outward_directory_link_root(
     scan_root: &Path,
     canonical_scan_root: &Path,
+    project_root: &Path,
     physical_root: &Path,
 ) -> bool {
-    scan_root.is_dir()
-        && fs::symlink_metadata(scan_root)
+    if canonical_scan_root.starts_with(physical_root) {
+        return false;
+    }
+    let Ok(relative) = scan_root.strip_prefix(project_root) else {
+        return is_directory_symlink(scan_root);
+    };
+    let mut component_path = project_root.to_path_buf();
+    relative.components().any(|component| {
+        component_path.push(component);
+        is_directory_symlink(&component_path)
+    })
+}
+
+fn is_directory_symlink(path: &Path) -> bool {
+    path.is_dir()
+        && fs::symlink_metadata(path)
             .is_ok_and(|metadata| metadata.file_type().is_symlink())
-        && !canonical_scan_root.starts_with(physical_root)
 }
 
 /// Whether the walk reached this path *through* one of the directory links it
@@ -676,10 +701,11 @@ fn scan_roots_for(
                 .unwrap_or_else(|_| normalize_path_lexically(scope))
         };
         let resolved = fs::canonicalize(scope).unwrap_or_else(|_| lexical_scope.clone());
-        // §FS-config.3.5.2: resolution chooses the file to read, but reports keep
-        // an explicit in-tree symlink's lexical spelling — including when its
-        // target is outside the root and therefore cannot be rendered safely.
-        let scope = if lexical_scope.starts_with(&config.root) {
+        // §FS-config.3.5.1, §FS-config.3.5.2: keep the lexical spelling for an
+        // in-tree link and an external directory-link root; resolve other roots.
+        let scope = if lexical_scope.starts_with(&config.root)
+            || is_directory_symlink(&lexical_scope)
+        {
             lexical_scope
         } else {
             walk_root_under_config_root(config, &resolved)
