@@ -28,6 +28,10 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 - [§FS-config.3.2](functional-spec/FS-config.md#32-id--id-grammar), [§FS-check.4.6](functional-spec/FS-check.md#46-declaration-near-miss): retain exact persisted off-grammar declarations and their marked citations across queries, checking, formatting, completion, cover, workspaces, and LSP navigation while warning that the mismatch becomes an error in 0.15.0. Fixes issue #54. (PR #210)
 
+### Changed
+
+- [§FS-config.3.5.1](functional-spec/FS-config.md#351-a-symlink-in-the-tree-is-followed), [§DF-symlink-scan.2.6](decisions/functional/DF-symlink-scan.md#26-the-pre-10-boundary-change-is-explicit-and-has-three-migrations): bound outward directory links at the canonical project root, which may move verdicts when a project depended on declarations found only through such a link; external file links remain followed. Affected projects can move the target under the project root, check it as its own project, or replace the symlinked root with an intentional non-symlink parent-relative `[scan] include`. (PR #211)
+
 ### Added
 
 - [§FS-config.3.4.10](functional-spec/FS-config.md#3410-format-resolve-and-fetch--external-snapshot-kinds), [§FS-check.4.12](functional-spec/FS-check.md#412-missing-snapshot), [§FS-fetch](functional-spec/FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot): add per-kind ID formats, fixed `must`/`should` snapshot resolution, and explicit `grund fetch <ID>` materialization into committed file or folder homes. Fetch integrations run directly only on request; every check and query stays offline. `KindConfig` gains public `format`, `resolve`, and `fetch` fields, so downstream exhaustive struct literals must initialize them; `grund_config_version` remains 1 because all configuration keys are optional and absent keys retain prior behavior. Closes issue #93. (PR #208)
