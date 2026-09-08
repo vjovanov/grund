@@ -11,6 +11,16 @@ mod tests_check_finding_selection {
     fn issue_49_deprecated_adapter_accepts_check_finding_selectors() {
         let root = test_root("issue_49_deprecated_adapter_accepts_check_finding_selectors");
         write(
+            &root.join("grund.toml"),
+            concat!(
+                "grund_config_version = 1\n\n",
+                "[reference]\nmarker = \"\u{a7}\"\nstrict = true\n\n",
+                "[id]\nformat = \"{kind}-{slug}\"\nslug_pattern = \"[a-z][a-z0-9-]*\"\n\n",
+                "[scan]\ninclude = [\".\"]\n\n",
+                "[[kinds]]\nkind = \"FS\"\nfolder = \"docs/functional-spec\"\nindex = false\n",
+            ),
+        );
+        write(
             &root.join("docs/functional-spec/FS-live.md"),
             "# FS-live: Live behavior\n\nThe behavior cites \u{a7}FS-live.\n",
         );
