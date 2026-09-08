@@ -102,7 +102,7 @@ fn preview_snapshots_effective_extensions_and_quoted_commands() {
         "grund_config_version = 1\n[reference]\ntrigger = \"%%\"\n",
     )
     .expect("write launch cwd config");
-    assert_host_command_launches(&default_template, &default_project, &sandbox.root);
+    assert_host_command_launches(&default_template, &default_project);
 
     let parent = sandbox.project("custom project Δ");
     let nested = parent.join("nested/working directory");
@@ -119,6 +119,27 @@ fn preview_snapshots_effective_extensions_and_quoted_commands() {
         &["md", "rs", "mystery"],
         &sandbox.binary,
     );
+}
+
+#[cfg(not(windows))]
+#[test]
+fn posix_launch_preserves_double_quotes_in_executable_and_project_paths() {
+    let sandbox = Sandbox::with_binary_dir(
+        &workspace_binary(),
+        "posix-double-quote",
+        "installed \" binary β & $; with spaces",
+    );
+    let project = sandbox.project("project \" Ω & $; with spaces");
+    fs::write(
+        project.join("grund.toml"),
+        "grund_config_version = 1\n[reference]\ntrigger = \"%%\"\n",
+    )
+    .expect("write launch cwd config");
+
+    let preview = run(&sandbox.binary, &project, ["integrations", "lsp4ij"]);
+    assert_success(&preview, "double-quote preview");
+    let template = template_from(&stdout(&preview));
+    assert_host_command_launches(&template, &project);
 }
 
 #[test]
