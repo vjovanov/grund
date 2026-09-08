@@ -71,11 +71,15 @@ fn write(path: &Path, body: &str) {
 }
 
 fn run_batch(repo: &Repo, extra_args: &[&str], stdin: &str, load_log: Option<&Path>) -> Output {
+    run_batch_at(repo.path(), extra_args, stdin, load_log)
+}
+
+fn run_batch_at(repo: &Path, extra_args: &[&str], stdin: &str, load_log: Option<&Path>) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_grund"));
     command
         .args(["show", "--batch", "--format=json"])
         .args(extra_args)
-        .current_dir(repo.path())
+        .current_dir(repo)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -113,6 +117,30 @@ fn records(output: &Output) -> Vec<Value> {
 
 fn loads(path: &Path) -> usize {
     fs::read_to_string(path).unwrap_or_default().lines().count()
+}
+
+#[test]
+fn show_batch_ambiguous_shorthand_is_a_query_failure_and_continues() {
+    // §FS-show.2.6: an ambiguous shorthand is one failed coordinate, not a
+    // run-level error that suppresses the records after it.
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/e2e/cases/check-shorthand-citation-ambiguous-and-unknown/repo");
+    let output = run_batch_at(
+        &repo,
+        &[],
+        concat!("{\"id\":\"FS-042\"}\n", "{\"id\":\"FS-042-user-login\"}\n",),
+        None,
+    );
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        stdout(&output),
+        concat!(
+            "{\"query\":{\"id\":\"FS-042\",\"section\":null},\"ok\":false,\"result\":null,\"error\":{\"severity\":\"error\",\"path\":null,\"line\":null,\"code\":\"ambiguous\",\"message\":\"ambiguous ID: FS-042 (matches FS-042-user-login, FS-042-user-logout)\",\"sites\":null}}\n",
+            "{\"query\":{\"id\":\"FS-042-user-login\",\"section\":null},\"ok\":true,\"result\":{\"id\":\"FS-042-user-login\",\"section\":null,\"body\":\"Cited as §FS-042-user-login.\\n\",\"path\":\"docs/functional-spec/FS-042-user-login.md\",\"line\":1},\"error\":null}\n",
+        )
+    );
+    assert_eq!(stderr(&output), "");
 }
 
 #[test]

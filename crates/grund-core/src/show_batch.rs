@@ -206,6 +206,8 @@ fn batch_query_failure(error: &anyhow::Error) -> Option<BatchShowFailure> {
     let message = format!("{error:#}");
     let code = if message.starts_with("ID not found:") {
         "not-found"
+    } else if message.starts_with("ambiguous ID:") {
+        "ambiguous"
     } else if message.starts_with("section not found:") {
         "missing-section"
     } else if message.starts_with("invalid ID") {
