@@ -1,6 +1,5 @@
-/// `grund show <ID>[.<section>] [--brief|--toc|--full] [--format text|md|json]`:
-/// print one declaration body so an agent pulls a single fact into context
-/// instead of the whole document (§FS-show). Also the default command — a bare
+/// Print one declaration body, or opt into a one-context JSON query stream
+/// (§FS-show). The single-coordinate form remains the default command — a bare
 /// `grund <ID>` lands here (§FS-cli.1).
 fn command_show(args: &[String]) -> ExitCode {
     command_show_impl(args, false)
@@ -14,14 +13,32 @@ fn looks_like_subcommand_typo(arg: &str) -> bool {
     !arg.is_empty() && !arg.contains('-') && !arg.contains('/') && !arg.contains('.')
 }
 
+/// Recognize the opt-in without treating another option's value as a flag
+/// (§FS-show.1).
+fn show_batch_requested(args: &[String]) -> bool {
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--batch" => return true,
+            "--section" | "--path" | "--format" => index += 1,
+            _ => {}
+        }
+        index += 1;
+    }
+    false
+}
+
 fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
     if args.is_empty() {
         eprintln!("error: show requires an ID");
         return ExitCode::from(2);
     }
+    let batch = show_batch_requested(args);
     let mut id_arg = None;
+    let mut batch_path = None;
     let mut path = PathBuf::from(".");
     let mut path_provided = false;
+    let mut all = false;
     let mut mode = ShowMode::Lead;
     let mut mode_flag: Option<&'static str> = None;
     let mut section_override = None;
@@ -29,6 +46,8 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
     let mut idx = 0;
     while idx < args.len() {
         match args[idx].as_str() {
+            "--batch" => {}
+            "--all" => all = true,
             "--brief" => {
                 if let Some(previous) = mode_flag {
                     eprintln!("error: {previous} and --brief cannot be used together");
@@ -70,6 +89,10 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
                     eprintln!("error: --path requires a value");
                     return ExitCode::from(2);
                 }
+                if batch && (path_provided || batch_path.is_some()) {
+                    eprintln!("error: show --batch takes at most one path argument");
+                    return ExitCode::from(2);
+                }
                 path = PathBuf::from(&args[idx]);
                 path_provided = true;
             }
@@ -85,17 +108,49 @@ fn command_show_impl(args: &[String], default_invocation: bool) -> ExitCode {
                 eprintln!("error: unknown flag `{other}`");
                 return ExitCode::from(2);
             }
-            other if id_arg.is_none() => id_arg = Some(other.to_string()),
             other => {
-                if path_provided {
-                    eprintln!("error: show takes an ID and at most one path argument");
-                    return ExitCode::from(2);
+                if batch {
+                    if batch_path.is_some() || path_provided {
+                        eprintln!("error: show --batch takes at most one path argument");
+                        return ExitCode::from(2);
+                    }
+                    batch_path = Some(other.to_string());
+                } else if id_arg.is_none() {
+                    id_arg = Some(other.to_string());
+                } else {
+                    if path_provided {
+                        eprintln!("error: show takes an ID and at most one path argument");
+                        return ExitCode::from(2);
+                    }
+                    path = PathBuf::from(other);
+                    path_provided = true;
                 }
-                path = PathBuf::from(other);
-                path_provided = true;
             }
         }
         idx += 1;
+    }
+    if all && !batch {
+        eprintln!("error: --all requires --batch");
+        return ExitCode::from(2);
+    }
+    if batch {
+        if default_invocation {
+            eprintln!("error: --batch is available only with explicit `show`");
+            return ExitCode::from(2);
+        }
+        if format != "json" {
+            eprintln!("error: --batch requires --format=json");
+            return ExitCode::from(2);
+        }
+        if section_override.is_some() {
+            eprintln!("error: --section cannot be used with --batch");
+            return ExitCode::from(2);
+        }
+        if let Some(positional_path) = batch_path {
+            path = PathBuf::from(positional_path);
+            path_provided = true;
+        }
+        return command_show_batch(path, path_provided, mode, all);
     }
     let Some(id_arg) = id_arg else {
         eprintln!("error: show requires an ID");

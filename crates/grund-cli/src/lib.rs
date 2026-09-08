@@ -9,15 +9,15 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use grund_core::{
-    AGENT_SETUP_INSTRUCTIONS, ApiScanError, CheckOpts, CitationDisjunction, CitationLevel,
-    CitationRules, CitationTarget, CompleteIdsOpts, Config, CoverCitation, CoverOpts,
-    FetchFailureKind, Finding, FindingSite, FmtOpts, FmtScanAbort, IdOpts, IdProposal,
+    AGENT_SETUP_INSTRUCTIONS, ApiScanError, BatchShowQuery, CheckOpts, CitationDisjunction,
+    CitationLevel, CitationRules, CitationTarget, CompleteIdsOpts, Config, CoverCitation,
+    CoverOpts, FetchFailureKind, Finding, FindingSite, FmtOpts, FmtScanAbort, IdOpts, IdProposal,
     IdProposalOutcome, InitAgentEntrypointSelection, InitFsHome, InitNext, InitOpts, InitOutput,
     ListEntry, ListOpts, NamespaceMatch, RefHit, RefsOpts, Report, ShowFormat, ShowMode, ShowOpts,
     ShowQueryError, canonical_template_text, check_with_opts, complete_ids, cover,
     effective_config, fetch_snapshot, format_references, init, list, names_member_id_candidate,
     print_config_warnings, propose_id, refs, render_finding_sites_json, run_integrations,
-    show_with_scope, validate_config,
+    show_batch_with_scope, show_with_scope, validate_config,
 };
 use grund_core::{CHECK_FINDING_CODES, CheckFindingSelection};
 
@@ -39,9 +39,11 @@ const SUBCOMMANDS: &[&str] = &[
 
 include!("cli_help.rs");
 include!("cli_help_check.rs");
+include!("cli_help_show.rs");
 include!("cli.rs");
 include!("cli_check.rs");
 include!("cli_show.rs");
+include!("cli_show_batch.rs");
 include!("cli_list.rs");
 include!("cli_refs.rs");
 include!("cli_cover.rs");

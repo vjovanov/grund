@@ -98,6 +98,7 @@ include!("init_target.rs");
 include!("init.rs");
 include!("init_cmd.rs");
 include!("api.rs");
+include!("show_batch.rs");
 include!("api_report.rs");
 include!("on_type.rs");
 include!("lsp_hover.rs");
