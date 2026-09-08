@@ -208,27 +208,45 @@ mod verdict_tests {
         assert_every_case_passed, case_name, copy_dir, discover_e2e_cases, mismatch_summary,
         run_case, CaseKind, CaseOutcome,
     };
+    use std::ffi::OsStr;
     use std::fs;
     use std::panic::{self, AssertUnwindSafe};
     use std::path::PathBuf;
-    use std::process::Command;
+    use std::process::{Command, Stdio};
 
     const DEFAULT_VERDICT_PROBE: &str = "run_case_names_every_mismatched_case_and_surface";
     const INHERITED_REFRESH_PROBE: &str = "inherited-update-expected";
 
-    fn verdict_scratch(probe: Option<&str>) -> PathBuf {
+    fn verdict_scratch(probe: Option<&OsStr>) -> PathBuf {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../target/e2e-harness-tests");
         match probe {
             None => root.join(DEFAULT_VERDICT_PROBE),
-            Some(INHERITED_REFRESH_PROBE) => root.join(INHERITED_REFRESH_PROBE),
+            Some(probe) if probe == OsStr::new(INHERITED_REFRESH_PROBE) => root.join(format!(
+                "{INHERITED_REFRESH_PROBE}-{}",
+                std::process::id()
+            )),
             Some(_) => root.join(format!("unrecognized-probe-{}", std::process::id())),
         }
     }
 
     fn selected_verdict_scratch() -> PathBuf {
-        let probe = std::env::var("GRUND_SYNTHETIC_VERDICT_PROBE").ok();
+        let probe = std::env::var_os("GRUND_SYNTHETIC_VERDICT_PROBE");
         verdict_scratch(probe.as_deref())
+    }
+
+    fn inherited_refresh_probe() -> Command {
+        let mut command = Command::new(std::env::current_exe().expect("current e2e test binary"));
+        command
+            .args([
+                "--exact",
+                "case_runner::verdict_tests::run_case_names_every_mismatched_case_and_surface",
+            ])
+            .env("UPDATE_EXPECTED", "1")
+            .env("GRUND_SYNTHETIC_VERDICT_PROBE", INHERITED_REFRESH_PROBE)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        command
     }
 
     #[test]
@@ -345,16 +363,9 @@ mod verdict_tests {
     /// refreshing ordinary goldens (§FS-examples.5.1).
     #[test]
     fn synthetic_verdict_probe_is_hermetic_to_inherited_update_expected() {
-        let output = Command::new(std::env::current_exe().expect("current e2e test binary"))
-            .args([
-                "--exact",
-                "case_runner::verdict_tests::run_case_names_every_mismatched_case_and_surface",
-            ])
-            .env("UPDATE_EXPECTED", "1")
-            .env("GRUND_SYNTHETIC_VERDICT_PROBE", INHERITED_REFRESH_PROBE)
+        let output = inherited_refresh_probe()
             .output()
             .expect("run synthetic verdict probe with inherited refresh selection");
-        let _ = fs::remove_dir_all(verdict_scratch(Some(INHERITED_REFRESH_PROBE)));
 
         assert!(
             output.status.success(),
@@ -362,6 +373,47 @@ mod verdict_tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr),
         );
+    }
+
+    /// Concurrent synthetic verdict probes own separate scratch corpora while
+    /// preserving comparison mode (§FS-examples.5.1).
+    #[test]
+    fn concurrent_inherited_refresh_probes_have_process_owned_scratch() {
+        let children = (0..4)
+            .map(|_| {
+                inherited_refresh_probe()
+                    .spawn()
+                    .expect("spawn concurrent inherited-refresh probe")
+            })
+            .collect::<Vec<_>>();
+
+        for (index, child) in children.into_iter().enumerate() {
+            let output = child
+                .wait_with_output()
+                .expect("wait for concurrent inherited-refresh probe");
+            assert!(
+                output.status.success(),
+                "concurrent inherited-refresh probe {index} must own its scratch corpus\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr),
+            );
+        }
+    }
+
+    /// A present non-Unicode selector stays in a process-owned fallback rather
+    /// than collapsing into the shared default probe (§FS-examples.5.1).
+    #[cfg(unix)]
+    #[test]
+    fn non_unicode_probe_uses_process_owned_fallback() {
+        use std::os::unix::ffi::OsStrExt;
+
+        let scratch = verdict_scratch(Some(OsStr::from_bytes(b"\xff")));
+        let default_scratch = verdict_scratch(None);
+        let expected_name = format!("unrecognized-probe-{}", std::process::id());
+
+        assert_ne!(scratch, default_scratch);
+        assert_eq!(scratch.parent(), default_scratch.parent());
+        assert_eq!(scratch.file_name(), Some(OsStr::new(&expected_name)));
     }
 
     /// Recursive cleanup for the synthetic verdict probe stays under its
@@ -378,13 +430,16 @@ mod verdict_tests {
         fs::write(&marker, "must survive\n").expect("write cleanup decoy marker");
 
         assert!(outside.is_absolute(), "decoy must exercise an absolute value");
-        let scratch = verdict_scratch(outside.to_str());
+        let scratch = verdict_scratch(Some(outside.as_os_str()));
         let default_scratch = verdict_scratch(None);
         let scratch_root = default_scratch
             .parent()
             .expect("default scratch has a parent");
         assert!(scratch.starts_with(scratch_root));
-        assert_eq!(scratch, verdict_scratch(Some("../../outside")));
+        assert_eq!(
+            scratch,
+            verdict_scratch(Some(OsStr::new("../../outside")))
+        );
         let output = Command::new(std::env::current_exe().expect("current e2e test binary"))
             .args([
                 "--exact",
