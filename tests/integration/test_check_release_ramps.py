@@ -34,6 +34,14 @@ class ClauseReadingTests(unittest.TestCase):
         (claim,) = claims('"`prefix` was removed in grund 0.13.0 — rename it"')
         self.assertEqual((claim.release, claim.direction), ("0.13.0", ramps.LANDED))
 
+    def test_a_scalar_exit_promise_names_its_release(self):
+        (claim,) = claims(
+            "warning: `grund refs` invalid IDs currently exit 2; "
+            "they will exit 1 (failed query) in grund 0.15.0"
+        )
+        self.assertEqual((claim.release, claim.direction), ("0.15.0", ramps.PENDING))
+        self.assertTrue(ramps.report([claim], "0.15.0"))
+
     def test_grund_is_optional_and_bold_is_tolerated(self):
         for text in ("stopped loading in 0.13.0", "stopped loading in grund **0.13.0**"):
             (claim,) = claims(text)

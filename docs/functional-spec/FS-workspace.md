@@ -962,7 +962,13 @@ All six surfaces above keep the exit codes they had:
   fails after every valid record has been emitted, `2` for malformed input or
   invocation and configuration/scan failure. An unknown alias inside a
   well-formed batch record is a query failure, not a run failure (§8.1).
-- `refs` — `0` always when the scan succeeds; `2` on scan/CLI error.
+- `refs` — `0` for a completed citation-list answer, including no hits; from
+  0.15.0, `1` when a known alias has selected a project and that project's
+  resolver rejects an invalid ID or ambiguous number-only shorthand; `2` when
+  context or scan fails. An unknown alias remains `2`, because no project (and
+  therefore no effective grammar) was selected. The 0.14.0 warning phase in
+  [§FS-refs.4](FS-refs.md#4-exit-codes) applies after the same alias and grammar
+  selection. `--summary` and `--section` inherit this classification.
 - `list` — `0` always when the scan succeeds; `2` on scan/CLI error (now
   including unknown `--project`).
 - `cover` — `0` always when the scan succeeds; `2` on a scan error in **any**

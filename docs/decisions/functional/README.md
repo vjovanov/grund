@@ -72,6 +72,7 @@ The rules that make this file, and the ones beside it, checked rather than hoped
 - [§DF-integrations-command](DF-integrations-command.md#df-integrations-command-integrations-earns-a-cli-slot-as-one-time-setup-where-a-per-citation-link-command-did-not) — integrations earns a CLI slot as one-time setup, where a per-citation `link` command did not
 - [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command) — agents compose clickable citation links themselves; grund does not grow a `link` command
 - [§DF-fmt-one-model](DF-fmt-one-model.md#df-fmt-one-model-fmt-is-the-shared-verified-model-plus-a-write-step-and-completeness-is-a-precondition-rather-than-a-convention) — `fmt` is the shared verified model plus a write step, and completeness is a precondition rather than a convention
+- [§DF-refs-resolver-rejection](DF-refs-resolver-rejection.md#df-refs-resolver-rejection-an-id-rejected-by-a-selected-grammar-is-a-failed-query) — an ID rejected by a selected grammar is a failed query
 
 ## Agent-facing surfaces
 

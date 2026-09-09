@@ -38,6 +38,37 @@ cross-reference formatting, and LSP navigation remain byte-for-byte compatible
 with their pre-flip result. No shipped diagnostic promises a deadline the
 running version has reached.
 
+## RM-refs-resolver-rejection-exit: make refs resolver rejections failed queries in 0.15.0
+
+Grund 0.14.0 opens the exit-status compatibility window in
+[§FS-refs.4](functional-spec/FS-refs.md#4-exit-codes). This milestone closes it
+at the release every affected invocation names.
+
+### 1. What
+
+In grund 0.15.0, change `refs`' configured-format-invalid ID and ambiguous
+number-only shorthand outcomes from exit `2` to exit `1`. Remove the migration
+warning and the text `error:` prefix; use the shared failed-query JSON object in
+JSON mode. Keep invalid-format's text hint, omit ambiguity and JSON hints, and
+leave `show`, unknown aliases, scan failures, and empty `refs` results unchanged
+([§FS-errors.5](functional-spec/FS-errors.md#5-json-format)).
+
+### 2. Why now
+
+Callers receive one full warning release before the scalar changes. Letting the
+warning persist at its named release would make the deadline false and preserve
+the cross-command disagreement it exists to retire
+([§DF-refs-resolver-rejection.2.2](decisions/functional/DF-refs-resolver-rejection.md#22-a-scalar-gets-a-hold-and-warn-release)).
+
+### 3. Measurable
+
+At 0.15.0, both rejection kinds exit `1` from `show` and `refs`; text and JSON
+match the exact staged shapes, stdout is empty, and the warning is absent.
+Unknown aliases and operational failures remain `2`, and a resolved target with
+no citation remains `0`. The release-ramp guard refuses 0.15.0 while the warning
+form remains
+([§FS-distribution.4.2](functional-spec/FS-distribution.md#42-a-release-may-not-contradict-the-releases-the-trees-own-messages-name)).
+
 ## RM-distribution: cargo + npm + pypi from one engine
 
 Per [§FS-distribution](functional-spec/FS-distribution.md#fs-distribution-grund-distribution-targets) and [§AR-bindings](architecture/AR-bindings.md#ar-bindings-target-shape-for-exposing-the-rust-engine-on-three-platforms). Builds on the shipped workspace split ([§AR-bindings.2](architecture/AR-bindings.md#2-grund-core-the-only-place-logic-lives)).

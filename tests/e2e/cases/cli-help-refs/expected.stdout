@@ -14,7 +14,8 @@ Options:
 The citation list is the result, so it goes to stdout (text and json alike) —
 `grund refs <ID> | …` works like `grund list`. Only the typo `note:` goes to stderr.
 
-Exit:  0 scan succeeded (with or without hits) · 2 unreadable tree or CLI error.
+Exit:  0 scan succeeded (with or without hits) · 1 ID rejected after context · 2 run/scan error.
+       In 0.14.0 rejected IDs still exit 2 with a warning; they move to 1 in 0.15.0.
 
 Examples:
   grund refs FS-login             # every citation of FS-login

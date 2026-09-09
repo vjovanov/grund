@@ -82,6 +82,14 @@ grund show --batch --all --format=json
 
 `grund refs <ID> --summary` gives the blast radius one file per line before a full citation dump, and `grund list --kind FS,AR` keeps discovery scoped. That's the "cheap grounding" half of the workflow: every agent fetches the same bytes for the same ID, every time.
 
+For scripts, exit `0` is a completed `refs` answer even when it is empty. From
+grund 0.15.0, exit `1` means the selected repository grammar rejected the ID or
+its number-only shorthand was ambiguous; route that status to ID repair, and
+reserve exit `2` for setup, configuration, I/O, or incomplete-scan failure.
+Grund 0.14.0 keeps the former exit `2` for those two operand failures and warns
+on stderr about the 0.15.0 change
+([§FS-refs.4](docs/functional-spec/FS-refs.md#4-exit-codes)).
+
 ## 3. Check for dangling pointers
 
 Renumber the heading `### 3.2 Missing section` in [`FS-check.md`](docs/functional-spec/FS-check.md) and `grund check` flags every site that leaned on it — code and decision docs alike, in one resolver:
