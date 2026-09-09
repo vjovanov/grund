@@ -43,6 +43,8 @@ fn validate_markdown_value_declarations(
             column: None,
             message: reason.to_string(),
             source: invalid_source.clone(),
+            binding_namespace: None,
+            binding_section: None,
         };
         let mut valid = true;
         if !is_md {
@@ -183,17 +185,7 @@ fn scan_value_bindings(
     let mut invalid = Vec::new();
     let mut classified_openings = BTreeSet::new();
     for citation in &findings.citations[citation_start..] {
-        let target_config = match citation.namespace.as_deref() {
-            Some(alias) => workspace_targets
-                .iter()
-                .find(|target| target.alias == alias)
-                .map(|target| &target.config),
-            None => Some(line.config),
-        };
-        let Some(target_config) = target_config else {
-            continue;
-        };
-        if !kind_uses_values(target_config, &citation.id.kind) || !citation.has_marker {
+        if !citation.has_marker {
             continue;
         }
         let marker_start = citation
@@ -215,7 +207,9 @@ fn scan_value_bindings(
                 classified_openings.insert(open_tick);
                 invalid.push(invalid_value_binding_site(
                     line,
+                    citation.namespace.clone(),
                     Some(citation.id.clone()),
+                    citation.section.clone(),
                     open_tick,
                 ));
             }
@@ -238,9 +232,11 @@ fn scan_value_bindings(
         }
         let section = citation.section.as_deref();
         let valid_section = section.is_some_and(|section| {
-            !section.is_empty()
-                && !section.starts_with('0')
-                && section.bytes().all(|byte| byte.is_ascii_digit())
+            section.split('.').all(|part| {
+                !part.is_empty()
+                    && !part.starts_with('0')
+                    && part.bytes().all(|byte| byte.is_ascii_digit())
+            })
         });
         if citation.shorthand {
             // The ordinary noncanonical-shorthand finding owns this site and
@@ -255,7 +251,9 @@ fn scan_value_bindings(
             classified_openings.insert(open_tick);
             invalid.push(invalid_value_binding_site(
                 line,
+                citation.namespace.clone(),
                 Some(citation.id.clone()),
+                citation.section.clone(),
                 open_tick,
             ));
             continue;
@@ -301,9 +299,9 @@ fn scan_noncanonical_value_binding_attempts(
         let Some(tail) = line.scan_line.get(close_tick + 1..context.1) else {
             continue;
         };
-        if attempted_value_target(tail, line.config, workspace_targets).is_none() {
+        let Some(target) = attempted_value_target(tail, line.config, workspace_targets) else {
             continue;
-        }
+        };
         // Without an opener on this physical line, this is the closing half of
         // a multiline literal—the binding is still an invalid attempted
         // delimited form (§FS-values.3.1).
@@ -314,7 +312,13 @@ fn scan_noncanonical_value_binding_attempts(
         if classified_openings.contains(&open_tick) {
             continue;
         }
-        invalid.push(invalid_value_binding_site(line, None, open_tick));
+        invalid.push(invalid_value_binding_site(
+            line,
+            target.namespace,
+            Some(target.id),
+            target.section,
+            open_tick,
+        ));
     }
 }
 
@@ -326,7 +330,9 @@ fn unmatched_open_tick(prefix: &str) -> Option<usize> {
 
 fn invalid_value_binding_site(
     line: &CitationLine<'_>,
+    namespace: Option<String>,
     id: Option<Id>,
+    section: Option<String>,
     open_tick: usize,
 ) -> InvalidValueSite {
     InvalidValueSite {
@@ -337,14 +343,22 @@ fn invalid_value_binding_site(
         message: "value binding must be exactly `literal` (marker-prefixed full value ID with one positive numeric field)"
             .to_string(),
         source: DeclarationSource::Text,
+        binding_namespace: namespace,
+        binding_section: section,
     }
+}
+
+struct AttemptedValueTarget {
+    namespace: Option<String>,
+    id: Id,
+    section: Option<String>,
 }
 
 fn attempted_value_target(
     tail: &str,
     local: &Config,
     workspace_targets: &[WorkspaceCitationTarget],
-) -> Option<Id> {
+) -> Option<AttemptedValueTarget> {
     let mut rest = tail;
     if rest.starts_with(|ch: char| ch.is_whitespace()) {
         rest = rest.trim_start_matches(|ch: char| ch.is_whitespace());
@@ -359,17 +373,25 @@ fn attempted_value_target(
         let alias = prefix.name("namespace")?.as_str();
         let target = workspace_targets.iter().find(|target| target.alias == alias)?;
         let id_rest = &rest[prefix.get(0)?.end()..];
-        let id = attempted_value_id(id_rest, &target.config)?;
-        return kind_uses_values(&target.config, &id.kind).then_some(id);
+        let (id, section) = attempted_value_id(id_rest, &target.config)?;
+        return Some(AttemptedValueTarget {
+            namespace: Some(alias.to_string()),
+            id,
+            section,
+        });
     }
 
-    let id = attempted_value_id(rest, local)?;
-    kind_uses_values(local, &id.kind).then_some(id)
+    let (id, section) = attempted_value_id(rest, local)?;
+    Some(AttemptedValueTarget {
+        namespace: None,
+        id,
+        section,
+    })
 }
 
-fn attempted_value_id(raw: &str, config: &Config) -> Option<Id> {
+fn attempted_value_id(raw: &str, config: &Config) -> Option<(Id, Option<String>)> {
     if let Some(parsed) = parse_longest_id_prefix(raw, &config.grammar) {
-        return Some(parsed.id);
+        return Some((parsed.id, parsed.section));
     }
     // A named address is deliberately outside the ordinary numeric-only
     // grammar, so recover only the complete ID before the separator to classify
@@ -380,7 +402,7 @@ fn attempted_value_id(raw: &str, config: &Config) -> Option<Id> {
         .into_iter()
         .rev()
         .find_map(|index| match parse_id_arg(&raw[..index], &config.grammar) {
-            Ok((id, None)) => Some(id),
+            Ok((id, None)) => Some((id, None)),
             _ => None,
         })
 }
@@ -507,6 +529,7 @@ fn enroll_json_member(
                 line,
                 heading_level: 2,
                 value,
+                value_root: None,
             },
         );
     }
@@ -533,5 +556,7 @@ fn push_json_invalid(
             key_column: column,
             key_text: text[span.start..span.end].to_string(),
         },
+        binding_namespace: None,
+        binding_section: None,
     });
 }
