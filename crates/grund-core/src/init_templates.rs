@@ -61,7 +61,9 @@ pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-
 /// grounding sentence `[reference] require_grounding` was never rendering. The
 /// rules an agent reads changed, so it carries a bump rather than a silent
 /// rewrite (§FS-init.2.3).
-const AGENTS_BLOCK_VERSION: u32 = 8;
+/// v9 (§FS-init.2.3.4.3): the cheap-read ladder gains the point-size sweep so
+/// oversized leads are discoverable before an agent pays to read them.
+const AGENTS_BLOCK_VERSION: u32 = 9;
 
 pub fn canonical_template_text(template: &str) -> String {
     template.replace("\r\n", "\n").replace('\r', "\n")

@@ -40,27 +40,179 @@ fn extract_declaration_body(
     config: &Config,
     overlays: &TextOverlays,
 ) -> Result<ShowOutput> {
+    let mut cache = PointBodyCache::new(overlays);
+    extract_declaration_body_cached(
+        &mut cache,
+        path,
+        id,
+        section,
+        mode,
+        include_heading,
+        config,
+        None,
+    )
+}
+
+/// The exact scanner-recorded site whose body is being sliced. `show` leaves it
+/// absent because it has already established uniqueness; size rows provide it
+/// so duplicate homes and duplicate section coordinates stay site-local
+/// (§FS-list.2, §FS-list.3.4).
+#[derive(Clone, Copy)]
+struct PointBodySite {
+    declaration_line: usize,
+    section_line: Option<usize>,
+}
+
+/// Per-operation source cache shared by list and check point measurements. It
+/// owns no parsing rules: the cached bytes still flow through the exact show
+/// slicer below (§FS-list.3.4, §FS-check.4.13).
+struct PointBodyCache<'a> {
+    overlays: &'a TextOverlays,
+    text: BTreeMap<PathBuf, String>,
+}
+
+impl<'a> PointBodyCache<'a> {
+    fn new(overlays: &'a TextOverlays) -> Self {
+        Self {
+            overlays,
+            text: BTreeMap::new(),
+        }
+    }
+
+    fn read(&mut self, path: &Path) -> Result<&str> {
+        if !self.text.contains_key(path) {
+            let text = read_text_with_overlays(path, self.overlays)?;
+            self.text.insert(path.to_path_buf(), text);
+        }
+        Ok(self.text.get(path).expect("cached point source"))
+    }
+}
+
+/// Return the lead/full text pair for one catalog site. JSON values and E2E
+/// cases already carry their canonical show bodies in scanner records; text
+/// declarations use the cached show slicer. A retained stub is broken (healthy
+/// stub rows collapse onto their inline home) and therefore unmeasurable
+/// (§FS-list.2, §FS-list.3.4).
+fn point_body_pair(
+    cache: &mut PointBodyCache<'_>,
+    config: &Config,
+    id: &Id,
+    declaration: &Declaration,
+    section: Option<(&str, &SectionInfo)>,
+) -> Result<Option<(String, String)>> {
+    if declaration.is_stub {
+        return Ok(None);
+    }
+    if matches!(declaration.source, DeclarationSource::Json { .. }) {
+        let body = match section {
+            Some((_, info)) => info
+                .value
+                .as_ref()
+                .map(|value| value.source_slice.clone())
+                .unwrap_or_default(),
+            None => match &declaration.source {
+                DeclarationSource::Json { member_slice, .. } => member_slice.clone(),
+                DeclarationSource::Text => unreachable!("guarded JSON source"),
+            },
+        };
+        return Ok(Some((body.clone(), body)));
+    }
+    if let Some(case) = &declaration.e2e_case {
+        let lead = show_e2e_case(config, config, id, case, None, ShowRenderMode::Default)?.body;
+        let full = show_e2e_case(config, config, id, case, None, ShowRenderMode::Full)?.body;
+        return Ok(Some((lead, full)));
+    }
+
+    let section_path = section.map(|(path, _)| path);
+    let site = PointBodySite {
+        declaration_line: declaration.line,
+        section_line: section.map(|(_, info)| info.line),
+    };
+    let mut lead = extract_declaration_body_cached(
+        cache,
+        &declaration.file,
+        id,
+        section_path,
+        ShowRenderMode::Default,
+        false,
+        config,
+        Some(site),
+    )?
+    .body;
+    let mut full = extract_declaration_body_cached(
+        cache,
+        &declaration.file,
+        id,
+        section_path,
+        ShowRenderMode::Full,
+        false,
+        config,
+        Some(site),
+    )?
+    .body;
+    // Text and JSON `show` flatten generated cross-reference wrappers before
+    // exposing their bodies; point measurements promise those same bytes
+    // (§FS-show.3.2, §FS-list.3.4).
+    lead = flatten_cross_ref_links(&lead, config);
+    full = flatten_cross_ref_links(&full, config);
+    Ok(Some((lead, full)))
+}
+
+/// Byte-defined size counting with no locale or Unicode-table input
+/// (§FS-list.3.4).
+fn measure_point_text(text: &str, unit: PointSizeUnit) -> usize {
+    let ascii_space = |byte: &u8| matches!(*byte, b'\t'..=b'\r' | b' ');
+    match unit {
+        PointSizeUnit::Lines => text
+            .as_bytes()
+            .split(|byte| *byte == b'\n')
+            .filter(|line| line.iter().any(|byte| !ascii_space(byte)))
+            .count(),
+        PointSizeUnit::Words => text
+            .as_bytes()
+            .split(ascii_space)
+            .filter(|word| !word.is_empty())
+            .count(),
+        PointSizeUnit::Bytes => text.len(),
+    }
+}
+
+/// Shared show slicer, optionally pinned to one scanner-recorded site so the
+/// size catalog can expose duplicates without making them resolvable
+/// (§FS-show.2.1, §FS-list.3.4).
+fn extract_declaration_body_cached(
+    cache: &mut PointBodyCache<'_>,
+    path: &Path,
+    id: &Id,
+    section: Option<&str>,
+    mode: ShowRenderMode,
+    include_heading: bool,
+    config: &Config,
+    site: Option<PointBodySite>,
+) -> Result<ShowOutput> {
     // `--toc` = the default lead, then a blank line, then the nested section
     // headings (§FS-show.2.1.2). Internally: compose the Default body with an
     // Outline-only scan, sharing the same `(path, id, section)` resolution.
     if mode == ShowRenderMode::Toc {
-        let mut default_output = extract_declaration_body(
+        let mut default_output = extract_declaration_body_cached(
+            cache,
             path,
             id,
             section,
             ShowRenderMode::Default,
             include_heading,
             config,
-            overlays,
+            site,
         )?;
-        let outline_output = extract_declaration_body(
+        let outline_output = extract_declaration_body_cached(
+            cache,
             path,
             id,
             section,
             ShowRenderMode::Outline,
             false,
             config,
-            overlays,
+            site,
         )?;
         default_output.body = join_with_blank(&default_output.body, &outline_output.body);
         default_output.sections = outline_output.sections;
@@ -71,20 +223,21 @@ fn extract_declaration_body(
     // suppressed when a section is selected.
     if mode == ShowRenderMode::Brief {
         let want_h1_for_default = section.is_none();
-        let mut output = extract_declaration_body(
+        let mut output = extract_declaration_body_cached(
+            cache,
             path,
             id,
             section,
             ShowRenderMode::Default,
             want_h1_for_default,
             config,
-            overlays,
+            site,
         )?;
         output.body = truncate_to_first_paragraph(&output.body);
         return Ok(output);
     }
 
-    let text = read_text_with_overlays(path, overlays)?;
+    let text = cache.read(path)?;
     let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
     let is_py = path.extension().and_then(|e| e.to_str()) == Some("py");
     let mut in_decl = false;
@@ -114,10 +267,13 @@ fn extract_declaration_body(
             && let Some((found, _)) =
                 declaration_id_on_line(&config.grammar, scan_line, scan.in_py_docstring, is_md)
         {
-            if in_decl && &found != id {
+            if in_decl && (site.is_some() || &found != id) {
                 break;
             }
-            if &found == id {
+            let selected_declaration = site
+                .map(|site| site.declaration_line == lineno)
+                .unwrap_or(true);
+            if &found == id && selected_declaration {
                 in_decl = true;
                 line_style_comment = is_line_style_comment_line(scan_line);
                 output_line = lineno;
@@ -179,7 +335,11 @@ fn extract_declaration_body(
                     // `!found_section`: a *second* heading claiming the requested
                     // path terminates the section rather than continuing it
                     // (§DF-duplicate-section-path.1, §FS-show.2.2.2).
-                    if sec == target && !found_section {
+                    let selected_section = site
+                        .and_then(|site| site.section_line)
+                        .map(|line| line == lineno)
+                        .unwrap_or(true);
+                    if sec == target && !found_section && selected_section {
                         found_section = true;
                         target_depth = depth;
                         output_line = lineno;

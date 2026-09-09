@@ -272,6 +272,25 @@ fn check_findings(findings: &Findings, config: &Config) -> CheckReport {
     check_with_workspace(findings, config, config, None, &BTreeMap::new())
 }
 
+/// Disk-backed compatibility entry for the shared checker; the LSP sibling
+/// below supplies overlays so §FS-check.4.13 measures the editor's live text.
+fn check_with_workspace(
+    findings: &Findings,
+    config: &Config,
+    path_config: &Config,
+    current_alias: Option<&str>,
+    workspace: &BTreeMap<String, WorkspaceCheckTarget<'_>>,
+) -> CheckReport {
+    check_with_workspace_and_overlays(
+        findings,
+        config,
+        path_config,
+        current_alias,
+        workspace,
+        &TextOverlays::new(),
+    )
+}
+
 /// `path_config` is the config the finished report renders paths against
 /// (§FS-workspace.8.1) — the workspace root's in workspace mode, `config` itself
 /// otherwise. A path baked *into* a message must use it, or in a workspace it
@@ -294,12 +313,13 @@ fn check_findings(findings: &Findings, config: &Config) -> CheckReport {
 /// maintainer declared matters and is usually all Markdown, so the exemption
 /// would make the rule inert exactly where it was asked for. Which place is
 /// asked, and how finely, is a `[[kinds]]` row's to say (§FS-config.3.4.8).
-fn check_with_workspace(
+fn check_with_workspace_and_overlays(
     findings: &Findings,
     config: &Config,
     path_config: &Config,
     current_alias: Option<&str>,
     workspace: &BTreeMap<String, WorkspaceCheckTarget<'_>>,
+    overlays: &TextOverlays,
 ) -> CheckReport {
     let mut report = CheckReport::default();
     let kind_homes = KindHomeIndex::new(config);
@@ -453,6 +473,17 @@ fn check_with_workspace(
     // checked from scanner-provided site metadata; Markdown citations and
     // declaration bodies carry no site and are ignored here.
     check_inline_citation_style(findings, config, &mut report);
+
+    // §FS-check.4.13: an absent key stops before any body read; an opted-in
+    // project judges only the already-scoped scanner sites, including duplicate
+    // claimants, through the shared show slicer. Warnings never affect exit.
+    check_oversized_leads(
+        findings,
+        config,
+        current_alias,
+        overlays,
+        &mut report,
+    );
 
     // §FS-check.3.4: a `# <ID>: [text](path)` stub is broken if `path` does not
     // exist, or exists but does not itself declare `<ID>` inline (§AR-checker.2.4).

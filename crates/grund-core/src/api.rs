@@ -662,7 +662,10 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
     // LSP routes findings back to project snapshots by filesystem identity.
     // Preserve absolute paths here instead of reconstructing them from rendered
     // `../` paths under Windows verbatim roots (§FS-lsp.1.1, §FS-lsp.2.2).
-    let report = public_lsp_report(&render_config, check_workspace_context(&context, false));
+    let report = public_lsp_report(
+        &render_config,
+        check_workspace_context(&context, false, &overlays),
+    );
     let mut declarations = Vec::new();
     let mut sections = Vec::new();
     let mut stubs = Vec::new();
@@ -864,7 +867,11 @@ fn normalized_overlays(overlays: BTreeMap<PathBuf, String>) -> TextOverlays {
 /// project was the absent one — and why that config is cloned after the workspace
 /// walk (`load_resolved_workspace_context`). §FS-check.2.2: the caution for that
 /// same block rides beside it.
-fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: bool) -> CheckReport {
+fn check_workspace_context(
+    context: &WorkspaceContext,
+    force_require_grounding: bool,
+    overlays: &TextOverlays,
+) -> CheckReport {
     let workspace = context
         .projects
         .iter()
@@ -887,7 +894,7 @@ fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: 
             config.require_grounding = true;
         }
         let mut project_report = if context.workspace_loaded {
-            check_with_workspace(
+            check_with_workspace_and_overlays(
                 &project.findings,
                 &config,
                 // §FS-workspace.8.1: paths inside a message are spelled from the
@@ -895,9 +902,17 @@ fn check_workspace_context(context: &WorkspaceContext, force_require_grounding: 
                 context.render_config(),
                 Some(&project.alias),
                 &workspace,
+                overlays,
             )
         } else {
-            check_findings(&project.findings, &config)
+            check_with_workspace_and_overlays(
+                &project.findings,
+                &config,
+                &config,
+                None,
+                &BTreeMap::new(),
+                overlays,
+            )
         };
         let project_has_findings =
             !project_report.errors.is_empty() || !project_report.warnings.is_empty();
