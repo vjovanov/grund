@@ -123,13 +123,16 @@ fn scan_file_text(
     let mut markdown_fence = None;
     let mut py_docstring = PythonDocstringScanState::default();
     let mut current: Option<Declaration> = None;
-    // §FS-values.9: keep every value-specific line pass off for repositories
-    // that have not opted in locally or through a workspace target.
-    let scan_values = config.kinds.iter().any(|kind| kind.values)
+    // An exact embedded marker independently enables value authority in any
+    // scanned document (§FS-values.1, §FS-values.9). This is still the
+    // already-read file buffer; unmarked trees gain no extra filesystem read.
+    let scan_values = text.contains(EMBEDDED_VALUE_MARKER)
+        || config.kinds.iter().any(|kind| kind.values)
         || workspace_targets
             .iter()
             .any(|target| target.config.kinds.iter().any(|kind| kind.values));
-    let value_comment_ranges = (scan_values && !is_md)
+    let has_binding_candidate = text.contains('`') && text.contains(&config.marker);
+    let value_comment_ranges = ((scan_values || has_binding_candidate) && !is_md)
         .then(|| recognized_source_comment_ranges(&text, is_py, config));
     // §AR-scanner.2.4: citing-side classification is consumed only by the
     // citation-direction checks, so it is computed only when the project declares
@@ -205,6 +208,17 @@ fn scan_file_text(
                 source: DeclarationSource::Text,
                 value_valid: None,
             });
+            if exact_embedded_value_marker(scan_line).is_some() {
+                push_invalid_embedded_marker(
+                    findings,
+                    current.as_ref().map(|decl| decl.id.clone()),
+                    path,
+                    lineno,
+                    scan.column_offset,
+                    scan_line,
+                    "embedded value marker must be on a citable numeric section heading",
+                );
+            }
             continue;
         }
 
@@ -276,31 +290,69 @@ fn scan_file_text(
             continue;
         }
 
+        let embedded_marker = exact_embedded_value_marker(scan_line);
+        let mut embedded_marker_attached = false;
         if let Some(caps) = config.grammar.section_re.captures(scan_line)
             && let Some(decl) = current.as_mut()
             && let Some(sec) = section_path(&caps)
         {
             let heading_level = heading_level_for_line(scan_line, is_md || scan.in_py_docstring, &caps);
             if heading_level > decl.heading_level {
-                let path = sec.to_string();
+                let section_path = sec.to_string();
+                let numeric = sec
+                    .split('.')
+                    .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()));
+                embedded_marker_attached = embedded_marker.is_some() && numeric;
                 let info = SectionInfo {
                     title: section_anchor_text(scan_line, sec),
                     line: lineno,
                     heading_level,
                     value: None,
+                    value_root: embedded_marker.filter(|_| numeric).map(|marker_start| {
+                        EmbeddedValueRoot {
+                            valid: true,
+                            marker_column: scan.column_offset + marker_start + 1,
+                        }
+                    }),
                 };
                 // §AR-scanner.2.2: a path is recorded once, by the first heading
                 // that claims it; later claimants go to `duplicate_sections` so
                 // §FS-check.3.16 can name every colliding line.
-                match decl.sections.entry(path.clone()) {
+                match decl.sections.entry(section_path.clone()) {
                     std::collections::btree_map::Entry::Vacant(slot) => {
                         slot.insert(info);
                     }
                     std::collections::btree_map::Entry::Occupied(_) => {
-                        decl.duplicate_sections.push((path, info));
+                        if info.value_root.is_some() {
+                            embedded_marker_attached = true;
+                            push_invalid_embedded_marker(
+                                findings,
+                                Some(decl.id.clone()),
+                                path,
+                                lineno,
+                                scan.column_offset,
+                                scan_line,
+                                "embedded value root coordinate is duplicated",
+                            );
+                        }
+                        decl.duplicate_sections.push((section_path, info));
                     }
                 }
             }
+        }
+        if embedded_marker.is_some()
+            && !embedded_marker_attached
+            && authored_heading_level(scan_line, is_md || scan.in_py_docstring, config).is_some()
+        {
+            push_invalid_embedded_marker(
+                findings,
+                current.as_ref().map(|decl| decl.id.clone()),
+                path,
+                lineno,
+                scan.column_offset,
+                scan_line,
+                "embedded value marker must be on a citable numeric section heading",
+            );
         }
 
         let workspace_mode = !workspace_targets.is_empty();
@@ -430,9 +482,12 @@ fn scan_file_text(
         );
         scan_legacy_citation_candidates(&citation_line, findings);
         scan_escaped_citations(&citation_line, findings);
-        if scan_values {
-            scan_value_bindings(&citation_line, workspace_targets, citation_start, findings);
-        }
+        // Exact candidates are retained in the same citation pass for every
+        // tree. The checker activates them only when their target is configured
+        // whole-value authority or an embedded marked root, keeping unmarked
+        // prose inert while allowing cross-workspace embedded roots
+        // (§FS-values.3.1, §FS-values.7, §FS-values.9).
+        scan_value_bindings(&citation_line, workspace_targets, citation_start, findings);
     }
 
     if let Some(decl) = current.take() {
@@ -451,13 +506,19 @@ fn scan_file_text(
         .values()
         .flatten()
         .any(|decl| !decl.duplicate_sections.is_empty());
+    let has_embedded_roots = findings
+        .declarations
+        .values()
+        .flatten()
+        .flat_map(|decl| decl.sections.values())
+        .any(|section| section.value_root.is_some());
     let has_value_declarations = scan_values
         && findings
             .declarations
             .values()
             .flatten()
             .any(|decl| kind_uses_values(config, &decl.id.kind));
-    if classify || has_duplicate_sections || has_value_declarations {
+    if classify || has_duplicate_sections || has_value_declarations || has_embedded_roots {
         assign_declaration_bodies(findings, is_md, is_py, config, &text, &md_headings, total_lines);
     }
     if has_duplicate_sections {
@@ -465,6 +526,9 @@ fn scan_file_text(
     }
     if has_value_declarations {
         validate_markdown_value_declarations(path, &text, is_md, config, findings);
+    }
+    if has_embedded_roots {
+        validate_embedded_value_roots(path, &text, is_md, is_py, config, findings);
     }
     if classify {
         classify_citation_sources(findings, config, path);

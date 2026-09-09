@@ -38,6 +38,7 @@ include!("scanner_walk_boundaries.rs");
 include!("scanner_walk_errors.rs");
 include!("scanner.rs");
 include!("scanner_value_context.rs");
+include!("scanner_embedded_values.rs");
 include!("scanner_values.rs");
 include!("scanner_value_json.rs");
 include!("scanner_context.rs");

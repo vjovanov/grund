@@ -144,8 +144,25 @@ fn render_list_entry_json(entry: &ListEntry) -> String {
         .as_deref()
         .map(|project| format!("\"project\":\"{}\",", json_escape(project)))
         .unwrap_or_default();
+    let value_roots = if entry.value_roots.is_empty() {
+        String::new()
+    } else {
+        let roots = entry
+            .value_roots
+            .iter()
+            .map(|root| {
+                format!(
+                    "{{\"id\":\"{}\",\"valid\":{}}}",
+                    json_escape(&root.id),
+                    root.valid
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        format!(",\"value_roots\":[{roots}]")
+    };
     format!(
-        "{{{}\"id\":\"{}\",\"kind\":\"{}\",\"path\":\"{}\",\"line\":{},\"title\":{},\"stub\":{},\"defines\":{},\"refs\":{},\"duplicate\":{}}}",
+        "{{{}\"id\":\"{}\",\"kind\":\"{}\",\"path\":\"{}\",\"line\":{},\"title\":{},\"stub\":{},\"defines\":{},\"refs\":{},\"duplicate\":{}{}}}",
         project_field,
         json_escape(&entry.id),
         json_escape(&entry.kind),
@@ -164,6 +181,7 @@ fn render_list_entry_json(entry: &ListEntry) -> String {
             .unwrap_or_else(|| "null".to_string()),
         entry.refs,
         entry.duplicate,
+        value_roots,
     )
 }
 
@@ -190,6 +208,25 @@ fn render_list_text(entries: &[ListEntry]) {
                 note = "(duplicate declaration — grund check)".to_string();
             } else {
                 note.push_str("  (duplicate declaration — grund check)");
+            }
+        }
+        if !entry.value_roots.is_empty() {
+            let roots = entry
+                .value_roots
+                .iter()
+                .map(|root| {
+                    if root.valid {
+                        root.id.clone()
+                    } else {
+                        format!("{} (invalid)", root.id)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            if note.is_empty() {
+                note = format!("[value roots: {roots}]");
+            } else {
+                note.push_str(&format!(" [value roots: {roots}]"));
             }
         }
         if note.is_empty() {

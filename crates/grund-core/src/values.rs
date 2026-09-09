@@ -29,6 +29,15 @@ pub enum ValueComponentKind {
     String,
 }
 
+/// Authority metadata attached to an ordinary section record
+/// (§FS-values.2.4). `marker_column` is the authored, one-based byte column;
+/// semantic title consumers omit the marker while raw readers keep the source.
+#[derive(Debug, Clone)]
+pub struct EmbeddedValueRoot {
+    pub valid: bool,
+    pub marker_column: usize,
+}
+
 /// An exact authored binding beside the ordinary citation the scanner emits
 /// for the same token (§FS-values.3, §AR-scanner.3).
 #[derive(Debug)]
@@ -52,6 +61,12 @@ pub struct InvalidValueSite {
     pub column: Option<usize>,
     pub message: String,
     pub source: DeclarationSource,
+    /// Binding-only target metadata. Declaration-shape errors leave these
+    /// fields empty; the checker uses them to keep malformed delimited prose
+    /// inert unless it actually aims at configured or marked value authority
+    /// (§FS-values.3.1, §FS-values.5.1).
+    pub binding_namespace: Option<String>,
+    pub binding_section: Option<String>,
 }
 
 static JSON_NUMBER_RE: Lazy<Regex> = Lazy::new(|| {

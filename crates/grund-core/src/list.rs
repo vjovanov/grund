@@ -402,8 +402,32 @@ fn command_list(args: &[String]) -> ExitCode {
             } else {
                 String::new()
             };
+            let value_roots = entry
+                .home
+                .sections
+                .iter()
+                .filter_map(|(section, info)| {
+                    info.value_root.as_ref().map(|root| {
+                        format!(
+                            "{{\"id\":\"{}\",\"valid\":{}}}",
+                            json_escape(&format!(
+                                "{}{}{}",
+                                render_qualified(entry),
+                                entry.project_config.section_separator,
+                                section
+                            )),
+                            root.valid
+                        )
+                    })
+                })
+                .collect::<Vec<_>>();
+            let value_roots_field = if value_roots.is_empty() {
+                String::new()
+            } else {
+                format!(",\"value_roots\":[{}]", value_roots.join(","))
+            };
             println!(
-                "{{{}\"id\":\"{}\",\"kind\":\"{}\",\"path\":\"{}\",\"line\":{},\"title\":{},\"stub\":{},\"defines\":{},\"refs\":{},\"duplicate\":{}}}",
+                "{{{}\"id\":\"{}\",\"kind\":\"{}\",\"path\":\"{}\",\"line\":{},\"title\":{},\"stub\":{},\"defines\":{},\"refs\":{},\"duplicate\":{}{}}}",
                 project_field,
                 json_escape(&render_qualified(entry)),
                 json_escape(&entry.id.kind),
@@ -424,6 +448,7 @@ fn command_list(args: &[String]) -> ExitCode {
                     .unwrap_or_else(|| "null".to_string()),
                 entry.refs,
                 entry.duplicate,
+                value_roots_field,
             );
         }
     } else {
@@ -455,6 +480,31 @@ fn command_list(args: &[String]) -> ExitCode {
                     note = "(duplicate declaration — grund check)".to_string();
                 } else {
                     note.push_str("  (duplicate declaration — grund check)");
+                }
+            }
+            let value_roots = entry
+                .home
+                .sections
+                .iter()
+                .filter_map(|(section, info)| {
+                    info.value_root.as_ref().map(|root| {
+                        let id = format!(
+                            "{}{}{}",
+                            render_qualified(entry),
+                            entry.project_config.section_separator,
+                            section
+                        );
+                        if root.valid { id } else { format!("{id} (invalid)") }
+                    })
+                })
+                .collect::<Vec<_>>();
+            if !value_roots.is_empty() {
+                let suffix = format!("[value roots: {}]", value_roots.join(", "));
+                if note.is_empty() {
+                    note = suffix;
+                } else {
+                    note.push(' ');
+                    note.push_str(&suffix);
                 }
             }
             if note.is_empty() {

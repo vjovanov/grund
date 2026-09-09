@@ -1026,7 +1026,15 @@ fn section_range_parts(
     {
         return (value.column, value.source_slice.clone());
     }
-    heading_span_parts(&decl.file, info.line, section, overlays)
+    let (column, mut text) = heading_span_parts(&decl.file, info.line, section, overlays);
+    if info.value_root.is_some()
+        && let Some(marker) = text.rfind(&format!(" {EMBEDDED_VALUE_MARKER}"))
+    {
+        // The marker is authored raw source but not part of the section's
+        // semantic title or editor selection (§FS-values.2.4, §FS-lsp.1.3).
+        text.truncate(marker);
+    }
+    (column, text)
 }
 
 /// The 1-based start column and title text of a heading-line token: the span
@@ -1508,6 +1516,16 @@ pub struct ListEntry {
     pub defines: Option<String>,
     pub refs: usize,
     pub duplicate: bool,
+    /// Embedded value authorities owned by this declaration's existing
+    /// sections, omitted by serializers when empty (§FS-values.6,
+    /// §FS-list.3.1).
+    pub value_roots: Vec<ListValueRoot>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ListValueRoot {
+    pub id: String,
+    pub valid: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1684,6 +1702,22 @@ pub fn list(opts: ListOpts) -> Result<ListOutput> {
             defines: entry.home.defined_in.as_ref().map(|target| format_path(target)),
             refs: entry.refs,
             duplicate: entry.duplicate,
+            value_roots: entry
+                .home
+                .sections
+                .iter()
+                .filter_map(|(section, info)| {
+                    info.value_root.as_ref().map(|root| ListValueRoot {
+                        id: format!(
+                            "{}{}{}",
+                            render_qualified(entry),
+                            entry.project_config.section_separator,
+                            section
+                        ),
+                        valid: root.valid,
+                    })
+                })
+                .collect(),
         })
         .collect::<Vec<_>>();
 

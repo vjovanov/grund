@@ -95,6 +95,11 @@ pub struct SectionInfo {
     pub line: usize,
     pub heading_level: usize,
     pub value: Option<ValueComponent>,
+    /// Present only when this existing numeric section carries the exact
+    /// embedded-value suffix. The section remains the catalog identity; this
+    /// metadata records authority without synthesizing a declaration
+    /// (§FS-values.2.4, §FS-values.6).
+    pub value_root: Option<EmbeddedValueRoot>,
 }
 
 /// One citation site: an `<ID>[.<section>]` token, optionally `§`-prefixed
