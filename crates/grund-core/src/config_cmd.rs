@@ -78,6 +78,9 @@ fn command_config(args: &[String]) -> ExitCode {
                 println!("marker = \"{}\"", config.marker);
                 println!("trigger = \"{}\"", config.trigger);
                 println!("strict = {}", config.strict);
+                // §FS-config.4.2: print the effective persisted-form policy,
+                // including the absent key's canonical default.
+                println!("shorthand = \"{}\"", config.shorthand.as_str());
                 println!("require_grounding = {}", config.require_grounding);
                 // §FS-config.3.4.8: the default for every row below, printed only
                 // where it could load back — a level with nothing turning

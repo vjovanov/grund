@@ -355,23 +355,31 @@ fn fmt_line(
         return suppressed_line(line, path, config, is_md, opts);
     }
     let triggered = replace_trigger(line, docstrings.peek(line), config, is_md);
-    let trigger_changed = triggered != line;
+    let trigger_changed = triggered.line != line;
+    let mut trigger_marker_starts = triggered.marker_starts;
     let marked = if opts.add_marker {
-        add_markers(&triggered, docstrings.peek(&triggered), config, is_md)
+        add_markers(
+            &triggered.line,
+            docstrings.peek(&triggered.line),
+            config,
+            is_md,
+            &mut trigger_marker_starts,
+        )
     } else {
-        triggered.clone()
+        triggered.line
     };
-    let marker_changed = marked != triggered;
+    let marker_changed = opts.add_marker && marked != line && !trigger_changed;
     // Each stage below takes ownership of the previous stage's line rather than
     // cloning it: `fmt` touches every line of every scanned file, so one avoidable
     // allocation per line is a measurable share of the command (§GOAL-fast-feedback).
     let mut expansions = Vec::new();
-    let expansion = expand_shorthand_citations(
+    let expansion = expand_shorthand_citations_with_origins(
         &marked,
         docstrings.peek(&marked),
         config,
         is_md,
         opts.shorthand_targets,
+        &trigger_marker_starts,
         saw_shorthand_candidate,
         &mut expansions,
     );
@@ -385,8 +393,15 @@ fn fmt_line(
         && is_md
         && let Some(findings) = opts.findings
     {
-        let wrapped = wrap_markdown_links(&final_line, path, config, findings, opts.workspace,
-            entry_ids);
+        let wrapped = wrap_markdown_links_with_targets(
+            &final_line,
+            path,
+            config,
+            findings,
+            opts.workspace,
+            entry_ids,
+            opts.shorthand_targets,
+        );
         link_changed = wrapped != final_line;
         final_line = wrapped;
     }
@@ -445,7 +460,15 @@ fn suppressed_line(
     let (Some(entry_ids), Some(findings)) = (opts.index_entry_ids, opts.findings) else {
         return unchanged();
     };
-    let wrapped = wrap_markdown_links(line, path, config, findings, opts.workspace, Some(entry_ids));
+    let wrapped = wrap_markdown_links_with_targets(
+        line,
+        path,
+        config,
+        findings,
+        opts.workspace,
+        Some(entry_ids),
+        opts.shorthand_targets,
+    );
     if wrapped == line {
         return unchanged();
     }
@@ -456,13 +479,22 @@ fn suppressed_line(
 /// followed by a real ID-shaped token, and never inside a string literal in source
 /// code or Markdown link destinations (§FS-fmt.2.1, §FS-fmt.2.3.1,
 /// §DF-reference-marker).
+struct TriggerReplacement {
+    line: String,
+    /// Byte offsets in `line` where §FS-fmt.2.1 produced a marker. Keeping
+    /// these offsets is what lets §FS-fmt.2.4 distinguish authoring sugar from
+    /// persisted marker shorthand candidate by candidate.
+    marker_starts: Vec<usize>,
+}
+
 fn replace_trigger(
     line: &str,
     docstring: DocstringContent<'_>,
     config: &Config,
     is_md: bool,
-) -> String {
+) -> TriggerReplacement {
     let mut output = String::new();
+    let mut marker_starts = Vec::new();
     let mut cursor = 0;
     while let Some(relative) = line[cursor..].find(&config.trigger) {
         let start = cursor + relative;
@@ -473,6 +505,7 @@ fn replace_trigger(
             && (!is_md || !is_inside_markdown_link_destination(line, start))
         {
             output.push_str(&line[cursor..start]);
+            marker_starts.push(output.len());
             output.push_str(&config.marker);
             cursor = after;
             continue;
@@ -481,7 +514,10 @@ fn replace_trigger(
         cursor = after;
     }
     output.push_str(&line[cursor..]);
-    output
+    TriggerReplacement {
+        line: output,
+        marker_starts,
+    }
 }
 
 /// Prefix `§` onto bare ID-shaped tokens that lack it — the `--marker` upgrade
@@ -492,9 +528,11 @@ fn add_markers(
     docstring: DocstringContent<'_>,
     config: &Config,
     is_md: bool,
+    trigger_marker_starts: &mut [usize],
 ) -> String {
     let mut output = String::new();
     let mut cursor = 0;
+    let mut inserted_at = Vec::new();
     for caps in config.grammar.citation_re.captures_iter(line) {
         let Some(found) = caps.get(0) else { continue };
         // §FS-workspace.1: a `path/ID` token without a marker is text, not a
@@ -524,10 +562,20 @@ fn add_markers(
             continue;
         }
         output.push_str(&line[cursor..found.start()]);
+        inserted_at.push(found.start());
         output.push_str(&config.marker);
         output.push_str(found.as_str());
         cursor = found.end();
     }
     output.push_str(&line[cursor..]);
+    // §FS-fmt.2.4: the shorthand pass reads the rewritten line, so carry each
+    // trigger-origin marker past any earlier bare-citation marker insertions.
+    for start in trigger_marker_starts {
+        *start += inserted_at
+            .iter()
+            .filter(|inserted| **inserted < *start)
+            .count()
+            * config.marker.len();
+    }
     output
 }

@@ -1,4 +1,6 @@
 grund_config_version = 1
 
 # Default scheme — `{kind}-{number}-{slug}`. No [id] table needed; this
-# config exists only to anchor the config root.
+# config also opts in to persisted number-only shorthand.
+[reference]
+shorthand = "accepted"

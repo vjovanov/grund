@@ -355,6 +355,24 @@ pub struct CitationRules {
     pub per_kind: BTreeMap<String, KindCitationRules>,
 }
 
+/// The persisted number-only citation policy from `[reference] shorthand`
+/// (§FS-config.3.1). Trigger input remains authoring sugar under both values;
+/// this enum governs only marker-origin shorthand already present in a file.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ShorthandPolicy {
+    Canonical,
+    Accepted,
+}
+
+impl ShorthandPolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Canonical => "canonical",
+            Self::Accepted => "accepted",
+        }
+    }
+}
+
 /// The effective configuration: every `grund.toml` key (§FS-config.3) merged
 /// over the built-in defaults (§FS-config.2), plus the compiled `Grammar` and the
 /// `root` / `cli_base` paths the walk and the report use.
@@ -390,6 +408,9 @@ pub struct Config {
     pub marker: String,
     pub trigger: String,
     pub strict: bool,
+    /// `[reference] shorthand` (§FS-config.3.1): whether a uniquely resolving
+    /// marker-origin shorthand must be canonicalized or may persist unchanged.
+    pub shorthand: ShorthandPolicy,
     /// `[reference] require_grounding` (§FS-config.3.1, §FS-check.3.6,
     /// §DF-require-grounding) — when true, `check` also reports every scanned
     /// source file that carries no resolving citation (and declares no ID inline).
@@ -588,6 +609,7 @@ impl Config {
             marker: "§".to_string(),
             trigger: "$$".to_string(),
             strict: true,
+            shorthand: ShorthandPolicy::Canonical,
             require_grounding: false,
             grounding_level: DEFAULT_GROUNDING_LEVEL,
             grounding_units: false,
