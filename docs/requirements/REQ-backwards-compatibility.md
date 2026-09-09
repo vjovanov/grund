@@ -6,7 +6,7 @@ Upgrading `grund` must not turn a passing repository into a failing one behind t
 
 Everything user-visible: the CLI surface, the exit-code mapping ([§FS-cli.5](../functional-spec/FS-cli.md#5-exit-code-mapping-is-fixed)), the JSON schemas, the config schema and its version gate ([§FS-config.5](../functional-spec/FS-config.md#5-schema-versioning)), the citation grammar, and the managed agent-entrypoint block.
 
-Two guarantees of different strength live inside that list. The **verdict** — whether a tree passes — moves only by §2 or §3. The **bytes** are narrower: the text of an existing finding is stable phrasing that tools grep on and changes only through §2 ([§FS-errors.3](../functional-spec/FS-errors.md#3-message-text)). Adding a new finding necessarily changes a run's bytes, since any warning stands in place of the `success` marker ([§FS-check.2.1](../functional-spec/FS-check.md#21-report-format)); that is governed as a verdict change, not forbidden as a byte change.
+Two guarantees of different strength live inside that list. The **verdict** — whether a tree passes — moves only by §2, §3, or §5. The **bytes** are narrower: the text of an existing finding is stable phrasing that tools grep on and changes only through §2 ([§FS-errors.3](../functional-spec/FS-errors.md#3-message-text)). Adding a new finding necessarily changes a run's bytes, since any warning stands in place of the `success` marker ([§FS-check.2.1](../functional-spec/FS-check.md#21-report-format)); that is governed as a verdict change, not forbidden as a byte change.
 
 ## 2. The deprecation path
 
@@ -21,3 +21,13 @@ This is a narrow licence, and it carries one obligation back: a change to a byte
 ## 4. What was never a promise
 
 Two things sit outside the guarantee, and both must be argued in a decision record rather than assumed. A construct that had **no defined meaning** and produced no output was not a working feature, so giving it one is not a break ([§DF-number-only-citation-shorthand](../decisions/functional/DF-number-only-citation-shorthand.md#df-number-only-citation-shorthand-the-number-only-shorthand-is-authoring-sugar-and-a-persisted-one-is-a-check-error)). And before `1.0`, a surface may change without an alias where carrying the alias would cost more than the rename ([§DF-show-default-token-cheap.4](../decisions/functional/DF-show-default-token-cheap.md#4-consequences)) — the pre-release licence, which expires at `1.0` and is not a general escape.
+
+## 5. Correcting a verdict another requirement forbids
+
+A verdict may flip in the correcting release only when all five conditions hold:
+
+1. **Prior prohibition.** The old verdict violated a separately declared hard requirement that already applied when the verdict shipped, at a cited numbered section.
+2. **Accepted proof.** An accepted decision record cites that section and proves both the conflict and why neither the §2 deprecation path nor the §3 mechanical migration fits.
+3. **Named release.** The correcting release names the verdict change in its release notes.
+4. **Actionable findings.** Every finding that replaces the old verdict names its location and the action the maintainer can take.
+5. **No new licence.** This route cannot justify ordinary policy tightening, feature removal, or a prohibition invented by the correcting change; each still owes §2 or §3.
