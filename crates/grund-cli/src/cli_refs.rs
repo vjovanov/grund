@@ -1,5 +1,6 @@
 /// `grund refs <ID> [--summary] [--format text|json]`: every citation of one
-/// ID, rendered as `path:line` (§FS-refs).
+/// ID, rendered as `path:line`, with resolver rejection following the staged
+/// query-failure contract (§FS-refs.3, §FS-refs.4).
 fn command_refs(args: &[String]) -> ExitCode {
     if args.is_empty() {
         eprintln!("error: refs requires an ID");
@@ -70,6 +71,12 @@ fn command_refs(args: &[String]) -> ExitCode {
         Ok(format) => format,
         Err(code) => return code,
     };
+    if !output.scan_errors.is_empty() {
+        return exit_after_scan_errors(&output.scan_errors);
+    }
+    if let Some(failure) = &output.query_failure {
+        return render_refs_query_failure(failure, &format);
+    }
     if let Some(note) = &output.note {
         eprintln!("note: {note}");
     }
@@ -86,6 +93,34 @@ fn command_refs(args: &[String]) -> ExitCode {
     }
 
     exit_after_scan_errors(&output.scan_errors)
+}
+
+/// Render the release-selected wire form of a typed resolver rejection
+/// (§FS-refs.4, §FS-errors.5). The format and summary/section flags are already
+/// resolved, so no renderer can reclassify the operand.
+fn render_refs_query_failure(failure: &RefsQueryFailure, format: &str) -> ExitCode {
+    if refs_query_failure_is_exit_one() {
+        if format == "json" {
+            print_bare_query_json(failure.kind.code(), &failure.message, &[]);
+        } else {
+            eprintln!("{}", failure.message);
+            print_refs_query_failure_hint(failure);
+        }
+        ExitCode::from(1)
+    } else {
+        eprintln!("error: {}", failure.message);
+        print_refs_query_failure_hint(failure);
+        eprintln!("{REFS_QUERY_FAILURE_WARNING}");
+        ExitCode::from(2)
+    }
+}
+
+fn print_refs_query_failure_hint(failure: &RefsQueryFailure) {
+    if let Some(format) = &failure.format_hint {
+        eprintln!(
+            "hint: this repo's [id] format is `{format}` (run `grund config show`); `grund list` shows the IDs that exist"
+        );
+    }
 }
 
 fn render_refs_summary(hits: &[RefHit], workspace: bool, format: &str) {

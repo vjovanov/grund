@@ -1514,6 +1514,61 @@ pub struct RefHit {
     pub text: String,
 }
 
+/// The two ways a selected project's resolver can reject a `refs` operand
+/// (§FS-refs.4). This is query-result data rather than an [`anyhow::Error`], so
+/// every frontend can apply the same staged exit policy without parsing prose.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RefsQueryFailureKind {
+    InvalidId,
+    Ambiguous,
+}
+
+impl RefsQueryFailureKind {
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::InvalidId => "invalid-id",
+            Self::Ambiguous => "ambiguous",
+        }
+    }
+}
+
+/// A `refs` operand rejected after workspace context and the target grammar
+/// were selected (§FS-errors.2.3, §FS-workspace.8.7).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RefsQueryFailure {
+    pub kind: RefsQueryFailureKind,
+    pub message: String,
+    pub format_hint: Option<String>,
+}
+
+impl RefsQueryFailure {
+    fn from_resolver_error(error: &IdArgError, id_format: &str) -> Self {
+        let kind = match error {
+            IdArgError::Unparsable(_) => RefsQueryFailureKind::InvalidId,
+            IdArgError::Ambiguous(_) => RefsQueryFailureKind::Ambiguous,
+        };
+        Self {
+            kind,
+            message: error.to_string(),
+            format_hint: error.wants_format_hint().then(|| id_format.to_string()),
+        }
+    }
+}
+
+/// The compatibility warning is shared by both CLI entry points so the public
+/// and deprecated adapters cannot drift during the §FS-refs.4 release ramp.
+pub const REFS_QUERY_FAILURE_WARNING: &str = "warning: `grund refs` invalid IDs and ambiguous number-only shorthands currently exit 2; they will exit 1 (failed query) in grund 0.15.0";
+
+/// Whether §FS-refs.4's resolver-rejection mapping has reached its exit-`1`
+/// phase. Frontends own process exit codes, but consume this one core policy.
+pub fn refs_query_failure_is_exit_one() -> bool {
+    let mut parts = env!("CARGO_PKG_VERSION")
+        .trim_end_matches("-dev")
+        .split('.')
+        .filter_map(|part| part.parse::<u32>().ok());
+    (parts.next().unwrap_or(0), parts.next().unwrap_or(0)) >= (0, 15)
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct RefsOutput {
     pub output_format: String,
@@ -1521,153 +1576,12 @@ pub struct RefsOutput {
     pub hits: Vec<RefHit>,
     pub note: Option<String>,
     pub scan_errors: Vec<ApiScanError>,
+    pub query_failure: Option<RefsQueryFailure>,
 }
 
 /// Programmatic `refs`: resolve an ID query and return all citation sites
-/// without selecting text/summary/JSON rendering (§AR-bindings.2).
+/// without selecting text/summary/JSON rendering (§AR-bindings.2). Resolver
+/// rejection is typed result data under §FS-refs.4; setup failures stay `Err`.
 pub fn refs(opts: RefsOpts) -> Result<RefsOutput> {
-    let context = load_workspace_context(&opts.path, opts.path_provided)?;
-    let current_config = context
-        .current_project()
-        .map(|project| &project.config)
-        .unwrap_or_else(|| context.render_config());
-    let (alias, raw_id) = split_qualified_id_arg(&opts.id).map_err(|err| {
-        anyhow!(
-            "{err:#}\nhint: this repo's [id] format is `{}` (run `grund config show`); `grund list` shows the IDs that exist",
-            current_config.id_format
-        )
-    })?;
-    let target_project = match alias.as_deref() {
-        Some(name) => context.project_by_alias(name).ok_or_else(|| {
-            if !context.workspace_loaded {
-                anyhow!(
-                    "unknown project alias `{name}`\nnote: workspace aliases are defined in the root grund.toml under [workspace]"
-                )
-            } else {
-                anyhow!(
-                    "unknown project alias `{name}`\nknown aliases: {}",
-                    context.aliases().join(", ")
-                )
-            }
-        })?,
-        None => context.current_project().ok_or_else(|| {
-            let known = context.aliases().join(", ");
-            if known.is_empty() {
-                anyhow!("unqualified ID requires a project alias when include_root = false")
-            } else {
-                anyhow!(
-                    "unqualified ID requires a project alias when include_root = false\nknown aliases: {known}"
-                )
-            }
-        })?,
-    };
-    let target_alias = target_project.alias.as_str();
-    let render_config = &target_project.config;
-    // §FS-refs.4: the `[id] format` hint is for an argument that does not match
-    // it; an ambiguous shorthand did match and lists its candidates instead.
-    let (id, inline_section) = resolve_id_arg(raw_id, render_config, &target_project.findings)
-        .map_err(|err| {
-            if err.wants_format_hint() {
-                anyhow!(
-                    "{err}\nhint: this repo's [id] format is `{}` (run `grund config show`); `grund list` shows the IDs that exist",
-                    render_config.id_format
-                )
-            } else {
-                anyhow!("{err}")
-            }
-        })?;
-    if opts.section.is_some() && inline_section.is_some() {
-        return Err(anyhow!(
-            "--section cannot be combined with an inline section"
-        ));
-    }
-    let section = opts.section.or(inline_section);
-
-    struct Hit<'a> {
-        project: &'a WorkspaceProject,
-        citation: &'a Citation,
-    }
-    let mut hits = Vec::new();
-    let mut scan_errors = Vec::new();
-    for project in &context.projects {
-        // §FS-workspace.8.7: rendered against the run's config, like the hit
-        // rows below via `render_path`, not the scanning project's.
-        scan_errors.extend(
-            project
-                .scan_errors
-                .iter()
-                .map(|(file, message)| api_scan_error(context.render_config(), file, message)),
-        );
-        let is_target = project.alias == target_alias;
-        for citation in &project.findings.citations {
-            let local_match = citation.namespace.is_none() && is_target;
-            let qualified_match = citation
-                .namespace
-                .as_deref()
-                .map(|ns| ns == target_alias)
-                .unwrap_or(false);
-            if !(local_match || qualified_match) || citation.id != id {
-                continue;
-            }
-            if let Some(expected) = section.as_deref()
-                && citation.section.as_deref() != Some(expected)
-            {
-                continue;
-            }
-            hits.push(Hit { project, citation });
-        }
-    }
-    hits.sort_by(|a, b| {
-        (sort_path_key(&a.citation.file), a.citation.line, a.citation.column).cmp(&(
-            sort_path_key(&b.citation.file),
-            b.citation.line,
-            b.citation.column,
-        ))
-    });
-    let render_path = |project: &WorkspaceProject, path: &Path| -> String {
-        if context.workspace_loaded {
-            display_path(context.render_config(), path)
-        } else {
-            display_path(&project.config, path)
-        }
-    };
-    let public_hits = hits
-        .iter()
-        .map(|hit| RefHit {
-            project: context.workspace_loaded.then(|| hit.project.alias.clone()),
-            path: render_path(hit.project, &hit.citation.file),
-            line: hit.citation.line,
-            column: hit.citation.column,
-            id: render_id(render_config, &hit.citation.id),
-            section: hit.citation.section.clone(),
-            marker: hit.citation.has_marker,
-            text: hit.citation.text.clone(),
-        })
-        .collect::<Vec<_>>();
-    let note = if public_hits.is_empty() && !target_project.findings.declarations.contains_key(&id)
-    {
-        if context.workspace_loaded && alias.is_some() {
-            Some(format!(
-                "{}/{} is neither declared nor cited — run `grund list --project {}` to see {}'s declared IDs",
-                target_alias,
-                render_id(render_config, &id),
-                target_alias,
-                target_alias
-            ))
-        } else {
-            Some(format!(
-                "{} is neither declared nor cited — run `grund list` to see every declared ID",
-                render_id(render_config, &id)
-            ))
-        }
-    } else {
-        None
-    };
-    Ok(RefsOutput {
-        output_format: render_config.output_format.clone(),
-        workspace: context.workspace_loaded,
-        hits: public_hits,
-        note,
-        scan_errors,
-    })
+    refs_impl(opts)
 }

@@ -41,6 +41,15 @@ CLAUSES = (
 PATTERNS = tuple(
     (re.compile(re.escape(clause) + r"\s+(?:grund\s+)?\*{0,2}(\d+\.\d+\.\d+)"), clause, direction)
     for clause, direction in CLAUSES
+) + (
+    # §FS-distribution.4.2: scalar migrations say what a command "will exit"
+    # before the final `in grund <release>` deadline rather than putting the
+    # release directly after the verb phrase.
+    (
+        re.compile(r"\bwill exit\b[^\n]*?\bin\s+(?:grund\s+)?\*{0,2}(\d+\.\d+\.\d+)"),
+        "will exit … in",
+        PENDING,
+    ),
 )
 
 RELEASE_RE = re.compile(r"^\d+\.\d+\.\d+$")
