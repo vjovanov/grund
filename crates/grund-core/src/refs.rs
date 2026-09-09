@@ -148,6 +148,15 @@ fn command_refs(args: &[String]) -> ExitCode {
     {
         Ok(parsed) => parsed,
         Err(err) => {
+            // §FS-refs.4: an unsupported renderer is a launch failure and wins
+            // before a selected resolver rejection, matching the public CLI.
+            let format = format_override
+                .as_deref()
+                .unwrap_or(&render_config.output_format);
+            if !matches!(format, "text" | "json") {
+                eprintln!("error: unsupported refs format `{format}`");
+                return ExitCode::from(2);
+            }
             // An incomplete scan is still the run-level outcome even when the
             // selected grammar also rejects the operand (§FS-refs.4,
             // §FS-workspace.8.7).
@@ -168,9 +177,6 @@ fn command_refs(args: &[String]) -> ExitCode {
                 return ExitCode::from(2);
             }
             let failure = RefsQueryFailure::from_resolver_error(&err, &render_config.id_format);
-            let format = format_override
-                .as_deref()
-                .unwrap_or(&render_config.output_format);
             return render_compat_refs_query_failure(&failure, format);
         }
     };

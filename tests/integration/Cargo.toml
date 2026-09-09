@@ -39,3 +39,16 @@ path = "host_language_dangling_proof.rs"
 [[test]]
 name = "embedded_value_source_forms"
 path = "embedded_value_source_forms.rs"
+
+[[test]]
+name = "refs_frontend_parity"
+path = "refs_frontend_parity.rs"
+
+[[bin]]
+name = "grund-core-compat-test"
+path = "compat_frontend.rs"
+test = false
+bench = false
+
+[dependencies]
+grund-core = { path = "../../crates/grund-core" }

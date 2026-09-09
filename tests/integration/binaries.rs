@@ -1,9 +1,7 @@
-//! §AR-bindings.1 — the two binaries the integration tests drive. Cargo names
-//! a package's own binaries to its tests and nobody else's, so a test that
-//! needs both `grund` and `grund-lsp` finds them beside itself in the profile
-//! directory it was built into, and builds one on demand when a partial
-//! invocation (`cargo test -p grund-integration-tests` on a fresh tree) has not
-//! produced it yet. `cargo test --workspace --all-targets` always has.
+//! §AR-bindings.1 / §AR-bindings.2 — the production binaries and deprecated
+//! compatibility probe the integration tests drive. Cargo names a package's
+//! own binaries to its tests and nobody else's, so a cross-package binary is
+//! found beside the running test and built on demand after a partial invocation.
 #![allow(dead_code)]
 
 use std::path::PathBuf;
@@ -53,4 +51,8 @@ pub fn grund() -> PathBuf {
 
 pub fn grund_lsp() -> PathBuf {
     binary("grund-lsp", "grund-lsp")
+}
+
+pub fn grund_core_compat() -> PathBuf {
+    binary("grund-integration-tests", "grund-core-compat-test")
 }

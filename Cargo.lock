@@ -163,6 +163,7 @@ dependencies = [
 name = "grund-integration-tests"
 version = "0.13.2-dev"
 dependencies = [
+ "grund-core",
  "serde_json",
  "url",
 ]

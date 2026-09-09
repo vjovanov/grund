@@ -1553,6 +1553,17 @@ impl RefsQueryFailure {
             format_hint: error.wants_format_hint().then(|| id_format.to_string()),
         }
     }
+
+    fn into_refs_error(self) -> anyhow::Error {
+        if let Some(format) = self.format_hint {
+            anyhow!(
+                "{}\nhint: this repo's [id] format is `{format}` (run `grund config show`); `grund list` shows the IDs that exist",
+                self.message
+            )
+        } else {
+            anyhow!(self.message)
+        }
+    }
 }
 
 /// The compatibility warning is shared by both CLI entry points so the public
@@ -1576,12 +1587,30 @@ pub struct RefsOutput {
     pub hits: Vec<RefHit>,
     pub note: Option<String>,
     pub scan_errors: Vec<ApiScanError>,
+}
+
+/// The additive classified `refs` result used by process frontends during the
+/// §FS-refs.4 release ramp. Keeping the carrier outside [`RefsOutput`] preserves
+/// the exhaustively constructible embedding API required by §AR-bindings.2.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct RefsOutcome {
+    pub output: RefsOutput,
     pub query_failure: Option<RefsQueryFailure>,
 }
 
-/// Programmatic `refs`: resolve an ID query and return all citation sites
-/// without selecting text/summary/JSON rendering (§AR-bindings.2). Resolver
-/// rejection is typed result data under §FS-refs.4; setup failures stay `Err`.
-pub fn refs(opts: RefsOpts) -> Result<RefsOutput> {
+/// Programmatic `refs` with the typed resolver-rejection outcome process
+/// frontends need to apply §FS-refs.4 without parsing an error string.
+pub fn refs_outcome(opts: RefsOpts) -> Result<RefsOutcome> {
     refs_impl(opts)
+}
+
+/// Programmatic `refs`: resolve an ID query and return all citation sites
+/// without selecting text/summary/JSON rendering (§AR-bindings.2). This keeps
+/// the established API: resolver and setup failures are returned as `Err`.
+pub fn refs(opts: RefsOpts) -> Result<RefsOutput> {
+    let outcome = refs_outcome(opts)?;
+    match outcome.query_failure {
+        Some(failure) => Err(failure.into_refs_error()),
+        None => Ok(outcome.output),
+    }
 }
