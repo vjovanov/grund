@@ -26,6 +26,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Fixed
 
+- [§FS-check.3.8](functional-spec/FS-check.md#38-cross-project-citation-failure), [§FS-errors.3](functional-spec/FS-errors.md#3-message-text): clarify the narrowed-run scope-only unknown-alias diagnostic in 0.13.2 by retaining its legacy bytes as a contiguous prefix and appending that the named subtree includes the project and its descendants, plus notice that the legacy wording is removed in 0.14.0. Closes issue #216. (PR #220)
 - [§FS-config.3.2](functional-spec/FS-config.md#32-id--id-grammar), [§FS-check.4.6](functional-spec/FS-check.md#46-declaration-near-miss): retain exact persisted off-grammar declarations and their marked citations across queries, checking, formatting, completion, cover, workspaces, and LSP navigation while warning that the mismatch becomes an error in 0.15.0. Fixes issue #54. (PR #210)
 - [§FS-examples.5.1](functional-spec/FS-examples.md#51-synthetic-verdict-probes-always-compare), [§AR-workspace.9](architecture/AR-workspace.md#9-test-contracts): keep the synthetic e2e verdict probe in comparison mode when a contributor runs the suite with `UPDATE_EXPECTED`, so its deliberately wrong scratch goldens still expose and name every mismatched case and surface. (PR #212)
 
