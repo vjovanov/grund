@@ -3,28 +3,11 @@
 /// stability (§FS-values.2.4, §FS-values.5.1, §FS-values.8).
 #[cfg(test)]
 mod tests_embedded_values {
-    use super::tests_support::{test_root, write};
+    use super::tests_support::{
+        embedded_value_config as embedded_config, scan_embedded_value as scan_embedded, test_root,
+        write,
+    };
     use super::*;
-
-    fn embedded_config(root: PathBuf) -> Config {
-        let mut config = Config::default_for(root);
-        for kind in &mut config.kinds {
-            if kind.folder.is_some() {
-                kind.index = KindIndex::Disabled;
-            }
-        }
-        config
-    }
-
-    fn scan_embedded(name: &str, source: &str) -> (Config, Findings) {
-        let root = test_root(name);
-        let path = root.join("docs/value.md");
-        write(&path, source);
-        let config = embedded_config(root);
-        let (findings, errors) = scan_tree(&config, Some(&path), true).expect("scan value fixture");
-        assert!(errors.is_empty(), "fixture should be readable: {errors:?}");
-        (config, findings)
-    }
 
     fn invalid_lines(name: &str, body: &str, named: bool) -> Vec<usize> {
         let root = test_root(name);
@@ -60,6 +43,7 @@ mod tests_embedded_values {
             "## 1. Price  <!-- grund:value -->",
             "## 1. Price <!-- GRUND:value -->",
             "## 1. Price <!-- grund:value --",
+            "## 1. Price <!-- grund:value -->*/",
         ] {
             assert_eq!(
                 exact_embedded_value_marker(lookalike),

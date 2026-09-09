@@ -39,6 +39,26 @@ mod tests_support {
         std::fs::write(path, text).expect("write fixture");
     }
 
+    pub(crate) fn embedded_value_config(root: PathBuf) -> Config {
+        let mut config = Config::default_for(root);
+        for kind in &mut config.kinds {
+            if kind.folder.is_some() {
+                kind.index = KindIndex::Disabled;
+            }
+        }
+        config
+    }
+
+    pub(crate) fn scan_embedded_value(name: &str, source: &str) -> (Config, Findings) {
+        let root = test_root(name);
+        let path = root.join("docs/value.md");
+        write(&path, source);
+        let config = embedded_value_config(root);
+        let (findings, errors) = scan_tree(&config, Some(&path), true).expect("scan value fixture");
+        assert!(errors.is_empty(), "fixture should be readable: {errors:?}");
+        (config, findings)
+    }
+
     /// A `Config` whose `FS` kind is the legacy `docs/functional-spec` folder.
     ///
     /// Why every folder kind here opts out of its index: the suites built on this

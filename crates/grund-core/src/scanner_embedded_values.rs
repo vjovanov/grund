@@ -1,109 +1,6 @@
-/// Embedded section value recognition and strict subtree validation. A root is
-/// metadata on the scanner's existing section record, never another resolver
-/// or declaration (§FS-values.2.4, §FS-values.5.1, §FS-values.6).
-
-const EMBEDDED_VALUE_MARKER: &str = "<!-- grund:value -->";
-
-/// Return the marker's byte offset only for the one authored suffix that grants
-/// authority: one ASCII separator space, exact lowercase marker bytes, then
-/// optional trailing whitespace (§FS-values.2.4). Lookalikes stay prose.
-fn exact_embedded_value_marker(line: &str) -> Option<usize> {
-    let mut trimmed = line.trim_end_matches([' ', '\t']);
-    if let Some(before_close) = trimmed.strip_suffix("*/") {
-        trimmed = before_close.trim_end_matches([' ', '\t']);
-    }
-    // `strip_suffix` proves the byte boundary as well as the suffix. Computing
-    // an arbitrary byte offset and slicing there can land inside any preceding
-    // non-ASCII character (§REQ-never-crashes, §FS-values.9).
-    let before = trimmed.strip_suffix(EMBEDDED_VALUE_MARKER)?;
-    let marker_start = before.len();
-    let title = before.strip_suffix(' ')?;
-    if title.ends_with(char::is_whitespace) || title.is_empty() {
-        return None;
-    }
-    Some(marker_start)
-}
-
-fn push_invalid_embedded_marker(
-    findings: &mut Findings,
-    id: Option<Id>,
-    path: &Path,
-    line: usize,
-    column_offset: usize,
-    scan_line: &str,
-    message: &str,
-) {
-    let marker = exact_embedded_value_marker(scan_line).unwrap_or(0);
-    findings.invalid_value_declarations.push(InvalidValueSite {
-        id,
-        file: path.to_path_buf(),
-        line,
-        column: Some(column_offset + marker + 1),
-        message: message.to_string(),
-        source: DeclarationSource::Text,
-        binding_namespace: None,
-        binding_section: None,
-    });
-}
-
-fn component_without_block_close(component: &str) -> &str {
-    component
-        .strip_suffix("*/")
-        .map(str::trim_end)
-        .unwrap_or(component)
-}
-
-/// Heading depth after the same configured wrapper accepted by declaration and
-/// section scanning has been removed (§FS-values.2.4). This deliberately does
-/// not decide whether the heading is citable; it also identifies plain/named
-/// headings that are forbidden inside a strict embedded root.
-fn authored_heading_level(line: &str, markdown: bool, config: &Config) -> Option<usize> {
-    // Strip a source wrapper—including `#`—before authored heading hashes;
-    // Python docstrings arrive as Markdown after quote normalization
-    // (§FS-values.2.4).
-    let content = if markdown {
-        line.trim_start()
-    } else {
-        semantic_comment_content(line, false, config).trim_start()
-    };
-    let level = content.bytes().take_while(|byte| *byte == b'#').count();
-    (level > 0
-        && content[level..]
-            .chars()
-            .next()
-            .is_none_or(char::is_whitespace))
-    .then_some(level)
-}
-
-fn semantic_comment_content<'a>(
-    line: &'a str,
-    markdown: bool,
-    config: &Config,
-) -> &'a str {
-    let mut content = line.trim();
-    if markdown {
-        return content;
-    }
-    if matches!(content, "/*" | "/**" | "/*!" | "*" | "*/") {
-        return "";
-    }
-    let mut prefixes = config
-        .comment_prefixes
-        .iter()
-        .map(String::as_str)
-        .collect::<Vec<_>>();
-    if config.comment_prefixes.iter().any(|prefix| prefix == "//") {
-        prefixes.extend(["///", "//!", "//"]);
-    }
-    prefixes.sort_by_key(|prefix| std::cmp::Reverse(prefix.len()));
-    if let Some(prefix) = prefixes
-        .into_iter()
-        .find(|prefix| content.starts_with(prefix))
-    {
-        content = content[prefix.len()..].trim();
-    }
-    content.strip_suffix("*/").unwrap_or(content).trim()
-}
+/// Strict subtree validation for embedded section values. A root is metadata
+/// on the scanner's existing section record, never another resolver or
+/// declaration (§FS-values.2.4, §FS-values.5.1, §FS-values.6).
 
 /// Validate every marked section against its physical one-level subtree and
 /// place decoded components on the existing descendant section records
@@ -114,17 +11,21 @@ fn validate_embedded_value_roots(
     is_md: bool,
     is_py: bool,
     config: &Config,
+    source_contexts: Option<&[Option<SourceValueLineContext>]>,
     findings: &mut Findings,
 ) {
     let raw_lines = text.lines().collect::<Vec<_>>();
     let mut normalized = Vec::with_capacity(raw_lines.len());
     let mut py_docstring = PythonDocstringScanState::default();
-    for line in &raw_lines {
+    for (index, line) in raw_lines.iter().enumerate() {
         let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
         normalized.push((
             scan.text.to_string(),
             scan.column_offset,
             scan.in_py_docstring,
+            source_contexts
+                .and_then(|contexts| contexts.get(index).copied().flatten())
+                .is_some_and(|context| context.block_comment),
         ));
     }
 
@@ -146,13 +47,79 @@ fn validate_embedded_value_roots(
             .collect::<Vec<_>>();
         roots.sort_by_key(|(_, line)| *line);
 
+        // Root claims include resolver entries and later duplicate headings.
+        // Resolve every pair by coordinate, independent of source order
+        // (§FS-values.2.4).
+        let mut claims = decl
+            .sections
+            .iter()
+            .filter_map(|(path, info)| {
+                info.value_root
+                    .as_ref()
+                    .map(|root| (path.clone(), info.line, root.marker_column))
+            })
+            .chain(decl.duplicate_sections.iter().filter_map(|(path, info)| {
+                info.value_root
+                    .as_ref()
+                    .map(|root| (path.clone(), info.line, root.marker_column))
+            }))
+            .collect::<Vec<_>>();
+        claims.sort_by_key(|(_, line, _)| *line);
+        let mut invalid_root_paths = BTreeSet::new();
+        let mut roots_with_descendants = BTreeSet::new();
+        let mut overlap_sites = BTreeSet::new();
+        for left in 0..claims.len() {
+            for right in left + 1..claims.len() {
+                let (left_path, left_line, left_column) = &claims[left];
+                let (right_path, right_line, right_column) = &claims[right];
+                if left_path == right_path {
+                    invalid_root_paths.insert(left_path.clone());
+                    continue;
+                }
+                let (ancestor, descendant_line, descendant_column) =
+                    if right_path.starts_with(&format!("{left_path}.")) {
+                        (left_path, *right_line, *right_column)
+                    } else if left_path.starts_with(&format!("{right_path}.")) {
+                        (right_path, *left_line, *left_column)
+                    } else {
+                        continue;
+                    };
+                invalid_root_paths.insert(left_path.clone());
+                invalid_root_paths.insert(right_path.clone());
+                roots_with_descendants.insert(ancestor.clone());
+                overlap_sites.insert((descendant_line, Some(descendant_column)));
+            }
+        }
+        for (root_path, info) in &mut decl.sections {
+            if invalid_root_paths.contains(root_path)
+                && let Some(root) = &mut info.value_root
+            {
+                root.valid = false;
+            }
+        }
+        for (root_path, info) in &mut decl.duplicate_sections {
+            if invalid_root_paths.contains(root_path)
+                && let Some(root) = &mut info.value_root
+            {
+                root.valid = false;
+            }
+        }
+        invalid.extend(overlap_sites.into_iter().map(|(line, column)| InvalidValueSite {
+            id: Some(decl.id.clone()),
+            file: decl.file.clone(),
+            line,
+            column,
+            message: "embedded value roots may not be nested or overlap".to_string(),
+            source: decl.source.clone(),
+            binding_namespace: None,
+            binding_section: None,
+        }));
+
         // A whole-declaration authority owns its complete section tree; an
         // embedded mark inside it is invalid and never competes for ownership.
         let whole_value = value_declaration_is_in_home(config, path, &decl.id);
-        for index in 0..roots.len() {
-            let (root_path, root_line) = roots[index].clone();
+        for (root_path, root_line) in roots {
             let mut reasons: Vec<(usize, Option<usize>, String)> = Vec::new();
-            let mut overlapping_lines = BTreeSet::new();
             if whole_value {
                 reasons.push((
                     root_line,
@@ -163,34 +130,10 @@ fn validate_embedded_value_roots(
                     "embedded value root may not occur inside a whole-declaration value".to_string(),
                 ));
             }
-
-            for (other_path, other_line) in roots.iter().skip(index + 1) {
-                if other_path.starts_with(&format!("{root_path}.")) {
-                    overlapping_lines.insert(*other_line);
-                    reasons.push((
-                        *other_line,
-                        decl.sections
-                            .get(other_path)
-                            .and_then(|info| info.value_root.as_ref())
-                            .map(|root| root.marker_column),
-                        "embedded value roots may not be nested or overlap".to_string(),
-                    ));
-                    if let Some(other) = decl.sections.get_mut(other_path)
-                        && let Some(root) = &mut other.value_root
-                    {
-                        root.valid = false;
-                    }
-                }
-            }
             // The nested marker is the complete overlap finding; do not also
             // reinterpret its subtree as malformed outer-root children
             // (§FS-values.2.4).
-            if !overlapping_lines.is_empty() {
-                if let Some(info) = decl.sections.get_mut(&root_path)
-                    && let Some(root) = &mut info.value_root
-                {
-                    root.valid = false;
-                }
+            if roots_with_descendants.contains(&root_path) {
                 invalid.extend(reasons.into_iter().map(|(line, column, message)| {
                     InvalidValueSite {
                         id: Some(decl.id.clone()),
@@ -216,9 +159,12 @@ fn validate_embedded_value_roots(
                 .map(|root| root.marker_column);
             let root_title_valid = normalized
                 .get(root_line.saturating_sub(1))
-                .and_then(|(line, _, _)| markdown_component(line, config))
-                .and_then(|(title, _)| {
-                    component_without_block_close(title)
+                .and_then(|(line, _, _, block_comment)| {
+                    markdown_component(line, config)
+                        .map(|(title, column)| (title, column, *block_comment))
+                })
+                .and_then(|(title, _, block_comment)| {
+                    component_without_block_close(title, block_comment)
                         .strip_suffix(&format!(" {EMBEDDED_VALUE_MARKER}"))
                 })
                 .is_some_and(|title| !title.is_empty());
@@ -241,8 +187,13 @@ fn validate_embedded_value_roots(
                 .find(|line_no| {
                     normalized
                         .get(line_no.saturating_sub(1))
-                        .and_then(|(line, _, docstring)| {
-                            authored_heading_level(line, is_md || *docstring, config)
+                        .and_then(|(line, _, docstring, block_comment)| {
+                            authored_heading_level(
+                                line,
+                                is_md || *docstring,
+                                *block_comment,
+                                config,
+                            )
                         })
                         .is_some_and(|level| level <= root_level)
                 })
@@ -259,24 +210,25 @@ fn validate_embedded_value_roots(
                 .map(|(_, info)| info.line)
                 .collect::<BTreeSet<_>>();
             for line_no in root_line.saturating_add(1)..=subtree_end {
-                if overlapping_lines.contains(&line_no) {
-                    continue;
-                }
-                let Some((line, column_offset, docstring)) = normalized.get(line_no - 1) else {
+                let Some((line, column_offset, docstring, block_comment)) =
+                    normalized.get(line_no - 1)
+                else {
                     continue;
                 };
                 let markdown = is_md || *docstring;
-                let content = semantic_comment_content(line, markdown, config);
+                let content = semantic_comment_content(line, markdown, *block_comment, config);
                 if content.is_empty() || matches!(content, "/*" | "/**" | "/*!" | "*" | "*/") {
                     continue;
                 }
-                let captures = config.grammar.section_re.captures(line);
-                let child = captures.as_ref().and_then(section_path);
-                let level = captures
-                    .as_ref()
-                    .map(|caps| heading_level_for_line(line, markdown, caps));
+                let child = authored_numeric_heading_path(
+                    line,
+                    markdown,
+                    *block_comment,
+                    config,
+                );
+                let level = authored_heading_level(line, markdown, *block_comment, config);
                 let expected_path = format!("{root_path}.{expected}");
-                let immediate_numeric = child.is_some_and(|path| {
+                let immediate_numeric = child.as_deref().is_some_and(|path| {
                     path.strip_prefix(&format!("{root_path}."))
                         .is_some_and(|tail| {
                             !tail.is_empty()
@@ -299,7 +251,7 @@ fn validate_embedded_value_roots(
                 // bad text cannot cascade, and `.2` then `.1` reports both sites
                 // (§FS-values.2.4).
                 expected += 1;
-                let coordinate_valid = child == Some(expected_path.as_str());
+                let coordinate_valid = child.as_deref() == Some(expected_path.as_str());
                 let depth_valid = level == Some(root_level + 1);
                 if !coordinate_valid {
                     reasons.push((
@@ -326,7 +278,7 @@ fn validate_embedded_value_roots(
                     ));
                     continue;
                 };
-                let component = component_without_block_close(component);
+                let component = component_without_block_close(component, *block_comment);
                 if !component_text_is_valid(component) || component.contains(EMBEDDED_VALUE_MARKER) {
                     reasons.push((
                         line_no,
