@@ -92,6 +92,25 @@ The shape is structural; the text is human-readable. Style rules apply to every 
 
 The unknown-project recovery shape in [§FS-check.3.8](FS-check.md#38-cross-project-citation-failure) freezes the base `unknown project alias <written>` and, when its first non-empty candidate tier supplies alternatives, appends `; did you mean <a>?`, `; did you mean <a> or <b>?`, or `; did you mean <a>, <b> or <c>?`. The base begins lowercase and has no period; the recovery clause has one terminal question mark. Text output carries the whole message, and JSON retains `code: "unknown-project"` while carrying the same bytes in `message` (§5).
 
+The narrowed-run scope-only unknown-project message has a two-release wording
+migration. In `0.13.2`, its complete legacy message remains a verbatim
+contiguous prefix and gains exactly ` — here, the <scope> subtree means the
+<scope> project and its descendants; this wording changes in grund 0.14.0`.
+This is part of the existing error message, not a second warning diagnostic.
+Exact-line consumers must migrate during this window to the stable
+`code == "unknown-project"`; the code, error severity, sites, selectors, and
+exit verdict do not change.
+
+In `0.14.0`, the compatibility suffix and legacy scope clause must be removed,
+and the complete message becomes exactly:
+
+```text
+unknown project alias <path>; the <scope> project and its descendants are in scope here — check from the workspace root for a path outside that subtree
+```
+
+Workspace-root candidate messages and bare unknown-project messages remain
+unchanged throughout this migration.
+
 Severity (`error` vs `warning`) is **implicit in the rule**, not in the line. [§FS-check.3](FS-check.md#3-errors-detected) is errors; [§FS-check.4](FS-check.md#4-warnings) is warnings; both render identically as located findings. Consumers that need machine-distinguishable severity use `--format=json` (§5).
 
 For a missing fetch-backed declaration, the two frozen identities are
