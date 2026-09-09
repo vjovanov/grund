@@ -48,7 +48,7 @@ A snapshot written by [§FS-fetch](FS-fetch.md#fs-fetch-grund-materializes-one-e
 
 ### 1.2 The number-only shorthand
 
-When `[id] format` carries **both** `{number}` and `{slug}` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) — the default `{kind}-{number}-{slug}` that `grund init` writes — the number alone already identifies a declaration within its kind, so `§FS-042` is an abbreviation of `§FS-042-user-login` rather than a different ID. `check` **recognizes** that shape, resolves it, and reports it as an error to be rewritten (§3.13). It is never silently ignored, which is what [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) means by "false negatives are bugs".
+When `[id] format` carries **both** `{number}` and `{slug}` ([§FS-config.3.2](FS-config.md#32-id--id-grammar)) — the default `{kind}-{number}-{slug}` that `grund init` writes — the number alone already identifies a declaration within its kind, so `§FS-042` is an abbreviation of `§FS-042-user-login` rather than a different ID. `check` **recognizes** and resolves that shape independently of the project's persisted-form policy. Under the default `[reference] shorthand = "canonical"` it reports a unique shorthand to be rewritten; under `"accepted"` the same resolved edge may persist (§3.13). It is never silently ignored, which is what [§GOAL-no-dangling-refs](../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) means by "false negatives are bugs".
 
 The shorthand shape is the configured `format` with the `{slug}` placeholder and one adjacent literal separator removed. A repo whose format has no `{number}` (`{kind}-{slug}`, the form `grund` itself uses) or no `{slug}` (`{kind}-{number}`) has no shorthand and is untouched by this clause ([§FS-id.4.1](FS-id.md#41-number-less-id-formats)).
 
@@ -436,7 +436,17 @@ The citing kind is the site's resolved `source_kind` ([AR-scanner.2.4](../archit
 
 ### 3.13 Number-only shorthand citation
 
-A recognized shorthand citation (§1.2) persisted in a scanned file. The shorthand is authoring sugar, not a stored citation grammar, so the site is reported and the report carries the replacement text — the fix is mechanical, and `grund fmt --write` applies it in bulk ([§FS-fmt.2.4](FS-fmt.md#24-shorthand-to-canonical)).
+A recognized shorthand citation (§1.2) persisted in a scanned file is governed
+by the target project's `[reference] shorthand` policy
+([§FS-config.3.1](FS-config.md#31-reference--citation-form)). Under the default
+`canonical` policy, a uniquely resolving site is reported with its replacement
+text and `grund fmt --write` applies that mechanical fix in bulk
+([§FS-fmt.2.4](FS-fmt.md#24-shorthand-to-canonical)). Under `accepted`, the same
+marker-origin site is valid and produces no shorthand-form finding; its full
+canonical citation may coexist in the same file. This policy gate changes only
+the unique result. A shorthand matching no declaration or several declarations
+still earns the unknown or ambiguous form below, and no policy permits grund to
+guess.
 
 **Where `fmt` may not rewrite, this rule does not fire.** A shorthand inside inline code, a Markdown link destination, or a source string literal is exempt from the resolving form of this error, because [§FS-fmt.2.3](FS-fmt.md#23-what-is-never-rewritten) forbids the rewrite there and an error whose only named fix the tool declines to perform is one a repository can never clear. The citation is untouched in every other respect — it resolves, `refs` lists it, and it keeps its declaration from being reported unused (§1.2). The exemption is for the *mechanical* form only: a shorthand matching zero or several declarations is still reported in those contexts, because that is a dangling reference rather than a formatting nit.
 
@@ -452,7 +462,7 @@ docs/notes.md:7: shorthand citation §FS-042 is ambiguous: FS-042-user-login, FS
 
 The candidate list in the ambiguous form is sorted and complete — `grund` names every match and resolves none, because choosing one would be a guess and `check` reports facts about the tree (§5, [§GOAL-agent-grounding.3](../goals.md#3-what-this-rules-out), [§REQ-no-wrong-citation.1](../requirements/REQ-no-wrong-citation.md#1-no-wrong-resolution)). Duplicate *numbers* are not otherwise an error: §3.3 catches duplicate full IDs, and a repo may legitimately hold `FS-042-user-login` alongside `FS-042-user-logout` as long as nothing abbreviates them. The marker rendered in the message is the configured one ([§FS-config.3.1](FS-config.md#31-reference--citation-form)), and the qualified form names its namespace (`<§>api/FS-042`, escaped here because this repo has no `api` member) so the replacement can be pasted as written.
 
-An error rather than a warning or a suggestion: a warning leaves the exit code alone, so a repo could accumulate shorthand citations forever while CI stayed green, which is the state this rule exists to end ([§DF-number-only-citation-shorthand.2.3](../decisions/functional/DF-number-only-citation-shorthand.md#23-it-is-an-error-not-a-warning-or-a-suggestion)). Repos whose `[id] format` has no `{number}` or no `{slug}` never see this finding (§1.2).
+Under `canonical`, an error rather than a warning or a suggestion: a warning leaves the exit code alone, so a repo could accumulate shorthand citations forever while CI stayed green, which is the state this rule exists to end ([§DF-number-only-citation-shorthand.2.3](../decisions/functional/DF-number-only-citation-shorthand.md#23-it-is-an-error-not-a-warning-or-a-suggestion)). Repos whose `[id] format` has no `{number}` or no `{slug}` never see this finding (§1.2).
 
 ### 3.14 Out-of-scope unresolvable citation *(`--full` only)*
 

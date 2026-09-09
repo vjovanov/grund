@@ -129,8 +129,11 @@
 /// point: `refs`, `cover`, the unused warning (§2.6), and the direction passes
 /// (§2.9, §2.10) all count it without knowing it exists.
 ///
-/// This pass adds the one thing that does differ: a finding naming the canonical
-/// form to write. It looks the candidate set up in a per-namespace `(kind,
+/// This pass adds the one thing that does differ: under the target project's
+/// `canonical` policy, a finding naming the canonical form to write; under
+/// `accepted`, a unique marker-origin shorthand adds no form finding
+/// (§FS-config.3.1). Unknown and ambiguous candidates remain findings under both
+/// policies. It looks the candidate set up in a per-namespace `(kind,
 /// number)` index — built on first use, because deriving it per site is quadratic
 /// on the tree this rule asks people to migrate — so the three outcomes (unique,
 /// ambiguous, unknown) pick the message. The dangling check (§2.3) skips shorthand

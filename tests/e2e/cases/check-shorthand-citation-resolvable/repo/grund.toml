@@ -3,6 +3,7 @@ grund_config_version = 1
 [reference]
 marker = "§"
 strict = true
+shorthand = "canonical"
 
 [id]
 format = "{kind}-{number}-{slug}"
