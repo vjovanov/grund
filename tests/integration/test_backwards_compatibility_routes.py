@@ -16,6 +16,9 @@ RELEASES = REPO_ROOT / "docs" / "changelog"
 CORRECTION_ROUTE = "§REQ-backwards-compatibility.5"
 CONFLICT_PROOF = "§REQ-no-missed-citation.1"
 REQUIREMENT_SECTION_RE = re.compile(r"§(REQ-[a-z0-9-]+)\.(\d+(?:\.\d+)*)")
+DECISION_CITATION_RE = re.compile(
+    r"§((?:DF|DA)-[a-z0-9-]+)(?:\.[a-z0-9-]+)*\b"
+)
 
 
 def _section(text, number):
@@ -127,11 +130,12 @@ def _correction_route_errors(text, release_entries, catalog):
     if not re.search(r"not a licence|cannot justify", route, re.IGNORECASE):
         errors.append("the route must deny a broader compatibility licence")
 
-    decision_marker = f"§{declaration.group(1)}"
+    decision_id = declaration.group(1)
     matching_releases = [
         entry
         for entry in release_entries
-        if decision_marker in entry and CORRECTION_ROUTE in entry
+        if decision_id in DECISION_CITATION_RE.findall(entry)
+        and CORRECTION_ROUTE in entry
     ]
     matching_releases = [
         entry
@@ -249,6 +253,22 @@ but there is no conflict proof, ordinary-route analysis, or release record.
             "the route must explain why §3 mechanical migration does not fit", errors
         )
         self.assertIn("the decision must have a matching release record", errors)
+
+    def test_release_join_requires_the_complete_decision_citation_id(self):
+        decision = COVER_DECISION.read_text(encoding="utf-8")
+        release_entries = _release_entries()
+        catalog = _requirement_catalog()
+        self.assertEqual(
+            [], _correction_route_errors(decision, release_entries, catalog)
+        )
+
+        prefix_collision = decision.replace(
+            "# DF-cover-workspace-scope:", "# DF-cover-workspace:", 1
+        )
+        self.assertIn(
+            "the decision must have a matching release record",
+            _correction_route_errors(prefix_collision, release_entries, catalog),
+        )
 
     def test_cover_decision_is_the_accepted_worked_case(self):
         consequences = _section(COVER_DECISION.read_text(encoding="utf-8"), 4)
