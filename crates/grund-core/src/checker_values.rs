@@ -44,7 +44,7 @@ fn check_values(
         };
         if site.id.as_ref().is_some_and(|id| {
             !target.is_some_and(|target| {
-                binding_target_has_value_authority(
+                binding_target_reports_invalid_attempt(
                     target.findings,
                     target.config,
                     id,
@@ -95,6 +95,7 @@ fn check_values(
                 report.errors.push(invalid_binding_diagnostic(binding));
                 continue;
             }
+            Some((_, EmbeddedBindingRelation::InvalidImmediateComponent)) => continue,
             None if whole_authority && !binding.section.contains('.') =>
             {
                 if declaration.value_valid != Some(true) {
@@ -155,6 +156,7 @@ fn check_values(
 #[derive(Clone, Copy)]
 enum EmbeddedBindingRelation {
     ImmediateComponent,
+    InvalidImmediateComponent,
     RootOrDescendant,
 }
 
@@ -165,26 +167,33 @@ fn embedded_root_for_binding<'a>(
     declaration: &'a Declaration,
     section: &str,
 ) -> Option<(&'a EmbeddedValueRoot, EmbeddedBindingRelation)> {
-    declaration.sections.iter().find_map(|(root_path, info)| {
-        let root = info.value_root.as_ref()?;
-        if section == root_path {
-            return Some((root, EmbeddedBindingRelation::RootOrDescendant));
-        }
-        let remainder = section.strip_prefix(&format!("{root_path}."))?;
-        let relation = if !remainder.contains('.') && root.valid {
-            EmbeddedBindingRelation::ImmediateComponent
-        } else if !remainder.contains('.') {
-            // Invalid authority suppresses comparison and does not turn a
-            // grammatically immediate binding into a second finding.
-            return None;
-        } else {
-            EmbeddedBindingRelation::RootOrDescendant
-        };
-        Some((root, relation))
-    })
+    let (root_path, root) = declaration
+        .sections
+        .iter()
+        .filter_map(|(root_path, info)| {
+            let root = info.value_root.as_ref()?;
+            (section == root_path || section.starts_with(&format!("{root_path}.")))
+                .then_some((root_path, root))
+        })
+        // Nested invalid roots still own their immediate children. Choosing the
+        // longest path first prevents an outer root from manufacturing a
+        // secondary binding error (§FS-values.5.1).
+        .max_by_key(|(root_path, _)| root_path.split('.').count())?;
+    if section == root_path {
+        return Some((root, EmbeddedBindingRelation::RootOrDescendant));
+    }
+    let remainder = section.strip_prefix(&format!("{root_path}."))?;
+    let relation = if remainder.contains('.') {
+        EmbeddedBindingRelation::RootOrDescendant
+    } else if root.valid {
+        EmbeddedBindingRelation::ImmediateComponent
+    } else {
+        EmbeddedBindingRelation::InvalidImmediateComponent
+    };
+    Some((root, relation))
 }
 
-fn binding_target_has_value_authority(
+fn binding_target_reports_invalid_attempt(
     findings: &Findings,
     config: &Config,
     id: &Id,
@@ -200,14 +209,25 @@ fn binding_target_has_value_authority(
         .into_iter()
         .flatten()
         .any(|declaration| {
-            declaration.sections.iter().any(|(root_path, info)| {
-                info.value_root.is_some()
-                    && (section == root_path
-                        || section
-                            .strip_prefix(&format!("{root_path}."))
-                            .is_some_and(|remainder| !remainder.is_empty()))
+            embedded_root_for_binding(declaration, section).is_some_and(|(_, relation)| {
+                !matches!(relation, EmbeddedBindingRelation::InvalidImmediateComponent)
             })
         })
+}
+
+fn binding_target_has_any_value_authority(
+    findings: &Findings,
+    config: &Config,
+    id: &Id,
+    section: &str,
+) -> bool {
+    kind_uses_values(config, &id.kind)
+        || findings
+            .declarations
+            .get(id)
+            .into_iter()
+            .flatten()
+            .any(|declaration| embedded_root_for_binding(declaration, section).is_some())
 }
 
 fn invalid_binding_diagnostic(binding: &ValueBinding) -> Diagnostic {

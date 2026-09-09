@@ -239,9 +239,12 @@
 ///
 /// A focused `checker_values` pass consumes the scanner's declarations,
 /// components, bindings, and exact spans without rereading files. It routes the
-/// binding citation through the same local/workspace resolver as every citation;
-/// config, declaration, and resolution failures suppress comparison. Only one
-/// valid unique numbered target reaches exact decimal-or-decoded-string equality,
+/// binding citation through the same local/workspace resolver as every citation.
+/// For an embedded binding, the longest marked parent path owns the site; an
+/// invalid immediate parent suppresses comparison and secondary binding errors,
+/// while a binding to the root or below a component remains invalid. Config,
+/// declaration, and resolution failures suppress comparison. Only one valid
+/// unique numbered target reaches exact decimal-or-decoded-string equality,
 /// producing the fixed value errors and declaration site required by §FS-values.5.
 ///
 /// ## 3. Error format

@@ -482,11 +482,9 @@ fn scan_file_text(
         );
         scan_legacy_citation_candidates(&citation_line, findings);
         scan_escaped_citations(&citation_line, findings);
-        // Exact candidates are retained in the same citation pass for every
-        // tree. The checker activates them only when their target is configured
-        // whole-value authority or an embedded marked root, keeping unmarked
-        // prose inert while allowing cross-workspace embedded roots
-        // (§FS-values.3.1, §FS-values.7, §FS-values.9).
+        // Exact candidates stay in this pass. The checker activates them only
+        // for whole or marked authority, keeping unmarked prose inert across
+        // workspaces (§FS-values.3.1, §FS-values.7, §FS-values.9).
         scan_value_bindings(&citation_line, workspace_targets, citation_start, findings);
     }
 

@@ -43,6 +43,55 @@ headings are ignored.
 A Markdown component that completely matches JSON number grammar is numeric.
 Every other valid component is a string.
 
+## Mark a value inside any declaration
+
+When the surrounding declaration should stay prose, end one citable numeric
+section heading with one ASCII space and the exact lowercase
+`<!-- grund:value -->` marker. This independently authorizes that section; no
+`values = true` kind setting is needed ([§FS-values.1](../functional-spec/FS-values.md#1-per-kind-opt-in-and-identity), [§FS-values.2.4](../functional-spec/FS-values.md#24-embedded-section-value-roots)):
+
+```markdown
+# FS-pricing: Pricing rules
+
+## 2. Regional floor <!-- grund:value -->
+### 2.1. 1200
+### 2.2. USD
+
+## 3. Use
+
+The floor is `1200.0` (§FS-pricing.2.1).
+```
+
+The marked root may sit at any numbered depth. Relative to it, the shape is
+strict: exactly one nonempty, physically ordered level `.1` through `.N`, with
+no gaps, duplicate coordinates, named or plain children, grandchildren, lead
+prose, or component bodies. Each component uses the same one-line title grammar
+as a whole-declaration Markdown value. Blank lines are harmless. A nested mark
+invalidates both overlapping roots; a mark inside an opted-in whole value is
+invalid because the whole declaration already owns its fields.
+
+The same authored headings work inside configured source comments and enabled
+Python docstrings. The source wrapper is outside the heading depth:
+
+```python
+# FS-python: Python defaults
+# ## 1. Retry limit <!-- grund:value -->
+# ### 1.1. 3
+# The configured default is `3` (§FS-python.1.1).
+```
+
+`//`, `///`, `//!`, `;`, `--`, `/* ... */` / `*` Javadoc or JSDoc lines, and
+both Python triple-quote delimiters follow the same rule. Lookalike marker
+spellings are inert prose. An exact marker on a nonnumeric heading is a located
+`invalid-value-declaration` instead of guessed authority.
+
+The root and components keep their existing dotted section identities.
+`show` returns the raw section slice (including the marker), `refs` and `cover`
+count the binding citation once, completion offers the same section paths, and
+the LSP navigates to the component heading. `list` keeps one enclosing row and
+adds `[value roots: FS-pricing.2]` in text or an optional `value_roots` member in
+NDJSON ([§FS-values.6](../functional-spec/FS-values.md#6-shared-catalog-consumers), [§FS-values.7](../functional-spec/FS-values.md#7-workspaces-and-editor-consumers)). `fmt --cross-refs` preserves marker and binding bytes so another pass cannot disable comparison ([§FS-values.8](../functional-spec/FS-values.md#8-formatting-stability)).
+
 ## Declare values in JSON
 
 JSON is discovered only at the enabled kind's existing home:
@@ -81,8 +130,8 @@ module or maintain a second artifact.
 ## Bind an authored component
 
 The only compared form is a nonempty single-backtick literal, one ASCII space,
-then a parenthesized, marker-prefixed citation with one explicit positive
-numeric field, all on one physical line:
+then a parenthesized, marker-prefixed citation with a positive numeric component
+path, all on one physical line:
 
 ```markdown
 The field price is `1200.0` (§CONST-field-price.1).
@@ -101,6 +150,11 @@ unused checks. It resolves locally or through the normal workspace alias path.
 Unknown aliases, dangling IDs, duplicates, invalid declarations, missing
 fields, and noncanonical shorthand are reported first and suppress comparison
 at that site.
+
+For an embedded value, the citation names the marked root path plus its one
+immediate component, such as `<§>FS-pricing.2.1`. A binding aimed at the root
+itself or below a component is invalid; the same delimited shape aimed at an
+ordinary unmarked dotted section remains ordinary prose and a citation.
 
 An unbackticked adjacent token and a bare citation are deliberately ordinary
 prose/citations, not binding near-misses:
@@ -139,11 +193,12 @@ The other fixed exit-`1` codes are `invalid-value-declaration` and
 
 ## Existing commands and editors
 
-JSON values share the ordinary declaration and section catalog. They appear in
-`list`, completion, collision checks, unused checks, indexes, and navigation;
-binding citations appear in `refs` and `cover`. `id` notices JSON collisions but
-never writes JSON. `show` returns the exact JSON member slice for an ID or exact
-element slice for a field in every read mode rather than synthesizing Markdown.
+Whole and embedded values share the ordinary declaration and section catalog.
+JSON declarations appear in `list`, completion, collision checks, unused checks,
+indexes, and navigation; embedded roots add metadata to the enclosing `list`
+row. Binding citations appear in `refs` and `cover`. `id` notices JSON collisions
+but never writes JSON. `show` returns the exact source slice rather than
+synthesizing Markdown.
 
 The LSP uses the same report, hover slice, and definition spans as the CLI.
 Go-to-definition lands on the Markdown component heading or exact JSON key or

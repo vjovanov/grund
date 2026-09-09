@@ -1,0 +1,3 @@
+docs/values.md:4: invalid value declaration for FS-001-values: embedded value component must be nonempty, single-line, edge-unspaced, and contain no backtick or control character
+docs/values.md:8: invalid value declaration for FS-001-values: embedded value component coordinate must follow physical order (expected `2.1`)
+docs/values.md:9: invalid value declaration for FS-001-values: embedded value component coordinate must follow physical order (expected `2.2`)

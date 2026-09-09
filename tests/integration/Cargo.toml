@@ -35,3 +35,7 @@ path = "scan_determinism.rs"
 [[test]]
 name = "host_language_dangling_proof"
 path = "host_language_dangling_proof.rs"
+
+[[test]]
+name = "embedded_value_source_forms"
+path = "embedded_value_source_forms.rs"

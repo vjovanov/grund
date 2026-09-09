@@ -1,0 +1,14 @@
+grund_config_version = 1
+
+[reference]
+strict = true
+
+[[kinds]]
+kind = "FS"
+folder = "src"
+index = false
+
+[scan]
+include = ["src"]
+extensions = ["py"]
+comment_prefixes = ["#"]

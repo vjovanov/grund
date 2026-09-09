@@ -1,0 +1,12 @@
+grund_config_version = 1
+
+[reference]
+strict = true
+
+[[kinds]]
+kind = "FS"
+folder = "docs"
+index = false
+
+[scan]
+include = ["docs"]

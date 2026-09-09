@@ -131,6 +131,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - `fmt` skips declaration headings and fenced Markdown, the never-rewrite boundary [§FS-fmt.2.3](../../docs/functional-spec/FS-fmt.md#23-what-is-never-rewritten) draws for every pass that edits
 - `show` full Markdown declaration
 - `show` Markdown section extraction
+- embedded section values without `values = true`: equal and mismatching bindings, `list` text/NDJSON root metadata, raw `show --toc`, exact `refs`, unchanged completion identities, formatter byte stability, and qualified workspace comparison ([§FS-values.6](../../docs/functional-spec/FS-values.md#6-shared-catalog-consumers), [§FS-values.7](../../docs/functional-spec/FS-values.md#7-workspaces-and-editor-consumers), [§FS-values.8](../../docs/functional-spec/FS-values.md#8-formatting-stability))
 - `show` lead default
 - `show --toc` / `show --brief` in text, Markdown, and JSON, including empty lead handling, empty output, E2E manifests, and mode mutex errors
 - `show` missing ID failure (with recovery hint)
