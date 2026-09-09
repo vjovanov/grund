@@ -2,7 +2,8 @@
 /// list every place that cites the ID (§FS-refs.1, §FS-refs.2), scheme-aware where
 /// a grep cannot be. Shares the scanner with `check` so the two never disagree on
 /// what counts as a citation (§FS-refs.5). Empty results, including undeclared IDs
-/// with no citations, exit `0` (§FS-refs.4).
+/// with no citations, exit `0`; resolver rejection follows the staged shared
+/// query-failure mapping (§FS-refs.4).
 ///
 /// Why a bad ID argument still gets the `[id] format` hint: a format that differs
 /// from the `{kind}-{slug}` `grund` itself uses is the common surprise, so the
@@ -147,17 +148,30 @@ fn command_refs(args: &[String]) -> ExitCode {
     {
         Ok(parsed) => parsed,
         Err(err) => {
-            eprintln!("error: {err}");
-            // §FS-refs.4: the format hint belongs to an argument that does not
-            // match `[id] format`; an ambiguous shorthand matched it fine and
-            // already printed every candidate.
-            if err.wants_format_hint() {
-                eprintln!(
-                    "hint: this repo's [id] format is `{}` (run `grund config show`); `grund list` shows the IDs that exist",
-                    render_config.id_format
-                );
+            // An incomplete scan is still the run-level outcome even when the
+            // selected grammar also rejects the operand (§FS-refs.4,
+            // §FS-workspace.8.7).
+            if context
+                .projects
+                .iter()
+                .any(|project| !project.scan_errors.is_empty())
+            {
+                for project in &context.projects {
+                    for (file, message) in &project.scan_errors {
+                        eprintln!(
+                            "error: {}: {}",
+                            display_path(context.render_config(), file),
+                            message
+                        );
+                    }
+                }
+                return ExitCode::from(2);
             }
-            return ExitCode::from(2);
+            let failure = RefsQueryFailure::from_resolver_error(&err, &render_config.id_format);
+            let format = format_override
+                .as_deref()
+                .unwrap_or(&render_config.output_format);
+            return render_compat_refs_query_failure(&failure, format);
         }
     };
     if section_override.is_some() && inline_section.is_some() {
@@ -353,6 +367,33 @@ fn command_refs(args: &[String]) -> ExitCode {
             }
         }
         ExitCode::from(2)
+    }
+}
+
+/// The deprecated process adapter consumes the same typed rejection and release
+/// switch as the public CLI (§FS-refs.4, §FS-errors.5).
+fn render_compat_refs_query_failure(failure: &RefsQueryFailure, format: &str) -> ExitCode {
+    if refs_query_failure_is_exit_one() {
+        if format == "json" {
+            print_bare_query_json(failure.kind.code(), &failure.message, &[]);
+        } else {
+            eprintln!("{}", failure.message);
+            print_compat_refs_query_failure_hint(failure);
+        }
+        ExitCode::from(1)
+    } else {
+        eprintln!("error: {}", failure.message);
+        print_compat_refs_query_failure_hint(failure);
+        eprintln!("{REFS_QUERY_FAILURE_WARNING}");
+        ExitCode::from(2)
+    }
+}
+
+fn print_compat_refs_query_failure_hint(failure: &RefsQueryFailure) {
+    if let Some(format) = &failure.format_hint {
+        eprintln!(
+            "hint: this repo's [id] format is `{format}` (run `grund config show`); `grund list` shows the IDs that exist"
+        );
     }
 }
 

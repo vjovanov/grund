@@ -33,6 +33,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 ### Changed
 
 - [§REQ-backwards-compatibility.5](requirements/REQ-backwards-compatibility.md#5-correcting-a-verdict-another-requirement-forbids), [§DF-cover-workspace-scope.4](decisions/functional/DF-cover-workspace-scope.md#4-consequences): add a bounded compatibility route for correcting a verdict that another existing hard requirement already forbade, with an accepted conflict proof, a named release, and located actionable findings; record the `grund cover` workspace correction as its worked case. Closes issue #116. (PR #222)
+- [§FS-refs.4](functional-spec/FS-refs.md#4-exit-codes), [§FS-errors.5](functional-spec/FS-errors.md#5-json-format): give `grund refs` resolver-rejected IDs the same failed-query exit as `show` from 0.15.0; 0.14.0 preserves exit `2` and existing diagnostics while warning scripts about the transition. (PR #223)
 - [§FS-config.3.5.1](functional-spec/FS-config.md#351-a-symlink-in-the-tree-is-followed), [§DF-symlink-scan.2.6](decisions/functional/DF-symlink-scan.md#26-the-pre-10-boundary-change-is-explicit-and-has-three-migrations): bound outward directory links at the canonical project root, which may move verdicts when a project depended on declarations found only through such a link; external file links remain followed. Affected projects can move the target under the project root, check it as its own project, or replace the symlinked root with an intentional non-symlink parent-relative `[scan] include`. (PR #211)
 
 ### Added

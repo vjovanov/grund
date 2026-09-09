@@ -107,6 +107,7 @@ include!("init.rs");
 include!("init_cmd.rs");
 include!("api.rs");
 include!("api_list.rs");
+include!("api_refs.rs");
 include!("show_batch.rs");
 include!("api_report.rs");
 include!("on_type.rs");

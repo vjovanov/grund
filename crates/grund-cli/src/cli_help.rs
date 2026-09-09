@@ -155,7 +155,10 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!();
             println!(
-                "Exit:  0 scan succeeded (with or without hits) · 2 unreadable tree or CLI error."
+                "Exit:  0 scan succeeded (with or without hits) · 1 ID rejected after context · 2 run/scan error."
+            );
+            println!(
+                "       In 0.14.0 rejected IDs still exit 2 with a warning; they move to 1 in 0.15.0."
             );
             println!();
             println!("Examples:");
