@@ -893,6 +893,27 @@ both a dangling and a missing-snapshot finding for one site. In a workspace,
 the ID and remedy use the complete alias-qualified spelling while `<home>` is
 rendered from the run's report base ([§FS-workspace.8.1](FS-workspace.md#81-grund-aliasid)).
 
+### 4.13 Oversized lead *(opt-in)*
+
+When the effective project config contains the opt-in key from [§FS-config.3.1](FS-config.md#31-reference--citation-form):
+
+```toml
+[reference]
+lead_size_warning = { max = <N>, unit = "<unit>" }
+```
+
+`check` measures each declaration and citable section lead in that project by [§FS-list.3.4](FS-list.md#34---size--per-point-lead-and-full-body-measurements). A lead whose selected measurement is strictly greater than `max` produces one warning at that site's heading line. Equality passes. A broken stub has no measurable lead and produces no size warning; duplicate declaration homes and duplicate section claimants are judged separately from their own site-local slices.
+
+The fixed code is `oversized-lead`, severity is `warning`, and the exact text after `<path>:<line>: ` is:
+
+```text
+<coordinate> lead is <actual> <unit>, over the configured maximum of <max>; move detail into citable child sections, or promote a child section to its own ID after running grund refs <coordinate> --summary
+```
+
+The coordinate is local for a member-local check and workspace-qualified for a workspace-root check. The two remedies preserve grounding and citation stability; the message never suggests shortening or deleting it. A warning-only run exits `0` and replaces the text `success` marker; JSON uses the ordinary located diagnostic object ([§FS-errors.5](FS-errors.md#5-json-format)). The LSP publishes the same message, line, code, and warning severity as the CLI ([§FS-lsp.1.2](FS-lsp.md#12-hover-preview)).
+
+The absent key activates no measurement or finding and leaves the existing text and JSON check output byte-identical. `--only oversized-lead` and `--ignore oversized-lead` select the finding after the complete check and never activate it. An explicit-path check judges only declaration and section sites scanned at that path. `--full` adds its existing out-of-scope reference findings but does not extend this repository policy beyond declarations in the configured scan scope. In a workspace, each member's effective key governs only that member's sites; a member without the key remains silent even when another member opts in. Any simultaneous error, including `duplicate` or `duplicate-section`, still decides exit `1`; the warning neither suppresses it nor changes its priority.
+
 ## 5. What grund does not check
 
 See [§FS-non-goals](FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) — in particular [§FS-non-goals.1](FS-non-goals.md#1-markdown-link-validation) (markdown links / URLs), [§FS-non-goals.2](FS-non-goals.md#2-spelling-grammar-prose-quality) (spelling/grammar outside the explicit value form), and the convention that ID numbers are stable handles, not ordinal positions. Value checking adds only the exact binding in [§FS-values.3.1](FS-values.md#31-the-only-binding-grammar): no surrounding-number inference, bare-literal lint, range/unit semantics, rendering, fingerprint/history check, or new reconciliation verb is performed ([§FS-values.9](FS-values.md#9-compatibility-and-explicit-exclusions)).

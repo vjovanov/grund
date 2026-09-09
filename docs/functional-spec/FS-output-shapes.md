@@ -137,6 +137,15 @@ Fields:
 {"kind":"AR","title":"How: high-level implementation, structure, and design","home":"docs/architecture","count":1}
 ```
 
+`list --size --format=json` instead emits one object per declaration and citable section site, in the size-row order defined by [§FS-list.3.4](FS-list.md#34---size--per-point-lead-and-full-body-measurements):
+
+```json
+{"id":"FS-001-login","section":null,"kind":"FS","path":"docs/functional-spec/FS-001-login.md","line":1,"stub":false,"defines":null,"duplicate":false,"lead_lines":2,"full_lines":5,"lead_words":7,"full_words":18,"lead_bytes":41,"full_bytes":109}
+{"id":"FS-001-login","section":"1","kind":"FS","path":"docs/functional-spec/FS-001-login.md","line":6,"stub":false,"defines":null,"duplicate":false,"lead_lines":3,"full_lines":3,"lead_words":9,"full_words":9,"lead_bytes":57,"full_bytes":57}
+```
+
+The fixed prefix fields are `id`, `section`, `kind`, `path`, `line`, `stub`, `defines`, and `duplicate`. A workspace row begins with `project`; its `id` remains workspace-qualified ([§FS-workspace.8.3](FS-workspace.md#83-grund-list)). Selected unit pairs follow in caller order as `lead_<unit>`, `full_<unit>`; bare `--size` therefore emits `lines`, `words`, then `bytes`. Unselected pairs are absent. A broken stub uses `null` for each selected measurement. These are point-site records rather than declaration-summary records, so `title` and `refs` are absent.
+
 ### 5.1 `refs --format=json`
 
 `refs --format=json` emits one citation object per line. With `--summary`, it emits one file summary object per line instead:
