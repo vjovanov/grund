@@ -14,6 +14,11 @@ folder = "values"
 index = false
 values = true
 
+[[kinds]]
+kind = "DOC"
+folder = "docs"
+index = false
+
 [scan]
 include = ["docs", "src"]
 extensions = ["md", "py"]

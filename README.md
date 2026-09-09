@@ -187,8 +187,24 @@ The offer uses `1200.0` (§CONST-field-price.1).
 The backticks, one space, parentheses, marker, and positive numeric field are
 intentional syntax. `grund check` accepts exact decimal equivalents such as
 `1200` and `1200.0`, and reports `value-mismatch` if the authored component
-drifts. JSON arrays at the same kind home can provide the declaration instead,
-so application code can read the source directly. See the complete
+drifts. A value can also live inside any ordinary scanned declaration without a
+kind opt-in: end its numeric section heading with the exact marker, then give it
+one contiguous level of numbered components ([§FS-values.2.4](docs/functional-spec/FS-values.md#24-embedded-section-value-roots)):
+
+```markdown
+# FS-pricing: Pricing rules
+## 2. Regional floor <!-- grund:value -->
+### 2.1. 1200
+
+## 3. Use
+
+The floor is `1200.0` (§FS-pricing.2.1).
+```
+
+The marked section and component keep their ordinary dotted identities for
+`show`, `refs`, completion, formatting, and editor navigation. JSON arrays at
+an opted-in kind home can provide a whole declaration instead, so application
+code can read the source directly. See the complete
 [first-class values guide](docs/user-facing/values.md) and the runnable
 [`examples/values/`](examples/values/) repository ([§FS-values](docs/functional-spec/FS-values.md#fs-values-opted-in-kinds-bind-authored-components-to-one-declared-value)).
 

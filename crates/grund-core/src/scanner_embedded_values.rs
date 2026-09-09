@@ -12,11 +12,11 @@ fn exact_embedded_value_marker(line: &str) -> Option<usize> {
     if let Some(before_close) = trimmed.strip_suffix("*/") {
         trimmed = before_close.trim_end_matches([' ', '\t']);
     }
-    let marker_start = trimmed.len().checked_sub(EMBEDDED_VALUE_MARKER.len())?;
-    if &trimmed[marker_start..] != EMBEDDED_VALUE_MARKER {
-        return None;
-    }
-    let before = &trimmed[..marker_start];
+    // `strip_suffix` proves the byte boundary as well as the suffix. Computing
+    // an arbitrary byte offset and slicing there can land inside any preceding
+    // non-ASCII character (§REQ-never-crashes, §FS-values.9).
+    let before = trimmed.strip_suffix(EMBEDDED_VALUE_MARKER)?;
+    let marker_start = before.len();
     let title = before.strip_suffix(' ')?;
     if title.ends_with(char::is_whitespace) || title.is_empty() {
         return None;
@@ -58,30 +58,14 @@ fn component_without_block_close(component: &str) -> &str {
 /// not decide whether the heading is citable; it also identifies plain/named
 /// headings that are forbidden inside a strict embedded root.
 fn authored_heading_level(line: &str, markdown: bool, config: &Config) -> Option<usize> {
-    let mut content = line.trim_start();
-    if !markdown {
-        if content.starts_with('#') {
-            let level = content.bytes().take_while(|byte| *byte == b'#').count();
-            return content[level..]
-                .chars()
-                .next()
-                .is_none_or(char::is_whitespace)
-                .then_some(level);
-        }
-        let mut prefixes = config
-            .comment_prefixes
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>();
-        if config.comment_prefixes.iter().any(|prefix| prefix == "//") {
-            prefixes.extend(["///", "//!", "//"]);
-        }
-        prefixes.sort_by_key(|prefix| std::cmp::Reverse(prefix.len()));
-        let prefix = prefixes
-            .into_iter()
-            .find(|prefix| content.starts_with(prefix))?;
-        content = content[prefix.len()..].trim_start();
-    }
+    // Strip a source wrapper—including `#`—before authored heading hashes;
+    // Python docstrings arrive as Markdown after quote normalization
+    // (§FS-values.2.4).
+    let content = if markdown {
+        line.trim_start()
+    } else {
+        semantic_comment_content(line, false, config).trim_start()
+    };
     let level = content.bytes().take_while(|byte| *byte == b'#').count();
     (level > 0
         && content[level..]
@@ -198,6 +182,29 @@ fn validate_embedded_value_roots(
                     }
                 }
             }
+            // The nested marker is the complete overlap finding; do not also
+            // reinterpret its subtree as malformed outer-root children
+            // (§FS-values.2.4).
+            if !overlapping_lines.is_empty() {
+                if let Some(info) = decl.sections.get_mut(&root_path)
+                    && let Some(root) = &mut info.value_root
+                {
+                    root.valid = false;
+                }
+                invalid.extend(reasons.into_iter().map(|(line, column, message)| {
+                    InvalidValueSite {
+                        id: Some(decl.id.clone()),
+                        file: decl.file.clone(),
+                        line,
+                        column,
+                        message,
+                        source: decl.source.clone(),
+                        binding_namespace: None,
+                        binding_section: None,
+                    }
+                }));
+                continue;
+            }
 
             let Some(root_info) = decl.sections.get(&root_path) else {
                 continue;
@@ -243,6 +250,7 @@ fn validate_embedded_value_roots(
                 .unwrap_or(decl.body_end);
 
             let mut expected = 1usize;
+            let mut component_candidates = 0usize;
             let mut updates = Vec::new();
             let duplicate_lines = decl
                 .duplicate_sections
@@ -251,7 +259,7 @@ fn validate_embedded_value_roots(
                 .map(|(_, info)| info.line)
                 .collect::<BTreeSet<_>>();
             for line_no in root_line.saturating_add(1)..=subtree_end {
-                if duplicate_lines.contains(&line_no) || overlapping_lines.contains(&line_no) {
+                if overlapping_lines.contains(&line_no) {
                     continue;
                 }
                 let Some((line, column_offset, docstring)) = normalized.get(line_no - 1) else {
@@ -268,15 +276,47 @@ fn validate_embedded_value_roots(
                     .as_ref()
                     .map(|caps| heading_level_for_line(line, markdown, caps));
                 let expected_path = format!("{root_path}.{expected}");
-                if child != Some(expected_path.as_str()) || level != Some(root_level + 1) {
+                let immediate_numeric = child.is_some_and(|path| {
+                    path.strip_prefix(&format!("{root_path}."))
+                        .is_some_and(|tail| {
+                            !tail.is_empty()
+                                && !tail.contains('.')
+                                && tail.bytes().all(|byte| byte.is_ascii_digit())
+                        })
+                });
+                if !immediate_numeric {
                     reasons.push((
                         line_no,
                         None,
                         format!(
-                            "embedded value components must be immediate contiguous headings `.1` through `.N` (expected `{expected_path}`)"
+                            "embedded value components must be immediate numeric headings `.1` through `.N` (expected `{expected_path}`)"
                         ),
                     ));
                     continue;
+                }
+                component_candidates += 1;
+                // Physical position—not content validity—advances the cursor;
+                // bad text cannot cascade, and `.2` then `.1` reports both sites
+                // (§FS-values.2.4).
+                expected += 1;
+                let coordinate_valid = child == Some(expected_path.as_str());
+                let depth_valid = level == Some(root_level + 1);
+                if !coordinate_valid {
+                    reasons.push((
+                        line_no,
+                        None,
+                        format!(
+                            "embedded value component coordinate must follow physical order (expected `{expected_path}`)"
+                        ),
+                    ));
+                }
+                if !depth_valid {
+                    reasons.push((
+                        line_no,
+                        None,
+                        "embedded value component heading must be exactly one authored level below its root"
+                            .to_string(),
+                    ));
                 }
                 let Some((component, column)) = markdown_component(line, config) else {
                     reasons.push((
@@ -295,13 +335,14 @@ fn validate_embedded_value_roots(
                     ));
                     continue;
                 }
-                updates.push((
-                    expected_path,
-                    authored_component(component, column_offset + column),
-                ));
-                expected += 1;
+                if coordinate_valid && depth_valid && !duplicate_lines.contains(&line_no) {
+                    updates.push((
+                        expected_path,
+                        authored_component(component, column_offset + column),
+                    ));
+                }
             }
-            if expected == 1 {
+            if component_candidates == 0 {
                 reasons.push((
                     root_line,
                     root_marker_column,

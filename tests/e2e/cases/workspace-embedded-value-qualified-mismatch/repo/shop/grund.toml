@@ -1,0 +1,13 @@
+grund_config_version = 1
+project_name = "shop"
+
+[reference]
+strict = true
+
+[[kinds]]
+kind = "FS"
+folder = "docs"
+index = false
+
+[scan]
+include = ["docs"]

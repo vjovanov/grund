@@ -52,7 +52,7 @@ fn wrap_markdown_links_with_targets(
         }
         // §FS-values.8: wrapping the citation would destroy the sole accepted
         // authored binding form, so a recognized value binding keeps its bytes.
-        if markdown_citation_is_value_binding(line, &citation, config, workspace) {
+        if markdown_citation_is_value_binding(line, &citation, config, findings, workspace) {
             continue;
         }
         // §FS-workspace.8.5: a qualified `§<alias>/<ID>` resolves against the

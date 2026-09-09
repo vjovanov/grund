@@ -1,0 +1,4 @@
+docs/nested.md:4: invalid value declaration for FS-001-nested: embedded value roots may not be nested or overlap
+docs/nested.md:9: invalid value binding: value binding must be exactly `literal` (marker-prefixed full value ID with one positive numeric field)
+docs/nested.md:10: invalid value binding: value binding must be exactly `literal` (marker-prefixed full value ID with one positive numeric field)
+docs/nested.md:10: missing section FS-001-nested.1.1.1.1

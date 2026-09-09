@@ -73,7 +73,21 @@ Both forms record the same `Declaration` struct downstream; consumers (`grund <I
 
 ### 2.2 Section detection
 
-Value components reuse `SectionInfo`, annotated with source format and the exact component span. Markdown values admit only contiguous immediate numeric children, while JSON array index `i` creates the same coordinate `i + 1`; downstream consumers therefore never maintain a second section table ([§FS-values.2](../functional-spec/FS-values.md#2-value-declarations)).
+Value components reuse `SectionInfo`, annotated with the exact component span.
+For a marked embedded root, that same record carries `EmbeddedValueRoot` validity
+and marker column; its existing dotted path is the authority, with no synthetic
+declaration or resolver. The scanner strips configured source-comment wrappers
+before counting authored heading depth, so `# ## 1` and `/// ## 1` are both
+authored H2 roots while enabled Python docstring content stays on the Markdown
+heading path ([§FS-values.2.4](../functional-spec/FS-values.md#24-embedded-section-value-roots)).
+
+Whole Markdown values and marked roots admit only contiguous immediate numeric
+children, while JSON array index `i` creates the same coordinate `i + 1`;
+downstream consumers therefore never maintain a second section table
+([§FS-values.2](../functional-spec/FS-values.md#2-value-declarations)). Embedded
+shape validation walks physical source order: every immediate numeric candidate
+advances the coordinate position even when its title is invalid, so one content
+error neither cascades onto later components nor hides later out-of-order sites.
 
 Config loading selects one heading grammar for the project. With `[id] named_sections = true`, that grammar adds explicit colon-form paths containing `[a-z][a-z0-9-]*` components, all-name at any depth and with numeric components only after a named prefix. It records them in the same first-wins section map and duplicate list as numeric headings, carrying the complete path, complete rendered heading text, source line, and level. No consumer re-parses named headings: checking, `show` and JSON, `refs`, formatting anchors, completion, and the core LSP snapshot all answer from this mixed-component record. The map also supplies the proper-prefix set for [§AR-checker.2.17](../../crates/grund-core/src/checker.rs).
 
@@ -87,7 +101,13 @@ Nothing *resolves* through that list: the map alone answers a `§<ID>.<path>` ci
 
 ### 2.3 Citation detection
 
-After emitting the ordinary citation, the same line pass recognizes the exact authored binding form and emits a `ValueBinding` containing its literal and source span. In source files it does so only inside the comment/doc-comment line already classified by this scanner; Markdown fences and host expressions/strings remain excluded ([§FS-values.3](../functional-spec/FS-values.md#3-explicit-value-bindings)).
+After emitting the ordinary citation, the same line pass recognizes the exact
+authored binding form and emits a `ValueBinding` containing its literal and
+source span. Its section path remains complete: the checker can split an
+embedded root from its immediate component after ordinary local/workspace
+resolution. In source files recognition occurs only inside the comment or
+doc-comment line already classified by this scanner; Markdown fences and host
+expressions or strings remain excluded ([§FS-values.3](../functional-spec/FS-values.md#3-explicit-value-bindings)).
 
 Under that opt-in, citation scanning tokenizes the complete ID plus letter-bearing dot tail before classification. A marked legal named path becomes one citation record even when its section is absent; an unmarked letter-tail candidate and a reserved `number.name` candidate are suppressed whole rather than falling back to the bare ID or a numeric prefix. Full configured IDs are attempted before number-only shorthand, and shorthand canonicalization does not consume section validity: the checker can therefore report the approved independent findings from one site. With the gate absent or false, the compiled grammar and emitted records are the existing numeric-only ones.
 
@@ -148,7 +168,7 @@ The scanner produces a `Findings` struct containing:
 
 - `declarations: BTreeMap<Id, Vec<Declaration>>` — keyed by ID, with file/line, stub-info, the recorded sections (each section path paired with its heading text — §2.2) per declaration, and the body line range (§2.4). An `E2E` declaration (§6) carries its case-directory path, fixture list, invocation, and expected exit code instead.
 - `citations: Vec<Citation>` — each with the referenced ID, optional section, file, line, and start column, whether it was written marker-prefixed or bare, whether it was written in the number-only shorthand (§2.6), and the resolved source kind plus enclosing declaration (§2.4).
-- `value_bindings: Vec<ValueBinding>` — exact authored components and citation sites recognized beside their ordinary `Citation`; declarations and sections carry source-format and exact-span metadata for Markdown and JSON values ([§FS-values.2](../functional-spec/FS-values.md#2-value-declarations), [§FS-values.3](../functional-spec/FS-values.md#3-explicit-value-bindings)).
+- `value_bindings: Vec<ValueBinding>` — exact authored components and citation sites recognized beside their ordinary `Citation`; whole declarations carry value validity, while an ordinary `SectionInfo` can carry embedded-root validity and marker position or a component's exact span ([§FS-values.2](../functional-spec/FS-values.md#2-value-declarations), [§FS-values.3](../functional-spec/FS-values.md#3-explicit-value-bindings)).
 - A citation inside a source **inline comment** block also carries that block as an inline citation site ([§FS-inline-citation-style.1](../functional-spec/FS-inline-citation-style.md#1-scope)): its first and last line, the character width of its widest line ([§FS-inline-citation-style.2.3](../functional-spec/FS-inline-citation-style.md#23-counting-lines-and-columns) — one column per Unicode scalar value, which is a different measure from the byte-addressed start column a citation carries in §3), whether it carries a note, and the ascending list of the lines this run will *report* as failing the configured `[reference] inline_note_layout` ([§FS-inline-citation-style.3.3](../functional-spec/FS-inline-citation-style.md#33-inline_note_layout--where-the-citations-sit)). That list is what lets the checker report a per-line deviation without re-reading the file, and it is a record of the configured verdict rather than a survey of the tree: it holds the lines rule 1 judges, not every line carrying a citation, and it is empty — with no line classified — at the default `inline_note_layout = "any"`, under `inline_style = "citation-only"`, and at `inline_note_layout_check = "off"`, where the verdicts would reach no channel ([§FS-inline-citation-style.4.4](../functional-spec/FS-inline-citation-style.md#44-warnings-and-errors--opt-in-layout-deviations)). So a project that configures no layout, or configures one without gating it, tokenizes no line and classifies no line on the field's account, and pays not even a per-block memo — that allocation belongs to the second reader and is made only where one exists. A future consumer wanting deviations from an ungated tree is asking a question this field does not answer. Every citation in one block carries the same site. A **doc comment** block carries no site at all — it is not one ([§FS-inline-citation-style.1.1](../functional-spec/FS-inline-citation-style.md#11-doc-comments-are-not-sites)) — so its citations are recorded the way a declaring block's are, with no site for the checker's style, budget, and layout rules to reach; §4.2 is the classifier that decides which kind a block is.
 
 - `file_structure: BTreeMap<PathBuf, FileStructure>` — the headings and doc-comment blocks of the files whose row asks for a grounding unit finer than the file (§2.7), empty where no row does.
