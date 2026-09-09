@@ -376,12 +376,21 @@ During `grund check`:
   source token remains the scanner's evidence, but the diagnostic names the same
   target that resolution attempted.
 
-Each lookup uses only the selected project's catalog and the effective format
-of the candidate kind in that project ([§FS-config.3.2](FS-config.md#32-id--id-grammar)). Thus an exact local or
+Each lookup uses only the selected project's catalog, shorthand policy, and the effective format
+of the candidate kind in that project ([§FS-config.3.1](FS-config.md#31-reference--citation-form), [§FS-config.3.2](FS-config.md#32-id--id-grammar)). Thus an exact local or
 qualified off-grammar declaration and its exact marked citations resolve, but
 the same spelling is not borrowed from a sibling catalog. Raw spelling is
 preserved in output, and ordinary duplicate, shorthand, and section ambiguity
 rules still refuse rather than guess.
+
+For a qualified number-only shorthand, that target ownership governs both
+`check` and `fmt`: a canonical root accepts and preserves a shorthand into an
+`accepted` member, while an accepted root still reports and expands a shorthand
+into a canonical member. The target policy changes only a unique persisted
+form; unknown and ambiguous shorthand remain errors, and query and authoring
+input continue to resolve or expand canonically
+([§FS-check.3.13](FS-check.md#313-number-only-shorthand-citation),
+[§FS-fmt.2.4](FS-fmt.md#24-shorthand-to-canonical)).
 
 Unverified is the third state, and it is reported once per namespace rather than
 once per site. The run names the namespace at the `optional_members` entry that

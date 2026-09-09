@@ -310,6 +310,12 @@ The generated `[id]` table includes the uncommented Boolean `named_sections = fa
 
 Because the generated config is also a usability surface, non-boolean keys with a finite accepted value set carry inline comments listing that set. Boolean keys are left uncommented: spelling out `true | false` is not useful guidance and should not be emitted. Free-form keys instead describe their grammar or omit the comment when a finite list would be misleading. For example, `[reference].inline_style` names `citation-with-note | citation-only`, `[id].section_heading_levels` names `strict | warn | loose`, `[output].format` names `text | json`, and `[fmt.cross_refs].anchor_format` names `github | gitlab | mkdocs | pandoc | none`. These comments are explanatory only; they are not schema keys and do not change parsing under [§FS-config.3](FS-config.md#3-schema).
 
+The generated `[reference]` table writes
+`shorthand = "canonical" # canonical | accepted`. This makes the current
+canonical behavior explicit while teaching the opt-in persistence policy; as
+with every generated key, the written value is the built-in default
+([§FS-config.3.1](FS-config.md#31-reference--citation-form)).
+
 A single `project_name = "<name>"` key appears at the top above the section tables. This key is metadata only — it is not consumed by any other `grund` subcommand and exists so downstream tooling (IDE status bars, CI dashboards) can read it without re-deriving the name. Directly below it the file teaches the optional `project_description` key ([§FS-config.3](FS-config.md#3-schema)): a commented `# project_description = "<one line shown next to this project in workspace member lists>"` line by default, or the real `project_description = "<text>"` key when `--description` was given (§1). The commented form is a teaching comment like the finite-value-set comments below, not a schema key, so the "no extra keys, no missing keys" guarantee above is unchanged.
 
 ## 3. Non-intrusive guarantees

@@ -87,6 +87,15 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - citation-direction empty-unit warnings: citable and non-citable folder homes with real non-entry content, the non-citable JSON/stderr shape, entry-only canonical homes, and a single-file home stay in the intended warning/exit boundary ([§FS-check.2.2.1](../../docs/functional-spec/FS-check.md#221-citation-direction-obligation-applies-to-nothing))
 - a malformed nested alias path as a CLI argument, naming the segment that failed rather than the whole path
 - a number-only shorthand glued to a second number: `fmt --write` leaves every glued shape byte-for-byte while the ordinary citations around them still expand, `check` reports the site with both the canonical form and the `<§>` escape, and the escape clears it
+- the per-project shorthand persistence policy: accepted short and full forms
+  coexist under `check`; dry-run, write, and cross-reference formatting preserve
+  marker-origin shorthand while trigger input still expands; unknown, ambiguous,
+  and numeric-run outcomes stay intact; and opposite root/member policies prove
+  the target project governs qualified shorthand for both `check` and `fmt`
+  ([§FS-config.3.1](../../docs/functional-spec/FS-config.md#31-reference--citation-form),
+  [§FS-check.3.13](../../docs/functional-spec/FS-check.md#313-number-only-shorthand-citation),
+  [§FS-fmt.2.4](../../docs/functional-spec/FS-fmt.md#24-shorthand-to-canonical),
+  [§FS-workspace.4](../../docs/functional-spec/FS-workspace.md#4-resolution))
 - the boundary of that rule: a construct closing and another opening is not one delimiter run, so a Markdown link, a footnote reference, a quoted or bracketed citation, and a path glued to the token all still expand — while a real run inside brackets still does not
 - `fmt --check` naming the text each shorthand expansion will write, including two on one line and a typed trigger marked and expanded in one pass
 - a `fmt` run whose scope needs no whole declaration set: with the unreadable path inside a source-only scope, the report of what *was* rewritten stands beside a bare `error:` line naming what could not be read, no `nothing was rewritten: ` prefix, exit `2` — the partial half of the pair `symlink-fmt-scan-error` pins the strict half of ([§FS-fmt.7.2](../../docs/functional-spec/FS-fmt.md#72-reader-equivalence))

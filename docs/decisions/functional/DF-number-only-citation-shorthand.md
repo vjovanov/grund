@@ -3,6 +3,9 @@
 **Status:** Accepted
 **Date:** 2026-08-14
 
+The title names the default policy retained by this record; §2 also defines the
+committed, per-project `accepted` exception.
+
 ## 1. Context
 
 `grund init` writes `[id] format = "{kind}-{number}-{slug}"` by default ([§FS-config.3.2](../../functional-spec/FS-config.md#32-id--id-grammar)), so most repositories that adopt `grund` are on a format where **the number alone already identifies the declaration within its kind**: `grund id` issues numbers strictly above the maximum and never reuses one ([§FS-id.4](../../functional-spec/FS-id.md#4-next-number-derivation)), so `FS-042` names exactly one `FS-042-…`.
@@ -30,14 +33,26 @@ A `§`-marked token that every human reads as a live citation was dropped on the
 
 ### 2.1 The shorthand is authoring sugar; persisted citations stay canonical
 
-`§FS-042` is **not** a second stored citation grammar. It is a shape `grund` recognizes so it can be resolved at an input boundary and corrected in a file — never a form that is allowed to persist.
+`§FS-042` is **not** a second ID grammar. It is a shape `grund` recognizes and
+resolves to the canonical ID. By default it is authoring sugar: accepted at an
+input boundary and corrected in a file. A project may deliberately opt into
+`[reference] shorthand = "accepted"`, making the resolved marker form valid to
+persist alongside the full citation. The default remains `canonical`, including
+when the key is absent ([§FS-config.3.1](../../functional-spec/FS-config.md#31-reference--citation-form)).
 
 This is the same principle [§DISC-declaration-local-shorthand](../../discussions/proposals/2026-05-24-declaration-local-shorthand.md#disc-declaration-local-shorthand-declaration-local-shorthand-for-citing-sections-of-the-same-declaration) already records for section-local shorthand — *persist canonical citations, keep resolution explicit* — and that note reaches the same verdict in advance: "Persisted marker shorthand such as `§2` should not be accepted by `check` as a citation. If supported at all, it should be reported or corrected to the full canonical form."
 
-Two properties pay for it:
+Two properties pay for the canonical default:
 
 - **One greppable string per edge.** `grep -r 'FS-042-user-login'`, `grund refs`, and `grund cover` all see the same token. A resolvable alias would split every ID into two forms, and a reader grepping the canonical one would silently miss half the graph.
 - **A citation is readable without a lookup.** `§FS-042-user-login` tells a reader what it points at; `§FS-042` makes them run a command. The slug is the whole reason the citation is worth reading inline, which is the [§GOAL-token-economy](../../goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file) case for the long form even though it costs more characters.
+
+An opting project knowingly gives up both properties: grep by the canonical
+slug misses short sites, the short citation is opaque at the point of reading,
+and the two spellings may drift with no normalization target while `accepted`
+remains enabled. Because the setting is committed, two installs reading the
+same version and tree still agree; this is a project-owned exception, not an
+install-local verdict switch ([§GOAL-configurable.2](../../goals.md#2-what-is-not-configurable)).
 
 ### 2.2 Where the shorthand is accepted, and where it is an error
 
@@ -45,10 +60,12 @@ Two properties pay for it:
 | --- | --- | --- |
 | Typed after the trigger (`$$FS-042`) | **Expands** to `§FS-042-user-login` | Authoring. The sugar's whole point. |
 | A CLI ID argument (`grund FS-042`, `grund refs FS-042`) | **Resolves** | Input boundary; nothing is persisted. Also what makes a clicked `§FS-042` open ([§FS-integrations.3.1](../../functional-spec/FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2)). |
-| Persisted in a scanned file (`§FS-042`) | **`grund check` error**, with the canonical form named | The graph must have one form. |
-| `grund fmt --write` | **Rewrites** to the canonical form | The bulk fix-it for the error above. |
+| Persisted under `shorthand = "canonical"` (`§FS-042`) | **`grund check` error**, with the canonical form named | The default keeps one stored form. |
+| `grund fmt --write` under `canonical` | **Rewrites** to the canonical form | The bulk fix-it for the error above. |
+| Persisted under `shorthand = "accepted"` | **Accepted** when it resolves uniquely | The project explicitly permits both stored forms. |
+| `grund fmt` under `accepted` | **Preserves** marker-origin shorthand | Equivalent forms have no normalization target. |
 
-The last two rows are one commitment, not two: the error is worth having *because* a single command clears it. So the two must agree about scope. Where §2.3's never-rewrite rules ([§FS-fmt.2.3](../../functional-spec/FS-fmt.md#23-what-is-never-rewritten)) stop the rewrite — inline code, a link destination, a runtime string — the error does not fire either. A finding whose named fix the tool refuses to perform is one a repository can never clear, and shipping that would put CI permanently red over a citation that already resolves. The citation is untouched in every other respect: it counts as an edge (§2.8), so the choice costs nothing but the demand to rewrite it.
+The canonical error and rewrite rows are one commitment, not two: the error is worth having *because* a single command clears it. So the two must agree about scope. Where §2.3's never-rewrite rules ([§FS-fmt.2.3](../../functional-spec/FS-fmt.md#23-what-is-never-rewritten)) stop the rewrite — inline code, a link destination, a runtime string — the error does not fire either. A finding whose named fix the tool refuses to perform is one a repository can never clear, and shipping that would put CI permanently red over a citation that already resolves. Under `accepted`, marker-origin shorthand needs neither finding nor rewrite; trigger-origin shorthand remains authoring input and expands canonically. The citation is untouched in every other respect under either policy: it counts as an edge (§2.8).
 
 The error carries the answer, so the fix is mechanical:
 
@@ -58,7 +75,7 @@ docs/notes.md:5: shorthand citation §FS-042; write §FS-042-user-login
 
 ### 2.3 It is an error, not a warning or a suggestion
 
-An error, because the alternative is to keep a false negative. A warning does not change the exit code, so a repository could accumulate shorthand citations forever while CI stayed green — which is the state this record exists to end. The suggestions channel ([§FS-check.2.3](../../functional-spec/FS-check.md#23-suggestions-channel-opt-in)) is for advisory `should`-level citation directions a project may consciously deviate from; a citation form the project cannot grep is not a matter of taste.
+Under the default `canonical` policy it is an error, because the alternative is to keep a false negative. A warning does not change the exit code, so a repository could accumulate shorthand citations forever while CI stayed green — which is the state this record exists to end. The suggestions channel ([§FS-check.2.3](../../functional-spec/FS-check.md#23-suggestions-channel-opt-in)) is for advisory `should`-level citation directions a project may consciously deviate from; a canonical-policy violation is not advisory. Under `accepted`, a uniquely resolving persisted shorthand violates no rule and is therefore neither an error nor a warning.
 
 This does mean a repository that already contains shorthand citations gains errors on upgrade. That is not the silent semantic change [§GOAL-no-silent-breakage](../../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path) guards against, and it needs no deprecation window: the shorthand was never a working feature to deprecate — it resolved nowhere and appeared in no report — so nothing that used to pass and mean something now means something else. What changes is that a token which used to mean *nothing* now means *fix me*, and it says so with the exact replacement text and a `grund fmt --write` that applies it.
 
@@ -95,13 +112,23 @@ Once a shorthand resolves to exactly one declaration, it is a citation like any 
 
 This is the half of the fix that is easy to skip and expensive to omit. The original report's most damaging symptom was not the missing dangling error — it was `declared but never cited` printed about a declaration cited twice. A rule that flagged the shorthand but still refused to count it would have left that lie in place.
 
-## 3. Rejected alternative: a resolvable alias
+## 3. Rejected default: every resolvable shorthand may persist
 
-Let `§FS-042` resolve everywhere and make the slug advisory.
+Let `§FS-042` resolve everywhere and make the slug advisory for every project.
 
 It is cheaper to type, rename-proof, and needs no error class. It was rejected because it splits every ID into two greppable forms — `grund refs` would have to report both, every downstream `grep` becomes wrong, and the two forms drift in different files — and because it makes a citation opaque at the point of reading, which is the property the sectioned, slugged citation exists to provide ([§RM-positioning-trace-tools](../../roadmap.md#rm-positioning-trace-tools-position-grund-against-requirements-traceability-tools-in-readme) names it as the axis `grund` is different on).
 
-The decisive point is that the two options are not symmetric in cost of error. Under §2, a project that wants the alias behaviour runs `grund fmt --write` and loses nothing but characters. Under the alias, a project that wants one canonical form has no way back — the tool has already blessed both.
+The decisive point is that the two options are not symmetric in cost of error.
+Under the canonical default, a project can always normalize with
+`grund fmt --write`. Under equivalent accepted forms, there is no target and therefore no
+mechanical way to make two sites agree again; every year of drift can add short
+sites that canonical-string grep misses.
+
+That rejects equivalence as an unconditional default, not as a committed project
+choice. The maintainer-approved exception lets a project accept the split grep,
+inline opacity, and lack of normalization explicitly, while projects that make
+no choice retain the safer default. Only `canonical` and `accepted` are public;
+a policy that made the short form canonical is reserved for separate work.
 
 ## 4. Consequences
 
@@ -109,6 +136,6 @@ The decisive point is that the two options are not symmetric in cost of error. U
 - `Citation` gains a `shorthand` flag and a `shorthand_rewritable` flag, and the scanner gains a resolution post-pass; every existing consumer keeps reading a canonical `Id`.
 - `grund fmt` gains a third rewrite label, `shorthand → canonical` ([§FS-fmt.2.4](../../functional-spec/FS-fmt.md#24-shorthand-to-canonical)), and the LSP's live transform expands a typed shorthand on the keystroke that ends it ([§FS-lsp.1.4](../../functional-spec/FS-lsp.md#14-live-trigger-transform)). The trigger→marker conversion stays eager and the expansion does not, because the trigger becomes rewritable at the first digit of the number — long before the author has finished typing it.
 - `[id] number_pattern` and `[id] slug_pattern` must each be a valid regex standalone ([§FS-config.3.2](../../functional-spec/FS-config.md#32-id--id-grammar)). The shorthand pattern is the ID pattern with one capture group removed, which is only sound if each group is self-contained.
-- No `grund_config_version` bump and no `[id]` key: the shorthand is derived from `format`, not configured beside it. A second knob would let two installs disagree about what a citation *is* ([§FS-non-goals.13](../../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
+- No `grund_config_version` bump and no `[id]` key: the shorthand shape is derived from `format`, while its persistence policy is the additive, committed `[reference] shorthand` key. Two installs reading the same project input therefore agree about what is accepted ([§FS-non-goals.13](../../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
 - No managed-block version bump ([§FS-init.2.3](../../functional-spec/FS-init.md#23-generated-agent-entrypoints)). The block tells an agent to write canonical citations, which is still exactly right; the shorthand rule only fires when one is written anyway, and the finding names its own fix. Bumping the block would hand every repository on the previous version an `agents-init` error for a rule that changes nothing about what they should write.
 - The terminal and editor clients need no new matcher. Their shared citation shape ([§FS-integrations.3.1](../../functional-spec/FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2)) already matches `§FS-042`, so a clicked shorthand resolves the moment `grund <ID>` accepts one — which is why §2.2 puts the shorthand at the CLI input boundary and not only in the editor.

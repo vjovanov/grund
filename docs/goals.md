@@ -160,7 +160,12 @@ Kinds, ID format, marker/trigger, strictness, scan scope, comment prefixes, and 
 
 ### 2. What is NOT configurable
 
-Invariants that decide pass/fail: severity, exit codes, report ordering, and other cross-install agreement rules.
+Install-local choices must not change verdicts: severity, exit codes, report ordering,
+and other facts have to agree for two installs reading the same project and the
+same configuration. A committed project policy may choose among explicitly
+specified citation forms — including whether a uniquely resolving number-only
+shorthand may persist ([§FS-config.3.1](functional-spec/FS-config.md#31-reference--citation-form)) —
+because that policy is shared input, not machine-local state.
 
 ### 3. Measurable
 

@@ -55,6 +55,7 @@ project_description = "One line describing what this project is for" # optional
 marker            = "§"      # default; rare character that prefixes a citation in prose
 trigger           = "$$"     # default; typed sequence rewritten to marker by IDE plugin and `grund fmt`
 strict            = true     # default; if false, bare citations are also recognized
+shorthand         = "canonical" # canonical | accepted; persisted number-only citation policy
 require_grounding = false    # default; if true, `check` flags source files that cite no declared ID
 #                            # …and the default for every [[kinds]] row (§3.4.8)
 # grounding_level = 1        # default; 1 = the file — the unit inside each governed file (§3.4.8)
@@ -71,6 +72,17 @@ warn_on_suggested            = false                   # if true, soft-cap overr
 ```
 
 Per [§DF-reference-marker](../decisions/functional/DF-reference-marker.md#df-reference-marker-use--as-the-reference-marker-with--as-the-typing-trigger). `strict = true` requires a non-empty `marker`; `strict = false` is the compatibility mode for repositories that still rely on bare citations.
+
+`shorthand` is a closed two-value policy for a uniquely resolving, marker-origin
+number-only shorthand ([§FS-check.1.2](FS-check.md#12-the-number-only-shorthand)).
+`canonical`, the default when the key is absent, reports a persisted shorthand
+and lets `grund fmt` expand it to the full ID. `accepted` permits the shorthand
+and the full citation to coexist and leaves the shorthand token byte-identical.
+It does not change recognition or resolution, and it does not apply to trigger
+input, unresolved or ambiguous shorthand, or a grammar without both `{number}`
+and `{slug}`. The value set is closed: any other string or any non-string value
+is a load-time configuration error at this key (§4.3). This additive key does not
+bump `grund_config_version` (§5).
 
 `conversation` selects how agents render citations in **local conversations** — the answers, reviews, and transcripts an agent writes, not the citations on disk ([§DF-repo-conversation-opinion](../decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion)). It is absent by default (no opinion), and it does not affect scanning, checking, or formatting — it only selects entrypoint guidance.
 
@@ -685,6 +697,11 @@ When the discovered config declares `[workspace]` ([§3.8](#38-workspace--sub-pr
 ### 4.2 `grund config show [path]`
 
 Prints the **effective** configuration — defaults merged with the config discovered by walking up from `path` (or `.` when omitted), plus CLI flags — as TOML. Every `[[kinds]]` entry is printed under the canonical `kind` key, and `citable` is printed **only where it is `false`**: absence *is* `citable = true`, and the printed config has to load back as itself. `require_grounding` and `grounding_level` follow the same rule for the same reason, one scope down: a row prints either key only where its effective value differs from the effective global, which is printed under `[reference]` (§3.4.8). A row that inherits both prints neither, and the config that comes out loads back to the same effective values it went in with. Useful for debugging "why did grund recognize this citation" or "what does my config actually evaluate to." A redundant config pair at the config root is reported as a `warning:` on stderr before the TOML (§1.1, [§FS-check.4.3](FS-check.md#43-redundant-config-pair)), so the answer to "why is this key not taking effect" is on screen next to the effective value.
+
+The `[reference]` table always prints the effective `shorthand` policy. An
+absent key therefore appears as `shorthand = "canonical"`, while an opted-in
+project appears as `shorthand = "accepted"`; either emitted form loads back to
+the same effective policy (§3.1).
 
 The `[id]` table prints `named_sections = true` only when enabled. Absent and explicit `false` configurations therefore retain the previous `config show` bytes; an enabled repository exposes the opt-in that explains its named heading and citation grammar. An enabled value kind likewise prints `values = true` on its row and a disabled one prints no value key (§3.4.9). The emitted TOML loads back to the same effective value.
 
