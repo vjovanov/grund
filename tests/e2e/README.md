@@ -122,6 +122,7 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - `grund help <unknown>` failure
 - nested-workspace shell completions: the alias-path candidates a nested tree offers with no prefix, a mid-path prefix offering the grouping node's own ID beside its members' deeper paths, and one more Tab reaching a leaf's IDs — the typed prefix never re-offered
 - `list` ID catalog (text), comma and repeated multi-kind `--kind`, `--unused`, `--summary`, summary composition with `--kind` / `--unused`, `--format json`
+- point-size catalog and warning boundaries ([§FS-list.3.4](../../docs/functional-spec/FS-list.md#34---size--per-point-lead-and-full-body-measurements), [§FS-check.4.13](../../docs/functional-spec/FS-check.md#413-oversized-lead-opt-in)): exact size/top grammar and errors; text and NDJSON fields; show-identical lead/full slices and byte-defined `lines`, `words`, and `bytes`; all declaration forms; ordinary, top, filter, unused, and workspace ordering; site-local duplicates and broken stubs; absent/configured threshold behavior, selectors, narrowed/full/workspace scope, fixed warning text and LSP parity; and generated v9 guidance with v8 migration
 - JSON report output
 - `fmt --check` trigger-to-marker report
 - `fmt` custom trigger and marker from config

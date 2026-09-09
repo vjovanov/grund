@@ -794,6 +794,12 @@ Output changes:
 - `--kind` composes with `--project` (intersection):
   `--kind FS --project api,payments` lists FS declarations in those two
   projects.
+- `--size` preserves the same project qualification, filtering, member-local
+  configuration, and workspace-root-relative paths. Each size row begins with
+  the containing project's alias as `project` in JSON, while its `id` is the
+  qualified coordinate rendered by the ordinary workspace list. `--top` is
+  applied after project filtering and uses the workspace list order as its
+  final tie-break ([§FS-list.3.4](FS-list.md#34---size--per-point-lead-and-full-body-measurements)).
 
 `grund list --summary` ([§FS-list.3.3](FS-list.md#33---summary)) gains a new variant when a workspace is
 loaded: rows are emitted per `(project, kind)` pair, sorted by the whole alias

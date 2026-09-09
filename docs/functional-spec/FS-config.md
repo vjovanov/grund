@@ -60,6 +60,7 @@ require_grounding = false    # default; if true, `check` flags source files that
 #                            # …and the default for every [[kinds]] row (§3.4.8)
 # grounding_level = 1        # default; 1 = the file — the unit inside each governed file (§3.4.8)
 # conversation    = "link"   # optional; committed conversation-rendering opinion — see below
+# lead_size_warning = { max = 600, unit = "words" } # optional; oversized lead warning
 
 # Inline citation style — see [§FS-inline-citation-style](FS-inline-citation-style.md#fs-inline-citation-style-configurable-shape-of-inline-code-comment-citations)
 inline_style                 = "citation-with-note"   # default; alt: "citation-only"
@@ -83,6 +84,18 @@ input, unresolved or ambiguous shorthand, or a grammar without both `{number}`
 and `{slug}`. The value set is closed: any other string or any non-string value
 is a load-time configuration error at this key (§4.3). This additive key does not
 bump `grund_config_version` (§5).
+
+`lead_size_warning` opts this project into the lead-only warning defined by
+[§FS-check.4.13](FS-check.md#413-oversized-lead-opt-in). Its inline table has
+exactly two required fields: `max`, a non-negative integer, and `unit`, one of
+the case-sensitive closed set `lines`, `words`, or `bytes`. Missing, extra, or
+duplicate fields and any other unit — including `tokens` — are load-time config
+errors (§4.3). There is no severity field: an enabled finding is always a
+warning and cannot change `check`'s exit status. The key is absent by default
+and omitted from a fresh `grund init` scaffold, so an unconfigured repository's
+check output stays byte-identical. `grund config show` omits the key when absent
+and otherwise prints its canonical inline form,
+`lead_size_warning = { max = <N>, unit = "<unit>" }`.
 
 `conversation` selects how agents render citations in **local conversations** — the answers, reviews, and transcripts an agent writes, not the citations on disk ([§DF-repo-conversation-opinion](../decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion)). It is absent by default (no opinion), and it does not affect scanning, checking, or formatting — it only selects entrypoint guidance.
 
