@@ -347,10 +347,20 @@ docs/FS-root.md:4: unknown project alias api; did you mean left/api or right/api
 docs/FS-root.md:5: unknown project alias group; did you mean group/alpha?
 ```
 
-A run narrowed to a subtree ([§FS-workspace.5](FS-workspace.md#5-command-scope), [§FS-workspace.6.1](FS-workspace.md#61-nested-workspaces)) holds only part of the tree, so a path naming a project outside it is unknown *here* while being exactly right at the workspace root. Except for the visibly in-scope case in §3.8.1, such a run therefore offers **no candidate at all**. It cannot tell a dropped prefix from a path that correctly names a project outside its subtree, and every tier reads it as the first: the dropped-prefix tier included, because a *shorter* written path is itself a complete alias path whenever a top-level project carries that name, so re-pointing it at a deeper namesake rewrites a citation CI accepts into a different project's — green before and green after, so nothing catches it. In every ineligible case it names the subtree it covers — as a *subtree*, since that scope's own alias path is one project among the several it holds — rather than reporting the path bare, which is neither "delete this" nor "re-prefix this" but "check this from the root":
+A run narrowed to a subtree ([§FS-workspace.5](FS-workspace.md#5-command-scope), [§FS-workspace.6.1](FS-workspace.md#61-nested-workspaces)) holds only part of the tree, so a path naming a project outside it is unknown *here* while being exactly right at the workspace root. Except for the visibly in-scope case in §3.8.1, such a run therefore offers **no candidate at all**. It cannot tell a dropped prefix from a path that correctly names a project outside its subtree, and every tier reads it as the first: the dropped-prefix tier included, because a *shorter* written path is itself a complete alias path whenever a top-level project carries that name, so re-pointing it at a deeper namesake rewrites a citation CI accepts into a different project's — green before and green after, so nothing catches it. In every ineligible case it names the subtree it covers — as a *subtree*, since that scope's own alias path is one project among the several it holds — rather than reporting the path bare, which is neither "delete this" nor "re-prefix this" but "check this from the root."
+
+In `0.13.2`, the complete legacy diagnostic remains a contiguous prefix for
+consumers that match it, and the exact suffix clarifies that a subtree includes
+the named project and its descendants while warning when the wording changes:
 
 ```text
-docs/AR-bus.md:3: unknown project alias final/pod; only the hardware subtree is in scope here — check from the workspace root for a path outside it
+unknown project alias <path>; only the <scope> subtree is in scope here — check from the workspace root for a path outside it — here, the <scope> subtree means the <scope> project and its descendants; this wording changes in grund 0.14.0
+```
+
+In `0.14.0`, that compatibility form must be replaced with exactly:
+
+```text
+unknown project alias <path>; the <scope> project and its descendants are in scope here — check from the workspace root for a path outside that subtree
 ```
 
 #### 3.8.1 A strict extension of the narrowed scope is safe to hint
@@ -370,12 +380,17 @@ their existing unconditional candidate search.
 
 Shorter and equal paths, paths whose segments do not begin with the scope, and
 merely lexical prefixes remain ineligible. In scope `group`, that excludes
-`alpha`, `group`, `outside/alpha`, and `grouped/alpha` alike. Each keeps the
-existing scope-only bytes:
+`alpha`, `group`, `outside/alpha`, and `grouped/alpha` alike. In `0.13.2`, each
+uses the staged scope-only form from §3.8, including its exact compatibility
+suffix:
 
 ```text
-unknown project alias <path>; only the group subtree is in scope here — check from the workspace root for a path outside it
+unknown project alias <path>; only the group subtree is in scope here — check from the workspace root for a path outside it — here, the group subtree means the group project and its descendants; this wording changes in grund 0.14.0
 ```
+
+Starting in `0.14.0`, each uses the final template in §3.8 instead. Eligibility,
+candidate selection, resolution, and the failing verdict do not change in either
+release.
 
 ### 3.9 Section heading level mismatch
 

@@ -10,6 +10,23 @@
 mod tests_alias_hints {
     use super::*;
 
+    const SCOPE_CLARIFICATION_SUFFIX: &str =
+        " — here, the {scope} subtree means the {scope} project and its descendants; this wording changes in grund 0.14.0";
+
+    fn legacy_scope_only_message(namespace: &str, scope: &str) -> String {
+        format!(
+            "unknown project alias {namespace}; only the {scope} subtree is in scope here — check from the workspace root for a path outside it"
+        )
+    }
+
+    fn migrating_scope_only_message(namespace: &str, scope: &str) -> String {
+        let legacy = legacy_scope_only_message(namespace, scope);
+        format!(
+            "{legacy}{}",
+            SCOPE_CLARIFICATION_SUFFIX.replace("{scope}", scope)
+        )
+    }
+
     /// §FS-check.3.8: the first tier is a proper prefix of slash-separated
     /// segments. Exact paths and byte prefixes without a segment boundary do
     /// not join it, nor does a path that merely ends with the written segments.
@@ -88,6 +105,29 @@ mod tests_alias_hints {
         );
     }
 
+    /// §FS-errors.3: 0.13.2 preserves the complete narrowed scope-only
+    /// diagnostic as a contiguous prefix and appends the exact migration suffix.
+    #[test]
+    fn narrowed_scope_only_message_has_the_0132_compatibility_form() {
+        let actual = unknown_project_message("alpha", ["group/alpha"].into_iter(), "group");
+        let legacy = legacy_scope_only_message("alpha", "group");
+        assert_eq!(
+            actual.get(..legacy.len()),
+            Some(legacy.as_str()),
+            "the complete legacy diagnostic must remain a contiguous prefix"
+        );
+        assert_eq!(
+            actual.get(legacy.len()..),
+            Some(
+                SCOPE_CLARIFICATION_SUFFIX
+                    .replace("{scope}", "group")
+                    .as_str()
+            ),
+            "the compatibility suffix must be byte-exact"
+        );
+        assert_eq!(actual, migrating_scope_only_message("alpha", "group"));
+    }
+
     /// §FS-check.3.8: narrowed runs still suppress the new tier. When `--full`
     /// finds the same error outside `include`, its scope clause remains first.
     #[test]
@@ -95,7 +135,7 @@ mod tests_alias_hints {
         let known = ["group/alpha"];
         assert_eq!(
             unknown_project_message("group", known.into_iter(), "left"),
-            "unknown project alias group; only the left subtree is in scope here — check from the workspace root for a path outside it"
+            migrating_scope_only_message("group", "left")
         );
         let diagnostic = Diagnostic {
             code: "unknown-project",
@@ -157,9 +197,7 @@ mod tests_alias_hints {
                     ["group", "group/alpha", "group/alpha/beta"].into_iter(),
                     scope,
                 ),
-                format!(
-                    "unknown project alias {namespace}; only the {scope} subtree is in scope here — check from the workspace root for a path outside it"
-                ),
+                migrating_scope_only_message(namespace, scope),
                 "§FS-check.3.8.1: {namespace:?} must not be treated as inside {scope:?}"
             );
         }
