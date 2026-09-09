@@ -69,18 +69,18 @@ mod tests_check_finding_selection {
         let cases = [
             (
                 "malformed",
-                "<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v8)\n",
+                "<!-- BEGIN GRUND MANAGED BLOCK -->\n## Grounding with grund (v9)\n",
                 "malformed grund managed block: missing `<!-- END GRUND MANAGED BLOCK -->`",
             ),
             (
                 "outdated",
                 "## Grounding with grund (v3)\n\nlegacy body\n",
-                "outdated grund init block v3 (run `grund init` to update to v8)",
+                "outdated grund init block v3 (run `grund init` to update to v9)",
             ),
             (
                 "unsupported",
                 "## Grounding with grund (v99)\n\nfuture body\n",
-                "unsupported grund init block v99 (this grund supports v8)",
+                "unsupported grund init block v99 (this grund supports v9)",
             ),
             (
                 "stale",
@@ -90,7 +90,7 @@ mod tests_check_finding_selection {
             (
                 "missing",
                 "# Project instructions\n",
-                "missing grund init block v8",
+                "missing grund init block v9",
             ),
         ];
 

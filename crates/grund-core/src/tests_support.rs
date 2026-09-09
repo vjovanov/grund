@@ -209,7 +209,7 @@ mod tests_support {
     }
 
     pub(crate) fn current_marker() -> &'static str {
-        "## Grounding with grund (v8)"
+        "## Grounding with grund (v9)"
     }
 
     /// Run a just-written script, waiting out a kernel that still calls it busy.

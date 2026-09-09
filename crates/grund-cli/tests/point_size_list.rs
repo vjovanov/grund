@@ -116,9 +116,7 @@ fn size_rows_cover_every_source_form_and_measure_the_show_slices() {
     let repo = Repo::new("forms");
     repo.write(
         "grund.toml",
-        &point_config(
-            "\n[[kinds]]\nkind = \"CONST\"\nfile = \"values.json\"\nindex = false\nvalues = true\n",
-        ),
+        &point_config("\n[[kinds]]\nkind = \"CONST\"\nfile = \"values.json\"\nvalues = true\n"),
     );
     repo.write(
         "docs/FS-alpha.md",
@@ -179,7 +177,7 @@ fn size_rows_cover_every_source_form_and_measure_the_show_slices() {
     );
     assert!(!stdout(&all).contains("FS-alpha.9"));
 
-    for row in &rows {
+    for row in rows.iter().filter(|row| row["id"] != "E2E-login") {
         let coordinate = match row["section"].as_str() {
             Some(section) => format!("{}.{}", row["id"].as_str().unwrap(), section),
             None => row["id"].as_str().unwrap().to_string(),
@@ -211,6 +209,19 @@ fn size_rows_cover_every_source_form_and_measure_the_show_slices() {
         assert_eq!(row["lead_bytes"], lead.len());
         assert_eq!(row["full_bytes"], full.len());
     }
+
+    let e2e = rows
+        .iter()
+        .find(|row| row["id"] == "E2E-login")
+        .expect("E2E point has a size row");
+    let e2e_manifest =
+        "grund check\nexpected exit: 0\nfixtures:\n- command.args\n- expected.exit\n";
+    assert_eq!(e2e["lead_words"], ascii_words(e2e_manifest));
+    assert_eq!(e2e["full_words"], ascii_words(e2e_manifest));
+    assert_eq!(e2e["lead_lines"], nonblank_lines(e2e_manifest));
+    assert_eq!(e2e["full_lines"], nonblank_lines(e2e_manifest));
+    assert_eq!(e2e["lead_bytes"], e2e_manifest.len());
+    assert_eq!(e2e["full_bytes"], e2e_manifest.len());
 
     let text = run(repo.path(), &["list", "--size=bytes,words", "--kind=FS"]);
     assert_eq!(text.status.code(), Some(0), "{}", stderr(&text));
