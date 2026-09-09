@@ -8,22 +8,34 @@ fn value_binding_context(line: &CitationLine<'_>) -> Option<(usize, usize)> {
     line.value_comment_range
 }
 
+#[derive(Clone, Copy)]
+struct SourceValueLineContext {
+    range: (usize, usize),
+    block_comment: bool,
+}
+
+impl SourceValueLineContext {
+    fn contains(self, start: usize, end: usize) -> bool {
+        self.range.0 <= start && start < end && end <= self.range.1
+    }
+}
+
 fn binding_span_is_inside(context: (usize, usize), start: usize, end: usize) -> bool {
     context.0 <= start && start < end && end <= context.1
 }
 
-/// The exact comment byte range on every source line, derived from the same
+/// The exact value-authority context on every source line, derived from the same
 /// block walk used for declaration bodies and doc-comment structure. A block
 /// interior remains recognized without a decorative `*`; the first `*/` ends
-/// the range so host expressions or strings after it cannot bind values
-/// (§FS-values.3.2).
-fn recognized_source_comment_ranges(
+/// the range so host expressions or strings after it can neither bind nor
+/// declare embedded values (§FS-values.2.4, §FS-values.3.2).
+fn recognized_source_value_contexts(
     text: &str,
     is_py: bool,
     config: &Config,
-) -> Vec<Option<(usize, usize)>> {
+) -> Vec<Option<SourceValueLineContext>> {
     let lines = text.lines().collect::<Vec<_>>();
-    let mut ranges = vec![None; lines.len()];
+    let mut contexts = vec![None; lines.len()];
     for (start, end, kind) in comment_blocks(&lines, is_py, config) {
         match kind {
             CommentBlockKind::PythonDocstring => {
@@ -34,7 +46,10 @@ fn recognized_source_comment_ranges(
                 for index in start..=end {
                     let line = lines[index];
                     let comment_start = line.len() - line.trim_start().len();
-                    ranges[index] = Some((comment_start, line.len()));
+                    contexts[index] = Some(SourceValueLineContext {
+                        range: (comment_start, line.len()),
+                        block_comment: false,
+                    });
                 }
             }
             CommentBlockKind::Block => {
@@ -48,10 +63,13 @@ fn recognized_source_comment_ranges(
                     let comment_end = line[comment_start..]
                         .find("*/")
                         .map_or(line.len(), |close| comment_start + close + 2);
-                    ranges[index] = Some((comment_start, comment_end));
+                    contexts[index] = Some(SourceValueLineContext {
+                        range: (comment_start, comment_end),
+                        block_comment: true,
+                    });
                 }
             }
         }
     }
-    ranges
+    contexts
 }

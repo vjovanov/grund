@@ -132,8 +132,8 @@ fn scan_file_text(
             .iter()
             .any(|target| target.config.kinds.iter().any(|kind| kind.values));
     let has_binding_candidate = text.contains('`') && text.contains(&config.marker);
-    let value_comment_ranges = ((scan_values || has_binding_candidate) && !is_md)
-        .then(|| recognized_source_comment_ranges(&text, is_py, config));
+    let value_line_contexts = ((scan_values || has_binding_candidate) && !is_md)
+        .then(|| recognized_source_value_contexts(&text, is_py, config));
     // §AR-scanner.2.4: citing-side classification is consumed only by the
     // citation-direction checks, so it is computed only when the project declares
     // `[citations]` and the caller asked for it (§AR-benchmarks).
@@ -161,6 +161,15 @@ fn scan_file_text(
         }
         let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
         let scan_line = scan.text;
+        let source_value_context = value_line_contexts
+            .as_ref()
+            .and_then(|contexts| contexts.get(idx).copied().flatten());
+        let embedded_marker = embedded_value_marker_for_line(
+            scan_line,
+            is_md,
+            scan.in_py_docstring,
+            source_value_context,
+        );
 
         if let Some(caps) = declaration_captures(&config.grammar, scan_line, scan.in_py_docstring, is_md)
             && let Some(id) = parse_id(&caps, &config.grammar)
@@ -208,14 +217,14 @@ fn scan_file_text(
                 source: DeclarationSource::Text,
                 value_valid: None,
             });
-            if exact_embedded_value_marker(scan_line).is_some() {
+            if let Some(marker_start) = embedded_marker {
                 push_invalid_embedded_marker(
                     findings,
                     current.as_ref().map(|decl| decl.id.clone()),
                     path,
                     lineno,
                     scan.column_offset,
-                    scan_line,
+                    marker_start,
                     "embedded value marker must be on a citable numeric section heading",
                 );
             }
@@ -290,7 +299,6 @@ fn scan_file_text(
             continue;
         }
 
-        let embedded_marker = exact_embedded_value_marker(scan_line);
         let mut embedded_marker_attached = false;
         if let Some(caps) = config.grammar.section_re.captures(scan_line)
             && let Some(decl) = current.as_mut()
@@ -323,7 +331,7 @@ fn scan_file_text(
                         slot.insert(info);
                     }
                     std::collections::btree_map::Entry::Occupied(_) => {
-                        if info.value_root.is_some() {
+                        if let Some(marker_start) = embedded_marker {
                             embedded_marker_attached = true;
                             push_invalid_embedded_marker(
                                 findings,
@@ -331,7 +339,7 @@ fn scan_file_text(
                                 path,
                                 lineno,
                                 scan.column_offset,
-                                scan_line,
+                                marker_start,
                                 "embedded value root coordinate is duplicated",
                             );
                         }
@@ -342,7 +350,13 @@ fn scan_file_text(
         }
         if embedded_marker.is_some()
             && !embedded_marker_attached
-            && authored_heading_level(scan_line, is_md || scan.in_py_docstring, config).is_some()
+            && authored_heading_level(
+                scan_line,
+                is_md || scan.in_py_docstring,
+                source_value_context.is_some_and(|context| context.block_comment),
+                config,
+            )
+            .is_some()
         {
             push_invalid_embedded_marker(
                 findings,
@@ -350,7 +364,7 @@ fn scan_file_text(
                 path,
                 lineno,
                 scan.column_offset,
-                scan_line,
+                embedded_marker.unwrap(),
                 "embedded value marker must be on a citable numeric section heading",
             );
         }
@@ -451,9 +465,7 @@ fn scan_file_text(
             path,
             config,
             is_md,
-            value_comment_range: value_comment_ranges
-                .as_ref()
-                .and_then(|ranges| ranges.get(idx).copied().flatten()),
+            value_comment_range: source_value_context.map(|context| context.range),
             inline_sites: &inline_sites,
             inline_block_lines: &inline_block_lines,
         };
@@ -526,7 +538,15 @@ fn scan_file_text(
         validate_markdown_value_declarations(path, &text, is_md, config, findings);
     }
     if has_embedded_roots {
-        validate_embedded_value_roots(path, &text, is_md, is_py, config, findings);
+        validate_embedded_value_roots(
+            path,
+            &text,
+            is_md,
+            is_py,
+            config,
+            value_line_contexts.as_deref(),
+            findings,
+        );
     }
     if classify {
         classify_citation_sources(findings, config, path);
