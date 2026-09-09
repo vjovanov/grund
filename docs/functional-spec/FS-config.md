@@ -439,7 +439,9 @@ Five combinations are config errors, reported per §4.3 at the offending line, e
 
 #### 3.4.9 `values` — first-class value declarations
 
-`values = true` opts this row into [§FS-values](FS-values.md#fs-values-opted-in-kinds-bind-authored-components-to-one-declared-value). It is absent and false by default, and is the only value-related config key; in particular there is no `value_sources` key. An enabled row must be citable, have exactly one existing `file` or `folder`, and normalize that home inside the project root. Each violation is a located config error. Validation checks these structural relationships without parsing declaration content.
+`values = true` opts whole declarations in this row's home into [§FS-values](FS-values.md#fs-values-opted-in-kinds-bind-authored-components-to-one-declared-value). It is absent and false by default, and is the only value-related config key; in particular there is no `value_sources` key. An enabled row must be citable, have exactly one existing `file` or `folder`, and normalize that home inside the project root. Each violation is a located config error. Validation checks these structural relationships without parsing declaration content.
+
+The exact `<!-- grund:value -->` section suffix is a separate in-document authority ([§FS-values.2.4](FS-values.md#24-embedded-section-value-roots)). It works in any supported scanned declaration independently of this key and its home, and it neither opts the enclosing declaration in nor changes JSON discovery. No new config key, scan input, or migration accompanies it.
 
 The home is also the complete JSON source boundary: a `.json` `file` is the one source, while a `folder` contributes its normalized, bytewise-ordered direct `.json` children. Nested or outside JSON is never a value source. Generic scan extensions and filters, explicit path narrowing, and `--full` neither add nor suppress those home inputs ([§FS-values.2.2](FS-values.md#22-json-declarations-from-the-kind-home)).
 

@@ -12,7 +12,7 @@ A single malformed or failing message is not fatal to the session: a request tha
 
 ### 1.1 Diagnostics
 
-The shared core report includes all three value errors with the same primary and declaration spans as CLI text/NDJSON, so editor diagnostics neither rescan nor reinterpret bindings ([§FS-values.5](FS-values.md#5-resolution-diagnostics-and-exit-status)).
+The shared core report includes all three value errors for whole declarations and marked section roots with the same primary and declaration/component spans as CLI text/NDJSON, so editor diagnostics neither rescan nor reinterpret bindings ([§FS-values.5](FS-values.md#5-resolution-diagnostics-and-exit-status)).
 
 Named-section diagnostics are not a parallel editor rule. In an opted-in repository, missing named coordinates, duplicate named coordinates, orphan name-bearing paths, and named heading-depth mismatches are transported from the core report with the same message, severity, line, and range as the CLI. A citation-side finding selects the complete written citation token; an orphan or depth finding selects the complete named heading title. Independent core findings remain independent diagnostics.
 
@@ -33,7 +33,7 @@ configured fetcher while publishing diagnostics.
 
 ### 1.2 Hover preview
 
-Hovering a Markdown or JSON value declaration/binding uses the same exact `show --toc` slice as the CLI; no rendered or interpolated value surface is invented ([§FS-values.6](FS-values.md#6-shared-catalog-consumers)).
+Hovering a Markdown, source-comment, or JSON value binding uses the same exact `show --toc` slice as the CLI; no rendered or interpolated value surface is invented. A declaration-side marked root retains the ordinary section-title hover and usage count: its semantic title and UTF-16 hover range exclude the separating space and marker, while a raw preview of that section includes the marker on its heading ([§FS-values.6](FS-values.md#6-shared-catalog-consumers)).
 
 Named citations preview the exact named section slice that `grund <ID>.<path> --toc` returns. An explicit named heading is a declaration-side title just like a numbered heading: its hover range covers the complete rendered heading title, including the handle and colon, and its usage count covers citations of that path and its descendants.
 
@@ -66,7 +66,7 @@ The citation hover content is Markdown. Any resolving `§<ID>` citation inside t
 
 ### 1.3 Go-to-definition
 
-A value binding navigates through the shared resolver to its Markdown component heading or exact JSON key/element span ([§FS-values.7](FS-values.md#7-workspaces-and-editor-consumers)).
+A value binding navigates through the shared resolver to its existing Markdown/source component heading or exact JSON key/element span. A marked root and component keep their ordinary dotted identities; no synthetic definition or value badge is exposed ([§FS-values.7](FS-values.md#7-workspaces-and-editor-consumers)).
 
 For a named coordinate, definition navigates from the whole citation token to the exact named heading, and declaration-side definition on that heading returns its section-scoped usages. Named and numeric headings use the same snapshot ranges and result shapes.
 
@@ -180,6 +180,8 @@ Editor-side LSP configuration (server arguments, workspace folders) is the user'
 ## 4. Determinism and parity with the CLI
 
 Same input + same config → same diagnostics, same hover body, same definition target, byte-for-byte ([§FS-non-goals.13](FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)). The implementation enforces this by routing LSP state through `grund-core` snapshot, check, show, refs, and formatting APIs, plus focused LSP tests for linkification, configured trigger handling, workspace member marker resolution, UTF-16 ranges, and document-link targets. The full child-process sweep over `tests/e2e/cases/*` ships as `tests/integration/lsp_cli_parity.rs`: for every plain-`check` case, the diagnostics the server publishes are the located findings the CLI prints, or the build is red.
+
+For an embedded value, this parity covers the CLI's marked-root shape and comparison diagnostics, raw `show --toc` hover slice, marker-free semantic title range, component definition target, and existing dotted-token references, highlights, and document links. Shell completion remains the core catalog's ordinary section completion and LSP completion remains reserved; neither surface adds a value-specific candidate.
 
 This parity includes exact off-grammar declarations and their declaration-backed
 marked citations ([§FS-config.3.2](FS-config.md#32-id--id-grammar)): the LSP publishes the same located

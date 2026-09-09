@@ -583,15 +583,15 @@ The message names the orphan coordinate and its first absent prefix. Its code is
 
 ### 3.20 Invalid value declaration
 
-In a kind opted into values, a readable Markdown or JSON declaration that violates [§FS-values.2](FS-values.md#2-value-declarations) is an error at the exact invalid heading, key, or element. The code is `invalid-value-declaration`. Duplicate declarations retain §3.3 instead; unreadable or syntactically incomplete JSON retains exit `2` (§2).
+In a kind opted into whole values, a readable Markdown or JSON declaration that violates [§FS-values.2](FS-values.md#2-value-declarations) is an error at the exact invalid heading, key, or element. An exact embedded marker in an invalid location or a marked root with an invalid shape is the same error, located at the marker for the root/authority failures and at the offending line for content/shape failures ([§FS-values.2.4](FS-values.md#24-embedded-section-value-roots)). The code is `invalid-value-declaration`. Duplicate declarations retain §3.3 instead; a duplicate section may independently carry this finding, and unreadable or syntactically incomplete JSON retains exit `2` (§2).
 
 ### 3.21 Invalid value binding
 
-An attempted backtick-delimited binding that violates the exact grammar in [§FS-values.3.1](FS-values.md#31-the-only-binding-grammar) is an error at the attempted form. Its code is `invalid-value-binding`. Unbackticked adjacency, bare citations, and the same shape for a kind without `values = true` are not attempts and remain ordinary prose/citations.
+An attempted backtick-delimited binding that violates the exact grammar in [§FS-values.3.1](FS-values.md#31-the-only-binding-grammar), targets a marked root itself, or descends below one of that root's immediate components is an error at the attempted form. Its code is `invalid-value-binding`. Unbackticked adjacency, bare citations, a delimited form aimed at an ordinary unmarked section, and the same shape for a whole declaration whose kind lacks `values = true` are not attempts and remain ordinary prose/citations.
 
 ### 3.22 Value mismatch
 
-After ordinary citation resolution succeeds uniquely, a binding whose authored component differs from its declaration under [§FS-values.4](FS-values.md#4-exact-equality) is an error at the binding and names the declaration site. Its code is `value-mismatch`; the canonical text and NDJSON parity are fixed by [§FS-values.5](FS-values.md#5-resolution-diagnostics-and-exit-status). An unknown alias, dangling ID, duplicate or invalid declaration, missing section, or noncanonical shorthand suppresses this comparison so one bad reference is never also reported as a mismatch.
+After ordinary citation and section resolution succeeds uniquely, a binding whose authored component differs from its whole declaration or marked root under [§FS-values.4](FS-values.md#4-exact-equality) is an error at the binding and names the component site. Its code is `value-mismatch`; the canonical text and NDJSON parity are fixed by [§FS-values.5](FS-values.md#5-resolution-diagnostics-and-exit-status). An unknown alias, dangling ID, duplicate or invalid declaration, duplicate or missing section, invalid root, or noncanonical shorthand suppresses this comparison so one bad reference is never also reported as a mismatch. Ordinary declaration and section-structure findings run before comparison.
 
 ## 4. Warnings
 
