@@ -6,6 +6,7 @@ project_description = "Root workspace"
 marker = "§"
 trigger = "$$"
 strict = true
+shorthand = "canonical"
 require_grounding = false
 inline_style = "citation-with-note"
 inline_note_suggested_lines = 1

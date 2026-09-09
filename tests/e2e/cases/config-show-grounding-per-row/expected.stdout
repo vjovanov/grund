@@ -5,6 +5,7 @@ project_name = "grounded"
 marker = "§"
 trigger = "$$"
 strict = true
+shorthand = "canonical"
 require_grounding = true
 grounding_level = 1
 inline_style = "citation-with-note"

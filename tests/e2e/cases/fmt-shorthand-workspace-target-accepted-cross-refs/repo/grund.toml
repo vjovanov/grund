@@ -1,0 +1,9 @@
+grund_config_version = 1
+project_name = "root"
+
+[reference]
+shorthand = "canonical"
+
+[workspace]
+members = ["api", "web"]
+include_root = false
