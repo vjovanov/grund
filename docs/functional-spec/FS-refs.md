@@ -26,7 +26,7 @@ That includes a missing fetch-backed snapshot: `refs` reports its citation
 sites without executing the configured integration. Once fetched, the result
 set is unchanged; only the target now resolves.
 
-Output is sorted by `(path, line, column)` — deterministic per [§FS-errors.4](FS-errors.md#4-determinism). The citation list is the command's *result*, so it goes to **stdout** — text lines and `--format json` NDJSON alike, the same stream `grund list` and `grund cover` use ([§FS-errors.1](FS-errors.md#1-streams)). A `refs` line shares the `path:line: <text>` located-finding shape ([§FS-errors.2.1](FS-errors.md#21-located-finding)) so an editor can jump to it, but it is an *answer*, not a diagnostic; stderr is left for errors and the typo hint below. An ID with zero citations produces empty output and exit `0` (not an error: an as-yet-uncited declaration is normal, and `check` already warns about it — [§FS-check.4.1](FS-check.md#41-unused-declaration)). If the requested ID is *also* not declared anywhere in the scanned tree, the likeliest cause is a typo, so `refs` prints one `note:` line to **stderr** — `note: <ID> is neither declared nor cited — run \`grund list\` to see every declared ID` — and still exits `0`. The note is a hint, not part of the result: the empty stdout (no text lines, no NDJSON) is unchanged, so machine consumers that only read stdout never see it. This mirrors the `ID not found` hint the ID query gives for the same mistake ([§FS-show.3](FS-show.md#3-outputs)) without that query's exit `1` — `refs` has no single-result expectation to violate (§4).
+Output is sorted by `(path, line, column)` — deterministic per [§FS-errors.4](FS-errors.md#4-determinism). The citation list is the command's *result*, so it goes to **stdout** — text lines and `--format json` NDJSON alike, the same stream `grund list` and `grund cover` use ([§FS-errors.1](FS-errors.md#1-streams)). A `refs` line shares the `path:line: <text>` located-finding shape ([§FS-errors.2.1](FS-errors.md#21-located-finding)) so an editor can jump to it, but it is an *answer*, not a diagnostic; stderr is left for errors and the typo hint below. An ID with zero citations produces empty output and exit `0` (not an error: an as-yet-uncited declaration is normal, and `check` already warns about it — [§FS-check.4.1](FS-check.md#41-unused-declaration)). If the requested ID is *also* not declared anywhere in the scanned tree, the likeliest cause is a typo, so `refs` prints one `note:` line to **stderr** — `note: <ID> is neither declared nor cited — run \`grund list\` to see every declared ID` — and still exits `0`. The note is a hint, not part of the result: the empty stdout (no text lines, no NDJSON) is unchanged, so machine consumers that only read stdout never see it. This mirrors the `ID not found` hint the ID query gives for the same mistake ([§FS-show.3](FS-show.md#3-outputs)) without that query's exit `1`. It is distinct from a resolver rejection: once the selected project's grammar rejects the operand, there is no citation-list result, and from 0.15.0 that failed query exits `1` (§4).
 
 ## 3. Outputs
 
@@ -68,9 +68,33 @@ The shape is `<path>: <count> (lines <l1>, <l2>, …)` — the count is the numb
 ## 4. Exit codes
 
 - `0` — scan succeeded; the listed citations (possibly none) are the result.
-- `2` — scan / I/O error ([§FS-check.2](FS-check.md#2-outputs) partial-scan semantics apply: an incomplete scan exits `2` and the lookup is not trustworthy as complete), an `<ID>` argument that does not match the configured `[id] format` (§1), a number-only shorthand naming more than one declaration ([§FS-check.1.2](FS-check.md#12-the-number-only-shorthand)), an unsupported `--format`, or any other CLI-level error ([§FS-cli.4](FS-cli.md#4-errors-with-no-source-location)). The `[id] format` hint accompanies only the first of those: an ambiguous shorthand *did* match the format and already named every candidate, so repeating the format there would send the reader to `grund config show` for a config that is not the problem.
+- `1` — from grund 0.15.0, the selected project's resolver rejected the ID
+  operand: it does not match the effective `[id] format`, or it is a
+  number-only shorthand naming more than one declaration
+  ([§FS-check.1.2](FS-check.md#12-the-number-only-shorthand)). Both text and
+  JSON leave stdout empty. Text uses the bare query-failure shape
+  ([§FS-errors.2.3](FS-errors.md#23-bare-query-failure)); only invalid format
+  keeps the configured-format `hint:`. JSON emits exactly one failed-query
+  diagnostic object on stderr, with `code` `invalid-id` or `ambiguous` and
+  `sites:null`, and emits no hint ([§FS-errors.5](FS-errors.md#5-json-format)).
+- `2` — scan / I/O error ([§FS-check.2](FS-check.md#2-outputs) partial-scan
+  semantics apply: an incomplete scan exits `2` and the lookup is not
+  trustworthy as complete), an unsupported `--format`, an unknown alias, or
+  any other setup or CLI-level error ([§FS-cli.4](FS-cli.md#4-errors-with-no-source-location)).
 
-There is no `1`: `refs` is a query that always returns *its* answer (a possibly-empty list), never "found something other than one body" — unlike `show`, it has no single-result expectation to violate.
+Grund 0.14.0 is the compatibility release. For the two resolver rejections it
+keeps the former exit `2`, the existing `error:` diagnostic, and the same text
+hint policy in text and JSON invocations, then appends exactly this raw stderr
+line in both modes:
+
+```text
+warning: `grund refs` invalid IDs and ambiguous number-only shorthands currently exit 2; they will exit 1 (failed query) in grund 0.15.0
+```
+
+The warning and the `error:` prefix retire together at 0.15.0. `--summary` and
+`--section` do not introduce another classification: after context and grammar
+selection they inherit the same operand result. This staged boundary is the
+decision in [§DF-refs-resolver-rejection](../decisions/functional/DF-refs-resolver-rejection.md#df-refs-resolver-rejection-an-id-rejected-by-a-selected-grammar-is-a-failed-query).
 
 ## 5. Why this exists
 

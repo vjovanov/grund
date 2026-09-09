@@ -1,0 +1,2 @@
+error: ambiguous ID: FS-042 (matches FS-042-user-login, FS-042-user-logout)
+warning: `grund refs` invalid IDs and ambiguous number-only shorthands currently exit 2; they will exit 1 (failed query) in grund 0.15.0

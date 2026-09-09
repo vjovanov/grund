@@ -1,0 +1,1 @@
+refs FS-bar --summary --format json {repo}

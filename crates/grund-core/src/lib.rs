@@ -174,6 +174,7 @@ include!("tests_integrations_config.rs");
 include!("tests_resolver.rs");
 include!("tests_clickable_citations.rs");
 include!("tests_api.rs");
+include!("tests_refs_query_failures.rs");
 include!("tests_external_facts.rs");
 include!("tests_fmt_errors.rs");
 include!("tests_lsp_hover.rs");

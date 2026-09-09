@@ -149,18 +149,33 @@ Fields:
 
 ## 6. CLI and config failures
 
-CLI-level failures use raw text on stderr, not JSON, because the command did not reach its data-producing phase. Examples:
+CLI-level failures use raw text on stderr, not JSON, because the command did not reach its data-producing phase. During grund 0.14.0, `refs` preserves that former classification for resolver-rejected operands and warns about the 0.15.0 change. The invalid-ID text and JSON invocations both write exactly:
 
 ```text
 error: invalid ID `FS-bar`
 hint: this repo's [id] format is `{kind}-{number}-{slug}` (run `grund config show`); `grund list` shows the IDs that exist
+warning: `grund refs` invalid IDs and ambiguous number-only shorthands currently exit 2; they will exit 1 (failed query) in grund 0.15.0
 ```
 
 ```text
 error: grund.toml:2: unknown config key `strcit`
 ```
 
-The invalid-ID example exits `2` for list-like query commands such as `refs`; the config validation example exits `1` for `grund config validate` and `2` when the same invalid config blocks another subcommand.
+The `refs` example exits `2` and leaves stdout empty in 0.14.0. At 0.15.0 it becomes the failed-query text shape below, exit `1`; JSON emits the one object shown and no hint, warning, or stdout:
+
+```text
+invalid ID `FS-bar`
+hint: this repo's [id] format is `{kind}-{number}-{slug}` (run `grund config show`); `grund list` shows the IDs that exist
+```
+
+```json
+{"severity":"error","path":null,"line":null,"code":"invalid-id","message":"invalid ID `FS-bar`","sites":null}
+```
+
+An ambiguous number-only shorthand follows the same stages, without a hint. Its
+0.15.0 JSON code is `ambiguous` and `sites` is `null`. The config validation
+example exits `1` for `grund config validate` and `2` when the same invalid
+config blocks another subcommand.
 
 ## 7. Stream matrix
 
@@ -173,6 +188,9 @@ The invalid-ID example exits `2` for list-like query commands such as `refs`; th
 | graph findings JSON | diagnostic NDJSON | line-less run diagnostics only | `1` |
 | successful `show --format=json` | one result object | empty | `0` |
 | failed `show --format=json` query | empty | one diagnostic object | `1` |
+| `refs` resolver rejection, 0.14.0 text or JSON | empty | raw `error:`, optional invalid-format hint, then exact migration warning | `2` |
+| `refs` resolver rejection, 0.15.0 text | empty | bare failure; invalid format alone adds a hint | `1` |
+| `refs` resolver rejection, 0.15.0 JSON | empty | one `invalid-id` or `ambiguous` diagnostic object; no hint | `1` |
 | bad flag / malformed CLI | empty | raw `error:` text | `2` |
 | invalid config during `config validate` | empty | raw `error: <path>:<line>:` text | `1` |
 | invalid config blocking another command | empty | raw `error: <path>:<line>:` text | `2` |
