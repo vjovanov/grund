@@ -55,7 +55,7 @@ fn command_refs(args: &[String]) -> ExitCode {
         eprintln!("error: refs requires an ID");
         return ExitCode::from(2);
     };
-    let output = match refs(RefsOpts {
+    let outcome = match refs_outcome(RefsOpts {
         path,
         path_provided,
         id: id_arg,
@@ -67,14 +67,15 @@ fn command_refs(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    let output = &outcome.output;
     let format = match command_output_format("refs", &output.output_format, format_override) {
         Ok(format) => format,
         Err(code) => return code,
     };
-    if !output.scan_errors.is_empty() {
-        return exit_after_scan_errors(&output.scan_errors);
-    }
-    if let Some(failure) = &output.query_failure {
+    if let Some(failure) = &outcome.query_failure {
+        if !output.scan_errors.is_empty() {
+            return exit_after_scan_errors(&output.scan_errors);
+        }
         return render_refs_query_failure(failure, &format);
     }
     if let Some(note) = &output.note {

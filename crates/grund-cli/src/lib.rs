@@ -17,7 +17,7 @@ use grund_core::{
     RefsQueryFailure, Report, ShowFormat, ShowMode, ShowOpts, ShowQueryError,
     canonical_template_text, check_with_opts, complete_ids, cover, effective_config,
     fetch_snapshot, format_references, init, list, names_member_id_candidate,
-    print_config_warnings, propose_id, refs, refs_query_failure_is_exit_one,
+    print_config_warnings, propose_id, refs_outcome, refs_query_failure_is_exit_one,
     render_finding_sites_json, run_integrations, show_batch_with_scope, show_with_scope,
     validate_config,
 };

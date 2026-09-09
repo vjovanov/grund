@@ -1,7 +1,7 @@
-/// Data-producing implementation behind [`refs`]: scan once, select the target
+/// Data-producing implementation behind [`refs_outcome`]: scan once, select the target
 /// grammar, and return either citation data or the typed resolver rejection
 /// (§AR-bindings.2, §FS-refs.2, §FS-refs.4).
-fn refs_impl(opts: RefsOpts) -> Result<RefsOutput> {
+fn refs_impl(opts: RefsOpts) -> Result<RefsOutcome> {
     let context = load_workspace_context(&opts.path, opts.path_provided)?;
     let current_config = context
         .current_project()
@@ -58,12 +58,14 @@ fn refs_impl(opts: RefsOpts) -> Result<RefsOutput> {
     ) {
         Ok(resolved) => resolved,
         Err(error) => {
-            return Ok(RefsOutput {
-                output_format: render_config.output_format.clone(),
-                workspace: context.workspace_loaded,
-                hits: Vec::new(),
-                note: None,
-                scan_errors,
+            return Ok(RefsOutcome {
+                output: RefsOutput {
+                    output_format: render_config.output_format.clone(),
+                    workspace: context.workspace_loaded,
+                    hits: Vec::new(),
+                    note: None,
+                    scan_errors,
+                },
                 query_failure: Some(RefsQueryFailure::from_resolver_error(
                     &error,
                     &render_config.id_format,
@@ -149,12 +151,14 @@ fn refs_impl(opts: RefsOpts) -> Result<RefsOutput> {
     } else {
         None
     };
-    Ok(RefsOutput {
-        output_format: render_config.output_format.clone(),
-        workspace: context.workspace_loaded,
-        hits: public_hits,
-        note,
-        scan_errors,
+    Ok(RefsOutcome {
+        output: RefsOutput {
+            output_format: render_config.output_format.clone(),
+            workspace: context.workspace_loaded,
+            hits: public_hits,
+            note,
+            scan_errors,
+        },
         query_failure: None,
     })
 }

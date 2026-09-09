@@ -4,13 +4,14 @@ Integration tests prove the How: that the parts fit as designed. Each one cites 
 
 ## Rust
 
-The directory is also the workspace member `grund-integration-tests` (never published), so `cargo test --workspace` builds and runs these; `cargo test -p grund-integration-tests` runs them alone and builds the two binaries on demand (`binaries.rs`).
+The directory is also the workspace member `grund-integration-tests` (never published), so `cargo test --workspace` builds and runs these; `cargo test -p grund-integration-tests` runs them alone and builds the production binaries and deprecated compatibility probe on demand (`binaries.rs`).
 
 - `lsp_cli_parity.rs` — for every e2e case that is a plain `check` of a fixture with its own config, the diagnostics `grund-lsp` publishes on `initialized` are the located findings `grund check --format json` prints: the server is the same engine behind a different transport ([§AR-lsp.5](../../docs/architecture/AR-lsp.md#5-determinism-and-parity-tests)).
 - `scan_determinism.rs` — every report-producing command over this repository, and `check` over every plain-check fixture, is byte-identical at one thread and at eight ([§REQ-deterministic-output](../../docs/requirements/REQ-deterministic-output.md#req-deterministic-output-same-input-same-bytes), [§AR-scanner](../../docs/architecture/AR-scanner.md#ar-scanner-how-grund-discovers-declarations-and-citations)).
 - `host_language_dangling_proof.rs` — every default extension and comment prefix the binary reports has a dangling citation somewhere in the corpus goldens ([§REQ-no-missed-citation.3](../../docs/requirements/REQ-no-missed-citation.md#3-proven-per-host-language), [§FS-config.3.5](../../docs/functional-spec/FS-config.md#35-scan--what-gets-walked)).
 - `embedded_value_source_forms.rs` — every promised line, block-doc, and Python docstring wrapper roots a value and reaches mismatch comparison ([§AR-scanner.2.2](../../docs/architecture/AR-scanner.md#22-section-detection), [§AR-checker.2.18](../../crates/grund-core/src/checker.rs)).
 - `integrations_resolve.rs` — `scripts/try-integrations.sh resolve` run headlessly: the resolver installed into a sandbox HOME from the binary under test resolves every citation form the clickable clients hand it ([§FS-integrations.4](../../docs/functional-spec/FS-integrations.md#4-managed-writes---write)).
+- `refs_frontend_parity.rs` — the published CLI and deprecated core process adapter give an unsupported refs format identical precedence over a resolver-rejected operand ([§AR-bindings.2](../../docs/architecture/AR-bindings.md#2-grund-core-the-only-place-logic-lives)).
 
 ## Python
 

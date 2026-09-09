@@ -32,8 +32,8 @@ mod tests_refs_query_failures {
         root
     }
 
-    fn query(root: &Path, id: &str) -> Result<RefsOutput> {
-        refs(RefsOpts {
+    fn query(root: &Path, id: &str) -> Result<RefsOutcome> {
+        refs_outcome(RefsOpts {
             path: root.to_path_buf(),
             path_provided: true,
             id: id.to_string(),
@@ -52,7 +52,7 @@ mod tests_refs_query_failures {
             failure.format_hint.as_deref(),
             Some("{kind}-{number}-{slug}")
         );
-        assert!(output.hits.is_empty());
+        assert!(output.output.hits.is_empty());
     }
 
     #[test]
@@ -66,7 +66,7 @@ mod tests_refs_query_failures {
             "ambiguous ID: FS-042 (matches FS-042-user-login, FS-042-user-logout)"
         );
         assert_eq!(failure.format_hint, None);
-        assert!(output.hits.is_empty());
+        assert!(output.output.hits.is_empty());
     }
 
     #[test]
@@ -74,10 +74,23 @@ mod tests_refs_query_failures {
         let root = refs_repo("refs_query_failure_seams");
         let output = query(&root, "FS-100-empty").expect("valid empty result");
         assert_eq!(output.query_failure, None);
-        assert!(output.hits.is_empty());
+        assert!(output.output.hits.is_empty());
 
         let error = query(&root, "unknown/FS-100-empty").expect_err("unknown alias");
         assert!(error.to_string().contains("unknown project alias `unknown`"));
+
+        let legacy_error = refs(RefsOpts {
+            path: root,
+            path_provided: true,
+            id: "FS-bar".to_string(),
+            section: None,
+        })
+        .expect_err("the established refs API keeps resolver rejection as Err");
+        assert_eq!(
+            legacy_error.to_string(),
+            "invalid ID `FS-bar`\n\
+             hint: this repo's [id] format is `{kind}-{number}-{slug}` (run `grund config show`); `grund list` shows the IDs that exist"
+        );
     }
 
     fn version(text: &str) -> (u64, u64, u64) {
