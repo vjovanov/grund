@@ -82,7 +82,10 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!();
             println!(
-                "Usage:  grund list [PATH] [--kind KIND[,KIND]...] [--unused] [--summary] [--format text|json]"
+                "Usage:  grund list [PATH] [--kind KIND[,KIND]...] [--unused] [--summary]"
+            );
+            println!(
+                "                   [--size[=lines,words,bytes]] [--top N] [--format text|json]"
             );
             println!();
             println!(
@@ -90,6 +93,9 @@ fn print_subcommand_help(cmd: &str) {
             );
             println!(
                 "Stub-and-inline pairs collapse to one line; a duplicate-declared ID gets a line per home."
+            );
+            println!(
+                "Size mode adds every citable section and reports selected lead/full measurement pairs."
             );
             println!();
             println!("Options:");
@@ -103,6 +109,12 @@ fn print_subcommand_help(cmd: &str) {
                 "  --summary           one row per kind with count and home  e.g. grund list --summary"
             );
             println!(
+                "  --size[=lines,words,bytes]  point lead/full sizes; bare selects all three units"
+            );
+            println!(
+                "  --top N             largest N leads by the first selected unit; requires --size"
+            );
+            println!(
                 "  --format text|json   text (default) is the table on stdout; json emits NDJSON (adds `refs` count)."
             );
             println!();
@@ -114,6 +126,7 @@ fn print_subcommand_help(cmd: &str) {
             println!("  grund list                      # the whole catalog");
             println!("  grund list --kind FS,AR docs/   # specs and architecture IDs under docs/");
             println!("  grund list --summary            # counts by kind");
+            println!("  grund list --size=words --top 10 # largest point leads");
             println!(
                 "  grund list --unused             # uncited declarations (specs, decisions, …) — E2E cases excluded"
             );

@@ -81,6 +81,15 @@ fn print_effective_config(config: &Config) {
     if config.grounding_enabled() {
         println!("grounding_level = {}", config.grounding_level);
     }
+    // §FS-config.3.1: the opt-in table is omitted when absent and rendered in
+    // one canonical field order when present, so `config show` round-trips it.
+    if let Some(warning) = config.lead_size_warning {
+        println!(
+            "lead_size_warning = {{ max = {}, unit = \"{}\" }}",
+            warning.max,
+            warning.unit.as_str()
+        );
+    }
     println!("inline_style = \"{}\"", config.inline_style);
     println!(
         "inline_note_suggested_lines = {}",

@@ -168,6 +168,11 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
                 }
                 config.conversation = Some(opinion);
             }
+            // §FS-config.3.1: one closed inline table opts this project into the
+            // fixed-warning lead budget. Absence is the complete off switch.
+            ("reference", "lead_size_warning") => {
+                config.lead_size_warning = Some(parse_lead_size_warning(path, line_no, value)?);
+            }
             ("reference", "inline_style") => {
                 let style = parse_string(path, line_no, value)?;
                 if !matches!(style.as_str(), "citation-with-note" | "citation-only") {

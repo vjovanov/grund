@@ -88,6 +88,15 @@ fn command_config(args: &[String]) -> ExitCode {
                 if config.grounding_enabled() {
                     println!("grounding_level = {}", config.grounding_level);
                 }
+                // §FS-config.3.1: optional means omitted when unset; when set,
+                // preserve the schema's canonical inline-table order.
+                if let Some(warning) = config.lead_size_warning {
+                    println!(
+                        "lead_size_warning = {{ max = {}, unit = \"{}\" }}",
+                        warning.max,
+                        warning.unit.as_str()
+                    );
+                }
                 // Optional opinion (§FS-config.3.1): absent means none, so only a
                 // set value round-trips — there is no "none" spelling to print.
                 if let Some(conversation) = &config.conversation {

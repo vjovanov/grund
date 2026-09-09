@@ -80,7 +80,21 @@ printf '%s\n' '{"id":"FS-check"}' '{"id":"FS-check","section":"3.2"}' \
 grund show --batch --all --format=json
 ```
 
-`grund refs <ID> --summary` gives the blast radius one file per line before a full citation dump, and `grund list --kind FS,AR` keeps discovery scoped. That's the "cheap grounding" half of the workflow: every agent fetches the same bytes for the same ID, every time.
+`grund refs <ID> --summary` gives the blast radius one file per line before a full citation dump, and `grund list --kind FS,AR` keeps discovery scoped. When a specification feels heavy, `grund list --size=words --top 10` finds the largest leads before you read them in full. That's the "cheap grounding" half of the workflow: every agent fetches the same bytes for the same ID, every time.
+
+Repositories can opt into a warning at their own measured boundary:
+
+```toml
+[reference]
+lead_size_warning = { max = 600, unit = "words" }
+```
+
+An over-budget lead should keep its grounding: move detail into numbered child
+sections, or promote a child section to its own ID after checking its callers
+with `grund refs <ID> --summary`. See the [point-size guide](docs/user-facing/point-sizes.md)
+for counting rules, output fields, duplicate handling, and workspace scope
+([§FS-list.3.4](docs/functional-spec/FS-list.md#34---size--per-point-lead-and-full-body-measurements),
+[§FS-check.4.13](docs/functional-spec/FS-check.md#413-oversized-lead-opt-in)).
 
 For scripts, exit `0` is a completed `refs` answer even when it is empty. From
 grund 0.15.0, exit `1` means the selected repository grammar rejected the ID or
@@ -479,6 +493,7 @@ That rule plus a clean `grund check` is the whole contract: every reference reso
 
 - [`docs/user-facing/clickable-citations.md`](docs/user-facing/clickable-citations.md) — make citations clickable in your terminal
 - [`docs/user-facing/external-facts.md`](docs/user-facing/external-facts.md) — materialize external tickets as committed offline snapshots
+- [`docs/user-facing/point-sizes.md`](docs/user-facing/point-sizes.md) — measure point leads and opt into oversized-lead warnings
 - [`docs/user-facing/values.md`](docs/user-facing/values.md) — declare and check shared values in Markdown, JSON, prose, and code comments
 - [`docs/grund.md`](docs/grund.md) — why this exists
 - [`docs/goals.md`](docs/goals.md) — what we measure ourselves against
