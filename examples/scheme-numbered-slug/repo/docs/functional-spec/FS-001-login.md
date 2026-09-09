@@ -1,6 +1,6 @@
 # FS-001-login: User login
 
-Creates a session described by §FS-002-session.
+Creates a session described by §FS-002.
 
 ## 1. Inputs
 

@@ -178,61 +178,6 @@ impl<'a> ShorthandIndex<'a> {
     }
 }
 
-/// Everything one `grund fmt` walk needs to expand a shorthand: this project's
-/// declaration index, plus one per workspace alias for the qualified form
-/// (§FS-fmt.2.4, §FS-workspace.8.5).
-///
-/// Built once per walk rather than per line. `fmt` visits every marker of every
-/// scanned file, so resolving each against a linear scan of the declaration set
-/// is quadratic on exactly the tree this rewrite exists to clean up
-/// (§GOAL-fast-feedback).
-struct ShorthandTargets<'a> {
-    /// `None` until the walk has a declaration set — §FS-fmt.2.4 defers that scan
-    /// until a shorthand is actually met, so a repo without one never pays for it.
-    local: Option<ShorthandIndex<'a>>,
-    by_alias: BTreeMap<&'a str, ShorthandAliasTarget<'a>>,
-}
-
-/// One aliased project's half of `ShorthandTargets`: its declarations, and the
-/// config the canonical ID renders under (a workspace may mix `[id] format`s).
-struct ShorthandAliasTarget<'a> {
-    config: &'a Config,
-    index: ShorthandIndex<'a>,
-}
-
-impl<'a> ShorthandTargets<'a> {
-    fn new(
-        config: &Config,
-        findings: Option<&'a Findings>,
-        workspace: Option<&'a WorkspaceContext>,
-    ) -> Self {
-        Self {
-            local: findings
-                .map(|found| ShorthandIndex::build(config, found.declarations.keys())),
-            by_alias: workspace
-                .map(|workspace| {
-                    workspace
-                        .projects
-                        .iter()
-                        .map(|project| {
-                            (
-                                project.alias.as_str(),
-                                ShorthandAliasTarget {
-                                    config: &project.config,
-                                    index: ShorthandIndex::build(
-                                        &project.config,
-                                        project.findings.declarations.keys(),
-                                    ),
-                                },
-                            )
-                        })
-                        .collect()
-                })
-                .unwrap_or_default(),
-        }
-    }
-}
-
 /// §AR-scanner.2.6: collect number-only shorthand citations — `§FS-042` for
 /// `§FS-042-user-login` — under a `[id] format` that carries both `{number}` and
 /// `{slug}`. Three gates in order, each cheap enough to run per line: the repo
@@ -461,6 +406,12 @@ fn shorthand_diagnostic(
                     sites: Vec::new(),
                 });
             }
+            // §FS-check.3.13 / §FS-workspace.4: only the unique persisted-form
+            // finding is policy-gated, and the policy belongs to the project
+            // whose catalog resolved the shorthand.
+            if target_config.shorthand == ShorthandPolicy::Accepted {
+                return None;
+            }
             format!("shorthand citation {written}; write {canonical}")
         }
         many => format!(
@@ -560,12 +511,39 @@ fn report_shorthand_citation<'a>(
 /// actually meets, the caller scans then and re-runs the single file, and a repo
 /// that never writes a shorthand pays nothing at all. The expansion report is what
 /// makes a rewrite reviewable before it is written.
+#[cfg(test)]
 fn expand_shorthand_citations(
     line: &str,
     docstring: DocstringContent<'_>,
     config: &Config,
     is_md: bool,
     targets: &ShorthandTargets<'_>,
+    saw_candidate: &mut bool,
+    expansions: &mut Vec<(String, String)>,
+) -> Option<String> {
+    expand_shorthand_citations_with_origins(
+        line,
+        docstring,
+        config,
+        is_md,
+        targets,
+        &[],
+        saw_candidate,
+        expansions,
+    )
+}
+
+/// The formatter entry point for §FS-fmt.2.4, carrying the byte offsets of
+/// markers produced from triggers so accepted persisted forms and authoring
+/// sugar remain distinct even when they share one line.
+#[allow(clippy::too_many_arguments)]
+fn expand_shorthand_citations_with_origins(
+    line: &str,
+    docstring: DocstringContent<'_>,
+    config: &Config,
+    is_md: bool,
+    targets: &ShorthandTargets<'_>,
+    trigger_marker_starts: &[usize],
     saw_candidate: &mut bool,
     expansions: &mut Vec<(String, String)>,
 ) -> Option<String> {
@@ -673,6 +651,14 @@ fn expand_shorthand_citations(
         // authoring rewrite. With a conforming neighbor they made `unique`
         // return `None`; alone they already have the right written spelling.
         if unique.legacy_spelling().is_some() {
+            continue;
+        }
+        // §FS-fmt.2.4 / §FS-workspace.4: an accepted project preserves only
+        // marker-origin shorthand. A marker created from this line's trigger is
+        // still authoring input and always expands to the canonical full ID.
+        if target_config.shorthand == ShorthandPolicy::Accepted
+            && !trigger_marker_starts.contains(&marker_start)
+        {
             continue;
         }
         let namespace = alias.map(|(alias, _)| alias);

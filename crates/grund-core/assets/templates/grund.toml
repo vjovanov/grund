@@ -6,6 +6,7 @@ project_name = "{NAME}"
 marker = "§"
 trigger = "$$"
 strict = true
+shorthand = "canonical" # canonical | accepted
 require_grounding = false
 inline_style = "citation-with-note" # citation-with-note | citation-only
 inline_note_suggested_lines = 1

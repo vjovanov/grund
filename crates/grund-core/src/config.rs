@@ -129,6 +129,22 @@ fn parse_config_file(read_path: &Path, report_path: &Path, config: &mut Config) 
             ("reference", "marker") => config.marker = parse_string(path, line_no, value)?,
             ("reference", "trigger") => config.trigger = parse_string(path, line_no, value)?,
             ("reference", "strict") => config.strict = parse_bool(path, line_no, value)?,
+            // §FS-config.3.1: closed persisted-form policy. Parsing the string
+            // first keeps non-string failures on the ordinary located path.
+            ("reference", "shorthand") => {
+                let policy = parse_string(path, line_no, value)?;
+                config.shorthand = match policy.as_str() {
+                    "canonical" => ShorthandPolicy::Canonical,
+                    "accepted" => ShorthandPolicy::Accepted,
+                    _ => bail_config(
+                        path,
+                        line_no,
+                        format!(
+                            "unknown [reference] shorthand `{policy}` (expected canonical or accepted)"
+                        ),
+                    )?,
+                };
+            }
             ("reference", "require_grounding") => {
                 config.require_grounding = parse_bool(path, line_no, value)?
             }

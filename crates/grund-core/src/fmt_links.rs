@@ -8,6 +8,7 @@
 /// `§<alias>/<ID>` resolves against the named project's findings, with
 /// the relative path crossing the workspace and the anchor computed
 /// against the target project's config (§FS-workspace.8.5).
+#[cfg(test)]
 fn wrap_markdown_links(
     line: &str,
     path: &Path,
@@ -16,9 +17,28 @@ fn wrap_markdown_links(
     workspace: Option<&WorkspaceContext>,
     only_ids: Option<&BTreeSet<Id>>,
 ) -> String {
+    let targets = ShorthandTargets::new(config, Some(findings), workspace);
+    wrap_markdown_links_with_targets(
+        line, path, config, findings, workspace, only_ids, &targets,
+    )
+}
+
+/// The production §FS-fmt.6 wrapper pass, sharing §FS-fmt.2.4's already-built
+/// target indexes so accepted shorthand adds no per-citation catalog scan.
+fn wrap_markdown_links_with_targets(
+    line: &str,
+    path: &Path,
+    config: &Config,
+    findings: &Findings,
+    workspace: Option<&WorkspaceContext>,
+    only_ids: Option<&BTreeSet<Id>>,
+    shorthand_targets: &ShorthandTargets<'_>,
+) -> String {
     let mut output = String::new();
     let mut cursor = 0;
-    for citation in markdown_link_citations(line, config, findings, workspace) {
+    for citation in
+        markdown_link_citations(line, config, findings, workspace, shorthand_targets)
+    {
         if citation.marker_start < cursor {
             continue;
         }
@@ -141,10 +161,17 @@ fn markdown_link_citations(
     config: &Config,
     findings: &Findings,
     workspace: Option<&WorkspaceContext>,
+    shorthand_targets: &ShorthandTargets<'_>,
 ) -> Vec<MarkdownLineCitation> {
     let mut citations = Vec::new();
     if let Some(workspace) = workspace {
-        collect_workspace_markdown_link_citations(line, config, workspace, &mut citations);
+        collect_workspace_markdown_link_citations(
+            line,
+            config,
+            workspace,
+            shorthand_targets,
+            &mut citations,
+        );
     }
     for caps in config.grammar.citation_re.captures_iter(line) {
         let Some(full) = caps.get(0) else { continue };
@@ -167,6 +194,12 @@ fn markdown_link_citations(
             section: caps.name("sec").map(|m| m.as_str().to_string()),
         });
     }
+    collect_local_accepted_shorthand_links(
+        line,
+        config,
+        shorthand_targets.local.as_ref(),
+        &mut citations,
+    );
     collect_local_legacy_markdown_citations(line, config, findings, &mut citations);
     citations.sort_by(|a, b| {
         (a.marker_start, std::cmp::Reverse(a.token_end)).cmp(&(
@@ -182,6 +215,7 @@ fn collect_workspace_markdown_link_citations(
     line: &str,
     config: &Config,
     workspace: &WorkspaceContext,
+    shorthand_targets: &ShorthandTargets<'_>,
     out: &mut Vec<MarkdownLineCitation>,
 ) {
     if config.marker.is_empty() {
@@ -204,6 +238,7 @@ fn collect_workspace_markdown_link_citations(
         let Some(target_project) = workspace.project_by_alias(alias) else {
             continue;
         };
+        let target_index = shorthand_targets.by_alias.get(alias);
         let id_start = token_start + prefix.get(0).unwrap().end();
         let Some(id_rest) = line.get(id_start..) else {
             continue;
@@ -219,6 +254,14 @@ fn collect_workspace_markdown_link_citations(
             .or_else(|| {
                 let catalog = legacy_catalog_ids(&target_project.findings.declarations);
                 match_legacy_tail(id_rest, &target_project.config, &catalog)
+            })
+            .or_else(|| {
+                accepted_shorthand_link(
+                    id_rest,
+                    config,
+                    &target_project.config,
+                    target_index.map(|target| &target.index),
+                )
             });
         let Some((id, section, len)) = parsed else {
             continue;
@@ -519,87 +562,4 @@ fn section_heading_text(
         }
     }
     Ok(None)
-}
-
-/// Slugify a heading into a fragment anchor, dispatching on the configured
-/// `[fmt.cross_refs] anchor_format` profile (github / gitlab / mkdocs / pandoc) —
-/// §FS-fmt.6.7, §DF-md-link-anchor-strategy.
-fn anchor_slug(text: &str, profile: &str) -> String {
-    match profile {
-        "pandoc" => anchor_slug_pandoc(text),
-        "mkdocs" => anchor_slug_mkdocs(text),
-        "gitlab" => anchor_slug_gitlab(text),
-        _ => anchor_slug_github(text),
-    }
-}
-
-/// Reproduce GitHub's `github-slugger` byte-for-byte: lowercase the text, delete
-/// every character that is not a letter, digit, `_`, or `-` (each deletion in
-/// place, so the neighbours close up), then turn each remaining space into one
-/// `-`. It does **not** collapse runs of `-` and does **not** trim trailing ones —
-/// `## A — B` → `#a--b`, `` ## 6. Watch mode (`--watch`) `` → `#6-watch-mode---watch`.
-/// Matching that exactly is the whole point of the `github` profile: the emitted
-/// `#fragment` navigates only if it is the slug GitHub itself renders
-/// (§DF-github-anchor-fidelity, correcting the "collapse consecutive `-`" wording
-/// in §DF-md-link-anchor-strategy.2.3).
-fn anchor_slug_github(text: &str) -> String {
-    let mut out = String::new();
-    for ch in text.chars().flat_map(char::to_lowercase) {
-        if ch.is_alphanumeric() || ch == '_' || ch == '-' {
-            out.push(ch);
-        } else if ch == ' ' {
-            out.push('-');
-        }
-        // anything else (`.`, brackets, backticks, em dash, tabs, …) is dropped
-    }
-    out
-}
-
-fn anchor_slug_gitlab(text: &str) -> String {
-    // "Similar to GitHub with minor Unicode-handling differences"
-    // (§DF-md-link-anchor-strategy.2.3); identical for the ASCII headings grund's own
-    // specs use, so it rides the github slugger (§DF-github-anchor-fidelity).
-    anchor_slug_github(text)
-}
-
-// Python-Markdown's TOC slugger: lowercase, drop everything that isn't a word
-// char, whitespace, or `-`, then collapse each run of whitespace-and-`-` to one
-// `-` (`re.sub(r'[-\s]+', sep, value)`). The keep-set includes `-`, unlike a naive
-// "alnum + `_`" filter — `# FS-1-x: Y` slugs to `#fs-1-x-y`, not `#fs1x-y`.
-fn anchor_slug_mkdocs(text: &str) -> String {
-    let mut out = String::new();
-    let mut last_dash = false;
-    for ch in text.nfkd() {
-        let lower = ch.to_ascii_lowercase();
-        if lower.is_ascii_alphanumeric() || lower == '_' {
-            out.push(lower);
-            last_dash = false;
-        } else if (lower.is_ascii_whitespace() || lower == '-') && !last_dash && !out.is_empty() {
-            out.push('-');
-            last_dash = true;
-        }
-    }
-    while out.ends_with('-') {
-        out.pop();
-    }
-    out
-}
-
-fn anchor_slug_pandoc(text: &str) -> String {
-    let mut out = String::new();
-    let mut last_dash = false;
-    for ch in text.nfkd() {
-        let lower = ch.to_ascii_lowercase();
-        if lower.is_ascii_alphanumeric() || lower == '_' || lower == '-' || lower == '.' {
-            out.push(lower);
-            last_dash = lower == '-';
-        } else if lower.is_ascii_whitespace() && !last_dash && !out.is_empty() {
-            out.push('-');
-            last_dash = true;
-        }
-    }
-    while out.ends_with('-') {
-        out.pop();
-    }
-    out
 }

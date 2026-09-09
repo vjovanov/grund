@@ -281,6 +281,24 @@ A citation is the marker `§`, the ID, and an optional `.<section>` — with the
 
 Type `$$` in a `grund`-aware editor and it's rewritten to `§` automatically. Both marker and trigger are configurable in `grund.toml`.
 
+With the default `{kind}-{number}-{slug}` scheme, a persisted shorthand such as
+`§FS-042` is an error and `grund fmt --write` expands it to the descriptive full
+ID. A project that deliberately wants both spellings may opt in
+([§FS-config.3.1](docs/functional-spec/FS-config.md#31-reference--citation-form)):
+
+```toml
+[reference]
+shorthand = "accepted" # default: "canonical"
+```
+
+Then `§FS-042` and `§FS-042-user-login` resolve as the same citation, and
+formatting preserves whichever marker form the author wrote. Typed trigger input
+remains canonicalizing: `$$FS-042` still becomes `§FS-042-user-login`
+([§FS-fmt.2.4](docs/functional-spec/FS-fmt.md#24-shorthand-to-canonical)). The
+tradeoff is permanent mixed-form drift while the policy is enabled: searching by
+the number finds both forms, but searching by the slug misses shorthand sites,
+and the short form is opaque until resolved.
+
 The marker is the whole signal: a `§`-prefixed token is a live, checked citation wherever it appears — including inside Markdown backticks — so to show an *example* ID that shouldn't resolve, write it without the marker (`FS-user-login`), inside a fenced code block (which is how the two citations above are written), or with the marker bracketed (`<§>FS-user-login`) — the escape `grund check` names in its own hint when a citation resolves to nothing.
 
 **Specs can live inline in source.** Declare the spec in a class or module doc-comment, then enroll it from the configured kind index with the canonical bare-ID link `grund fmt --cross-refs` writes — no stub file is required:
