@@ -1,3 +1,38 @@
+/// The closed built-in point-size vocabulary and its opt-in warning policy
+/// (§FS-list.3.4, §FS-config.3.1). These config-facing types stay with the
+/// parser so the general model remains reserved for scan and declaration data.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum PointSizeUnit {
+    Lines,
+    Words,
+    Bytes,
+}
+
+impl PointSizeUnit {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Lines => "lines",
+            Self::Words => "words",
+            Self::Bytes => "bytes",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "lines" => Some(Self::Lines),
+            "words" => Some(Self::Words),
+            "bytes" => Some(Self::Bytes),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LeadSizeWarning {
+    pub max: usize,
+    pub unit: PointSizeUnit,
+}
+
 /// Parse the one inline table in grund's line-oriented config surface
 /// (§FS-config.3.1). Keeping this parser specific makes duplicate, missing, and
 /// extra fields loud without silently widening the rest of the TOML subset.
