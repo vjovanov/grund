@@ -12,6 +12,7 @@ REQUIREMENTS = REPO_ROOT / "docs" / "requirements"
 DECISIONS = REPO_ROOT / "docs" / "decisions"
 COVER_DECISION = DECISIONS / "functional" / "DF-cover-workspace-scope.md"
 RELEASE = REPO_ROOT / "docs" / "changelog" / "0.10.1.md"
+RELEASES = REPO_ROOT / "docs" / "changelog"
 CORRECTION_ROUTE = "§REQ-backwards-compatibility.5"
 CONFLICT_PROOF = "§REQ-no-missed-citation.1"
 REQUIREMENT_SECTION_RE = re.compile(r"§(REQ-[a-z0-9-]+)\.(\d+(?:\.\d+)*)")
@@ -53,20 +54,129 @@ def _release_entry(text, *markers):
     return entries[0]
 
 
+def _verdict_route_citations(text):
+    section = _section(text, 1)
+    clause = re.search(r"The \*\*verdict\*\*[^.\n]*\.", section)
+    if not clause:
+        raise AssertionError("section 1 has no verdict-route clause")
+    return set(re.findall(r"§(\d+(?:\.\d+)*)\b", clause.group(0)))
+
+
+def _release_entries():
+    return [
+        line
+        for path in sorted(RELEASES.glob("*.md"))
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("- ")
+    ]
+
+
+def _correction_route_errors(text, release_entries, catalog):
+    errors = []
+    declaration = re.match(r"# ((?:DF|DA)-[a-z0-9-]+):", text)
+    if not declaration:
+        return ["the decision must declare a DF or DA ID"]
+    if "**Status:** Accepted" not in text:
+        errors.append("the decision must be accepted")
+
+    route_sections = [
+        match.group(0)
+        for match in re.finditer(
+            r"^## (\d+)\. .+$(.*?)(?=^## \d+\.|\Z)",
+            text,
+            re.MULTILINE | re.DOTALL,
+        )
+        if CORRECTION_ROUTE in match.group(0)
+    ]
+    if len(route_sections) != 1:
+        return errors + ["the correction route must be invoked in one numbered section"]
+
+    route = route_sections[0]
+    cited_prohibitions = {
+        (requirement, section)
+        for requirement, section in REQUIREMENT_SECTION_RE.findall(route)
+        if requirement != "REQ-backwards-compatibility"
+        and section in catalog.get(requirement, set())
+    }
+    if not cited_prohibitions:
+        errors.append(
+            "the route must cite a numbered section of a different hard requirement"
+        )
+    proved_prohibitions = {
+        (requirement, section)
+        for requirement, section in cited_prohibitions
+        if re.search(
+            rf"(?:old|prior)[^.\n]*\b(?:violated|forbidden|prohibition)\b"
+            rf"[^.\n]*§{re.escape(requirement)}\.{re.escape(section)}\b",
+            route,
+            re.IGNORECASE,
+        )
+    }
+    if not proved_prohibitions:
+        errors.append("the route must prove that the prior verdict violated the citation")
+    if not re.search(r"already applied[^.\n]*when[^.\n]*shipped", route):
+        errors.append("the route must prove that the prohibition already applied")
+
+    for section, name in (("2", "deprecation"), ("3", "mechanical migration")):
+        if not re.search(
+            rf"§{section}[^.\n]*(?:cannot|does not|doesn't|has no|there is no)",
+            route,
+            re.IGNORECASE,
+        ):
+            errors.append(f"the route must explain why §{section} {name} does not fit")
+    if not re.search(r"not a licence|cannot justify", route, re.IGNORECASE):
+        errors.append("the route must deny a broader compatibility licence")
+
+    decision_marker = f"§{declaration.group(1)}"
+    matching_releases = [
+        entry
+        for entry in release_entries
+        if decision_marker in entry and CORRECTION_ROUTE in entry
+    ]
+    matching_releases = [
+        entry
+        for entry in matching_releases
+        if any(
+            f"§{requirement}.{section}" in entry
+            for requirement, section in proved_prohibitions
+        )
+    ]
+    if not matching_releases:
+        errors.append("the decision must have a matching release record")
+    elif not any(
+        re.search(
+            r"verdicts?[^.]{0,20}(?:change[ds]?|flip(?:s|ped)?|move[sd]?)",
+            entry,
+            re.IGNORECASE,
+        )
+        and re.search(r"every finding[^.]*location[^.]*(?:fix|action)", entry, re.I)
+        for entry in matching_releases
+    ):
+        errors.append(
+            "the matching release must name the verdict change and located remedies"
+        )
+    return errors
+
+
 class RequirementRouteTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.text = REQUIREMENT.read_text(encoding="utf-8")
 
     def test_verdict_routes_are_exhaustive_and_the_exemption_is_unchanged(self):
-        covered = _section(self.text, 1)
-        self.assertEqual({"2", "3", "5"}, set(re.findall(r"§([235])\b", covered)))
+        self.assertEqual({"2", "3", "5"}, _verdict_route_citations(self.text))
 
         exemption = _section(self.text, 4)
         self.assertIn("no defined meaning", exemption)
         self.assertIn("produced no output", exemption)
         self.assertIn("before `1.0`", exemption)
         self.assertIn("not a general escape", exemption)
+
+    def test_unapproved_route_cannot_hide_from_the_exhaustive_check(self):
+        mutated = self.text.replace(
+            "moves only by §2, §3, or §5", "moves only by §2, §3, §5, or §6"
+        )
+        self.assertEqual({"2", "3", "5", "6"}, _verdict_route_citations(mutated))
 
     def test_correction_route_keeps_all_five_gates_conjunctive(self):
         route = _section(self.text, 5)
@@ -106,25 +216,39 @@ class RequirementRouteTests(unittest.TestCase):
 
 
 class DecisionRouteTests(unittest.TestCase):
-    def test_every_correction_decision_cites_another_hard_requirement_section(self):
+    def test_every_correction_decision_proves_all_five_gates(self):
         catalog = _requirement_catalog()
+        release_entries = _release_entries()
         for path in sorted(DECISIONS.rglob("*.md")):
             text = path.read_text(encoding="utf-8")
             if CORRECTION_ROUTE not in text:
                 continue
             with self.subTest(path=path.relative_to(REPO_ROOT)):
-                self.assertIn("**Status:** Accepted", text)
-                cited_prohibitions = [
-                    (requirement, section)
-                    for requirement, section in REQUIREMENT_SECTION_RE.findall(text)
-                    if requirement != "REQ-backwards-compatibility"
-                    and section in catalog.get(requirement, set())
-                ]
-                self.assertTrue(
-                    cited_prohibitions,
-                    "a decision invoking the correction route must cite a numbered "
-                    "section of a different, declared hard requirement",
+                self.assertEqual(
+                    [], _correction_route_errors(text, release_entries, catalog)
                 )
+
+    def test_unproved_synthetic_correction_is_rejected(self):
+        synthetic = """# DF-synthetic: invalid correction
+
+**Status:** Accepted
+
+## 1. Consequences
+
+§REQ-backwards-compatibility.5 is invoked. §REQ-never-crashes.1 is related,
+but there is no conflict proof, ordinary-route analysis, or release record.
+"""
+        errors = _correction_route_errors(
+            synthetic, _release_entries(), _requirement_catalog()
+        )
+        self.assertIn(
+            "the route must prove that the prior verdict violated the citation", errors
+        )
+        self.assertIn("the route must explain why §2 deprecation does not fit", errors)
+        self.assertIn(
+            "the route must explain why §3 mechanical migration does not fit", errors
+        )
+        self.assertIn("the decision must have a matching release record", errors)
 
     def test_cover_decision_is_the_accepted_worked_case(self):
         consequences = _section(COVER_DECISION.read_text(encoding="utf-8"), 4)
