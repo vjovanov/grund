@@ -15,6 +15,7 @@ A `§<ID>` is a pointer to a fact, not a file path. Resolve it with `grund` and 
 - `grund <ID> --brief` — heading + first paragraph only.
 - `grund refs <ID>` — every site that cites the ID; add `--summary` for one line per file. Run before renaming or moving a declaration.
 - `grund list` / `grund list --kind FS,AR` — discover IDs if you get lost
+- `grund list --size=words --top 10` — find heavy leads and move detail into citable child points before reading them in full
 
 ### Project map
 

@@ -8,7 +8,7 @@ use std::process::{Command, Output};
 
 const MAINTENANCE_TAIL: &str =
     " — repo maintenance; citation checks still ran; wording changes in grund 0.14.0";
-const OUTDATED: &str = "outdated grund init block v3 (run `grund init` to update to v8)";
+const OUTDATED: &str = "outdated grund init block v3 (run `grund init` to update to v9)";
 
 fn fixture_root(name: &str) -> PathBuf {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -307,6 +307,7 @@ fn issue_49_check_help_exposes_the_sorted_public_code_catalog() {
         "out-of-scope-missing-section",
         "out-of-scope-shorthand-citation",
         "out-of-scope-unknown-project",
+        "oversized-lead",
         "redundant-config",
         "section-heading-level",
         "shorthand-citation",

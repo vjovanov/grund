@@ -33,7 +33,7 @@ fn oversized_lead_uses_the_cli_code_message_location_and_warning_severity() {
         .unwrap_or_else(|| panic!("oversized-lead diagnostic missing: {diagnostics:?}"));
     assert_eq!(warning["severity"], 2);
     assert_eq!(warning["range"]["start"]["line"], 0);
-    assert_eq!(warning["range"]["start"]["character"], 0);
+    assert_eq!(warning["range"]["start"]["character"], 2);
     assert_eq!(
         warning["message"],
         "FS-heavy lead is 4 words, over the configured maximum of 2; move detail into citable child sections, or promote a child section to its own ID after running grund refs FS-heavy --summary"

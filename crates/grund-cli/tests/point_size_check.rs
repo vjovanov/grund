@@ -203,7 +203,7 @@ fn duplicate_sites_warn_locally_broken_stubs_stay_silent_and_errors_still_win() 
     assert_eq!(complete.status.code(), Some(1));
     assert!(stdout(&complete).contains("duplicate declaration"));
     assert!(stdout(&complete).contains("duplicate section"));
-    assert!(stdout(&complete).contains("broken inline spec stub"));
+    assert!(stdout(&complete).contains("stub link target missing: ../../src/missing.rs"));
     assert_eq!(stdout(&complete).matches("FS-dupe lead is").count(), 2);
     assert_eq!(
         stdout(&complete).matches("FS-sections.1 lead is").count(),
@@ -236,7 +236,7 @@ fn configured_scope_is_per_project_explicit_path_and_not_widened_by_full() {
             &format!("# FS-in: In\n\n{member} \u{a7}FS-in\n"),
         );
         nested.write(
-            "docs/out/FS-out.md",
+            "outside/FS-out.md",
             "# FS-out: Outside configured include\n\noutside \u{a7}FS-out\n",
         );
         std::mem::forget(nested);
@@ -302,8 +302,20 @@ fn lead_size_config_validates_strictly_and_config_show_round_trips_it() {
 #[test]
 fn init_emits_v9_size_guidance_and_migrates_v8_in_one_command() {
     let repo = Repo::new("init-v9");
-    let v8_fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/e2e/cases/init-check-current/repo");
+    let v8_fixture = repo.path().join("v8");
+    fs::create_dir_all(&v8_fixture).expect("create v8 fixture");
+    fs::write(
+        v8_fixture.join("grund.toml"),
+        "grund_config_version = 1\nproject_name = \"fixture\"\n",
+    )
+    .expect("write v8 config");
+    let canonical_v8 = concat!(
+        "<!-- BEGIN GRUND MANAGED BLOCK -->\n",
+        "## Grounding with grund (v8)\n\n",
+        "Legacy guidance.\n",
+        "<!-- END GRUND MANAGED BLOCK -->\n",
+    );
+    fs::write(v8_fixture.join("AGENTS.md"), &canonical_v8).expect("write v8 block");
     let stale = run(&v8_fixture, &["check", "--only=agents-init"]);
     assert_eq!(stale.status.code(), Some(1));
     assert!(stdout(&stale).contains("outdated grund init block v8"));
@@ -327,7 +339,6 @@ fn init_emits_v9_size_guidance_and_migrates_v8_in_one_command() {
     fs::create_dir_all(&migrated).expect("create migration target");
     fs::copy(v8_fixture.join("grund.toml"), migrated.join("grund.toml"))
         .expect("copy migration config");
-    let canonical_v8 = fs::read_to_string(v8_fixture.join("AGENTS.md")).expect("read v8 block");
     fs::write(
         migrated.join("AGENTS.md"),
         format!("before\n{canonical_v8}after\n"),

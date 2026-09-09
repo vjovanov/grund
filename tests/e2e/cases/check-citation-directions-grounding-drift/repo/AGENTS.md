@@ -1,7 +1,7 @@
 # demo — agent instructions
 
 <!-- BEGIN GRUND MANAGED BLOCK -->
-## Grounding with grund (v8)
+## Grounding with grund (v9)
 
 This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<slug>[.<section>]` (`KIND ∈ {FS, AR}`), cited with the marker `§` — e.g. `<§>FS-user-login.3.1` (the `FS-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `grund.toml`, so only `§`-prefixed citations are checked.
 
@@ -15,6 +15,7 @@ A `§<ID>` is a pointer to a fact, not a file path. Resolve it with `grund` and 
 - `grund <ID> --brief` — heading + first paragraph only.
 - `grund refs <ID>` — every site that cites the ID; add `--summary` for one line per file. Run before renaming or moving a declaration.
 - `grund list` / `grund list --kind FS,AR` — discover IDs if you get lost
+- `grund list --size=words --top 10` — find heavy leads and move detail into citable child points before reading them in full
 
 ### Project map
 
