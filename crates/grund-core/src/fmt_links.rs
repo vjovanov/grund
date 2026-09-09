@@ -243,26 +243,37 @@ fn collect_workspace_markdown_link_citations(
         let Some(id_rest) = line.get(id_start..) else {
             continue;
         };
-        let parsed = parse_longest_id_prefix(id_rest, &target_project.config.grammar)
+        let parsed_prefix = parse_longest_id_prefix(id_rest, &target_project.config.grammar)
             .filter(|parsed| {
                 !target_project
                     .config
                     .grammar
                     .has_reserved_named_tail(id_rest, parsed.len)
-            })
-            .map(|parsed| (parsed.id, parsed.section, parsed.len))
-            .or_else(|| {
+            });
+        // §FS-workspace.8.5 / §FS-fmt.6.2: resolve a parsed shorthand through the
+        // target's policy/index before lookup; its slugless parse cannot name a home.
+        // Full IDs have already won longest-prefix parsing and remain byte-identical.
+        let parsed = match parsed_prefix {
+            Some(parsed) if parsed.shorthand => accepted_shorthand_link(
+                id_rest,
+                config,
+                &target_project.config,
+                target_index.map(|target| &target.index),
+            ),
+            Some(parsed) => Some((parsed.id, parsed.section, parsed.len)),
+            None => {
                 let catalog = legacy_catalog_ids(&target_project.findings.declarations);
                 match_legacy_tail(id_rest, &target_project.config, &catalog)
-            })
-            .or_else(|| {
-                accepted_shorthand_link(
-                    id_rest,
-                    config,
-                    &target_project.config,
-                    target_index.map(|target| &target.index),
-                )
-            });
+                    .or_else(|| {
+                        accepted_shorthand_link(
+                            id_rest,
+                            config,
+                            &target_project.config,
+                            target_index.map(|target| &target.index),
+                        )
+                    })
+            }
+        };
         let Some((id, section, len)) = parsed else {
             continue;
         };
