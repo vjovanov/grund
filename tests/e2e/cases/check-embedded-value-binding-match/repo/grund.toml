@@ -1,0 +1,19 @@
+grund_config_version = 1
+
+[reference]
+marker = "§"
+strict = true
+
+[id]
+format = "{kind}-{slug}"
+slug_pattern = "[a-z][a-z0-9-]*"
+
+[[kinds]]
+kind = "FS"
+folder = "values"
+index = false
+values = true
+
+[scan]
+include = ["docs"]
+extensions = ["md"]

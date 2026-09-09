@@ -9,7 +9,7 @@ First-class values must catch content drift without asking a line-oriented citat
 
 ## 2. Decision
 
-`grund` compares only the explicit, single-line, backtick-delimited binding grammar in [§FS-values.3.1](../../functional-spec/FS-values.md#31-the-only-binding-grammar). Unbackticked adjacency and bare value citations stay invisible to value comparison. A binding's marked citation remains an ordinary citation and resolves through the existing resolver before the independent value-checker pass runs.
+`grund` compares only the explicit, single-line, backtick-delimited binding grammar in [§FS-values.3.1](../../functional-spec/FS-values.md#31-the-only-binding-grammar). Value authority is likewise explicit: either `values = true` authorizes a whole declaration in its configured home or the byte-exact `<!-- grund:value -->` suffix authorizes its one numbered section independently ([§FS-values.2.4](../../functional-spec/FS-values.md#24-embedded-section-value-roots)). Unmarked and malformed-lookalike sections, unbackticked adjacency, and bare value citations stay invisible to value comparison. A binding's marked citation remains an ordinary citation and resolves through the existing resolver before the independent value-checker pass runs.
 
 JSON in the opted-in kind's own home is the language-neutral runtime surface. It joins the same declaration catalog as Markdown, preserving exact spans and duplicates; applications read it directly. No separately configured value-source list or generated module exists.
 
