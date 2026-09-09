@@ -1,5 +1,7 @@
 /// Public programmatic list types and catalog implementation (§FS-list.2,
 /// §FS-list.3, §AR-bindings.2).
+/// This category is included beside the API facade so the public list contract
+/// can evolve without making the facade file exceed its reviewed size budget.
 
 #[derive(Clone)]
 pub struct ListOpts {

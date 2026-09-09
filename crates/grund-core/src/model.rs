@@ -301,42 +301,6 @@ pub struct ConfigLocation {
     pub line: usize,
 }
 
-/// One deterministic built-in point-size unit (§FS-list.3.4). The vocabulary is
-/// deliberately closed: measuring a point never invokes a repository process.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum PointSizeUnit {
-    Lines,
-    Words,
-    Bytes,
-}
-
-impl PointSizeUnit {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Lines => "lines",
-            Self::Words => "words",
-            Self::Bytes => "bytes",
-        }
-    }
-
-    pub fn parse(value: &str) -> Option<Self> {
-        match value {
-            "lines" => Some(Self::Lines),
-            "words" => Some(Self::Words),
-            "bytes" => Some(Self::Bytes),
-            _ => None,
-        }
-    }
-}
-
-/// The absent-by-default repository policy for oversized point leads
-/// (§FS-config.3.1). Severity is intentionally not configurable.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct LeadSizeWarning {
-    pub max: usize,
-    pub unit: PointSizeUnit,
-}
-
 /// One RFC-2119 level a `[citations]` rule entry can carry (§FS-config.3.9.1,
 /// §DF-citation-directions.2.1).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
