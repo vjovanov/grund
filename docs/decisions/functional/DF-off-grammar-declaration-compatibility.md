@@ -1,5 +1,8 @@
 # DF-off-grammar-declaration-compatibility: persisted declarations remain readable without relaxing the authoring grammar
 
+**Status:** Accepted
+**Date:** 2026-09-07
+
 Exact read compatibility serves [§GOAL-no-dangling-refs](../../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) when a repository's configured ID format and its persisted declarations drift apart.
 
 ## 1. Context

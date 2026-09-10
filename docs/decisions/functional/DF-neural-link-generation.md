@@ -1,5 +1,8 @@
 # DF-neural-link-generation: agents compose clickable citation links themselves; grund does not grow a `link` command
 
+**Status:** Accepted
+**Date:** 2026-07-02
+
 ## 1. Decision
 
 Clickable citation rendering for ephemeral, user-facing text — agent TUI messages, PR

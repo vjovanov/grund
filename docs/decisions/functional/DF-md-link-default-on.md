@@ -33,7 +33,7 @@ The default favors GitHub review and discovery over the cleaner editor-only sour
 
 ## 4. Consequences
 
-- The generated `.agents/grund.toml` is more opinionated but also more explicit: the opt-out key is visible where users configure the repo.
+- The generated `grund.toml` is more opinionated but also more explicit: the opt-out key is visible where users configure the repo ([§DF-config-file-location.2.3](DF-config-file-location.md#23-grund-init-writes-the-bare-grundtoml)).
 - PR diffs in Markdown files may include generated link wrappers, but those wrappers make review-time navigation substantially better.
 - The editor experience sacrifices some source minimalism. That cost is bounded by idempotent formatting, and `grund show --format text` still flattens link wrappers when an agent or human wants token-cheap grounding text.
 

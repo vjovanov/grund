@@ -1,6 +1,6 @@
 # DISC-conversation-rendering-layers: Layered ownership of local-conversation citation rendering
 
-## 6. Status
+## 1. Status
 
 Concluded on 2026-07-21. Accepted as [§DF-repo-conversation-opinion](../../decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion) and drafted into the specs
 listed under "Spec changes this drafts into" below.
@@ -12,7 +12,7 @@ layer reaches which agent and environment. A preference-only design — deleting
 — was considered and rejected there: it permanently orphans every reader whose only channel is
 the committed entrypoint.
 
-## 7. Context
+## 2. Context
 
 [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions) installs the local-conversation rendering preference (`plain` | `link`)
 exclusively into *global* agent instruction files (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, …),
@@ -32,12 +32,12 @@ Two frictions with the global-only design surfaced in practice:
 A third idea — appending the guidance to a repo-local file excluded from version control — was
 researched and turns out to be portable to exactly one agent (§4).
 
-## 8. Proposal
+## 3. Proposal
 
 Split conversation-rendering guidance across two layers with a defined precedence, mirroring the
 web-rule ownership split that already exists ([§FS-init.2.3.4.17](../../functional-spec/FS-init.md#23417-clickable-citations), [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)).
 
-## 1. Repository layer: an opt-in committed opinion
+## 4. Repository layer: an opt-in committed opinion
 
 In local conversations, `link` means **the declaration location as plain `path:line` text beside
 the citation** — `§FS-check — docs/functional-spec/FS-check.md:1` — the row-2 form of the
@@ -70,7 +70,7 @@ Concretely:
 For a grund-using team this yields clickable citations with zero per-user setup: clone, the agent
 reads the committed entrypoint, done.
 
-## 2. User layer: the global block becomes self-scoping
+## 5. User layer: the global block becomes self-scoping
 
 The [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions) mechanism is kept unchanged — it is the only machine-local instruction
 channel that exists for six of the eight supported agents (§4) — but the canonical block texts are
@@ -96,7 +96,7 @@ In a non-grund repository the block is inert by its own words, and its entire fo
 sentence of session context. The text change is a global-instruction block version bump under the
 existing marked-block contract ([§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)).
 
-## 3. Precedence
+## 6. Precedence
 
 Explicit user preference > repository opinion > default (`plain`). As first concluded the order
 was repository-over-user, on the argument that agents weight project instructions over personal
@@ -126,7 +126,7 @@ rarer and cheaper.
 
 The repository block stays deterministic and config-derived only ([§FS-non-goals.13](../../functional-spec/FS-non-goals.md#13-anything-that-would-let-two-grund-installs-disagree)).
 
-## 4. Researched alternative: a repo-local file excluded from version control
+## 7. Researched alternative: a repo-local file excluded from version control
 
 Appending the guidance to an uncommitted per-clone file (registered in `.git/info/exclude`, which
 both git and the scanner already honor via `respect_gitignore`, [§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up)) was researched across
@@ -148,7 +148,7 @@ later additive flag on `grund integrations`, but the two layers above remove mos
 motivation: the repo layer covers opinionated repositories for every agent, and the self-scoping
 global block no longer leaks. **Deferred, not designed.**
 
-## 5. Who is served by which layer
+## 8. Who is served by which layer
 
 Added by the 2026-08-11 amendment, when a preference-only design (deleting the repository key)
 was considered. The question it answers: for each agent and environment, which layer can reach it

@@ -1,6 +1,6 @@
 # AR-benchmarks: instruction-counting benchmarks for the hot CLI commands
 
-How `grund` turns the [§GOAL-fast-feedback.1](../goals.md#1-performance-targets) targets into a number CI records on every commit. The goal-meter map points here from [§AR-goal-measurement.2](AR-goal-measurement.md#2-goal-meters); this spec pins what is measured, with what tool, and why the meter counts CPU instructions rather than wall-clock seconds. The synthetic large fixture, the committed baseline and the build-failing CI gate shipped in 0.4.1 (`docs/changelog/0.4.1.md`); the decision that picks instruction counting over a wall-clock harness is [§DA-benchmark-instruction-counting](../decisions/architectural/DA-benchmark-instruction-counting.md#da-benchmark-instruction-counting-the-performance-harness-counts-instructions-not-wall-clock-seconds).
+How `grund` turns the [§GOAL-fast-feedback.1](../goals.md#1-performance-targets) targets into a number CI records on every commit. The goal-meter map points here from [§AR-goal-measurement.2](AR-goal-measurement.md#2-goal-meters); this spec pins what is measured, with what tool, and why the meter counts CPU instructions rather than wall-clock seconds. The synthetic large fixture, the committed baseline and the CI gate shipped in 0.4.1 (`docs/changelog/0.4.1.md`); the decision that picks instruction counting over a wall-clock harness is [§DA-benchmark-instruction-counting](../decisions/architectural/DA-benchmark-instruction-counting.md#da-benchmark-instruction-counting-the-performance-harness-counts-instructions-not-wall-clock-seconds).
 
 ## 1. What is benched
 
@@ -49,7 +49,7 @@ The millisecond budget itself is still backstopped by the cheap wall-clock guard
 
 ## 4. Relationship to the rest of the tree
 
-- [§AR-goal-measurement.2](AR-goal-measurement.md#2-goal-meters) — this harness is the fast-feedback meter; [§GOAL-fast-feedback.1](../goals.md#1-performance-targets)'s targets are pinned by the committed baseline and the PR regression gate.
+- [§AR-goal-measurement.2](AR-goal-measurement.md#2-goal-meters) — this harness is the fast-feedback meter; [§GOAL-fast-feedback.1](../goals.md#1-performance-targets)'s targets are recorded per commit against the committed baseline; the limits are not wired up ([§AR-ci.5](AR-ci.md#5-benchmark-job)).
 - [§DA-benchmark-instruction-counting](../decisions/architectural/DA-benchmark-instruction-counting.md#da-benchmark-instruction-counting-the-performance-harness-counts-instructions-not-wall-clock-seconds) — the architectural decision record for choosing Callgrind/iai-callgrind over a wall-clock criterion harness, and for benchmarking the binary rather than the library.
 - [§AR-ci.4](AR-ci.md#4-performance-smoke-guard) / [§AR-ci.5](AR-ci.md#5-benchmark-job) — the interim wall-clock smoke guard and the benchmark CI job, respectively.
 - [§AR-bindings](AR-bindings.md#ar-bindings-target-shape-for-exposing-the-rust-engine-on-three-platforms) / [§RM-distribution](../roadmap.md#rm-distribution-cargo--npm--pypi-from-one-engine) — the harness is deliberately established before the workspace split and bindings work move the engine around, so any slowdown shows up as a diff against a known-good instruction count rather than going unnoticed.

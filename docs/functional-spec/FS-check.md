@@ -429,8 +429,10 @@ Units are still built from citations, so a file carrying none produces no unit a
 When `[citations]` ([§FS-config.3.9](FS-config.md#39-citations--citation-direction-rules)) sets a `must-not` prohibition for a citing kind, every citation site of that kind to a prohibited target is an error anchored at the citation site:
 
 ```
-docs/functional-spec/FS-login.md:42: FS must not cite AR (citation direction)
+docs/functional-spec/FS-login.md:42: FS must not cite AR (citation direction) — re-point the citation or downgrade it to a plain Markdown link
 ```
+
+This message is specified but not implemented today: the binary currently prints the bare fault; re-point the citation or downgrade it to a plain Markdown link.
 
 The citing kind is the site's resolved `source_kind` ([AR-scanner.2.4](../architecture/AR-scanner.md#24-citing-side-classification)), named the way §3.11 names it — by kind for a citable kind, by **home** for a non-citable one (`skills/ must not cite AR`), and by name for the homeless kind, which has no home to name it by ([§FS-config.3.9.2](FS-config.md#392-the-homeless-kind)). The cited kind and namespace come from the citation token, matched against the rule's namespace grammar ([§FS-config.3.9.3](FS-config.md#393-namespace-matching)). The prohibition pass is [AR-checker.2.10](../../crates/grund-core/src/checker.rs). The parallel `should-not` prohibition is not an error; it is a suggestion (§2.3). The sanctioned way to keep a discouraged downward pointer is a plain Markdown link, which is not a citation under `strict = true` and so is exempt from this rule.
 

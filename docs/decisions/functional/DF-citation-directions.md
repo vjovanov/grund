@@ -126,9 +126,11 @@ silence.
   `suggestions` and `CheckOpts` gains `include_suggestions`. `grund check`'s default
   output and exit codes are unchanged for any repo without `[citations]`.
 - This repo adopts the canonical ruleset ([§DISC-citation-directions](../../discussions/proposals/2026-06-13-citation-directions.md#disc-citation-directions-encode-citation-directions-as-checked-config), dogfooding):
-  `E2E must = ["FS"]` and `FS must-not = ["AR"]` gate; everything else is a
-  should-level `--suggestions` worklist. The FS→AR pointer sites are downgraded to
-  plain Markdown links before the `must-not` hardening activates.
+  `e2e must = ["FS"]` and `FS must-not = ["AR"]` gate; it later hardened that
+  ruleset with `REQ must-not = ["AR"]`, `example must = ["FS"]`, and
+  `example must-not = ["AR"]`, which also gate `grund check`. The FS→AR pointer
+  sites are downgraded to plain Markdown links before the `must-not` hardening
+  activates.
 - The checked navigational-reference form is **not** shipped; the sanctioned
   downgrade for a discouraged downward reference is a plain Markdown link, which
   composes with `strict = true` (a bare token in a link is not a citation). The

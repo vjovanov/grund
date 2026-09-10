@@ -1,5 +1,8 @@
 # DF-conversation-link-target: the conversation link form is a Markdown link over an absolute URI, addressed per machine
 
+**Status:** Accepted
+**Date:** 2026-08-11
+
 ## 1. Context
 
 [§DF-repo-conversation-opinion.2.1](DF-repo-conversation-opinion.md#21-the-link-form-is-a-markdown-link-over-an-absolute-uri) defined the `link` form as the declaration location in plain

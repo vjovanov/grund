@@ -1,5 +1,8 @@
 # DF-config-file-location: grund.toml is discovered at two names per directory, and init writes the bare one
 
+**Status:** Accepted
+**Date:** 2026-08-13
+
 ## 1. Context
 
 Config discovery probed exactly one location: `.agents/grund.toml`, found by walking up from the
