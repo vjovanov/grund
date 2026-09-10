@@ -139,6 +139,10 @@ fn scan_file_text(
     // §AR-scanner.2.4: every Markdown heading (line, level) outside a fence — a
     // declaration body runs until the next heading at the same or higher level.
     let mut md_headings: Vec<(usize, usize)> = Vec::new();
+    // §AR-scanner.2.2 / §FS-check.4.14: declaration and section recognition
+    // happen in this same fence-aware pass. Plain ATX headings wait until body
+    // spans are known before becoming reportable candidates.
+    let mut unmarked_heading_candidates = Vec::new();
     let mut total_lines = 0usize;
 
     for (idx, line) in text.lines().enumerate() {
@@ -296,8 +300,13 @@ fn scan_file_text(
             continue;
         }
 
+        let section_caps = config.grammar.section_re.captures(scan_line);
+        let recognized_section = section_caps
+            .as_ref()
+            .and_then(section_path)
+            .is_some();
         let mut embedded_marker_attached = false;
-        if let Some(caps) = config.grammar.section_re.captures(scan_line)
+        if let Some(caps) = section_caps
             && let Some(decl) = current.as_mut()
             && let Some(sec) = section_path(&caps)
         {
@@ -344,6 +353,22 @@ fn scan_file_text(
                     }
                 }
             }
+        }
+        if is_md
+            && !recognized_section
+            && let Some(heading_level) = markdown_heading_level(trimmed)
+        {
+            let heading = line.trim_end().trim_start().to_string();
+            let title = heading_text(trimmed, heading_level);
+            let column = line.find('#').unwrap_or(0) + 1;
+            unmarked_heading_candidates.push(UnmarkedHeadingCandidate {
+                file: path.to_path_buf(),
+                line: lineno,
+                column,
+                heading,
+                heading_level,
+                title,
+            });
         }
         if embedded_marker.is_some()
             && !embedded_marker_attached
@@ -525,11 +550,20 @@ fn scan_file_text(
             .values()
             .flatten()
             .any(|decl| kind_uses_values(config, &decl.id.kind));
-    if classify || has_text_sections || has_value_declarations || has_embedded_roots {
+    let has_unmarked_headings = !unmarked_heading_candidates.is_empty();
+    if classify
+        || has_text_sections
+        || has_value_declarations
+        || has_embedded_roots
+        || has_unmarked_headings
+    {
         assign_declaration_bodies(findings, is_md, is_py, config, &text, &md_headings, total_lines);
     }
     if has_text_sections {
         retain_in_body_sections(findings);
+    }
+    if has_unmarked_headings {
+        assign_unmarked_heading_owners(findings, unmarked_heading_candidates);
     }
     if has_value_declarations {
         validate_markdown_value_declarations(path, &text, is_md, config, findings);

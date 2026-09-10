@@ -1,10 +1,10 @@
 # DISC-link-support: Link support as a derived presentation layer
 
-## Status
+## 1. Status
 
 Resolved by [§DF-md-link-emission](../../decisions/functional/DF-md-link-emission.md#df-md-link-emission-grund-fmt-may-emit-clickable-markdown-links-alongside--prefixed-citations) and [§DF-md-link-anchor-strategy](../../decisions/functional/DF-md-link-anchor-strategy.md#df-md-link-anchor-strategy-heading-text-slugs-re-derived-on-every-fmt-pass). Implementation shipped as [§FS-fmt.6](../../functional-spec/FS-fmt.md#6-cross-reference-emission). The "Open questions" section below is preserved as-is for historical context; the answers live in the two DFs above.
 
-## Context
+## 2. Context
 
 Readers often want clickable navigation in rendered Markdown, while `grund`'s core
 model is based on stable ID citations. A Markdown link is useful for a human in a
@@ -15,7 +15,7 @@ The current direction in [§DF-md-link-emission](../../decisions/functional/DF-m
 source of truth and let `grund fmt --cross-refs` generate Markdown links around
 marker-prefixed citations in `.md` files.
 
-## Proposed shape
+## 3. Proposed shape
 
 Keep this form canonical:
 
@@ -33,7 +33,7 @@ The link target should be regenerated from the ID graph, not edited by hand as
 the authoritative reference. If a file moves or a heading changes, a later
 `grund fmt --cross-refs --write` pass updates the generated URL.
 
-## Boundaries
+## 4. Boundaries
 
 - `grund check` should continue to validate the underlying ID citation, not general
   Markdown links.
@@ -43,7 +43,7 @@ the authoritative reference. If a file moves or a heading changes, a later
 - Source files should not be rewritten with Markdown link syntax. The universal
   form in source comments remains the marker-prefixed ID citation.
 
-## Open questions
+## 5. Open questions
 
 - Should repositories be able to opt into `--cross-refs` globally through config,
   or should it stay invocation-only until the formatter behavior is mature?

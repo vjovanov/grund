@@ -1,12 +1,12 @@
 # DISC-workspace-member-descriptions: Describe workspace members in generated lists
 
-## Status
+## 1. Status
 
 Concluded. Tracks [issue #36](https://github.com/vjovanov/grund/issues/36);
 accepted as [§DF-workspace-member-descriptions](../../decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists) and drafted into the specs
 listed under "Spec changes this drafts into" below.
 
-## Context
+## 2. Context
 
 [§DISC-init-workspace-members](2026-05-17-init-workspace-members.md#disc-init-workspace-members-have-init-mention-workspace-members) gave the root `AGENTS.md` a "Workspace members"
 section ([§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members)) that maps each alias to its entrypoint:
@@ -25,7 +25,7 @@ cross-project citation. The list is high-traffic grounding context, so a
 one-line hint per member buys cheaper, less error-prone alias selection — the
 same token-cheap-grounding argument as [§DISC-token-cheap-grounding](2026-05-12-token-cheap-grounding.md#disc-token-cheap-grounding-token-cheap-grounding-surfaces).
 
-## Proposed shape
+## 3. Proposed shape
 
 Add one optional top-level config key, a sibling of `project_name`, declared in
 each project's own `.agents/grund.toml`:
@@ -72,7 +72,7 @@ Two companion touches:
   bootstrapped with both, and the [§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members) self-exception renders the
   pending description the same way it already renders the pending alias.
 
-## Alternatives considered
+## 4. Alternatives considered
 
 - **Structured member entries at the root**
   (`members = [{ path = "apps/api", description = "…" }]`). Rejected: it kills
@@ -88,7 +88,7 @@ Two companion touches:
   possible later fallback (configured string wins, `GRUND` lead otherwise),
   not as the v1 mechanism.
 
-## Spec changes this drafts into
+## 5. Spec changes this drafts into
 
 - [§FS-config](../../functional-spec/FS-config.md#fs-config-grund-reads-a-toml-config-file-found-by-walking-up): the new `project_description` key next to `project_name`, with
   single-line validation under [§FS-config.4.3](../../functional-spec/FS-config.md#43-invalid-config-behavior).
@@ -97,7 +97,7 @@ Two companion touches:
 - [§FS-init.2.3.4.15](../../functional-spec/FS-init.md#23415-workspace-members): the extended bullet rendering, the template teaching
   line, and the `--description` flag with its pending-config self-exception.
 
-## Boundaries
+## 6. Boundaries
 
 - No prompts, no inference: `init` never invents a description, and a missing
   one renders today's bullet unchanged.
@@ -105,7 +105,7 @@ Two companion touches:
 - The key is ignored everywhere outside generated-entrypoint rendering; in
   particular it cannot influence which project a citation resolves to.
 
-## Open questions
+## 7. Open questions
 
 - Key name: `project_description` (proposed, parallels `project_name`) vs. a
   bare `description` vs. `project_title` (parallels `[[kinds]] title`).

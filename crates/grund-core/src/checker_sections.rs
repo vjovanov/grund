@@ -46,6 +46,41 @@ fn check_section_headings(
             .map(section_outside_declaration_diagnostic),
     );
 
+    // §FS-check.4.14 / §AR-checker.2.20: scanner-owned Markdown candidates are
+    // fixed warnings throughout the compatibility window, independent of the
+    // marked-section heading-level mode.
+    report.warnings.extend(findings.unmarked_headings.iter().map(|heading| {
+        let rendered_owner = render_id(config, &heading.owner);
+        let separator = if heading
+            .suggested_path
+            .split('.')
+            .any(|part| part.bytes().any(|byte| byte.is_ascii_lowercase()))
+        {
+            ":"
+        } else {
+            "."
+        };
+        let suggested_heading = format!(
+            "{} {}{} {}",
+            heading_marks(heading.heading_level),
+            heading.suggested_path,
+            separator,
+            heading.title
+        );
+        Diagnostic {
+            code: "unmarked-heading",
+            path: Some(heading.file.clone()),
+            line: Some(heading.line),
+            column: None,
+            message: format!(
+                "unmarked heading inside {rendered_owner}; number it ({suggested_heading}) as {rendered_owner}{}{path}, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0",
+                config.section_separator,
+                path = heading.suggested_path,
+            ),
+            sites: Vec::new(),
+        }
+    }));
+
     // §FS-check.3.9 / §FS-config.3.3: in strict mode, the Markdown heading level
     // must mirror the dotted section depth so `## 1`, `### 1.1`, ...
     // communicate the same tree that `§ID.1.1` addresses.
@@ -183,9 +218,14 @@ fn section_outside_declaration_diagnostic(
     }
 }
 
-fn retain_section_headings_in_scope(findings: &mut Findings, scope: &ScanScope) {
+fn retain_heading_findings_in_scope(findings: &mut Findings, scope: &ScanScope) {
     findings
         .section_headings_outside_declarations
+        .retain(|heading| scope.contains(&heading.file));
+    // §FS-check.4.14: `--full` widens only the reference tier; this Markdown
+    // convention remains restricted to configured scan scope.
+    findings
+        .unmarked_headings
         .retain(|heading| scope.contains(&heading.file));
 }
 

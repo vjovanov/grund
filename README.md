@@ -123,11 +123,12 @@ docs/requirements/REQ-no-wrong-citation.md:7: missing section FS-check.3.2
 1. Every cited ID resolves to a declaration. *(dangling references)*
 2. Every section coordinate (`.3.1`) resolves to a heading inside the declaration. *(missing sections)*
 3. No ID is declared in two places. *(duplicates)*
-4. Every stub heading `# <ID>: [<text>](<path>)` points at a file containing the inline declaration. *(broken stubs)*
-5. The `AGENTS.md` / `CLAUDE.md` entry-point block is up to date. *(stale init)*
-6. Declared-but-uncited IDs are flagged. *(unused — warning, not error; a configured `E2E` kind's cases are exempt)*
-7. *(opt-in)* With `require_grounding = true`: every source file — or every file of one configured place, down to every `##` section or doc-comment block of it — carries at least one citation. *(ungrounded source file)*
-8. *(workspace)* Alias-qualified citations resolve across configured sub-projects. *(cross-project references — see [§FS-workspace](docs/functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace))*
+4. Every deeper ATX heading inside a scanned Markdown declaration body is another declaration or carries a numeric or enabled named section coordinate. Fences, file titles, body-closing headings, source doc-comments, setext text, and bold labels are exempt. *(unmarked headings — warning until it becomes an error in grund 0.15.0)*
+5. Every stub heading `# <ID>: [<text>](<path>)` points at a file containing the inline declaration. *(broken stubs)*
+6. The `AGENTS.md` / `CLAUDE.md` entry-point block is up to date. *(stale init)*
+7. Declared-but-uncited IDs are flagged. *(unused — warning, not error; a configured `E2E` kind's cases are exempt)*
+8. *(opt-in)* With `require_grounding = true`: every source file — or every file of one configured place, down to every `##` section or doc-comment block of it — carries at least one citation. *(ungrounded source file)*
+9. *(workspace)* Alias-qualified citations resolve across configured sub-projects. *(cross-project references — see [§FS-workspace](docs/functional-spec/FS-workspace.md#fs-workspace-grund-validates-cross-project-citations-in-a-workspace))*
 
 `grund check` reads what `[scan] include` names, so a citation in a directory the config never mentioned is invisible rather than merely unchecked — it neither resolves nor dangles. `grund check --full` ([§FS-check.1.3](docs/functional-spec/FS-check.md#13-the-full-tree-scope---full)) walks the whole repository past that key and reports the references that resolve to nothing out there, and only those: a directory nobody configured is never judged against conventions it never adopted. It is purely additive, so it can only turn a green run red.
 

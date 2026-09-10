@@ -1,10 +1,10 @@
 # DISC-init-workspace-members: Have `init` mention workspace members
 
-## Status
+## 1. Status
 
 Concluded. Ready to draft as additions to [§FS-init](../../functional-spec/FS-init.md#fs-init-grund-bootstraps-a-new-grund-conformant-repo).
 
-## Context
+## 2. Context
 
 `grund init` is workspace-blind today. It writes a single `AGENTS.md` (plus
 companion entrypoints) and a single `.agents/grund.toml` for the directory it is
@@ -30,7 +30,7 @@ inference about which directories are members, both of which violate the
 no-prompts rule. This proposal is the lighter version — *mention*, do not
 *configure*.
 
-## Proposed shape
+## 3. Proposed shape
 
 When the effective `.agents/grund.toml` at the init target has a `[workspace]`
 section, append a small "Workspace members" list to the managed block, derived
@@ -56,7 +56,7 @@ prompt, does not infer workspace topology, and does not write to member
 directories. Bootstrapping a member's own `AGENTS.md` remains a separate
 `grund init` invocation inside that member.
 
-## Boundaries
+## 4. Boundaries
 
 - Do not write or modify any file under a member directory. This stays a
   root-only edit, scoped to the same managed block [§FS-init](../../functional-spec/FS-init.md#fs-init-grund-bootstraps-a-new-grund-conformant-repo) already maintains.
@@ -70,7 +70,7 @@ directories. Bootstrapping a member's own `AGENTS.md` remains a separate
   the root alias from the members list; the flag's effect on `check` scope is
   not something an agent reads inline.
 
-## Open questions
+## 5. Open questions
 
 - Should members whose `AGENTS.md` does not yet exist be listed anyway (more
   honest, surfaces the missing entrypoint) or filtered out (avoids pointing at
@@ -88,7 +88,7 @@ directories. Bootstrapping a member's own `AGENTS.md` remains a separate
   "this project is a member of the workspace at `../..`" pointer — or is the
   one-way root → members link enough?
 
-## Opinions
+## 6. Opinions
 
 Overall, this is a strong, low-risk proposal. Adding a "Workspace members" list to the root `AGENTS.md` solves the discoverability problem for AI agents in a multi-project repository while strictly adhering to the "no prompts, no surprises" goal.
 
@@ -99,7 +99,7 @@ Regarding the open questions:
 - **Should large workspaces collapse the list?** No. Keep it fully linked. The mapping of namespaces to paths is the primary value. Stripping paths defeats the purpose, and 50 lines of Markdown is cheap in modern context windows.
 - **Does member-side `init` need a reciprocal change?** Yes. A one-line pointer to the workspace root (e.g., `Part of the workspace defined at ../../AGENTS.md`) is highly valuable for agents invoked directly inside a member project.
 
-### Codex opinion
+### 6.1. Codex opinion
 
 I support this proposal. It fits the shape of `init`: make the agent's starting
 context useful, but do not infer or configure workspace topology. Reading
@@ -158,7 +158,7 @@ On the open questions where the takes diverge:
   is the missing discovery direction; member → root is already discoverable
   by climbing `..` and is a separate decision worth its own scope.
 
-## Conclusion
+## 7. Conclusion
 
 The proposal is accepted. Adopt it as drafted, with the following
 resolutions of the open questions and refinements on top.

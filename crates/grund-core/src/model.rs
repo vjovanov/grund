@@ -235,6 +235,11 @@ pub struct Findings {
     /// to a stale declaration context, then the body-span post-pass proved the
     /// declaration does not own (§FS-check.3.23).
     pub section_headings_outside_declarations: Vec<SectionHeadingOutsideDeclaration>,
+    /// Markdown ATX headings owned by declaration bodies but carrying neither a
+    /// declaration ID nor a section coordinate (§FS-check.4.14,
+    /// §AR-scanner.2.2). The scanner assigns the owner and a collision-free
+    /// suggested coordinate before any checker consumes this list.
+    pub unmarked_headings: Vec<UnmarkedHeading>,
     legacy_citation_candidates: Vec<LegacyCitationCandidate>,
     pub value_bindings: Vec<ValueBinding>,
     pub invalid_value_declarations: Vec<InvalidValueSite>,
@@ -265,25 +270,6 @@ pub struct Findings {
     /// not a declaration, so the rule costs one regex on heading-shaped lines
     /// rather than a second read of the tree.
     pub near_miss_headings: Vec<NearMissHeading>,
-}
-
-/// One section-like heading rejected from a declaration's shared coordinate
-/// maps because it lies beyond that declaration's body (§FS-show.2.1.2).
-pub struct SectionHeadingOutsideDeclaration {
-    pub file: PathBuf,
-    pub line: usize,
-    pub path: String,
-}
-
-/// One heading that opens with a configured kind and the literal an ID puts
-/// after it, without parsing as an ID (§FS-check.4.6). `text` is the token as
-/// written, so the finding can quote it back beside `format`, the candidate
-/// kind's effective template that it missed.
-pub struct NearMissHeading {
-    pub file: PathBuf,
-    pub line: usize,
-    pub text: String,
-    pub format: String,
 }
 
 /// ID-query slice mode (§FS-show.1): each rung adds to the previous one —

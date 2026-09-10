@@ -1,6 +1,6 @@
 # DISC-conversation-rendering-layers: Layered ownership of local-conversation citation rendering
 
-## Status
+## 6. Status
 
 Concluded on 2026-07-21. Accepted as [§DF-repo-conversation-opinion](../../decisions/functional/DF-repo-conversation-opinion.md#df-repo-conversation-opinion-repositories-may-commit-a-link-only-conversation-rendering-opinion) and drafted into the specs
 listed under "Spec changes this drafts into" below.
@@ -12,7 +12,7 @@ layer reaches which agent and environment. A preference-only design — deleting
 — was considered and rejected there: it permanently orphans every reader whose only channel is
 the committed entrypoint.
 
-## Context
+## 7. Context
 
 [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions) installs the local-conversation rendering preference (`plain` | `link`)
 exclusively into *global* agent instruction files (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, …),
@@ -32,7 +32,7 @@ Two frictions with the global-only design surfaced in practice:
 A third idea — appending the guidance to a repo-local file excluded from version control — was
 researched and turns out to be portable to exactly one agent (§4).
 
-## Proposal
+## 8. Proposal
 
 Split conversation-rendering guidance across two layers with a defined precedence, mirroring the
 web-rule ownership split that already exists ([§FS-init.2.3.4.17](../../functional-spec/FS-init.md#23417-clickable-citations), [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions)).
@@ -170,7 +170,7 @@ the repository layer serves every reader but knows nothing about any machine. Th
 preference-only was rejected: it deletes the only row-4 and row-5 channel, and those readers
 cannot be reached any other way.
 
-## Spec changes this drafts into (if accepted)
+## 9. Spec changes this drafts into (if accepted)
 
 - New DF (`DF-repo-conversation-opinion`, name TBD): repositories may commit a `link`-only
   conversation-rendering opinion; records the graceful-degradation asymmetry, the precedence
@@ -185,7 +185,7 @@ cannot be reached any other way.
 - E2E cases: entrypoint render with/without the key; global block upgrade to the new text;
   precedence text presence; non-grund-repo inertness is textual and needs no case.
 
-## Open questions
+## 10. Open questions
 
 - Key placement: `[reference] conversation` (adjacent to marker configuration) versus a dedicated
   `[rendering]` table. `[reference]` is proposed because a second rendering key is not foreseen;

@@ -1,6 +1,6 @@
 # DF-neural-link-generation: agents compose clickable citation links themselves; grund does not grow a `link` command
 
-## Decision
+## 1. Decision
 
 Clickable citation rendering for ephemeral, user-facing text — agent TUI messages, PR
 descriptions, issue and ticket bodies, review comments — is the **writing agent's job**,
@@ -15,7 +15,7 @@ clickable locally.
 repository Markdown. This repository is the convention's testbed; the experiment that decided
 this is recorded below.
 
-## Why
+## 2. Why
 
 1. **Tool calls are the wrong cost model for prose.** A command invocation per citation is a
    round trip plus output tokens for pure presentation, against [§GOAL-token-economy](../../goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file). The
@@ -41,7 +41,7 @@ this is recorded below.
    heading inside every linked citation also spends output tokens on a secondary presentation hint.
    That tradeoff fails [§GOAL-token-economy](../../goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file), so agents emit no link title.
 
-## The experiment
+## 3. The experiment
 
 [§FS-fmt.6](../../functional-spec/FS-fmt.md#6-cross-reference-emission) already makes citations clickable in *rendered repository Markdown* by rewriting
 `.md` files ([§DISC-link-support](../../discussions/proposals/2026-05-09-link-support.md#disc-link-support-link-support-as-a-derived-presentation-layer) resolved that layer). This experiment covered the other
@@ -59,7 +59,7 @@ stay exactly the citation. Approaches considered:
    HTML `title` attribute, then **rejected**: it adds heading-sized output to every citation for a
    limited native tooltip rather than a rich, portable declaration preview.
 
-## Test matrix
+## 4. Test matrix
 
 Target forms: **rel** = repo-relative path, **abs** = absolute path, **file** = `file://` URL,
 **web** = repository blob URL, **editor** = `vscodium://file/<abs>:<line>`.
@@ -83,7 +83,7 @@ Target forms: **rel** = repo-relative path, **abs** = absolute path, **file** = 
 | 15 | Codex TUI (assistant message) | Markdown link | file / editor / web | label stays the citation, destination hidden behind it | **the destination is never hidden** (observed 2026-08-11, the same three-target probe that produced rows 12–14): a `file:` target is surfaced as a cwd-relative `path:line` *in place of the label*, erasing the citation; `vscodium:` and `https:` keep the label and append the full URL in parentheses. Only the `https:` line is clickable, confirming row 3's OSC-8-for-web rule by observation rather than source-read. The general finding is the new part — **no target hides its destination behind the citation here** — so the property the link form exists to provide is unavailable on this surface, and an editor scheme buys a long inline URL with no click at all. `web` remains Codex's one natively clickable form (label plus visible URL); everything else is strictly worse than plain `path:line` (row 11), which is what the [§DF-conversation-link-target.2.4](DF-conversation-link-target.md#24-the-form-is-gated-per-agent-and-the-fallback-is-path) gate falls back to. No Codex configuration changes this: `desktop.custom_file_handlers` only selects the "Open in" target for files Codex already recognizes, and nothing exposed there enables arbitrary local Markdown links — so this row is a property of the surface, not a setup gap to be closed later |
 | 16 | Pi TUI (assistant message) | Markdown link | file / editor / web | label stays the citation, destination hidden behind it | **depends on the terminal, not on Pi** (observed 2026-08-11). `pi-tui`'s Markdown renderer emits OSC 8 — hiding the URL behind the label — only when `detectCapabilities()` positively identifies a hyperlink-capable terminal, and otherwise falls back to printing `text (url)`. In the fallback all three labels survive and clicks come from the *terminal's own URL matcher*, so `file:` and `https:` work and no editor scheme does. With OSC 8 enabled, **all three work, `vscodium:` included** — the terminal hands the URI to the desktop handler and the scheme stops mattering. Measured in Ptyxis (VTE 0.78), which supports OSC 8 but sets no `TERM_PROGRAM`, so `detectCapabilities()` had no branch to match it and took the conservative default; adding one flipped the same session from fallback to OSC 8. `file` is therefore the one target that clicks under **both** outcomes, and an editor scheme is a bet on the reader's terminal |
 
-## Recipe
+## 5. Recipe
 
 The long form behind the two-sentence `AGENTS.md` instruction:
 
@@ -110,7 +110,7 @@ The long form behind the two-sentence `AGENTS.md` instruction:
 - **Fallback ladder**: heading text not at hand → file link with no fragment; path uncertain
   or ID unresolved → the plain `§<ID>` citation. Never a guessed fragment.
 
-## Consequences
+## 6. Consequences
 
 - Anchor fidelity is on the agent; the visible text can stay exactly the citation on every
   surface, so it remains greppable and `grund check`-able wherever it is quoted back.

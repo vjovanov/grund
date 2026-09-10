@@ -20,6 +20,7 @@ include!("id_grammar_rules.rs");
 include!("shorthand.rs");
 include!("shorthand_fmt_targets.rs");
 include!("model.rs");
+include!("model_headings.rs");
 include!("config_kind_model.rs");
 include!("model_e2e.rs");
 include!("values.rs");

@@ -1,6 +1,6 @@
 # DISC-id-less-kinds: Kinds that declare no IDs
 
-## Status
+## 1. Status
 
 **Closed — decided in [§DF-non-citable-kinds](../../decisions/functional/DF-non-citable-kinds.md#df-non-citable-kinds-a-kind-may-declare-no-ids-and-stays-one-kinds-table-when-it-does)**, shipped as
 [§FS-config.3.4.1](../../functional-spec/FS-config.md#341-citable--kinds-that-declare-no-ids). Raised 2026-08-25 while trying to give this repository's
@@ -40,7 +40,7 @@ evidence of how the outcome was reached. What shipped instead:
 - **The default `[[kinds]]` table dropped `E2E`** for non-citable `e2e` and
   `integration`, which this text did not propose at all.
 
-## Context
+## 2. Context
 
 Some directories hold agent-facing content rather than specification: skills,
 prompt libraries, runbooks, templates. An agent has to be told they exist and
@@ -71,7 +71,7 @@ surface — `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, and eve
 workspace member ([§FS-init.2.3](../../functional-spec/FS-init.md#23-generated-agent-entrypoints), [§REQ-agents-md](../../requirements/REQ-agents-md.md#req-agents-md-the-agent-entrypoint-stays-managed-and-grounded)). Prose outside the block reaches
 `AGENTS.md` alone.
 
-## What a `[[kinds]]` entry does today
+## 3. What a `[[kinds]]` entry does today
 
 One entry feeds six consumers:
 
@@ -90,7 +90,7 @@ pure ID vocabulary: the scanner locates the e2e case root with
 `find(|kind| kind.prefix == "E2E")` (`scanner_walk.rs:128`, `scanner.rs:1447`),
 and `init.rs:571` / `model.rs:543` special-case `"FS"`.
 
-## `code` is already an ID-less kind
+## 4. `code` is already an ID-less kind
 
 grund already has a kind with no IDs, and it is `code`. It has a name; no
 declarations; its own `[citations.code]` table ([§FS-config.3.9](../../functional-spec/FS-config.md#39-citations--citation-direction-rules)); a rendered
@@ -115,7 +115,7 @@ That answers *"how would we say what it needs to cite?"* — `[citations.*]` key
 on a **name**, not on an ID prefix. The two coincide for ordinary kinds, which
 is what made them look like one thing.
 
-## Proposal
+## 5. Proposal
 
 Admit a third row to a family that already has two.
 
@@ -147,7 +147,7 @@ the existing "every `[[kinds]]` entry must declare a `prefix`" error
 caught rather than silently producing an ID-less kind whose every `§`-citation
 then dangles.
 
-### `code` becomes an entry
+### 5.1. `code` becomes an entry
 
 `code` is the same species and belongs in the same table. It is homeless *by
 construction*, not by omission — `scanner.rs:518` defines it as the fallback
@@ -180,7 +180,7 @@ its parenthetical — *"(inline / configured by convention)"* — is wrong for
 `code`. The directions section already phrases it well, *any file outside a kind
 home*, and that plus a default title is what the row needs.
 
-### The field is a kind, not a prefix
+### 5.2. The field is a kind, not a prefix
 
 Once `code` is an entry the field holds `"code"`, which never prefixes anything
 — [§FS-config.3.9.2](../../functional-spec/FS-config.md#392-the-homeless-kind) already calls it a *pseudo-kind*. `prefix` is accurate for
@@ -226,7 +226,7 @@ own — but landed in the same release if at all: the block already goes to v8 a
 [§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-kinds) is being rewritten, so a later rename costs a second
 disruption.
 
-## Worked example
+## 6. Worked example
 
 This repository's `grund.toml` under the proposal — the tail of the `[[kinds]]`
 table and the tables it touches. The three additions are marked `# NEW`;
@@ -304,7 +304,7 @@ E2E, RM, DISC}` — because `ids = false` keeps both new entries out of
 `{KINDS_SET}` exactly as `code` is kept out today. Under the rename, only the
 two new entries read differently: `kind = "SKILL"` and `kind = "code"`.
 
-## What the example exposes: obligations have no unit
+## 7. What the example exposes: obligations have no unit
 
 `[citations.SKILL] should = ["FS"]` above is **inert as written**, and that is
 the sharpest thing the worked example surfaces.
@@ -340,7 +340,7 @@ it is not a literal copy; two decisions come with it:
 
 This is implementation work the proposal requires, not an optional extra.
 
-## Rejected: a second table
+## 8. Rejected: a second table
 
 The alternative was to leave `[[kinds]]` alone and add `[[areas]]` / `[[map]]`:
 `path` + `title`, no prefix, no ID grammar. It was rejected once the citation
@@ -391,7 +391,7 @@ silence** — an area quietly absent from a feature nobody thought to extend. A
 `bool` / `Option` on an existing struct forces a decision at every use site; a
 second `Vec` field forces nothing, forever.
 
-## Consequences
+## 9. Consequences
 
 **Adopting an entry moves citations from `code` to its name.** A repo's existing
 `[citations.code]` rules stop applying inside the new home. It is a verdict
@@ -416,7 +416,7 @@ means landing both changes in the *same* bump: one v8, not a v8 and a v9.
 [§FS-config.5](../../functional-spec/FS-config.md#5-schema-versioning) classifies as additive; an older binary meeting it fails loudly
 through the closed key allow-list (`config.rs:357`).
 
-## Open questions
+## 10. Open questions
 
 1. **Key spelling of the opt-out.** `ids = false` versus `declares = false` /
    `citable = false`.
@@ -444,7 +444,7 @@ through the closed key allow-list (`config.rs:357`).
    does in the directions section. Forced, or is explicit placement in
    `[[kinds]]` honoured?
 
-## Spec changes this drafts into (if accepted)
+## 11. Spec changes this drafts into (if accepted)
 
 - [§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-kinds) — the `ids` key, the ID-less shape, the reserved `code` entry,
   and the outcome of the collision-rule question.

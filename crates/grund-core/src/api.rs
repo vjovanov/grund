@@ -722,6 +722,17 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
                     }
                 }),
         );
+        // §FS-check.4.14 / §FS-lsp.1.1: warnings select the complete authored
+        // ATX heading without promoting it into the navigation catalog.
+        finding_ranges.extend(project.findings.unmarked_headings.iter().map(|heading| {
+            LspFindingRange {
+                code: "unmarked-heading",
+                path: absolutize_path(&heading.file),
+                line: heading.line,
+                column: heading.column,
+                text: heading.heading.clone(),
+            }
+        }));
         for (id, decls) in &project.findings.declarations {
             let rendered = render_id(&project.config, id);
             let query_id = lsp_query_id(&context, project, &rendered, None);
