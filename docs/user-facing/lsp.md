@@ -60,6 +60,8 @@ A first-party VSCode extension is intentionally not shipped ([§FS-non-goals](..
 
 ## IntelliJ family
 
+The published `grund-lsp` 0.13.1 does not include the `integrations` subcommand;
+until the next release, use the source-install command documented above.
 Install LSP4IJ, then generate an importable template from the project root. The
 generator discovers that project's `grund.toml`, snapshots its effective
 `[scan].extensions`, and records the absolute path of the installed server

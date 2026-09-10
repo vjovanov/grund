@@ -412,6 +412,9 @@ The server speaks LSP over stdio and has no daemon or socket. For IntelliJ
 family IDEs, `grund-lsp integrations lsp4ij --write <directory>` generates the
 LSP4IJ import template carried by the installed binary
 ([§FS-lsp.2.4](docs/functional-spec/FS-lsp.md#24-installed-editor-integrations)).
+The `integrations` subcommand is not included in published `grund-lsp` 0.13.1;
+until the next release, install the workspace crate from source as described in
+the [LSP setup guide](docs/user-facing/lsp.md).
 The [setup guide](docs/user-facing/lsp.md) has the complete import and
 verification flow plus snippets for VSCode, Vim/Neovim, Emacs, Helix, Zed, and
 Sublime Text. Put reusable client config in your editor's **user (global)
