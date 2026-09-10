@@ -1,1 +1,4 @@
+docs/architecture/AR-001-core.md:3: numbered section outside any declaration
+docs/architecture/AR-001-core.md:7: numbered section outside any declaration
 src/core.rs:5: duplicate section AR-001-core.1 (also declared at src/core.rs:9)
+src/core.rs:14: numbered section outside any declaration

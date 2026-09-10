@@ -108,10 +108,24 @@ mod tests_section_body_scope {
         let findings = scan_findings(&config, &root);
         let report = check_findings(&findings, &config);
 
+        assert_eq!(error_codes(&report), ["section-outside-declaration@8"]);
         assert_eq!(
-            error_codes(&report),
-            Vec::<String>::new(),
-            "line 8 is outside the declaration's body, so it collides with nothing"
+            located_diagnostics(
+                &config,
+                report
+                    .errors
+                    .iter()
+                    .filter(|finding| finding.code == "section-outside-declaration")
+            ),
+            ["src/core.rs:8: numbered section outside any declaration"],
+            "line 8 is outside the declaration's body and reported once"
+        );
+        assert!(
+            report
+                .errors
+                .iter()
+                .all(|finding| finding.code != "duplicate-section"),
+            "an outside heading is not also a duplicate"
         );
         assert!(
             findings.declarations[&core()][0]
@@ -191,9 +205,31 @@ mod tests_section_body_scope {
 
         assert_eq!(
             error_codes(&report),
-            Vec::<String>::new(),
-            "a stub declares no sections, so it collides with nothing"
+            [
+                "section-outside-declaration@3",
+                "section-outside-declaration@7",
+            ]
         );
+        assert_eq!(
+            located_diagnostics(
+                &config,
+                report
+                    .errors
+                    .iter()
+                    .filter(|finding| finding.code == "section-outside-declaration")
+            ),
+            [
+                "docs/architecture/AR-001-core.md:3: numbered section outside any declaration",
+                "docs/architecture/AR-001-core.md:7: numbered section outside any declaration",
+            ],
+            "a stub's prose headings are outside findings, not coordinates"
+        );
+        let stub = findings.declarations[&core()]
+            .iter()
+            .find(|declaration| declaration.file.ends_with("docs/architecture/AR-001-core.md"))
+            .expect("stub declaration");
+        assert!(stub.sections.is_empty());
+        assert!(stub.duplicate_sections.is_empty());
         let shown = show_declaration(
             &config,
             &config,

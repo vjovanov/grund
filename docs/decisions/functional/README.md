@@ -40,7 +40,7 @@ The rules that make this file, and the ones beside it, checked rather than hoped
 
 ## What `check` reports, and how loudly
 
-- [§DF-check-full-scope](DF-check-full-scope.md#df-check-full-scope-check---full-walks-past-scan-include-and-reports-only-unresolvable-references-out-there) — `check --full` walks past `[scan] include` and reports only unresolvable references out there
+- [§DF-check-full-scope](DF-check-full-scope.md#df-check-full-scope-check---full-walks-past-scan-include-and-reports-unresolved-references-plus-orphaned-section-headings-out-there) — `check --full` walks past `[scan] include` and reports unresolved references plus orphaned section headings out there
 - [§DF-require-grounding](DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec) — an opt-in check that every source file cites a spec
 - [§DF-nothing-recognized](DF-nothing-recognized.md#df-nothing-recognized-a-run-that-recognized-nothing-says-so-and-says-it-as-a-warning) — a run that recognized nothing says so, and says it as a warning
 - [§DF-duplicate-section-path](DF-duplicate-section-path.md#df-duplicate-section-path-a-section-coordinate-names-one-heading-or-the-run-says-so) — a section coordinate names one heading, or the run says so
