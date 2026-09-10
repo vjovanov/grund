@@ -80,7 +80,7 @@ Fields:
 {"id":"FS-001-alpha","section":null,"body":"# FS-001-alpha: Alpha\n\nAlpha overview.\n","path":"docs/functional-spec/FS-001-alpha.md","line":1}
 ```
 
-For an E2E case, `show --format=json` uses the E2E manifest shape from [§FS-show.2.4](FS-show.md#24-e2e-cases):
+For an E2E case, `show --format=json` uses the E2E manifest shape from [§FS-show.2.4](FS-show.md#24-e2e-cases). `path` is the case directory under the configured `E2E` home; `e2e/cases/<name>` is the example produced by the conventional configuration that selects that folder.
 
 ```json
 {"id":"E2E-login","kind":"E2E","path":"e2e/cases/login","args":[],"expected_exit":0,"fixtures":["expected.exit","expected.stdout","repo/docs/functional-spec/FS-001-login.md"]}
