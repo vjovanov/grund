@@ -300,11 +300,11 @@ five levels use two rule classes and two enforcement surfaces, as specified by
 
 | Level | Rule class | Checked per | Surface |
 | --- | --- | --- | --- |
-| `must` | obligation | declaration | `grund check` error |
+| `must` | obligation | declaration | `grund check` error, and the generated entrypoint |
 | `should` | obligation | declaration | `--suggestions` and the generated entrypoint |
 | `may` | permission | — | never checked |
 | `should-not` | prohibition | citation site | `--suggestions` and the generated entrypoint |
-| `must-not` | prohibition | citation site | `grund check` error |
+| `must-not` | prohibition | citation site | `grund check` error, and the generated entrypoint |
 
 The grammar is: entries in one array are all required, while `|` inside one
 entry means any one of its alternatives. Therefore `must = ["FS|GOAL"]`

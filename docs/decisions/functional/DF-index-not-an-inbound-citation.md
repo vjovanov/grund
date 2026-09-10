@@ -37,4 +37,4 @@ It is documented as the count of recognized citations across the scanned tree ([
 
 ## 4. Consequences
 
-Two `DISC` proposals in this repository stopped being cited the moment the exclusion landed — `DISC-external-ticket-resolvers` and `DISC-markup-format-declarations`. `DISC-markup-format-declarations` was given a real citation from the spec point it bears on, while `DISC-external-ticket-resolvers` was answered by the proposal that replaced it; neither was left as a warning. That is the signal working on its first run.
+Two `DISC` proposals in this repository stopped being cited the moment the exclusion landed — `DISC-external-ticket-resolvers` and `DISC-markup-format-declarations`. `DISC-markup-format-declarations` was given a real citation from [§FS-config.3.5](../../functional-spec/FS-config.md#35-scan--what-gets-walked) while `DISC-external-ticket-resolvers` was answered by the proposal that replaced it; neither was left as a warning. That is the signal working on its first run.
