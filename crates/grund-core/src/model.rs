@@ -272,7 +272,7 @@ pub struct Findings {
 pub struct SectionHeadingOutsideDeclaration {
     pub file: PathBuf,
     pub line: usize,
-    pub named: bool,
+    pub path: String,
 }
 
 /// One heading that opens with a configured kind and the literal an ID puts

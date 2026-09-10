@@ -173,10 +173,10 @@ fn section_outside_declaration_diagnostic(
         path: Some(heading.file.clone()),
         line: Some(heading.line),
         column: None,
-        message: if heading.named {
-            "named section outside any declaration"
-        } else {
+        message: if section_path_is_numeric(&heading.path) {
             "numbered section outside any declaration"
+        } else {
+            "named section outside any declaration"
         }
         .to_string(),
         sites: Vec::new(),

@@ -16,7 +16,7 @@ fn retain_in_body_sections(findings: &mut Findings) {
                 rejected.push(SectionHeadingOutsideDeclaration {
                     file: decl.file.clone(),
                     line: info.line,
-                    named: !section_path_is_numeric(path),
+                    path: path.clone(),
                 });
             }
             retained
@@ -27,7 +27,7 @@ fn retain_in_body_sections(findings: &mut Findings) {
                 rejected.push(SectionHeadingOutsideDeclaration {
                     file: decl.file.clone(),
                     line: info.line,
-                    named: !section_path_is_numeric(path),
+                    path: path.clone(),
                 });
             }
             retained

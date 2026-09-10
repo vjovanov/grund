@@ -587,6 +587,9 @@ pub struct LspSnapshot {
     /// citations (§FS-lsp.1.3.1). Kept separate from `declarations` so the
     /// whole-ID home set stays the bare-ID declarations.
     pub sections: Vec<LspDeclaration>,
+    /// Exact title spans for located findings that must not become editor
+    /// navigation targets (§FS-lsp.1.1, §FS-check.3.23).
+    pub finding_ranges: Vec<LspFindingRange>,
     pub stubs: Vec<LspStub>,
     pub citations: Vec<LspCitation>,
     /// Every file this snapshot's scan read, absolutized the same way token
@@ -609,6 +612,15 @@ pub struct LspDeclaration {
     pub text: String,
     pub query_id: String,
     pub section_separator: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspFindingRange {
+    pub code: &'static str,
+    pub path: PathBuf,
+    pub line: usize,
+    pub column: usize,
+    pub text: String,
 }
 
 /// LSP token for an inline-spec stub title whose definition follows to the
@@ -669,6 +681,7 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
     );
     let mut declarations = Vec::new();
     let mut sections = Vec::new();
+    let mut finding_ranges = Vec::new();
     let mut stubs = Vec::new();
     let mut citations = Vec::new();
     let mut scanned_files = BTreeSet::new();
@@ -687,6 +700,27 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
                 .scan_errors
                 .iter()
                 .map(|(file, message)| api_scan_error(&project.config, file, message)),
+        );
+        finding_ranges.extend(
+            project
+                .findings
+                .section_headings_outside_declarations
+                .iter()
+                .map(|heading| {
+                    let (column, text) = heading_span_parts(
+                        &heading.file,
+                        heading.line,
+                        &heading.path,
+                        &overlays,
+                    );
+                    LspFindingRange {
+                        code: "section-outside-declaration",
+                        path: absolutize_path(&heading.file),
+                        line: heading.line,
+                        column,
+                        text,
+                    }
+                }),
         );
         for (id, decls) in &project.findings.declarations {
             let rendered = render_id(&project.config, id);
@@ -818,6 +852,14 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
     };
     declarations.sort_by(declaration_sort);
     sections.sort_by(declaration_sort);
+    finding_ranges.sort_by(|a, b| {
+        (sort_path_key(&a.path), a.line, a.column, &a.text).cmp(&(
+            sort_path_key(&b.path),
+            b.line,
+            b.column,
+            &b.text,
+        ))
+    });
     stubs.sort_by(|a, b| {
         (sort_path_key(&a.path), a.line, a.column, &a.text).cmp(&(
             sort_path_key(&b.path),
@@ -843,6 +885,7 @@ pub fn lsp_snapshot(opts: LspSnapshotOpts) -> Result<LspSnapshot> {
         report,
         declarations,
         sections,
+        finding_ranges,
         stubs,
         citations,
         scanned_files,
