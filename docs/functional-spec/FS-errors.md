@@ -231,6 +231,7 @@ out-of-scope-unknown-project
 oversized-lead
 redundant-config
 section-heading-level
+section-outside-declaration
 shorthand-citation
 shorthand-numeric-run
 suggested-citation

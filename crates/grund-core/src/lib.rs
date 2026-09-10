@@ -134,6 +134,7 @@ include!("tests_nothing_recognized.rs");
 include!("tests_declaration_near_miss.rs");
 include!("tests_duplicate_sections.rs");
 include!("tests_section_body_scope.rs");
+include!("tests_section_outside_declaration.rs");
 include!("tests_comment_block.rs");
 include!("tests_comment_block_position.rs");
 include!("tests_grounding_style.rs");

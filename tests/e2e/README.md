@@ -50,6 +50,10 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
 - dangling Markdown citation
 - missing Markdown section
 - duplicate Markdown declaration
+- declaration-local section coordinates: `show` rejects a numeric heading after
+  a body-closing plain chapter, while `check` reports that orphan once in text
+  and JSON under `section-outside-declaration`; `--only` retains it and
+  `--ignore` removes it without leaving a stale duplicate behind
 - two headings claiming one dotted section path: `check` naming both lines, `show` refusing the coordinate rather than merging the two bodies, and `--toc` over the whole declaration still mapping both while `--toc` on the ambiguous coordinate itself refuses
 - the same two headings written inside a fenced Markdown example: `check` silent and `show` returning the section whole, fence included — the shape every document in this repository is made of
 - the ambiguous-section refusal in JSON, under its own `ambiguous-section` code rather than the ambiguous-ID `ambiguous`

@@ -70,6 +70,18 @@ If the declaration has no lead prose (opens directly with `## 1. ...`), `--brief
 
 `grund --toc FS-check` prints the default lead (§2.1), then a blank line, then every citable section heading in the declaration body, one per line, in document order, each at the depth and in the complete form it was written (`## 1. Inputs`, `## goals: Goals`, `### goals.performance: Performance`, …). No section bodies. The heading lines are emitted verbatim — the same bytes `--full` would show for those lines — so the coordinate the reader needs is right there to feed back into `grund FS-check.<path>`. No generated summary, ever: `--toc` is a structural slice, as deterministic as the default ([§FS-errors.4](FS-errors.md#4-determinism)). A whole-declaration TOC still lists every claimant of a duplicate named coordinate; selecting that coordinate refuses as ambiguous.
 
+A coordinate enters the section map only when its heading lies inside that
+declaration's existing body span. The span, not the most recently scanned
+declaration, owns the coordinate: a same-or-higher Markdown heading, the end of
+an inline source doc-comment or docstring, the next declaration in a shared
+comment block, and a stub's single declaration line each end ownership. A
+deeper numeric or enabled named heading before that boundary remains a section;
+one after it is absent from the map and is reported by
+[§FS-check.3.23](FS-check.md#323-section-outside-a-declaration). Fenced Markdown
+pseudo-headings remain content under §2.5. This boundary does not make an
+otherwise legal plain heading inside a body an error; that separate policy is
+outside this contract.
+
 If the lead is empty (`## 1.` or `## goals:` opens the body), the leading blank line is omitted — the output is the section map only. If the body has no citable headings (a short declaration that is all lead prose, an E2E manifest), `--toc` prints the default and nothing else. If both are empty, `--toc` prints **nothing** and exits `0`.
 
 `grund --toc FS-check.3.1` restricts the map to headings **nested under** the selected section: it prints `### 3.1`'s lead, then a blank line, then `#### 3.1.1 …`, `#### 3.1.2 …`, and so on, stopping at the next sibling-or-shallower heading. A selected section with no nested headings is just its lead — i.e. behaves like the default. A section that does not exist is still a `section not found` error.
@@ -90,6 +102,16 @@ If the lead is empty (`## 1.` or `## goals:` opens the body), the leading blank 
 - `--full`: section heading + full body (everything down to the next sibling-or-shallower heading; nested deeper headings included).
 
 The selected section heading is printed verbatim in all four modes — `text` strips only the whole-declaration H1, not section headings (§3.1). For `--brief`, the section heading is the slice's self-label. Named paths, including `name.number`, compose with default, brief, TOC, full, and `--section` exactly as numeric paths do. Arbitrary nesting depth is supported per [§FS-config.3.3](FS-config.md#33-section-paths--arbitrary-nesting-depth).
+
+Every coordinate-bearing surface reads this same body-local map: direct and
+batch `show`, exhaustive batch generation, citation and value resolution,
+`refs`, completion, list/size output, duplicate detection, and LSP navigation,
+references, highlights, and hover counts. A heading rejected by §2.1.2 can
+therefore neither resolve nor be suggested, listed, measured, navigated to,
+validated as an embedded-value root, or treated as a duplicate claimant. A
+query for its coordinate has the ordinary `section not found` result and hint
+from §3, emits none of the outside heading's body, and never substitutes the
+located `check` finding for query semantics.
 
 #### 2.2.1 Ambiguous ID
 
