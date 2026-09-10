@@ -23,9 +23,14 @@ needs an ID to point at. A non-citable kind may cite and is labelled by its
 home, such as `skills/`; the homeless kind covers any file outside a configured
 kind home and renders last.
 
-An obligation on a citable kind that declares no IDs has no unit and never
-fires. A directory without declarations is `citable = false`, not a citable
-kind with an empty rule; this is the no-unit trap described by
+An obligation on a citable kind that declares no IDs has no unit: no
+per-declaration unit fires. If a `must` or `should` obligation is configured,
+the kind's folder is walked, and at least one non-entry file is successfully
+scanned, `grund check` emits the non-fatal run-level
+`empty-citation-obligation` warning ([§FS-check.2.2.1](../functional-spec/FS-check.md#221-citation-direction-obligation-applies-to-nothing)).
+A directory without declarations is usually `citable = false`, not a citable
+kind with an empty rule; make that setting when the directory is a place rather
+than an ID namespace. This is the no-unit trap described by
 [the non-citable-kinds decision](https://github.com/vjovanov/grund/blob/main/docs/decisions/functional/DF-non-citable-kinds.md#25-obligations-get-a-per-file-unit-and-grounding-follows-the-home).
 
 The config and the generated section below are the same example. The TOML is

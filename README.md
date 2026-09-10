@@ -118,7 +118,7 @@ docs/decisions/functional/DF-require-grounding.md:8: missing section FS-check.3.
 docs/requirements/REQ-no-wrong-citation.md:7: missing section FS-check.3.2
 ```
 
-`grund <path>` scans `<path>`; with no path it scans the canonical layout (`requirements.md`, `docs/`, `e2e/`, `src/`). In the scanned tree it enforces:
+`grund check <path>` scans `<path>`; with no path it scans the canonical layout (`requirements.md`, `docs/`, `e2e/`, `src/`). In the scanned tree it enforces:
 
 1. Every cited ID resolves to a declaration. *(dangling references)*
 2. Every section coordinate (`.3.1`) resolves to a heading inside the declaration. *(missing sections)*
@@ -298,7 +298,7 @@ detailed walkthrough for canonical user workflows
 
 | Scheme                                     | Example             | Benefit                                                                                                          | Trade-off                                                                |
 |--------------------------------------------|---------------------|------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| `{kind}-{number}-{slug}` *(default)*       | `FS-014-user-login` | Number is the stable identifier; slug is descriptive and can be **renamed freely** without breaking citations.   | Two tokens to type; needs `grund id` to allocate the next number.        |
+| `{kind}-{number}-{slug}` *(default)*       | `FS-014-user-login` | Number is stable; a number-only shorthand survives a slug change, while full-ID citations require deliberate updates (and canonical shorthand is reported for rewriting). | Two tokens to type; needs `grund id` to allocate the next number.        |
 | `{kind}-{number}` (RFC-style)              | `FS-014`            | Maximally stable — no slug to drift. Familiar from RFCs/PEPs/JEPs/ADRs.                                          | Opaque at the call site: `§FS-014` tells you nothing without resolving it. |
 | `{kind}-{slug}` *(`grund` itself uses this)* | `FS-user-login`     | Self-describing — reads like English in prose and code. No number to allocate.                                   | Renaming a slug rewrites every citation. Slug must be unique per kind.   |
 

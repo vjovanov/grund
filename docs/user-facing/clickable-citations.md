@@ -17,11 +17,12 @@ Three commands, if the three checks below already pass:
 
 ```bash
 grund integrations                  # what applies in this environment
-grund integrations kitty            # read the snippet and the resolver first
-grund integrations kitty --write    # install it
+grund integrations <client>         # read the snippet and the resolver first
+grund integrations <client> --write # install it
 ```
 
 Supported clients: `codium`, `iterm2`, `kitty`, `tmux`, `vscode`, `wezterm`.
+Replace `<client>` with one of the supported clients identified by the first command.
 Then reload the client and click:
 
 | Client | Reload with | Click with |
@@ -253,10 +254,11 @@ Peek is the terminal's answer to the same question.
 plain `path:line` cmd-clickable, line number included. So:
 
 ```bash
-grund integrations --write --conversation link
+grund integrations --write --conversation link --conversation-target path
 ```
 
-is enough on its own — agents then write the location beside each citation, and
+is enough on its own — agents then write the plain `path:line` location beside
+each citation, and
 iTerm2 makes it clickable with no rule installed. Set up the Smart Selection rule
 only if you want the bare `§<ID>` itself to be the clickable thing.
 
