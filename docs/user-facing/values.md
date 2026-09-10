@@ -14,12 +14,21 @@ Add `values = true` to a citable `[[kinds]]` row that has exactly one existing
 kind = "CONST"
 folder = "values"
 index = false
+format = "{kind}-{slug}"
 values = true
 ```
+
+The per-kind `format` override ([§FS-config.3.4.10](../functional-spec/FS-config.md#3410-format-resolve-and-fetch--external-snapshot-kinds)) keeps these slug-only IDs valid.
 
 The key is absent and false by default. There is no `value_sources` key, flag,
 or new command. Repositories without an enabled row keep their previous reads,
 diagnostics, output, and exit status.
+
+An explicit `[[kinds]]` list replaces the implicit default kinds
+([§FS-config.3.4.4](../functional-spec/FS-config.md#344-the-default-kinds)). If the project
+has no kinds table yet, first copy the effective default rows from that section
+before adding `CONST`; otherwise existing declarations disappear from `list`
+and `check` remains green because those kinds no longer exist.
 
 ## Declare values in Markdown
 
@@ -77,6 +86,7 @@ Python docstrings. The source wrapper is outside the heading depth:
 # FS-python: Python defaults
 # ## 1. Retry limit <!-- grund:value -->
 # ### 1.1. 3
+# ## 2. Use
 # The configured default is `3` (§FS-python.1.1).
 ```
 

@@ -194,6 +194,7 @@ A citable kind can opt its numbered fields into exact value checking:
 kind = "CONST"
 folder = "values"
 index = false
+format = "{kind}-{slug}"
 values = true
 ```
 
@@ -204,10 +205,9 @@ values = true
 The offer uses `1200.0` (§CONST-field-price.1).
 ```
 
-The backticks, one space, parentheses, marker, and positive numeric field are
-intentional syntax. `grund check` accepts exact decimal equivalents such as
-`1200` and `1200.0`, and reports `value-mismatch` if the authored component
-drifts. A value can also live inside any ordinary scanned declaration without a
+The backticks, one space, parentheses, marker, and positive numeric field are intentional syntax. `grund check` accepts exact decimal
+equivalents such as `1200` and `1200.0`, and reports `value-mismatch` if the authored component drifts.
+A value can also live inside any ordinary scanned declaration without a
 kind opt-in: end its numeric section heading with the exact marker, then give it
 one contiguous level of numbered components ([§FS-values.2.4](docs/functional-spec/FS-values.md#24-embedded-section-value-roots)):
 
