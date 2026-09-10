@@ -320,4 +320,4 @@ A case directory is recognized as a declaration only if it contains an `expected
 
 The ordinary file walk treats each direct case directory as an E2E manifest boundary, not as repo content to scan. A root scan over `e2e/` or `e2e/cases/` still registers the case declaration through the E2E manifest pass, but it does not read the nested fixture repo under that case; an explicit path inside the fixture repo remains scannable.
 
-Citations of an `E2E` ID resolve like any other: an `E2E-<name>` cite from a spec ("proven by …") is a dangling-ref error ([§AR-checker.2.2](../../crates/grund-core/src/checker.rs)) when no `e2e/cases/<name>/` case directory exists.
+Citations of an `E2E` ID resolve like any other: an `E2E-<name>` cite from a spec ("proven by …") is a dangling-ref error ([§AR-checker.2.2](../../crates/grund-core/src/checker.rs)) when the case directory under the configured `E2E` home does not exist; `e2e/cases/<name>` is the example produced by the conventional configuration that selects that folder.

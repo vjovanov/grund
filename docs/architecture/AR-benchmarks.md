@@ -45,7 +45,7 @@ The millisecond budget itself is still backstopped by the cheap wall-clock guard
 ## 3. How it runs
 
 - Locally: `cargo bench -p grund --features bench --bench instructions` (requires `valgrind`, `python3`, and `iai-callgrind-runner` on `PATH`). With no prior run, iai-callgrind records the counts and exits clean; on a later run in the same `target/` it prints the delta against the previous run. Every fixture is regenerated on each harness run so cached `target/` contents cannot hide fixture-generator changes.
-- In CI: a dedicated `bench` job installs `valgrind` and `cargo install iai-callgrind-runner` (version-pinned to the `iai-callgrind` dev-dependency), then runs the harness — see [§AR-ci.5](AR-ci.md#5-benchmark-job). Pull requests first save a `main` baseline from the base branch, then rerun the PR with `--baseline=main --callgrind-limits=ir=5.0%`, so an instruction-count regression fails the build. Pushes to `main` record the current counts and save JSON summaries for inspection.
+- In CI: a dedicated `bench` job installs `valgrind` and `cargo install iai-callgrind-runner` (version-pinned to the `iai-callgrind` dev-dependency), then runs the harness — see [§AR-ci.5](AR-ci.md#5-benchmark-job). Pull requests first save a `main` baseline from the base branch, then rerun the PR; see [§AR-ci.5](AR-ci.md#5-benchmark-job) for the intended limits and their current wiring. Pushes to `main` record the current counts and save JSON summaries for inspection.
 
 ## 4. Relationship to the rest of the tree
 
