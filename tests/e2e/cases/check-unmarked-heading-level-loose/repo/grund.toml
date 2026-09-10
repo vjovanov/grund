@@ -1,0 +1,14 @@
+grund_config_version = 1
+
+[id]
+format = "{kind}-{slug}"
+section_heading_levels = "loose"
+
+[[kinds]]
+kind = "FS"
+folder = "docs"
+index = false
+
+[scan]
+include = ["docs"]
+extensions = ["md"]

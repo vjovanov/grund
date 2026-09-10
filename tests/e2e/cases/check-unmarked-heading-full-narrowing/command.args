@@ -1,0 +1,1 @@
+check --full --only unmarked-heading {repo}
