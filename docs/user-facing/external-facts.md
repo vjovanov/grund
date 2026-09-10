@@ -18,26 +18,34 @@ fetch = "scripts/fetch-ticket"
 ```
 
 The executable receives exactly one argument, the local ID, and prints one
-complete Markdown declaration to stdout:
+complete Markdown declaration to stdout. Save the following as `scripts/fetch-ticket`
+and run `chmod +x scripts/fetch-ticket` before the first fetch:
 
-```sh
+````sh
 #!/bin/sh
 title=$(gh issue view "${1#TICKET-}" --json title --jq .title) || exit
 body=$(gh issue view "${1#TICKET-}" --json body --jq .body) || exit
-printf '## %s: %s\n\n%s\n' "$1" "$title" "$body"
-```
+printf '## %s: %s\n\n```markdown\n%s\n```\n' "$1" "$title" "$body"
+````
 
-For a `file` home the declaration is H2; for a `folder` home it is H1. Grund
-validates the complete output before atomically replacing only that ID's
+For a `file` home the declaration is H2; for a `folder` home it is H1, and body
+subsections must be exactly one level deeper than that declaration. The example
+fences the provider body verbatim, so its own Markdown headings remain content
+but are not citable child headings; raw issue Markdown is not a declaration body.
+Grund validates the complete output before atomically replacing only that ID's
 snapshot. It preserves accepted bytes verbatim and inserts a new file-home
 declaration in ID order ([§FS-fetch.3](../functional-spec/FS-fetch.md#3-accepted-declaration),
 [§FS-fetch.4](../functional-spec/FS-fetch.md#4-file-home-write)).
 
 With `resolve = "must"`, a missing snapshot is the ordinary `dangling` error.
 With `resolve = "should"`, it is the fixed `missing-snapshot` warning and a
-warning-only check exits 0. Omitting `resolve` from a fetch-enabled kind means
-`must`; `resolve` without `fetch` and `resolve = "may"` are invalid. No check or
-editor action fetches implicitly ([§FS-check.4.12](../functional-spec/FS-check.md#412-missing-snapshot)).
+warning-only check exits 0. Choose `must` when CI should enforce that every
+external fact is materialized before merge; choose `should` when the repository
+may carry a citation ahead of its snapshot and should only report the gap. These
+mechanics are defined by [§FS-config.3.4.10](../functional-spec/FS-config.md#3410-format-resolve-and-fetch--external-snapshot-kinds).
+Omitting `resolve` from a fetch-enabled kind means `must`; `resolve` without
+`fetch` and `resolve = "may"` are invalid. No check or editor action fetches
+implicitly ([§FS-check.4.12](../functional-spec/FS-check.md#412-missing-snapshot)).
 
 In a workspace, qualify the ID to select the owning project:
 

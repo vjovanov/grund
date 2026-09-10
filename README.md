@@ -489,7 +489,7 @@ The grounding loop, distilled to one rule for an AI agent's system prompt:
 
 > When you see `§<ID>` or `§<ID>.<section>` in any file you are reading, run `grund <ID>[.<section>]` and treat the output as the authoritative definition. Do not paraphrase or guess — quote what `show` returned, or cite the ID and move on.
 
-That rule plus a clean `grund check` is the whole contract: every reference resolves, every agent fetches the same bytes for the same ID.
+That rule plus a clean `grund check` is the whole contract: every reference resolves, except that a missing `should` snapshot is reported as a non-blocking warning, and every agent fetches the same bytes for the same ID.
 
 ## Project layout
 
