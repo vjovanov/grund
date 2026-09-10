@@ -16,6 +16,7 @@ How a citation is written, and what counts as one.
 - [§DF-inline-note-layout](DF-inline-note-layout.md#df-inline-note-layout-inline-note-layout-is-a-configured-house-style-checked-per-line-and-never-normalized) — inline note layout is a configured house style, checked per line and never normalized
 - [§DF-note-columns-are-characters](DF-note-columns-are-characters.md#df-note-columns-are-characters-a-note-column-is-one-character-not-one-byte-and-not-one-display-cell) — a note column is one character, not one byte and not one display cell
 - [§DF-doc-comments-are-not-notes](DF-doc-comments-are-not-notes.md#df-doc-comments-are-not-notes-a-doc-comment-is-documentation-not-a-note-and-is-never-an-inline-citation-site) — a doc comment is documentation, not a note, and is never an inline citation site
+- [§DF-unmarked-markdown-headings](DF-unmarked-markdown-headings.md#df-unmarked-markdown-headings-in-body-markdown-atx-headings-participate-in-the-knowledge-graph) — in-body Markdown ATX headings participate in the knowledge graph
 
 ## Cross-reference links
 

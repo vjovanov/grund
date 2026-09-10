@@ -254,6 +254,16 @@
 /// This pass translates those sites into hard findings; no consumer can resolve
 /// them because checking happens after the shared maps have already been pruned.
 ///
+/// ### 2.20 Unmarked Markdown headings (§FS-check.4.14)
+///
+/// One pass translates the scanner's body-owned Markdown-only candidates into
+/// fixed warning findings. The scanner has already selected the nearest enclosing
+/// declaration, skipped fences and source doc-comments, and assigned each heading
+/// its deterministic unused coordinate suggestion; the checker formats that
+/// record and applies no config or heading-level-mode gate. Full-scope narrowing
+/// drops candidates outside configured scan scope before this pass. The ordinary
+/// report path supplies text, JSON, exact-code selection, and LSP parity.
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and

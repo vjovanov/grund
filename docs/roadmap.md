@@ -4,6 +4,36 @@ What `grund` plans to ship next, in priority order. Each item has a stable ID �
 
 The check engine, the retrieval surface (`grund <ID>`, `grund refs`, including E2E case manifests), the coverage index (`grund cover`), bulk normalization (`grund fmt`, including `--marker` and `--cross-refs`), config loading (`grund.toml` plus `grund config show` / `grund config validate`), `grund init`, `grund id`, the opt-in grounding floor ([§FS-check.3.6](functional-spec/FS-check.md#36-ungrounded-source-file-opt-in)), the token-cheap read surfaces ([§DF-show-default-token-cheap](decisions/functional/DF-show-default-token-cheap.md#df-show-default-token-cheap-grund-show-defaults-to-the-cheap-read-the-full-body-is-opt-in)), the e2e corpus, the benchmark baseline/gate ([§AR-benchmarks](architecture/AR-benchmarks.md#ar-benchmarks-instruction-counting-benchmarks-for-the-hot-cli-commands)), the live registry-name guard ([§FS-distribution.4](functional-spec/FS-distribution.md#4-release-process)), the `grund-core` / `grund-cli` workspace split with data-returning core APIs ([§AR-bindings.2](architecture/AR-bindings.md#2-grund-core-the-only-place-logic-lives)), the optional Cargo LSP server ([§FS-lsp](functional-spec/FS-lsp.md#fs-lsp-grund-ships-an-optional-lsp-server)), and parallel per-file scanning ([§AR-scanner.1](architecture/AR-scanner.md#1-tree-walk)) are all shipped — see `docs/changelog.md`. Two arcs remain. The **distribution arc**: publish on npm and PyPI alongside cargo, including the npm/PyPI LSP packages, and add `grund check --watch`. And the **grounding arc** (the third layer of [§GOAL-agent-grounding.1](goals.md#1-the-three-layers), diff-gated enforcement): build on [§FS-check.3.6](functional-spec/FS-check.md#36-ungrounded-source-file-opt-in) and [§FS-cover](functional-spec/FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file) toward a diff-aware co-change gate — implementation cannot change without the spec it grounds in and without a test of it — via a pre-commit / CI recipe that consumes `grund cover` ([§RM-cochange-gate](roadmap.md#rm-cochange-gate-a-pre-commit--ci-recipe--no-impl-change-without-spec-and-test)). Six standalone items sit outside both arcs: [§RM-doc-comment-declarations](roadmap.md#rm-doc-comment-declarations-declarations-only-in-classmethod-doc-comments) tightens code-declaration recognition so a declaration is only seen inside a class/method doc-comment and never a plain inline comment, [§RM-lsp-completion-tab](roadmap.md#rm-lsp-completion-tab-lsp-id-autocomplete-accepted-with-tab) adds LSP ID completion that works with editor Tab acceptance, [§RM-lsp-trigger-conversion-fix](roadmap.md#rm-lsp-trigger-conversion-fix-fix-the-lsp-trigger-conversion) fixes the LSP `$$` trigger conversion, [§RM-positioning](roadmap.md#rm-positioning-the-lychee-contrast-and-the-instruction-count-framing-in-readme-and-landing-copy) keeps the README/landing pitch paired with the benchmark story, [§RM-gap-report](roadmap.md#rm-gap-report-orphan-and-uncovered-id-reports) inverts the [§FS-cover](functional-spec/FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file) index into an orphan / uncovered-ID report, and [§RM-positioning-trace-tools](roadmap.md#rm-positioning-trace-tools-position-grund-against-requirements-traceability-tools-in-readme) extends the README positioning to the requirements-traceability neighbourhood (OFT, Sphinx-Needs, TRLC, Doorstop, Duvet, SARA). Two deadline items, [§RM-workspace-absorbed-scan-error](roadmap.md#rm-workspace-absorbed-scan-error-flip-the-absorbed-scan-warning-to-an-error) and [§RM-unlisted-workspace-error](roadmap.md#rm-unlisted-workspace-error-flip-the-unlisted-workspace-warning-to-an-error), expire deprecation ramps at the release their warnings already name. The IDed milestones below project both arcs onto reviewable units of work.
 
+A fourth deadline item, [§RM-unmarked-heading-error](roadmap.md#rm-unmarked-heading-error-make-unmarked-markdown-headings-errors-in-0150), closes the Markdown-heading warning window in 0.15.0.
+
+## RM-unmarked-heading-error: make unmarked Markdown headings errors in 0.15.0
+
+Grund 0.14.0 opens the warning window decided by
+[§DF-unmarked-markdown-headings](decisions/functional/DF-unmarked-markdown-headings.md#df-unmarked-markdown-headings-in-body-markdown-atx-headings-participate-in-the-knowledge-graph).
+This milestone closes it at the release every affected heading names.
+
+### 1. What
+
+In grund 0.15.0, change `unmarked-heading` from warning to error and replace its
+future-tense deadline with `this became an error in grund 0.15.0`. Keep its code,
+location, containing declaration, deterministic coordinate suggestion, scope,
+and text/JSON/LSP transport unchanged
+([§FS-check.4.14](functional-spec/FS-check.md#414-unmarked-markdown-heading)).
+
+### 2. Why now
+
+Repositories receive a complete release window to number the heading, declare
+an ID, or use a bold label. Leaving the warning beyond its named release would
+make the deadline false and turn the graph-structure endpoint into an indefinite
+opt-out ([§REQ-backwards-compatibility.2](requirements/REQ-backwards-compatibility.md#2-the-deprecation-path)).
+
+### 3. Measurable
+
+At 0.15.0, the same Markdown fixtures report the same sites and suggestions as
+errors and exit `1`; JSON and LSP severity move with the core finding and the
+past-tense clause is byte-exact. Exempt headings and every non-check command stay
+unchanged. The release-ramp guard refuses 0.15.0 while the warning form remains.
+
 ## RM-off-grammar-declaration-error: make off-grammar declarations a check error in 0.15.0
 
 This is the third deadline item alongside the two named in the overview above.

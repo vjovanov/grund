@@ -54,6 +54,12 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
   a body-closing plain chapter, while `check` reports that orphan once in text
   and JSON under `section-outside-declaration`; `--only` retains it and
   `--ignore` removes it without leaving a stale duplicate behind
+- unmarked Markdown ATX headings inside declaration bodies: exact fixed warning
+  text and JSON, `--only`/`--ignore`, deterministic unused paths across gaps,
+  prior suggestions, named parents and skipped depths, nearest nested-declaration
+  ownership, and silence for titles, body closure, fences, setext text, bold
+  labels, numeric/named sections, and source doc-comments
+  ([§FS-check.4.14](../../docs/functional-spec/FS-check.md#414-unmarked-markdown-heading))
 - two headings claiming one dotted section path: `check` naming both lines, `show` refusing the coordinate rather than merging the two bodies, and `--toc` over the whole declaration still mapping both while `--toc` on the ambiguous coordinate itself refuses
 - the same two headings written inside a fenced Markdown example: `check` silent and `show` returning the section whole, fence included — the shape every document in this repository is made of
 - the ambiguous-section refusal in JSON, under its own `ambiguous-section` code rather than the ambiguous-ID `ambiguous`

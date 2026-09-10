@@ -1,0 +1,2 @@
+docs/FS-boundary.md:28: unmarked heading inside FS-boundary; number it (#### goals.1: Missing named child coordinate) as FS-boundary.goals.1, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0
+docs/FS-boundary.md:34: unmarked heading inside FS-child; number it (#### 1. Child missing coordinate) as FS-child.1, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0

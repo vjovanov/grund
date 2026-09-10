@@ -394,7 +394,7 @@ release.
 
 ### 3.9 Section heading level mismatch
 
-When `[id] section_heading_levels = "strict"` (the default), every citable section heading must sit at the Markdown depth implied by its dotted path: expected level is the declaration heading level plus the number of path components ([§FS-config.3.3](FS-config.md#33-section-paths--arbitrary-nesting-depth), [AR-scanner.2.2](../architecture/AR-scanner.md#22-section-detection)). A heading `## 1.1 Details` or `## goals.performance: Details` under an H1 declaration is therefore an error at the heading line: each must be H3. With `"warn"`, the same mismatch is reported as a warning; with `"loose"`, the checker does not report it and retains the historical rule that any deeper heading can declare any syntactically legal complete path. Plain headings and bold labels are not checked because they are not grund section targets.
+When `[id] section_heading_levels = "strict"` (the default), every citable section heading must sit at the Markdown depth implied by its dotted path: expected level is the declaration heading level plus the number of path components ([§FS-config.3.3](FS-config.md#33-section-paths--arbitrary-nesting-depth), [AR-scanner.2.2](../architecture/AR-scanner.md#22-section-detection)). A heading `## 1.1 Details` or `## goals.performance: Details` under an H1 declaration is therefore an error at the heading line: each must be H3. With `"warn"`, the same mismatch is reported as a warning; with `"loose"`, the checker does not report it and retains the historical rule that any deeper heading can declare any syntactically legal complete path. This point judges the depth of headings that already carry coordinates; the project-wide in-body Markdown ATX rule for a heading that carries none is [§FS-check.4.14](FS-check.md#414-unmarked-markdown-heading), independent of this mode. Bold labels are not headings and remain unchecked.
 
 ### 3.10 Inline citation style violation
 
@@ -955,6 +955,64 @@ The fixed code is `oversized-lead`, severity is `warning`, and the exact text af
 The coordinate is local for a member-local check and workspace-qualified for a workspace-root check. The two remedies preserve grounding and citation stability; the message never suggests shortening or deleting it. A warning-only run exits `0` and replaces the text `success` marker; JSON uses the ordinary located diagnostic object ([§FS-errors.5](FS-errors.md#5-json-format)). The LSP publishes the same message, line, code, and warning severity as the CLI ([§FS-lsp.1.2](FS-lsp.md#12-hover-preview)).
 
 The absent key activates no measurement or finding and leaves the existing text and JSON check output byte-identical. `--only oversized-lead` and `--ignore oversized-lead` select the finding after the complete check and never activate it. An explicit-path check judges only declaration and section sites scanned at that path. `--full` adds its existing out-of-scope reference findings but does not extend this repository policy beyond declarations in the configured scan scope. In a workspace, each member's effective key governs only that member's sites; a member without the key remains silent even when another member opts in. Any simultaneous error, including `duplicate` or `duplicate-section`, still decides exit `1`; the warning neither suppresses it nor changes its priority.
+
+### 4.14 Unmarked Markdown heading
+
+Before grund 0.15.0, a Markdown ATX heading that is deeper than a declaration
+heading and whose line is still inside that declaration's body is a fixed
+warning when it is neither another declaration nor a recognized numeric or
+enabled named section. The containing declaration is the nearest enclosing
+body, so a plain heading beneath a deeper child declaration names that child,
+not an overlapping ancestor. This is a project-wide rule with no configuration,
+severity selector, or permanent opt-out ([§DF-unmarked-markdown-headings](../decisions/functional/DF-unmarked-markdown-headings.md#df-unmarked-markdown-headings-in-body-markdown-atx-headings-participate-in-the-knowledge-graph)).
+
+Only ATX headings in scanned Markdown files participate. A heading inside a
+backtick or tilde fence is content. A file title before the first declaration,
+a same-or-shallower heading that closes a declaration body, source doc-comment
+text, setext text, and a bold label are outside the rule. A deeper declaration
+and a valid numeric or enabled named section already participate in the graph
+and are not unmarked. `--full` keeps this convention-scoped warning narrowed to
+the configured scan scope, as it does other convention findings (§1.3).
+
+The warning is anchored at the heading line, uses code `unmarked-heading`, and
+has this text:
+
+```text
+unmarked heading inside <ID>; number it (<suggested heading>) as <ID>.<path>, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0
+```
+
+The suggested coordinate is guidance, not a rewrite. Its path depth follows the
+written ATX depth relative to the containing declaration. At each depth, grund
+uses the nearest preceding citable or already-suggested parent and appends one
+above the largest existing or earlier-suggested numeric sibling; it never fills
+a hole or reuses a coordinate. With no parent it starts one above the largest
+root numeric coordinate, or at `1` when none exists. If the authored heading
+skips a depth, missing parents are filled with `.1`. A named parent may therefore
+receive a numeric child such as `goals.1`. The suggested heading preserves the
+authored `#` depth and title and inserts the complete coordinate in that valid
+numeric or mixed form.
+
+Text output uses the ordinary `<path>:<line>: <message>` form. A warning leaves
+the exit at `0` but stands in place of the bare `success` line (§2.1). JSON emits
+the same path, line, code, and message with `"severity":"warning"` and
+`"sites":null`. `--only unmarked-heading` retains it and `--ignore
+unmarked-heading` removes it through the ordinary exact-code selection rules.
+The LSP carries the same core finding with warning severity and the complete ATX
+heading as its range ([§FS-lsp.1.1](FS-lsp.md#11-diagnostics)).
+
+In grund 0.15.0 the same site, code, suggestion, and all non-severity bytes stay
+stable except that the deadline clause becomes `this became an error in grund
+0.15.0`; severity becomes error and a retained finding contributes exit `1`.
+[§RM-unmarked-heading-error](../roadmap.md#rm-unmarked-heading-error-make-unmarked-markdown-headings-errors-in-0150)
+owns that scheduled flip. Until then the warning window serves
+[§REQ-backwards-compatibility.2](../requirements/REQ-backwards-compatibility.md#2-the-deprecation-path).
+
+No command numbers the heading: `grund fmt` remains unchanged. `show`, `list`,
+`refs`, `cover`, formatting, section resolution, and source scanning otherwise
+keep their current behavior, including the body boundary and rejected section
+behavior of §3.23. `grund_config_version` stays `1`; the managed agent block is
+the existing mechanical repair surface and moves to v10 under `grund init`
+([§FS-init.2.3.4.5](FS-init.md#2345-declaration-forms)).
 
 ## 5. What grund does not check
 
