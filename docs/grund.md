@@ -8,7 +8,7 @@ Citations live wherever they are useful — including inside Java doc-comments, 
 
 ## 1. What grund does about it
 
-`grund` owns the scheme end to end. It defines the IDs and citation grammar, ships the config in `grund.toml`, and scans every `.md` file and every source file in the repo ([§AR-scanner.4](architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)) to keep three promises, each its own ground: [§GRUND-understanding](grund.md#grund-understanding-the-why-stays-known), [§GRUND-structure](grund.md#grund-structure-the-projects-long-term-memory-stays-organized), and [§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent).
+`grund` owns the scheme end to end. It defines the IDs and citation grammar, ships the config in `grund.toml`, and scans every `.md` file and every source file under the configured scan roots — `[scan] include` plus every configured `[[kinds]]` home ([§FS-config.3.5](functional-spec/FS-config.md#35-scan--what-gets-walked); [§AR-scanner.4](architecture/AR-scanner.md#4-inline-declarations-in-language-doc-comments)) — to keep three promises, each its own ground: [§GRUND-understanding](grund.md#grund-understanding-the-why-stays-known), [§GRUND-structure](grund.md#grund-structure-the-projects-long-term-memory-stays-organized), and [§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent).
 
 This serves [§GOAL-agent-grounding](goals.md#goal-agent-grounding-agents-stay-cited-as-they-work) — the headline goal that every other goal exists in service of — and the mechanisms that make it viable: [§GOAL-no-dangling-refs](goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration), [§GOAL-fast-feedback](goals.md#goal-fast-feedback-grund-must-be-as-fast-as-possible), [§GOAL-friendliness-first](goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible), and [§GOAL-polyglot-citation](goals.md#goal-polyglot-citation-ids-cite-cleanly-from-anywhere-they-are-useful).
 
@@ -27,7 +27,7 @@ Everything in the project — code, docs, decisions, tests — cites the point t
 
 # GRUND-structure: the project's long-term memory stays organized
 
-The project's long-term memory — its why, goals, behavior, design, decisions, and proofs — is organized into declarations, each a fact with one stable, location-independent ID: `§FS-<user-login>.3.1` keeps resolving when files move or headings reword — Markdown anchors break; grund citations don't. `grund FS-<user-login>.3.1` returns just that subsection — under 200 lines per [§GOAL-friendliness-first.1](goals.md#1-hard-requirements) — so a human or LLM pulls one fact into context instead of a whole file.
+The project's long-term memory — its why, goals, behavior, design, decisions, and proofs — is organized into declarations, each a fact with one stable, location-independent ID: `§FS-<user-login>.3.1` keeps resolving when files move or headings reword — Markdown anchors break; grund citations don't. `grund FS-<user-login>.3.1` returns just that subsection — the lead prose for one section, cut at the first child section — so a human or LLM pulls one fact into context instead of a whole file ([§GOAL-friendliness-first.1](goals.md#1-hard-requirements)). Use `grund list --size=words` to measure how much prose a given slice contains.
 
 # GRUND-consistency: the structure stays consistent
 

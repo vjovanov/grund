@@ -62,7 +62,7 @@ $ grund FS-check.3.2
 A citation with a section suffix (`§FS-<user-login>.3.1` or, in an opted-in repository, `§FS-<user-login>.goals`) where the declaration exists but the requested section heading does not. [… remaining lead output elided …]
 ```
 
-`grund <ID>` returns *just* the useful slice — well under 200 lines for the common case — so the agent pulls one fact into context instead of an entire file. Its ladder:
+`grund <ID>` returns *just* the useful slice — the lead prose for one section, cut at the first child section — so the agent pulls one fact into context instead of an entire file. Use `grund list --size=words` to measure how much prose a given slice contains. Its ladder:
 
 - `grund <ID>` — the lead prose, cut at the first child section; the cheap default for a bare citation
 - `grund <ID> --toc` — the lead plus the section map, for choosing the next subsection
