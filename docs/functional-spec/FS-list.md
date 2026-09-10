@@ -5,7 +5,7 @@ The `list` subcommand prints the repo's ID catalog: every declaration, where it 
 ## 1. Inputs
 
 ```
-grund list [<path>] [--kind <KIND>[,<KIND>…]]… [--unused] [--summary]
+grund list [<path>] [--kind <KIND>[,<KIND>…]]… [--project <alias>[,<alias>...]] [--unused] [--summary]
            [--size[=<unit>[,<unit>…]]] [--top <N>] [--format text|json]
 ```
 
@@ -18,6 +18,7 @@ grund list [<path>] [--kind <KIND>[,<KIND>…]]… [--unused] [--summary]
   ```
 
   The `known kinds:` line lists the citable kinds only: they are the whole set this selector accepts.
+- `--project <alias>[,<alias>...]` — in workspace mode, list only declarations from the named projects. Outside workspace mode it is a CLI-level error (exit `2`); an unknown alias is also a CLI-level error (exit `2`), the same shape as an unknown `--kind` (§4). It composes with `--kind` by intersection. Workspace qualification, size behavior, and member-local invocation are specified in [§FS-workspace.8.3](FS-workspace.md#83-grund-list).
 - `--unused` — list only declarations that no recognised citation points at, **excluding `E2E` cases unless `E2E` is explicitly selected with `--kind`** — the same set `check` warns on ([§FS-check.4.1](FS-check.md#41-unused-declaration)). An e2e case is a proof artifact, exercised by being run, not a citation target, so it is uncited by construction and would only ever bury the actionable signal (uncited specs, decisions, goals) in a bare `--unused` query. A citation that is a kind's own index entry ([§FS-check.3.18](FS-check.md#318-declaration-missing-from-its-kinds-index)) is discounted here too, and for the same reason `check` discounts it ([§FS-check.4.1](FS-check.md#41-unused-declaration)): an index names every declaration in its folder by construction, so counting its entries would empty this query of everything an indexed folder holds. To inventory uncited e2e cases anyway, include `E2E` in the kind filter: `--unused --kind E2E` lists uncited cases only, while `--unused --kind FS,E2E` lists uncited `FS` declarations plus uncited `E2E` cases because `E2E` was explicitly requested.
 - `--summary` — instead of one line per declaration, print one line per kind: the kind name, its declaration count, and its configured `[[kinds]]` home (`file` or `folder`, §3.3). Kinds with no declarations are left out, which is every non-citable kind by construction. The catalog's shape at a glance — how many IDs of each kind there are and where their declarations live — without the full list. Composes with `--kind` (summarise only those kinds) and `--unused` (count only the uncited declarations, with the same `E2E` suppression this section describes for the per-declaration form).
 - `--size[=<unit>[,<unit>…]]` — switch from declaration rows to the point-size rows in §3.4. The optional value is accepted only in the same argument with `=`; a following bare word remains the existing `<path>` positional. Bare `--size` selects `lines,words,bytes`, in that order. An explicit list is case-sensitive, preserves caller order, and collapses repeated units to their first occurrence. The closed unit set is `lines`, `words`, and `bytes`: an empty item or any other value, including `tokens`, is a CLI-level error. The flag may appear once and cannot be combined with `--summary`.

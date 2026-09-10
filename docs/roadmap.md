@@ -285,42 +285,6 @@ A reader in the requirements-traceability community currently sees `grund` as "a
 
 The README (and landing page, if any) carries a "vs. traceability tools" section whose matrix names the six tools above with creation year, whose capability columns include the sectioned-citation row, and whose closing sentence is the "traceability tool / grounding tool" pair. The "we deliberately don't" footnote names the three rejected features with [§FS-non-goals](functional-spec/FS-non-goals.md#fs-non-goals-what-grund-will-deliberately-not-do) pointers. `grund check` stays clean.
 
-## RM-obligation-no-unit: warn when a citation-direction obligation applies to nothing
-
-An obligation attaches to a unit — a declaration for a citable kind, a citation-carrying scanned file for a non-citable home ([§FS-config.3.9.1](functional-spec/FS-config.md#391-levels), [§FS-check.3.11](functional-spec/FS-check.md#311-missing-required-citation)) — so a kind that yields no unit yields no finding, and `must` passes vacuously while the entrypoint keeps advertising the rule. [§DF-non-citable-kinds.2.5](decisions/functional/DF-non-citable-kinds.md#25-obligations-get-a-per-file-unit-and-grounding-follows-the-home) closed this for non-citable kinds by giving them a per-file unit, and [§FS-config.3.4.7](functional-spec/FS-config.md#347-scan--a-place-that-is-listed-not-walked) refuses a rule on an unwalked citing kind at load time; the case between them — a citable kind with a walked home and nothing declared in it — is still open. Seen on a real adoption: a `skills/` kind declared citable, eleven files, no `SKILL` ID, six files citing nothing, `grund check` green.
-
-GitHub: [#149](https://github.com/vjovanov/grund/issues/149).
-
-### 1. What
-
-One CLI-level `warning:` on stderr ([§FS-check.2.1.1](functional-spec/FS-check.md#211-cli-level-messages)), exit code untouched — the class [§FS-check.2.2](functional-spec/FS-check.md#22-empty-scan) uses for a walk that read nothing — when a `[citations.<kind>]` table carries a `must` or `should` entry, the citing kind has a folder home holding at least one scanned file other than its entry file (the configured `index`, or `README.md` where there is none), and the scan produced zero units for it. Two message shapes: the citable kind that declares nothing, and the non-citable home in which no scanned file carries a citation while grounding is off. Single-file kinds and the homeless kind never warn.
-
-### 2. Why now
-
-It is the smallest change in this group and the only one that came from a verified failure rather than a preference: a green verdict over a rule the maintainer believed was enforced ([§GOAL-no-silent-breakage](goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path)). The entry-file cut is what makes it safe to ship without a flag — `grund init --docs` leaves every home holding exactly its entry file and zero declarations, and that tree must stay silent.
-
-### 3. Measurable
-
-Four e2e cases: a citable folder kind with files beside its index and no declaration warns and exits as before; the non-citable mirror warns; the scaffold tree with the canonical `[citations]` ruleset does not; a single-file kind stub does not.
-
-## RM-directions-one-source: one source for the citation-directions explanation
-
-`[citations]` is specified in [§FS-config.3.9](functional-spec/FS-config.md#39-citations--citation-direction-rules) and rendered per [§FS-init.2.3.5](functional-spec/FS-init.md#235-citation-directions), and explained on none of the three surfaces a person or agent reads during setup: the `grund-init` skill walks every config section except this one, against the "pros and cons for every config option" [§FS-init.5](functional-spec/FS-init.md#5-agent-setup-instructions) asks for; the `grund.toml` template comment shows nine example rules and never states that entries in one array are all required while `|` inside an entry is any one of them; the README states two directions inside a table cell. Nowhere is a config shown beside the bullet it becomes.
-
-GitHub: [#148](https://github.com/vjovanov/grund/issues/148).
-
-### 1. What
-
-One page, `docs/user-facing/citation-directions.md`: the levels, the grammar stated once, who may cite and be cited, the no-unit trap, and an example config beside its render. Every other face is a checked copy or a checked render of it, on the two precedents the repository already has: the skill carries it between markers and `test_asset_sync.py` compares the region byte for byte, so `grund agent-setup-instructions` prints it too; the example render is a unit test through the code `grund init` uses — the [§DF-citation-directions.2.7](decisions/functional/DF-citation-directions.md#27-generated-agent-entrypoint-section-with-a-drift-check) drift check turned on the documentation; the README links the page. The template comment and the no-config entrypoint sentence gain the grammar line and the path.
-
-### 2. Why now
-
-Reading `must = ["FS|AR|TCK|CI|METADATA|TESTS"]` in a real config, grund's own author asked whether it should be a plain list — and a plain list would have meant "cite all six". Three surfaces explaining this independently would drift the way the skill and its embedded copy would have without the sync test.
-
-### 3. Measurable
-
-The sync test fails when the skill's marked region and the page differ by a byte; the render test fails when the page's example block and the live render differ; `grund check --full` over this repository stays green.
-
 ## RM-workspace-absorbed-scan-error: flip the absorbed-scan warning to an error
 
 [§FS-check.4.7](functional-spec/FS-check.md#47-a-workspace-member-swallows-the-blocks-own-scan) ships as a warning that names the release it becomes an error in, which is the deprecation path [§REQ-backwards-compatibility.2](requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) requires of a finding no command can fix ([§DF-absorbed-scan-warning.2.1](decisions/functional/DF-absorbed-scan-warning.md#21-a-warning-because-the-repair-is-a-judgement-rather-than-a-command)). The named release is half a contract until it happens: a deadline `grund` prints to every user and then lets slip is worse than one it never printed. This milestone is that release.

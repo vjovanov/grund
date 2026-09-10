@@ -21,7 +21,7 @@ wrote AGENTS.md
 wrote grund.toml
 
 next:
-  1. re-run with --docs to scaffold the FS home (requirements.md), docs/, and e2e/ (or create them yourself) — until then `grund check` has nothing to scan
+  1. re-run with --docs to scaffold the FS home (requirements.md), docs/, and tests/ (or create them yourself) — until then `grund check` has nothing to scan
   2. run `grund check` — a scaffolded tree is clean
   3. allocate an ID:  ID=$(grund id FS "…")  then add it to requirements.md
 see AGENTS.md for the full workflow.
@@ -59,8 +59,8 @@ wrote docs/changelog.md
 wrote docs/architecture/README.md
 wrote docs/decisions/architectural/README.md
 wrote docs/decisions/functional/README.md
-wrote e2e/README.md
-wrote e2e/cases/.gitkeep
+wrote tests/e2e/README.md
+wrote tests/integration/.gitkeep
 
 next:
   1. run `grund check` — a freshly scaffolded tree is clean
@@ -70,7 +70,7 @@ next:
 see AGENTS.md for the full workflow.
 ```
 
-Final tree includes the default-form files plus exactly these docs/e2e scaffold paths:
+Final tree includes the default-form files plus exactly these docs and tests scaffold paths:
 
 ```text
 requirements.md
@@ -81,8 +81,8 @@ docs/changelog.md
 docs/architecture/README.md
 docs/decisions/architectural/README.md
 docs/decisions/functional/README.md
-e2e/README.md
-e2e/cases/.gitkeep
+tests/e2e/README.md
+tests/integration/.gitkeep
 ```
 
 ## 3. Existing files
