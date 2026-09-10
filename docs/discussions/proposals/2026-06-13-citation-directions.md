@@ -2,7 +2,7 @@
 
 ## 1. Status
 
-Concluded. Tracks [issue #40](https://github.com/vjovanov/grund/issues/40); accepted
+Concluded. Tracks [issue #40](https://github.com/agent-grounds/grund/issues/40); accepted
 as [§DF-citation-directions](../../decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels) and drafted into the specs listed under "Spec changes
 this drafts into" below.
 

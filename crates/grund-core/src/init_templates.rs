@@ -19,7 +19,7 @@ const DA_README_TEMPLATE: &str =
     include_str!("../assets/templates/decisions-architectural-README.md");
 const GITKEEP_TEMPLATE: &str = include_str!("../assets/templates/gitkeep.md");
 const CITATION_DIRECTIONS_URL: &str =
-    "https://github.com/vjovanov/grund/blob/main/docs/user-facing/citation-directions.md";
+    "https://github.com/agent-grounds/grund/blob/main/docs/user-facing/citation-directions.md";
 /// The setup skill, printed byte-for-byte by `grund agent-setup-instructions`
 /// into whatever repository the agent is standing in (§FS-init.5). That is why
 /// `skills/` is an unwalked home (§FS-config.3.4.7) and why nothing in the file

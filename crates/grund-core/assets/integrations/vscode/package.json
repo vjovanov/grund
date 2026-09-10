@@ -8,6 +8,6 @@
   "categories": ["Other"],
   "activationEvents": ["onStartupFinished"],
   "main": "./extension.js",
-  "repository": { "type": "git", "url": "https://github.com/vjovanov/grund" },
+  "repository": { "type": "git", "url": "https://github.com/agent-grounds/grund" },
   "license": "MIT"
 }

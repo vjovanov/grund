@@ -4,7 +4,7 @@
 //! A managed block can drift in its rendered text while its `(vN)` heading is
 //! still current, and `--dry-run` has always seen it: it prints `would-update`
 //! and exits `0`, because a preview is a report and not a verdict. `--check`
-//! turns that same report into one ([grund#172](https://github.com/vjovanov/grund/issues/172)).
+//! turns that same report into one ([grund#172](https://github.com/agent-grounds/grund/issues/172)).
 //! These cases pin the pair on one tree, because the whole change is the claim
 //! that only the exit code separates them (§FS-init.1, §FS-init.2.2).
 

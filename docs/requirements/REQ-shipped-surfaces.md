@@ -4,7 +4,7 @@
 
 ## 1. No shipped or printed byte names a declaration of this repository
 
-An ID declared in this tree may not appear in anything that leaves it. Where a sentence needs an address, it carries one the reader can open — the public `https://github.com/vjovanov/grund/blob/main/…` URL of the document — and where it does not, the parenthetical goes: a sentence that says what a section does has already said it.
+An ID declared in this tree may not appear in anything that leaves it. Where a sentence needs an address, it carries one the reader can open — the public `https://github.com/agent-grounds/grund/blob/main/…` URL of the document — and where it does not, the parenthetical goes: a sentence that says what a section does has already said it.
 
 The surfaces this covers are every byte a user receives without cloning this repository:
 
@@ -25,4 +25,4 @@ This is also why a home whose files ship verbatim is configured `scan = false` (
 
 The rule holds because a test enforces it, not because an author remembers it. `tests/integration/test_shipped_surfaces.py` reads this repository's own declaration catalog from `grund list` ([§FS-list](../functional-spec/FS-list.md#fs-list-grund-lists-every-declared-id)) and fails if any ID in it appears in an embedded asset, a tree copy of one, an end-to-end output golden, or a string literal the binaries print. It does not currently read the payloads embedded by `grund-lsp` through `include_str!`, including the files under `crates/grund-lsp/assets`, so the §1 rule is not yet checked on that frontend. Closing this coverage gap belongs in the guard. Matching against the catalog rather than the ID *shape* is what lets the illustrative IDs of §1 through: they are not declared, so they are not IDs.
 
-A guard on the shape of the bytes is the only kind that works here. The adopting repository's own `grund check` catches a `§`-marked foreign citation the day it lands ([issue #56](https://github.com/vjovanov/grund/issues/56)), but an unmarked one is plain prose there and invisible here — the hole [issue #156](https://github.com/vjovanov/grund/issues/156) came in through.
+A guard on the shape of the bytes is the only kind that works here. The adopting repository's own `grund check` catches a `§`-marked foreign citation the day it lands ([issue #56](https://github.com/agent-grounds/grund/issues/56)), but an unmarked one is plain prose there and invisible here — the hole [issue #156](https://github.com/agent-grounds/grund/issues/156) came in through.

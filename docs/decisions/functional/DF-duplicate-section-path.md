@@ -21,7 +21,7 @@ First body.
 Second body.
 ```
 
-`grund check .` reported `success`. Reported from a real tree ([issue #97](https://github.com/vjovanov/grund/issues/97)).
+`grund check .` reported `success`. Reported from a real tree ([issue #97](https://github.com/agent-grounds/grund/issues/97)).
 
 **The citation had two targets and the tool picked without saying so.** [§FS-check.3.3](../../functional-spec/FS-check.md#33-duplicate-declaration) makes a duplicate *declaration* an error for exactly this reason: a citation must not have two possible homes. A duplicate section path is the same hazard one level down and nothing was watching it — [§FS-check.3.2](../../functional-spec/FS-check.md#32-missing-section) reports a section that is absent, [§FS-check.3.9](../../functional-spec/FS-check.md#39-section-heading-level-mismatch) reports one written at the wrong depth, and neither notices one written twice. [§REQ-no-wrong-citation.1](../../requirements/REQ-no-wrong-citation.md#1-no-wrong-resolution) names the case in as many words: *"Silently preferring the first of two identical section paths is the shape of a guess even when it is deterministic."*
 

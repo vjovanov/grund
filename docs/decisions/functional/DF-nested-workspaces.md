@@ -13,7 +13,7 @@ related sub-projects under a directory — four independently checked hardware
 projects under `hardware-current/`, beside a `hardware-final/` — and had to
 enumerate every leaf at the root, so the grouping directory could not own its
 own member list and the hierarchy survived only in human-facing prose
-([issue #47](https://github.com/vjovanov/grund/issues/47)).
+([issue #47](https://github.com/agent-grounds/grund/issues/47)).
 
 Lifting the restriction is one line of expansion code. What needed deciding is
 what the lifted configuration *means*, and the issue named the three open

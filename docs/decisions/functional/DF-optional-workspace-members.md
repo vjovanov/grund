@@ -6,7 +6,7 @@
 ## 1. Context
 
 A repository whose hardware namespaces live in a private git submodule had no way
-to run `grund check` in the checkout CI makes ([grund#85](https://github.com/vjovanov/grund/issues/85)).
+to run `grund check` in the checkout CI makes ([grund#85](https://github.com/agent-grounds/grund/issues/85)).
 Both obvious routes fail, and both fail correctly. Leaving the submodule in
 `[workspace] members` is a config error at that line, because [§FS-workspace.2](../../functional-spec/FS-workspace.md#2-workspace-configuration)
 makes a missing member path fatal. Taking it out unregisters the alias, so every

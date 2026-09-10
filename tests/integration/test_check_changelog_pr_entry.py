@@ -41,7 +41,7 @@ class CheckChangelogPrEntryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             changelog = self.write_changelog(
                 Path(tmp),
-                "### Fixed\n\n- §FS-distribution.4: fix release notes (https://github.com/vjovanov/grund/pull/15).",
+                "### Fixed\n\n- §FS-distribution.4: fix release notes (https://github.com/agent-grounds/grund/pull/15).",
             )
             check_changelog_pr_entry.check_changelog_pr_entry(changelog, 15)
 

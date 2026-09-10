@@ -12,7 +12,7 @@ mod init_fixture;
 use init_fixture::{manifest_dir, run_grund, workdir};
 
 const CITATION_DIRECTIONS_URL: &str =
-    "https://github.com/vjovanov/grund/blob/main/docs/user-facing/citation-directions.md";
+    "https://github.com/agent-grounds/grund/blob/main/docs/user-facing/citation-directions.md";
 
 #[test]
 fn init_default_writes_canonical_pair_and_passes_check() {

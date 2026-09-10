@@ -21,7 +21,7 @@ No `gnd` binary or package was ever published — `0.1.0` is the first release �
 
 - **cargo:** crate and binary `grund`; library `grund-core`; optional server `grund-lsp`.
 - **npm / PyPI:** the CLI publishes as `grund-cli`, the server as `grund-lsp` — one name that reads identically on both registries and as "the package that installs the `grund` command." `grund` itself appears free on PyPI; the later PyPI decision records why the package collapsed to the bare `grund` after the live registry check ([§DA-pypi-uses-grund-as-the-package-name](DA-pypi-uses-grund-as-the-package-name.md#da-pypi-uses-grund-as-the-package-name-pypi-uses-grund-as-the-package-name)).
-- **GitHub repository:** `github.com/vjovanov/gnd` → `github.com/vjovanov/grund`.
+- **GitHub repository:** `github.com/vjovanov/gnd` → `github.com/agent-grounds/grund`.
 - **CLI:** the installed command is `grund`; every subcommand and flag is otherwise unchanged.
 - **Config:** the discovered file is `.agents/grund.toml`; the schema-version key is `grund_config_version` (value still `1`).
 - **Agent surface:** the `AGENTS.md` managed block and `grund agent-setup-instructions` use `grund`; the embedded skill source moves to `skills/grund-init/SKILL.md` (block version still v1).

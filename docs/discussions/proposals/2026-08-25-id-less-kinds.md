@@ -221,7 +221,7 @@ window is one more match arm plus a "both set" error, so
 licence of [§REQ-backwards-compatibility.4](../../requirements/REQ-backwards-compatibility.md#4-what-was-never-a-promise) need not be invoked.
 
 The rename is filed separately as
-[issue #129](https://github.com/vjovanov/grund/issues/129), to be decided on its
+[issue #129](https://github.com/agent-grounds/grund/issues/129), to be decided on its
 own — but landed in the same release if at all: the block already goes to v8 and
 [§FS-config.3.4](../../functional-spec/FS-config.md#34-kinds--recognized-kinds) is being rewritten, so a later rename costs a second
 disruption.
@@ -421,7 +421,7 @@ through the closed key allow-list (`config.rs:357`).
 1. **Key spelling of the opt-out.** `ids = false` versus `declares = false` /
    `citable = false`.
 2. **`prefix` → `kind`.** Argued above; decided on its own as
-   [issue #129](https://github.com/vjovanov/grund/issues/129).
+   [issue #129](https://github.com/agent-grounds/grund/issues/129).
 3. **The prefix-collision carve-out.** Exempt ID-less kinds from the
    prefix-freedom rule at `config.rs:416`, keeping only uniqueness — or keep the
    stricter rule deliberately and say why. Under the rename the exemption is

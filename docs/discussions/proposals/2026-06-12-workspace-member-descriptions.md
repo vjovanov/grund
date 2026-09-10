@@ -2,7 +2,7 @@
 
 ## 1. Status
 
-Concluded. Tracks [issue #36](https://github.com/vjovanov/grund/issues/36);
+Concluded. Tracks [issue #36](https://github.com/agent-grounds/grund/issues/36);
 accepted as [§DF-workspace-member-descriptions](../../decisions/functional/DF-workspace-member-descriptions.md#df-workspace-member-descriptions-member-side-project_description-for-workspace-member-lists) and drafted into the specs
 listed under "Spec changes this drafts into" below.
 

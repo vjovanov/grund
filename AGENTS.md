@@ -3,7 +3,7 @@
 <!-- BEGIN GRUND MANAGED BLOCK -->
 ## Grounding with grund (v10)
 
-This project uses [`grund`](https://github.com/vjovanov/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, REQ, AR, DF, DA, RM, DISC}`), cited with the marker `§` — e.g. `<§>FS-user-login.3.1` (the `FS-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `grund.toml`, so only `§`-prefixed citations are checked.
+This project uses [`grund`](https://github.com/agent-grounds/grund): every spec, goal, decision, and end-to-end test has a stable ID `<KIND>-<slug>[.<section>]` (`KIND ∈ {GRUND, GOAL, FS, REQ, AR, DF, DA, RM, DISC}`), cited with the marker `§` — e.g. `<§>FS-user-login.3.1` (the `FS-user-login` here is a shape illustration, not a real ID in this repo, hence the `<§>` escape). Type `$$` in a grund-aware editor and it becomes `§`. Bare ID-shaped tokens are ignored — `[reference] strict = true` is set in `grund.toml`, so only `§`-prefixed citations are checked.
 
 ### Grounding from a citation
 
@@ -87,7 +87,7 @@ On repository web surfaces, link `§<ID>` to the PR branch in PR bodies, the rev
 <!-- BEGIN FISSILE MANAGED BLOCK -->
 ## Keeping Files Small With fissile (v3)
 
-This repository caps file size with [`fissile`](https://github.com/vjovanov/fissile)
+This repository caps file size with [`fissile`](https://github.com/agent-grounds/fissile)
 so that agents spend fewer tokens reading. Run `fissile check --staged` before
 claiming work is done; its findings say what to split and how. Where the
 pre-commit hook is installed it runs that same check — never get past it with
