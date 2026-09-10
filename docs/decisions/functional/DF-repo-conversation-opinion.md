@@ -1,5 +1,8 @@
 # DF-repo-conversation-opinion: repositories may commit a link-only conversation-rendering opinion
 
+**Status:** Accepted
+**Date:** 2026-07-21
+
 ## 1. Context
 
 [§FS-integrations.4.3](../../functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions) made local-conversation citation rendering purely user-scoped: the
@@ -102,7 +105,7 @@ deterministic and config-derived only ([§FS-non-goals.13](../../functional-spec
   block text leaked into non-grund repositories. The self-scoping rewrite fixes the leak, but
   only the repository layer fixes the contributor gap.
 - **A repo-local file excluded from version control.** Researched in
-  [§DISC-conversation-rendering-layers.4](../../discussions/proposals/2026-07-21-conversation-rendering-layers.md#4-researched-alternative-a-repo-local-file-excluded-from-version-control) across the fixed supported-agent set: portable to Codex
+  [§DISC-conversation-rendering-layers.7](../../discussions/proposals/2026-07-21-conversation-rendering-layers.md#7-researched-alternative-a-repo-local-file-excluded-from-version-control) across the fixed supported-agent set: portable to Codex
   alone (`AGENTS.override.md`), marginal for Claude Code, unsupported elsewhere, and actively
   broken for Windsurf (a gitignored rules file is not loaded). Deferred, not designed.
 - **Allowing `plain` as a committable value.** Rejected: `plain` presumes an installed resolver,

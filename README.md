@@ -189,6 +189,8 @@ parent-relative `[scan] include` paths remain readable
 
 A citable kind can opt its numbered fields into exact value checking:
 
+An explicit `[[kinds]]` list replaces the implicit default kinds; copy the default rows from [`FS-config` §3.4.4](docs/functional-spec/FS-config.md#344-the-default-kinds) first, or existing declarations may disappear from `list` and `check` remains green because those kinds no longer exist.
+
 ```toml
 [[kinds]]
 kind = "CONST"
@@ -230,8 +232,7 @@ code can read the source directly. See the complete
 
 ### Cite external facts without making checks depend on the network
 
-External tickets and similar facts can use their own numeric grammar while the
-rest of the repository keeps slug IDs. Configure a committed snapshot home and
+External tickets and similar facts can use their own numeric grammar while the rest of the repository keeps slug IDs. Configure a committed snapshot home and
 one repository-owned fetcher, then materialize a cited fact deliberately:
 
 ```toml
@@ -456,7 +457,7 @@ grund init --docs    # also scaffolds docs/ and tests/ trees
 grund init --check   # writes nothing; exits 1 if anything is still pending
 ```
 
-`init` is non-interactive and idempotent: re-running never errors on existing files. It also checks *where* it was pointed before writing anything: a target no `.git`, `.hg`, `.jj`, or `.svn` marker covers is refused unless you pass `--no-vcs` — use it to scaffold a directory before `git init` — and the home directory and the machine-global agent instruction files are refused outright. `--check` is the `--dry-run` preview taken as a verdict — same report, nothing written, exit `1` when a file is still pending — so a hook can fail on a managed block that drifted in its text while its version heading stayed current, which `grund check` does not see. See [`FS-init`](docs/functional-spec/FS-init.md) for the full state table.
+`init` is non-interactive and idempotent: re-running never errors on existing files. For an existing repo with specs, map those homes in `[[kinds]]` before `grund init`, or run `grund agent-setup-instructions` for the packaged adoption workflow and decision table ([§DF-skill-init-existing-specs](docs/decisions/functional/DF-skill-init-existing-specs.md#df-skill-init-existing-specs-grund-init-adopts-existing-specs-before-scaffolding)). It also checks *where* it was pointed before writing anything: a target no `.git`, `.hg`, `.jj`, or `.svn` marker covers is refused unless you pass `--no-vcs` — use it to scaffold a directory before `git init` — and the home directory and the machine-global agent instruction files are refused outright. `--check` is the `--dry-run` preview taken as a verdict — same report, nothing written, exit `1` when a file is still pending — so a hook can fail on a managed block that drifted in its text while its version heading stayed current, which `grund check` does not see. See [`FS-init`](docs/functional-spec/FS-init.md) for the full state table.
 
 ## Pre-commit
 

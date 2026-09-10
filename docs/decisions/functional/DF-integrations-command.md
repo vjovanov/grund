@@ -1,5 +1,8 @@
 # DF-integrations-command: integrations earns a CLI slot as one-time setup, where a per-citation `link` command did not
 
+**Status:** Accepted
+**Date:** 2026-07-06
+
 ## 1. Context
 
 Two halves of the clickable-citations convention were separated by [§DF-neural-link-generation](DF-neural-link-generation.md#df-neural-link-generation-agents-compose-clickable-citation-links-themselves-grund-does-not-grow-a-link-command). The first half — composing a link for one citation in ephemeral prose — was refused a command: a tool call per citation is the wrong cost model for presentation ([§GOAL-token-economy](../../goals.md#goal-token-economy-give-an-agent-the-right-amount-of-spec-not-the-whole-file)), and the writing agent already holds the wrapped form to copy. A prototype `grund link` was built on that branch and reverted.

@@ -1,5 +1,8 @@
 # DF-unmarked-markdown-headings: in-body Markdown ATX headings participate in the knowledge graph
 
+**Status:** Accepted
+**Date:** 2026-09-10
+
 Making omitted section coordinates visible serves
 [§GOAL-agent-grounding.1](../../goals.md#1-the-three-layers) and
 [§GOAL-friendliness-first](../../goals.md#goal-friendliness-first-as-user--and-agent-friendly-as-possible).

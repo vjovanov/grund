@@ -51,7 +51,7 @@ descriptions also tightened the bullet itself: the alias is now the link's
 destination path appears once instead of twice, sharing the Project Map's
 `- [x](y): …` grammar and superseding the `alias → path` bullet shape that
 [§DISC-init-workspace-members](../../discussions/proposals/2026-05-17-init-workspace-members.md#disc-init-workspace-members-have-init-mention-workspace-members) originally proposed. The
-generated `.agents/grund.toml` teaches the key with a commented line, and
+generated `grund.toml` teaches the key with a commented line ([§DF-config-file-location.2.3](DF-config-file-location.md#23-grund-init-writes-the-bare-grundtoml)), and
 `grund init --description <text>` sets it at bootstrap time. Self omission
 keeps that pending description out of the local list; it appears when another
 entrypoint renders the project as foreign. The contract lives in
