@@ -103,11 +103,19 @@ fn markdown_structure(text: &str) -> FileStructure {
 /// closing run Markdown allows (`## Steps ##`), so a finding quotes the title
 /// rather than the syntax (§FS-check.3.6.3).
 fn heading_text(trimmed: &str, level: usize) -> String {
-    trimmed[level..]
-        .trim()
-        .trim_end_matches('#')
-        .trim_end()
-        .to_string()
+    let suffix = trimmed[level..].trim_end_matches([' ', '\t']);
+    let closing_start = suffix.trim_end_matches('#').len();
+    let without_closing = if closing_start < suffix.len()
+        && suffix[..closing_start]
+            .as_bytes()
+            .last()
+            .is_some_and(|byte| matches!(byte, b' ' | b'\t'))
+    {
+        &suffix[..closing_start]
+    } else {
+        suffix
+    };
+    without_closing.trim_matches([' ', '\t']).to_string()
 }
 
 /// Every doc-comment block in a source file, with its indentation

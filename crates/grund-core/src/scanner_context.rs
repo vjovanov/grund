@@ -42,124 +42,6 @@ fn retain_in_body_sections(findings: &mut Findings) {
         .extend(rejected);
 }
 
-/// Retain only Markdown headings owned by a declaration body, choose the
-/// nearest nested owner, and assign deterministic unused section paths
-/// (§AR-scanner.2.2, §AR-scanner.2.4, §FS-check.4.14).
-fn assign_unmarked_heading_owners(
-    findings: &mut Findings,
-    mut candidates: Vec<UnmarkedHeadingCandidate>,
-) {
-    #[derive(Clone)]
-    struct KnownPath {
-        line: usize,
-        path: String,
-    }
-
-    let bodies = findings
-        .declarations
-        .values()
-        .flatten()
-        .map(|decl| {
-            (
-                decl.body_start,
-                decl.body_end,
-                decl.heading_level,
-                decl.id.clone(),
-                decl.sections
-                    .iter()
-                    .map(|(path, info)| KnownPath {
-                        line: info.line,
-                        path: path.clone(),
-                    })
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .collect::<Vec<_>>();
-    candidates.sort_by_key(|candidate| candidate.line);
-    let mut suggested_by_owner: BTreeMap<Id, Vec<KnownPath>> = BTreeMap::new();
-
-    for candidate in candidates {
-        let Some((_, _, declaration_level, owner, existing)) = bodies
-            .iter()
-            .filter(|(start, end, level, _, _)| {
-                *start <= candidate.line
-                    && candidate.line <= *end
-                    && candidate.heading_level > *level
-            })
-            .max_by_key(|(start, _, _, _, _)| *start)
-        else {
-            continue;
-        };
-        let target_depth = candidate.heading_level - declaration_level;
-        let prior_suggestions = suggested_by_owner.entry(owner.clone()).or_default();
-        let mut paths = existing.clone();
-        paths.extend(prior_suggestions.iter().cloned());
-        let suggested_path = suggested_section_path(&paths, candidate.line, target_depth);
-        prior_suggestions.push(KnownPath {
-            line: candidate.line,
-            path: suggested_path.clone(),
-        });
-        findings.unmarked_headings.push(UnmarkedHeading {
-            file: candidate.file,
-            line: candidate.line,
-            column: candidate.column,
-            heading: candidate.heading,
-            heading_level: candidate.heading_level,
-            title: candidate.title,
-            owner: owner.clone(),
-            suggested_path,
-        });
-    }
-
-    fn suggested_section_path(paths: &[KnownPath], line: usize, target_depth: usize) -> String {
-        let parent = paths
-            .iter()
-            .filter(|known| known.line < line && path_depth(&known.path) < target_depth)
-            .max_by_key(|known| known.line)
-            .map(|known| known.path.clone());
-
-        let mut parts = parent
-            .as_deref()
-            .map(|path| path.split('.').map(str::to_string).collect::<Vec<_>>())
-            .unwrap_or_default();
-        if parts.is_empty() {
-            parts.push(next_numeric_child(paths, &[]).to_string());
-        }
-        while parts.len() + 1 < target_depth {
-            parts.push("1".to_string());
-        }
-        if parts.len() < target_depth {
-            let next = next_numeric_child(paths, &parts);
-            parts.push(next.to_string());
-        }
-        parts.join(".")
-    }
-
-    fn path_depth(path: &str) -> usize {
-        path.split('.').count()
-    }
-
-    fn next_numeric_child(paths: &[KnownPath], parent: &[String]) -> u32 {
-        paths
-            .iter()
-            .filter_map(|known| {
-                let parts = known.path.split('.').collect::<Vec<_>>();
-                if parts.len() != parent.len() + 1
-                    || !parts[..parent.len()]
-                        .iter()
-                        .zip(parent)
-                        .all(|(left, right)| *left == right)
-                {
-                    return None;
-                }
-                parts.last()?.parse::<u32>().ok()
-            })
-            .max()
-            .unwrap_or(0)
-            .saturating_add(1)
-    }
-}
-
 fn section_path_is_numeric(path: &str) -> bool {
     path.split('.')
         .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
@@ -213,15 +95,7 @@ fn assign_declaration_bodies(
             continue;
         }
         if is_md {
-            let next_break = md_headings
-                .iter()
-                .filter(|(line, level)| *line > decl.line && *level <= decl.heading_level)
-                .map(|(line, _)| *line)
-                .min();
-            decl.body_end = next_break
-                .map(|line| line - 1)
-                .unwrap_or(total_lines)
-                .max(decl.line);
+            decl.body_end = markdown_declaration_body_end(decl, md_headings, total_lines);
         } else {
             let block_end = code_blocks
                 .as_ref()

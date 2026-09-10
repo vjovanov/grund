@@ -65,7 +65,11 @@ fn check_section_headings(
             heading_marks(heading.heading_level),
             heading.suggested_path,
             separator,
-            heading.title
+            if heading.title.is_empty() {
+                "Untitled"
+            } else {
+                heading.title.as_str()
+            }
         );
         Diagnostic {
             code: "unmarked-heading",

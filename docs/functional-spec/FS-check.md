@@ -990,7 +990,10 @@ root numeric coordinate, or at `1` when none exists. If the authored heading
 skips a depth, missing parents are filled with `.1`. A named parent may therefore
 receive a numeric child such as `goals.1`. The suggested heading preserves the
 authored `#` depth and title and inserts the complete coordinate in that valid
-numeric or mixed form.
+numeric or mixed form. A titleless ATX heading has no authored title to
+preserve, so its otherwise-identical suggestion uses the literal title
+`Untitled`; applying that complete suggested heading produces a recognized
+section and clears the warning.
 
 Text output uses the ordinary `<path>:<line>: <message>` form. A warning leaves
 the exit at `0` but stands in place of the bare `success` line (§2.1). JSON emits
