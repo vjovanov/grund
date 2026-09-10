@@ -26,6 +26,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Fixed
 
+- [§FS-integrations.3.1](functional-spec/FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2), [§FS-integrations.4.3](functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions): correct clickable-citations guidance for resolver PATH failures, configuration keys, per-agent link gates, and write-report annotations.
 - [§REQ-readme.2](requirements/REQ-readme.md#2-every-example-is-real), [§FS-init.2.2](functional-spec/FS-init.md#22-stdout--stderr): refresh the README's captured `grund` output and correct the `init` next-step guidance to name `tests/`.
 - [§FS-show.2.1.2](functional-spec/FS-show.md#212-section-map---toc), [§FS-check.3.23](functional-spec/FS-check.md#323-section-outside-a-declaration): keep every section coordinate inside its declaration body across queries, checking, values, completion, list, refs, and LSP navigation, and report a numeric or enabled named heading left beyond that body as `section-outside-declaration`. Closes issue #225. (PR #226)
 - [§FS-check.3.8](functional-spec/FS-check.md#38-cross-project-citation-failure), [§FS-errors.3](functional-spec/FS-errors.md#3-message-text): clarify the narrowed-run scope-only unknown-alias diagnostic in 0.13.2 by retaining its legacy bytes as a contiguous prefix and appending that the named subtree includes the project and its descendants, plus notice that the legacy wording is removed in 0.14.0. Closes issue #216. (PR #220)

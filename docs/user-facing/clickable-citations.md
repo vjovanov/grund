@@ -303,6 +303,12 @@ project root; it needs to be inside one.
 
 **If it prints `unknown id …`**, the citation does not resolve in this
 repository. Check with `grund list`.
+The resolver shells out to `grund`, so check that `grund` itself — not just
+`grund-open` — is on the `PATH` the client spawns with, including
+`~/.cargo/bin` when it was installed with Cargo. Run `grund <the id>` in that
+same environment, not only in your login shell: if `grund` is unavailable,
+the resolver reports `unknown id` for every citation
+([§FS-integrations.3.1](../functional-spec/FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2)).
 
 One case of that is expected: a printed spec *path* contains ID-shaped
 segments, so `docs/functional-spec/FS-integrations.md` is also matched at
@@ -401,13 +407,14 @@ you, but editing it by hand is equivalent — run `grund integrations --write
 instruction files.
 
 `reference.conversation` and `reference.conversation_target`
-([§5.2](#52-which-scheme-the-link-uses)) are the **only** keys grund reads from
-this file, and nothing in it is ever fatal. Anything grund did not act on is
-reported at its line and then ignored:
+([§5.2](#52-which-scheme-the-link-uses)), and
+`reference.agents.<agent>.conversation_target` ([§5.4](#54-overriding-one-agent))
+are the **only** keys grund reads from this file, and nothing in it is ever
+fatal. Anything grund did not act on is reported at its line and then ignored:
 
 ```
 $ grund integrations --write --conversation link
-warning: /home/you/.config/grund/config.toml:2: unused key `reference.marker`; grund reads only `reference.conversation` and `reference.conversation_target` from this file
+warning: /home/you/.config/grund/config.toml:2: unused key `reference.marker`; grund reads only `reference.conversation`, `reference.conversation_target`, and `reference.agents.<agent>.conversation_target` from this file
 warning: /home/you/.config/grund/config.toml:5: ignoring `reference.conversation = "bare"`: must be one of plain | link
 ```
 
@@ -459,13 +466,17 @@ and nothing is created for it:
 ```
 $ grund integrations --write --conversation link
 appended /home/you/.config/grund/config.toml
-appended /home/you/.codex/AGENTS.md
-appended /home/you/.claude/CLAUDE.md
+appended /home/you/.codex/AGENTS.md (link → path; file unverified here)
+appended /home/you/.claude/CLAUDE.md (link → file)
 skipped /home/you/.gemini/GEMINI.md (no ~/.gemini)
 skipped /home/you/.copilot/copilot-instructions.md (no ~/.copilot)
 skipped /home/you/.config/zed/AGENTS.md (no ~/.config/zed)
 skipped /home/you/.pi/agent/AGENTS.md (no ~/.pi)
 ```
+
+The parenthesized annotation reports the target and its per-agent gate; see
+[§5.2](#52-which-scheme-the-link-uses) for targets and [§5.4](#54-overriding-one-agent)
+for per-agent overrides.
 
 Install one of those agents later and re-run the same command; it is
 idempotent, so the only thing that changes is the target that just appeared.
@@ -494,9 +505,10 @@ picked is waiting if you later switch to `link`.
 
 **Not every agent gets your choice, deliberately.** grund writes the linked
 form only into the instruction files of agents whose renderers are verified to
-honor it — Claude today, plus `web` for Codex, whose TUI replaces a local
-Markdown destination with the URL and erases the citation itself. Every other
-agent's block keeps plain `path:line`, the form it already had
+honor it — Claude today, plus `web` for Codex (whose TUI replaces a local
+Markdown destination with the URL and erases the citation itself), and `file`
+and `web` for Pi. Every other agent's block keeps plain `path:line`, the form it
+already had
 ([§DF-conversation-link-target.2.4](../decisions/functional/DF-conversation-link-target.md#24-the-form-is-gated-per-agent-and-the-fallback-is-path)).
 The same gate applies to the repository entrypoints: `CLAUDE.md` teaches the
 link form, `AGENTS.md` does not — so if your `CLAUDE.md` is a symlink to
