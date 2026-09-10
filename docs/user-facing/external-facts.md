@@ -25,13 +25,15 @@ and run `chmod +x scripts/fetch-ticket` before the first fetch:
 #!/bin/sh
 title=$(gh issue view "${1#TICKET-}" --json title --jq .title) || exit
 body=$(gh issue view "${1#TICKET-}" --json body --jq .body) || exit
-printf '## %s: %s\n\n```markdown\n%s\n```\n' "$1" "$title" "$body"
+fence=$(printf '%s\n```\n' "$body" | grep -o '`\{3,\}' | sort | tail -n 1)
+printf '## %s: %s\n\n%s`markdown\n%s\n%s`\n' "$1" "$title" "$fence" "$body" "$fence"
 ````
 
 For a `file` home the declaration is H2; for a `folder` home it is H1, and body
 subsections must be exactly one level deeper than that declaration. The example
-fences the provider body verbatim, so its own Markdown headings remain content
-but are not citable child headings; raw issue Markdown is not a declaration body.
+computes an outer backtick fence one character longer than any run in the
+provider body, so its own Markdown headings remain content but are not citable
+child headings; raw issue Markdown is not a declaration body.
 Grund validates the complete output before atomically replacing only that ID's
 snapshot. It preserves accepted bytes verbatim and inserts a new file-home
 declaration in ID order ([§FS-fetch.3](../functional-spec/FS-fetch.md#3-accepted-declaration),
