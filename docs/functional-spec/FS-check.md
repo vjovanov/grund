@@ -593,6 +593,48 @@ An attempted backtick-delimited binding that violates the exact grammar in [§FS
 
 After ordinary citation and section resolution succeeds uniquely, a binding whose authored component differs from its whole declaration or marked root under [§FS-values.4](FS-values.md#4-exact-equality) is an error at the binding and names the component site. Its code is `value-mismatch`; the canonical text and NDJSON parity are fixed by [§FS-values.5](FS-values.md#5-resolution-diagnostics-and-exit-status). An unknown alias, dangling ID, duplicate or invalid declaration, duplicate or missing section, invalid root, or noncanonical shorthand suppresses this comparison so one bad reference is never also reported as a mismatch. Ordinary declaration and section-structure findings run before comparison.
 
+### 3.23 Section outside a declaration
+
+When the scanner encounters a numeric section heading, or an enabled named
+section heading, that is deeper than its stale declaration context but whose
+line lies inside no declaration body, `check` emits one located error at the
+heading. A numeric heading's exact message is `numbered section outside any
+declaration`; an enabled named heading's is `named section outside any
+declaration`. Both use the public code `section-outside-declaration`.
+
+Ownership is the body span already used for extraction and citing-side
+classification, not a second section-only approximation. In Markdown, a
+same-or-higher heading ends a declaration body even when that boundary heading
+is plain; a later deeper section-like heading is outside. In source, the end of
+a doc-comment or docstring ends ownership. A later declaration in the same
+comment block ends the earlier body and begins its own. An inline-spec stub owns
+only its single heading line, so numbered prose below the stub belongs to no
+stubbed declaration. A deeper section-like heading before any of those
+boundaries stays valid. A heading inside a Markdown fence is content and emits
+nothing ([§FS-show.2.5](FS-show.md#25-a-heading-inside-a-fenced-code-block-is-an-example)).
+Legal unmarked or plain headings are not errors under this point; adopting a
+general unmarked-heading policy is a separate change.
+
+The rejected heading is excluded from the shared body-local section map before
+any consumer runs ([§FS-show.2.1.2](FS-show.md#212-section-map---toc)). It cannot
+resolve a citation or query, enter completion or list/size output, become an
+embedded-value root, participate in duplicate-section detection, or acquire an
+LSP navigation target. `show` and other failed queries retain their ordinary
+missing-section semantics rather than printing this check-only message.
+
+This is an ordinary hard finding under §§2–3. Text uses the located
+`path:line: message` form. JSON emits
+`{"severity":"error","path":<path>,"line":<line>,"code":"section-outside-declaration","message":<message>,"sites":null}`.
+`--only section-outside-declaration` retains it and `--ignore
+section-outside-declaration` removes it; a retained finding contributes exit
+`1`, while selecting it away restores the ordinary selected-report result.
+Parallel and workspace scans merge the record once under the workspace-relative
+path, never once per stale declaration. A narrowed scan judges the complete
+selected file, and `--full` applies the same code and message to otherwise
+out-of-scope files it adds. The LSP transports the same error severity, code,
+message, and heading range through its shared snapshot
+([§FS-lsp.1.1](FS-lsp.md#11-diagnostics)).
+
 ## 4. Warnings
 
 ### 4.1 Unused declaration
