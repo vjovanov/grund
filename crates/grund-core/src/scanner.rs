@@ -157,7 +157,7 @@ fn scan_file_text(
         let trimmed = line.trim_start();
         // Collected for every Markdown file: the shared section-map prune below
         // needs the body spans and cannot ask for them after this pass.
-        if is_md && let Some(level) = markdown_heading_level(trimmed) {
+        if is_md && let Some(level) = markdown_heading_level(line) {
             md_headings.push((lineno, level));
         }
         let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
@@ -356,7 +356,7 @@ fn scan_file_text(
         }
         if is_md
             && !recognized_section
-            && let Some(heading_level) = markdown_heading_level(trimmed)
+            && let Some(heading_level) = markdown_heading_level(line)
         {
             let heading = line.trim_end().trim_start().to_string();
             let title = heading_text(trimmed, heading_level);

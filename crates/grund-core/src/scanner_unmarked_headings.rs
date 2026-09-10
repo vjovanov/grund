@@ -34,10 +34,12 @@ fn assign_unmarked_heading_owners(
         })
         .collect::<Vec<_>>();
     candidates.sort_by_key(|candidate| candidate.line);
-    let mut suggested_by_owner: BTreeMap<Id, Vec<KnownPath>> = BTreeMap::new();
+    // This pass is per file, so the inclusive body span identifies a concrete
+    // declaration site even when another site declares the same logical ID.
+    let mut suggested_by_body: BTreeMap<(usize, usize), Vec<KnownPath>> = BTreeMap::new();
 
     for candidate in candidates {
-        let Some((_, _, declaration_level, owner, existing)) = bodies
+        let Some((body_start, body_end, declaration_level, owner, existing)) = bodies
             .iter()
             .filter(|(start, end, level, _, _)| {
                 *start <= candidate.line
@@ -49,7 +51,9 @@ fn assign_unmarked_heading_owners(
             continue;
         };
         let target_depth = candidate.heading_level - declaration_level;
-        let prior_suggestions = suggested_by_owner.entry(owner.clone()).or_default();
+        let prior_suggestions = suggested_by_body
+            .entry((*body_start, *body_end))
+            .or_default();
         let mut paths = existing.clone();
         paths.extend(prior_suggestions.iter().cloned());
         let suggested_path = suggested_section_path(&paths, candidate.line, target_depth);

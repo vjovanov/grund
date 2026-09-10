@@ -145,6 +145,7 @@ include!("tests_grounding_config.rs");
 include!("tests_inline_note_layout.rs");
 include!("tests_inline_note_layout_check.rs");
 include!("tests_scanner.rs");
+include!("tests_unmarked_headings.rs");
 include!("tests_values.rs");
 include!("tests_embedded_values.rs");
 include!("tests_embedded_value_boundaries.rs");
