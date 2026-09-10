@@ -1,0 +1,16 @@
+grund_config_version = 1
+
+[reference]
+strict = true
+
+[id]
+format = "{kind}-{slug}"
+
+[[kinds]]
+kind = "FS"
+folder = "docs/in"
+index = false
+
+[scan]
+include = ["docs/in"]
+extensions = ["md"]

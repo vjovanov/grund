@@ -55,7 +55,8 @@ Error output is part of the contract. Non-zero cases should keep `expected.stder
   and JSON under `section-outside-declaration`; `--only` retains it and
   `--ignore` removes it without leaving a stale duplicate behind
 - unmarked Markdown ATX headings inside declaration bodies: exact fixed warning
-  text and JSON, `--only`/`--ignore`, deterministic unused paths across gaps,
+  text and JSON, `--only`/`--ignore`, strict/warn/loose independence and `--full`
+  narrowing, deterministic unused paths across gaps,
   prior suggestions, named parents and skipped depths, nearest nested-declaration
   ownership, and silence for titles, body closure, fences, setext text, bold
   labels, numeric/named sections, and source doc-comments
