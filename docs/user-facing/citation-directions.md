@@ -27,7 +27,7 @@ An obligation on a citable kind that declares no IDs has no unit: no
 per-declaration unit fires. If a `must` or `should` obligation is configured,
 the kind's folder is walked, and at least one non-entry file is successfully
 scanned, `grund check` emits the non-fatal run-level
-`empty-citation-obligation` warning ([§FS-check.2.2.1](../functional-spec/FS-check.md#221-citation-direction-obligation-applies-to-nothing)).
+`empty-citation-obligation` warning ([the check specification says exactly when](https://github.com/vjovanov/grund/blob/main/docs/functional-spec/FS-check.md#221-citation-direction-obligation-applies-to-nothing)).
 A directory without declarations is usually `citable = false`, not a citable
 kind with an empty rule; make that setting when the directory is a place rather
 than an ID namespace. This is the no-unit trap described by
