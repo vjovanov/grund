@@ -6,6 +6,8 @@
 
 An input the scanner cannot handle yields an error naming the path ([§FS-errors.2.1](../functional-spec/FS-errors.md#21-located-finding)), and a run that could not complete exits `2` ([§FS-check.2](../functional-spec/FS-check.md#2-outputs)) — the failure is reported in-band, never thrown as a stack trace.
 
+There is one recorded deviation from this rule: a workspace member matched by a glob whose directory basename is not valid UTF-8, when that member sets no `project_name`, currently reaches the alias-derivation fallback as a panic and exits `101` rather than producing a located error and exiting `2`. Setting `project_name` on that member clears the condition today; clearing it properly requires a code change to the alias derivation. When that code change lands, this deviation clause goes.
+
 ## 2. Exit codes are the API
 
 The mapping is frozen and not configurable ([§FS-cli.5](../functional-spec/FS-cli.md#5-exit-code-mapping-is-fixed)): `0` clean or printed, `1` findings or a failed query — a well-formed request that yielded nothing ([§FS-errors.5](../functional-spec/FS-errors.md#5-json-format)) — `2` a scan or CLI-level failure. A command may leave a code unused, never redefine one. CI trusts the exit code before it reads a byte of output, so a wrong `0` is the worst bug the tool can ship; the one place a failed run is allowed to exit `0` is the shell completion helper, where a hidden hot-path command must stay silent on a keystroke rather than spray errors into the user's prompt ([§FS-completions.2](../functional-spec/FS-completions.md#2-internal-dynamic-helper)).
