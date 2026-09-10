@@ -1,10 +1,10 @@
 # DISC-token-cheap-grounding: Token-cheap grounding surfaces
 
-## Status
+## 1. Status
 
 Concluded. Implementation shipped as [§DF-show-default-token-cheap](../../decisions/functional/DF-show-default-token-cheap.md#df-show-default-token-cheap-grund-show-defaults-to-the-cheap-read-the-full-body-is-opt-in).
 
-## Context
+## 2. Context
 
 `grund show` already prevents the worst failure mode: an agent can fetch one declaration by ID instead of opening a whole file ([§FS-show](../../functional-spec/FS-show.md#fs-show-grund-reads-a-single-declaration-body-by-id)). But the full-declaration default is still expensive for large specs when an agent only needs to decide which section to read.
 
@@ -21,7 +21,7 @@ Measured on this repo:
 
 The pattern is clear: precise section reads are cheap; discovery and broad reads are where tokens leak. This matters because the generated `AGENTS.md` guidance currently teaches the right primitives but still names `grund show <ID>` as the first read in several places. The cheaper first move should be: head or outline first, then a targeted section.
 
-## Proposed shape
+## 3. Proposed shape
 
 Add a small "token-cheap read" layer over the existing scanner and section table:
 
@@ -33,13 +33,13 @@ Add a small "token-cheap read" layer over the existing scanner and section table
 
 These outputs should remain deterministic, line-oriented, and easy to pipe, following [§FS-errors.4](../../functional-spec/FS-errors.md#4-determinism).
 
-## Boundaries
+## 4. Boundaries
 
 - Do not change `grund show <ID>` default behavior in the first pass. Full-body output is already specified and useful for humans; changing it is a compatibility decision under [§GOAL-no-silent-breakage](../../goals.md#goal-no-silent-breakage-changes-ship-through-a-deprecation-path).
 - Do not add summarization by language model. These are structural slices from the declaration headings and citation graph, not generated prose.
 - Do not hide information in `check`. Diagnostics stay complete; token-saving applies to read/query commands.
 
-## Open questions
+## 5. Open questions
 
 - Should `--brief` include the declaration heading in text format, or stay consistent with `show` text output and omit the H1?
 - Should `refs --summary` show counts only, line lists, or both behind separate flags?

@@ -1,10 +1,10 @@
 # DISC-external-facts: External facts are committed declarations materialized explicitly
 
-## Status
+## 1. Status
 
 Concluded. This discussion replaces [§DISC-external-ticket-resolvers](2026-05-09-external-ticket-resolvers.md#disc-external-ticket-resolvers-external-ticket-resolvers) and is realized by [§FS-fetch](../../functional-spec/FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot).
 
-## Context
+## 2. Context
 
 The fact that motivates work often begins outside the repository: an issue, incident,
 RFC, or wiki page. A URL-only resolver would make that fact visible only while the
@@ -17,7 +17,7 @@ repository keeps the complete Markdown declaration it relies on. All ordinary re
 remain functions of committed bytes; a user deliberately runs one command to ask a
 repository-configured integration for newer bytes.
 
-## Decision
+## 3. Decision
 
 An external fact is an ordinary marked citation to an ordinary configured kind. Its
 snapshot is a full Markdown declaration in that kind's `file` or `folder` home. It is
@@ -48,7 +48,7 @@ mutation, preserves accepted output verbatim, and atomically replaces or stably 
 only the requested declaration. Refusal leaves the tree byte-identical. This makes a
 committed snapshot reviewable, deterministic, and useful after the source ticket closes.
 
-## Consequences
+## 4. Consequences
 
 - Existing repositories opt into nothing and retain their current schema-v1 behavior.
 - Freshness is visible as a normal repository diff and is never part of `check`.
@@ -60,7 +60,7 @@ committed snapshot reviewable, deterministic, and useful after the source ticket
 - LSP diagnostics, hover, and navigation reuse the ordinary engine result. A fetch code
   action and `workspace/executeCommand` remain future work and are not implied here.
 
-## Rejected alternatives
+## 5. Rejected alternatives
 
 - **Live or implicit resolution:** makes verdicts depend on network, credentials, rate
   limits, and mutable remote state.

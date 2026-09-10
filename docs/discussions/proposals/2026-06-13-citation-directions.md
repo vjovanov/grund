@@ -1,12 +1,12 @@
 # DISC-citation-directions: Encode citation directions as checked config
 
-## Status
+## 1. Status
 
 Concluded. Tracks [issue #40](https://github.com/vjovanov/grund/issues/40); accepted
 as [§DF-citation-directions](../../decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels) and drafted into the specs listed under "Spec changes
 this drafts into" below.
 
-## Context
+## 2. Context
 
 The climbing rule — *"Citations climb to reasons. Goals cite reasons, specs cite
 goals; architecture cites specs; code and executable tests cite specs."* — lives
@@ -19,7 +19,7 @@ This proposal encodes citation directions in `.agents/grund.toml` with RFC-2119
 levels, checked by `grund check` and rendered into the agent entrypoint, so the
 guidance an agent reads and the rule the checker enforces derive from one source.
 
-## A `[citations]` section keyed by citing kind
+## 3. A `[citations]` section keyed by citing kind
 
 Each subsection names the **citing** side; arrays name the **cited** kinds. The
 canonical ruleset:
@@ -60,7 +60,7 @@ enough to make the alternative honest. A `climb` shorthand that would *generate*
 most of these edges from a single ordering is attractive but deferred (see the last
 section); it changes nothing about what the checker does.
 
-## Levels
+## 4. Levels
 
 The five keys form the RFC-2119 ladder, split into two rule classes and two
 surfaces:
@@ -78,7 +78,7 @@ citation to the target kind, anywhere in its body? A list `must = ["GOAL", "GRUN
 is conjunctive (one of each); `"GOAL|GRUND"` inside one entry is the disjunction.
 **Prohibitions** fire per offending citation site with exact `file:line`.
 
-## Enforcement split: errors gate, suggestions report
+## 5. Enforcement split: errors gate, suggestions report
 
 `grund check`'s default run reports **only** `must` / `must-not` violations. The
 `should` levels never appear in check's standing output, for a structural reason:
@@ -107,7 +107,7 @@ The severity mapping stays **fixed** across both surfaces (`must`→error,
 choose the rules, but two grund installs reading the same config always agree both
 on what gates and on what is suggested.
 
-## Output and API shape
+## 6. Output and API shape
 
 Suggestions are a **third report channel, not a third severity.** [§FS-config.6](../../functional-spec/FS-config.md#6-what-is-not-configured-here)
 freezes the severity set at exactly `{error, warning}` under the same
@@ -129,7 +129,7 @@ the gate's pass/fail contract untouched. Concretely ([§FS-check.2.3](../../func
   `discouraged-citation` codes live on the `suggestions` vector, never on
   `errors` / `warnings`.
 
-## Versioning
+## 7. Versioning
 
 Adding `[citations]` does **not** bump `grund_config_version`; it stays `1`. This
 follows the established convention: `[workspace]` ([§DF-subproject-namespaces](../../decisions/functional/DF-subproject-namespaces.md#df-subproject-namespaces-alias-namespace-model-for-sub-projects-and-external-repos)),
@@ -144,7 +144,7 @@ uses a feature your grund predates."
 the global default is `may`, so adoption is incremental. Precedence: explicit target
 list > per-kind `default` > global `default`.
 
-## Namespace matching mirrors citation grammar
+## 8. Namespace matching mirrors citation grammar
 
 Rule entries use the same shapes citations do ([§FS-workspace.1](../../functional-spec/FS-workspace.md#1-citation-syntax), [§FS-workspace.4](../../functional-spec/FS-workspace.md#4-resolution)): a
 bare `AR` matches the **local** namespace only; `alias/AR` pins one member; `*/AR` —
@@ -158,7 +158,7 @@ constrains. The check is textual on the qualifier + prefix — resolution failur
 already separate errors ([§FS-check.3.8](../../functional-spec/FS-check.md#38-cross-project-citation-failure)), so the direction check never loads a foreign
 config.
 
-## Classifying the citing side
+## 9. Classifying the citing side
 
 The scanner knows the *cited* kind from the ID but not what kind of place is citing.
 Classify each citation site by three-step fallback, with explicit bounds at each
@@ -178,7 +178,7 @@ This is a concrete data-model change, not a checker pass over existing data:
 doc-comment declaration ranges are narrower than the file — and the same fields are
 exactly what `grund cover` ([§FS-cover](../../functional-spec/FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file)) and the gap report ([§RM-gap-report](../../roadmap.md#rm-gap-report-orphan-and-uncovered-id-reports)) need.
 
-### Special cases
+### 9.1. Special cases
 
 - **Stub + inline declaration**: obligations evaluate the inline body; the one-line
   stub (`# <ID>: [<path>](<path>)`) is never the evaluation target.
@@ -192,7 +192,7 @@ exactly what `grund cover` ([§FS-cover](../../functional-spec/FS-cover.md#fs-co
   but obligation-exempt. Direction rules constrain *how* you ground, never
   *whether* — forcing files to cite remains `require_grounding`'s job.
 
-## AGENTS.md rendering
+## 10. AGENTS.md rendering
 
 The entrypoint block (validated by [§FS-check.3.5](../../functional-spec/FS-check.md#35-invalid-agent-entrypoint-init-block)) gains a generated section
 replacing the hand-written climbing-rule prose, so agent guidance derives from the
@@ -222,7 +222,7 @@ from the live config and byte-compares (rendering is deterministic, so determini
 *is* the hash); a stale block is an `agents-init` finding. The managed block version
 bumps to 3.
 
-## Gap report tie-in
+## 11. Gap report tie-in
 
 An ID is **climbed** when an inbound citation comes from a kind whose own member's
 rules oblige (`must` / `should`) citing this kind. Peer, downward, and unlisted-kind
@@ -231,7 +231,7 @@ is complete: every intended upward edge is an explicit `must` / `should`, so
 "climbed" reads straight off the rules. `grund gap` is also the standing home for the
 suggestion records ([§RM-gap-report](../../roadmap.md#rm-gap-report-orphan-and-uncovered-id-reports)).
 
-## Dogfooding: the ruleset vs this repo
+## 12. Dogfooding: the ruleset vs this repo
 
 Dry-run of an earlier, stricter draft (`GOAL must = ["GRUND"]`, `AR must = ["FS"]`,
 `FS should = ["GOAL"]`) against `docs/`:
@@ -254,7 +254,7 @@ this repo adopts the full ruleset immediately, because should-level findings bec
 `E2E must = ["FS"]` and `FS must-not = ["AR"]` (adopted after the FS→AR pointer sites
 are downgraded to plain Markdown links).
 
-## Reserved: navigational references (not in v1)
+## 13. Reserved: navigational references (not in v1)
 
 Prohibitions need a sanctioned downward-pointer. An earlier draft proposed a
 link-wrapped bare ID as a third, checked reference category. On reflection that is
@@ -264,7 +264,7 @@ link** — exactly what this repo already did by hand (`49a46de6cb`). The checke
 navigational-reference form stays **reserved** as a follow-up, revisited only if
 `must-not` prohibitions prove unusable with plain-link downgrades.
 
-## Deferred: the `climb` shorthand
+## 14. Deferred: the `climb` shorthand
 
 The canonical matrix is mostly the consequence of one ordering — `GRUND ← GOAL ← FS ←
 (AR · DF · DA) ← (E2E · code)`. Encoding that ordering and generating the edges from
@@ -274,7 +274,7 @@ nothing the checker does. v1 ships the explicit matrix; `climb` is backward-comp
 to add later (a config that adopts it is just a shorter spelling of a matrix the
 engine already understands).
 
-## Spec changes this drafts into
+## 15. Spec changes this drafts into
 
 - [§DF-citation-directions](../../decisions/functional/DF-citation-directions.md#df-citation-directions-encode-citation-directions-as-checked-config-with-rfc-2119-levels): the levels, the enforcement split, and the resolved
   questions.

@@ -42,6 +42,7 @@ pub const CHECK_FINDING_CODES: &[&str] = &[
     "unknown-project",
     "unlinked-index-entry",
     "unlisted-workspace-block",
+    "unmarked-heading",
     "unused",
     "value-mismatch",
 ];

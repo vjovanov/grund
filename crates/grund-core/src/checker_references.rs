@@ -109,7 +109,7 @@ fn retain_findings_in_scope(findings: &mut Findings, scope: Option<&ScanScope>) 
             !decls.is_empty()
         });
     findings.citations.retain(|cite| scope.contains(&cite.file));
-    retain_section_headings_in_scope(findings, scope);
+    retain_heading_findings_in_scope(findings, scope);
     findings
         .value_bindings
         .retain(|binding| scope.contains(&binding.file));

@@ -1,10 +1,10 @@
 # DISC-external-ticket-resolvers: External ticket resolvers
 
-## Status
+## 1. Status
 
 Superseded by [§DISC-external-facts](2026-09-07-external-facts.md#disc-external-facts-external-facts-are-committed-declarations-materialized-explicitly), which keeps external facts as committed ordinary declarations instead of introducing a URL-only resolver subsystem.
 
-## Context
+## 2. Context
 
 Project discussions often need to reference issue trackers alongside local specs:
 GitHub issues, Jira tickets, Linear issues, or internal trackers. Those references
@@ -15,7 +15,7 @@ The design tension is that `grund check` is intentionally deterministic and
 offline, while validating a ticket's existence usually requires network access
 and authentication.
 
-## Proposed shape
+## 3. Proposed shape
 
 Add a separate resolver concept for external references. These references would
 have configured syntax and URL expansion, but no local declaration body.
@@ -45,7 +45,7 @@ In the future, the marker-prefixed form might become available once the scanner
 can distinguish local declaration kinds from external resolver kinds without
 creating false "unknown reference" errors.
 
-## Semantics
+## 4. Semantics
 
 - Local IDs resolve to local declarations and support `grund show`.
 - External tickets resolve to configured URLs and do not support `grund show`.
@@ -55,7 +55,7 @@ creating false "unknown reference" errors.
   `grund external check --online`, but that should be separate from the normal
   offline pass.
 
-## Why not use normal `[[kinds]]`
+## 5. Why not use normal `[[kinds]]`
 
 Ticket schemes usually have different grammar from local spec IDs. A repo may use
 slug-only local IDs such as `§FS-config`, while GitHub issues are numeric and Jira
@@ -66,7 +66,7 @@ constrained.
 External resolvers should therefore be a new table rather than an extension of
 local declaration kinds.
 
-## Open questions
+## 6. Open questions
 
 - Should ticket references require the same marker as local citations, or should
   they use a separate marker to avoid confusing them with `grund show`-able IDs?

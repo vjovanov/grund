@@ -64,6 +64,7 @@ Supported check finding codes:
   unknown-project
   unlinked-index-entry
   unlisted-workspace-block
+  unmarked-heading
   unused
   value-mismatch
 

@@ -63,7 +63,10 @@ pub const AGENT_SETUP_INSTRUCTIONS: &str = include_str!("../assets/skills/grund-
 /// rewrite (§FS-init.2.3).
 /// v9 (§FS-init.2.3.4.3): the cheap-read ladder gains the point-size sweep so
 /// oversized leads are discoverable before an agent pays to read them.
-const AGENTS_BLOCK_VERSION: u32 = 9;
+/// v10 (§FS-init.2.3.4.5): Markdown declaration bodies teach that ATX headings
+/// need section coordinates, with the body/fence/source exemptions and bold
+/// label alternative of §FS-check.4.14.
+const AGENTS_BLOCK_VERSION: u32 = 10;
 
 pub fn canonical_template_text(template: &str) -> String {
     template.replace("\r\n", "\n").replace('\r', "\n")
@@ -166,6 +169,7 @@ fn agents_workspace_members_section(
 
 fn section_heading_note(config: &Config, marker: &str) -> String {
     let sep = config.section_separator.as_str();
+    let unmarked_policy = " Every non-declaration heading inside a Markdown declaration body must carry a numbered or enabled named section path; file titles, headings that close the body, fenced examples, non-ATX text, and source doc-comments stay exempt, while bold labels remain the non-citable alternative.";
     // §FS-init.2.3.4.5: enabled repositories teach explicit complete handles;
     // the generated false default retains the prior numeric-only bytes here.
     if config.named_sections {
@@ -175,18 +179,18 @@ fn section_heading_note(config: &Config, marker: &str) -> String {
             _ => "recommended for readability",
         };
         return format!(
-            "Named sections are enabled: use explicit complete paths (`## goals: Goals`, `### goals.performance: Performance`, `### goals.3: Ordered child`) so `{marker}<ID>{sep}goals.performance` resolves; handles are letter-first lowercase names, `name.number` is legal, and `number.name` is reserved. Heading depth must match each path component ({verdict}). Purely numbered headings remain citable, and plain headings or bold labels are fine for non-citable local structure."
+            "Named sections are enabled: use explicit complete paths (`## goals: Goals`, `### goals.performance: Performance`, `### goals.3: Ordered child`) so `{marker}<ID>{sep}goals.performance` resolves; handles are letter-first lowercase names, `name.number` is legal, and `number.name` is reserved. Heading depth must match each path component ({verdict}). Purely numbered headings remain citable.{unmarked_policy}"
         );
     }
     match config.section_heading_levels.as_str() {
         "strict" => format!(
-            "Numbered headings inside a declaration are citable sections: use depth-matching headings (`## 1. …`, `### 1.1 …`, etc.) so `{marker}<ID>{sep}1` / `{marker}<ID>{sep}1.1` resolve; mismatched heading depth is a `grund check` error. Plain headings or bold labels are fine for non-citable local structure."
+            "Numbered headings inside a declaration are citable sections: use depth-matching headings (`## 1. …`, `### 1.1 …`, etc.) so `{marker}<ID>{sep}1` / `{marker}<ID>{sep}1.1` resolve; mismatched heading depth is a `grund check` error.{unmarked_policy}"
         ),
         "warn" => format!(
-            "Numbered headings inside a declaration are citable sections: use depth-matching headings (`## 1. …`, `### 1.1 …`, etc.) so `{marker}<ID>{sep}1` / `{marker}<ID>{sep}1.1` resolve; mismatched heading depth is a `grund check` warning. Plain headings or bold labels are fine for non-citable local structure."
+            "Numbered headings inside a declaration are citable sections: use depth-matching headings (`## 1. …`, `### 1.1 …`, etc.) so `{marker}<ID>{sep}1` / `{marker}<ID>{sep}1.1` resolve; mismatched heading depth is a `grund check` warning.{unmarked_policy}"
         ),
         _ => format!(
-            "Numbered headings inside a declaration are citable sections: `{marker}<ID>{sep}1` / `{marker}<ID>{sep}1.1` resolve by dotted number, and depth-matching headings (`## 1. …`, `### 1.1 …`) are recommended for readability. Plain headings or bold labels are fine for non-citable local structure."
+            "Numbered headings inside a declaration are citable sections: `{marker}<ID>{sep}1` / `{marker}<ID>{sep}1.1` resolve by dotted number, and depth-matching headings (`## 1. …`, `### 1.1 …`) are recommended for readability.{unmarked_policy}"
         ),
     }
 }
