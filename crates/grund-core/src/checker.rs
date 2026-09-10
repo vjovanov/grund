@@ -247,6 +247,13 @@
 /// unique numbered target reaches exact decimal-or-decoded-string equality,
 /// producing the fixed value errors and declaration site required by §FS-values.5.
 ///
+/// ### 2.19 Sections outside declarations (§FS-check.3.23)
+///
+/// The scanner narrows both section maps against the declaration body span and
+/// retains each rejected numeric or enabled named heading as one located site.
+/// This pass translates those sites into hard findings; no consumer can resolve
+/// them because checking happens after the shared maps have already been pruned.
+///
 /// ## 3. Error format
 ///
 /// Every error and warning follows `<path>:<line>: <message>` so that editors and

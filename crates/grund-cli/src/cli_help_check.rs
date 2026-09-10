@@ -20,8 +20,10 @@ fn print_check_help() {
     println!(
         "  --format text|json   text (default) prints `success` or `path:line: message`; json emits NDJSON."
     );
+    // §FS-check.3.23: this is the one non-reference hard finding the widened
+    // scan carries with its ordinary code and message.
     println!(
-        "  --full               also walk past [scan] include and report the references that resolve to nothing out there."
+        "  --full               also walk past [scan] include and report unresolved references or section headings outside declaration bodies there."
     );
     println!(
         "  --require-grounding  also require every source file to cite a declared ID ([reference] require_grounding; a [[kinds]] row that sets it false stays exempt)."
@@ -59,7 +61,7 @@ fn print_check_help() {
     println!("Examples:");
     println!("  grund check              # check the whole repo");
     println!("  grund check docs/        # check one subtree");
-    println!("  grund check --full       # plus dangling citations outside [scan] include");
+    println!("  grund check --full       # plus unresolved references and outside sections beyond include");
     println!(
         "  grund check --ignore agents-init # ask whether the selected content report has errors"
     );

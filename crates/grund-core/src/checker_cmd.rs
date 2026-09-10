@@ -212,8 +212,9 @@ fn run_check(
     // `--full` walk first, then narrow the findings back to the configured scope
     // so every other rule reports exactly what a run without the flag reports.
     let scope = configured_scope(&config, path, path_provided, full)?;
-    let out_of_scope =
+    let mut out_of_scope =
         out_of_scope_references(&findings, &config, &BTreeMap::new(), scope.as_ref());
+    out_of_scope.extend(out_of_scope_section_headings(&findings, scope.as_ref()));
     retain_findings_in_scope(&mut findings, scope.as_ref());
     let mut report = check_findings(&findings, &config);
     let had_scan_errors = append_scan_errors(&mut report, scan_errors);
@@ -297,7 +298,8 @@ fn run_workspace_check(
         .iter()
         .map(|project| configured_scope(&project.config, &project.config.root, true, full))
         .collect::<Result<Vec<_>>>()?;
-    let out_of_scope = workspace_out_of_scope_references(&projects, &scopes);
+    let mut out_of_scope = workspace_out_of_scope_references(&projects, &scopes);
+    out_of_scope.extend(workspace_out_of_scope_section_headings(&projects, &scopes));
     for (project, scope) in projects.iter_mut().zip(&scopes) {
         retain_findings_in_scope(&mut project.findings, scope.as_ref());
     }

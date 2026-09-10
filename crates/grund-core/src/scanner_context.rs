@@ -1,22 +1,50 @@
-/// §AR-scanner.2.2: the scan's "current declaration" runs to the next
-/// declaration line or end of file, which is wider than the body span §2.4
-/// computes — a `## 1.` in the *next* item's doc-comment, or under a later
-/// unrelated Markdown heading, is recorded against the declaration above it. A
-/// heading outside the body is not one of the declaration's sections, so it is
-/// not a duplicate of one either: drop it before §FS-check.3.16 reports a
-/// collision `grund <ID>.<path>` could never have reached. A stub spans its
-/// single link line (§AR-scanner.2.4), so this is also what keeps its prose out
-/// of the rule.
+/// Narrow the shared coordinate catalog to each declaration's body and retain
+/// every rejected heading as one check site (§FS-show.2.1.2, §FS-check.3.23).
 ///
-/// Only `duplicate_sections` is narrowed. The `sections` map is the
-/// citation-resolution surface every other rule reads, and changing what it
-/// holds is a separate decision (§AR-scanner.2.2).
-fn retain_in_body_duplicate_sections(findings: &mut Findings) {
+/// The line scan's current declaration runs farther than the body in Markdown,
+/// source comments, docstrings, and stubs. Applying the already-computed span
+/// here makes every map reader agree without a surface-local guard. Rejected
+/// duplicate claimants become outside-heading sites too, never stale
+/// `duplicate-section` collisions.
+fn retain_in_body_sections(findings: &mut Findings) {
+    let mut rejected = Vec::new();
     for decl in findings.declarations.values_mut().flatten() {
         let body = decl.body_start..=decl.body_end;
-        decl.duplicate_sections
-            .retain(|(_, info)| body.contains(&info.line));
+        decl.sections.retain(|path, info| {
+            let retained = body.contains(&info.line);
+            if !retained {
+                rejected.push(SectionHeadingOutsideDeclaration {
+                    file: decl.file.clone(),
+                    line: info.line,
+                    named: !section_path_is_numeric(path),
+                });
+            }
+            retained
+        });
+        decl.duplicate_sections.retain(|(path, info)| {
+            let retained = body.contains(&info.line);
+            if !retained {
+                rejected.push(SectionHeadingOutsideDeclaration {
+                    file: decl.file.clone(),
+                    line: info.line,
+                    named: !section_path_is_numeric(path),
+                });
+            }
+            retained
+        });
     }
+    rejected.sort_by(|left, right| {
+        (sort_path_key(&left.file), left.line).cmp(&(sort_path_key(&right.file), right.line))
+    });
+    rejected.dedup_by(|left, right| left.file == right.file && left.line == right.line);
+    findings
+        .section_headings_outside_declarations
+        .extend(rejected);
+}
+
+fn section_path_is_numeric(path: &str) -> bool {
+    path.split('.')
+        .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
 }
 
 /// The level of a Markdown ATX heading line (`#` count), or `None` when the line

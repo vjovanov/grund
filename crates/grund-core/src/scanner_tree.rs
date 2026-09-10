@@ -55,6 +55,9 @@ fn merge_findings(target: &mut Findings, mut source: Findings) {
     }
     target.citations.append(&mut source.citations);
     target
+        .section_headings_outside_declarations
+        .append(&mut source.section_headings_outside_declarations);
+    target
         .legacy_citation_candidates
         .append(&mut source.legacy_citation_candidates);
     target.value_bindings.append(&mut source.value_bindings);

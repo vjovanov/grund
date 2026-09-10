@@ -34,6 +34,7 @@
 fn extract_declaration_body(
     path: &Path,
     id: &Id,
+    declaration: &Declaration,
     section: Option<&str>,
     mode: ShowRenderMode,
     include_heading: bool,
@@ -49,17 +50,27 @@ fn extract_declaration_body(
         mode,
         include_heading,
         config,
-        None,
+        Some(PointBodySite {
+            declaration_line: declaration.line,
+            declaration_body_end: (section.is_some()
+                || declaration.body_end > declaration.line)
+                .then_some(declaration.body_end),
+            section_line: section.and_then(|path| declaration.sections.get(path).map(|info| info.line)),
+        }),
     )
 }
 
-/// The exact scanner-recorded site whose body is being sliced. `show` leaves it
-/// absent because it has already established uniqueness; size rows provide it
-/// so duplicate homes and duplicate section coordinates stay site-local
-/// (§FS-list.2, §FS-list.3.4).
+/// The exact scanner-recorded site whose body is being sliced. `show` supplies
+/// it after establishing uniqueness so an assigned scanner body span bounds the
+/// source slice too; size rows additionally use it to keep duplicate homes and
+/// duplicate section coordinates site-local (§FS-show.2.1.2, §FS-list.3.4).
 #[derive(Clone, Copy)]
 struct PointBodySite {
     declaration_line: usize,
+    /// Present when the scanner computed a meaningful body span. A read-only
+    /// scan without sections retains its lazy single-line placeholder and lets
+    /// the slicer derive that declaration's boundary itself (§AR-benchmarks).
+    declaration_body_end: Option<usize>,
     section_line: Option<usize>,
 }
 
@@ -126,6 +137,8 @@ fn point_body_pair(
     let section_path = section.map(|(path, _)| path);
     let site = PointBodySite {
         declaration_line: declaration.line,
+        declaration_body_end: (section.is_some() || declaration.body_end > declaration.line)
+            .then_some(declaration.body_end),
         section_line: section.map(|(_, info)| info.line),
     };
     let mut lead = extract_declaration_body_cached(
@@ -252,6 +265,13 @@ fn extract_declaration_body_cached(
 
     for (idx, line) in text.lines().enumerate() {
         let lineno = idx + 1;
+        if in_decl
+            && site
+                .and_then(|site| site.declaration_body_end)
+                .is_some_and(|body_end| lineno > body_end)
+        {
+            break;
+        }
         let scan = source_scan_line(line, is_py, config.docstring_python, &mut py_docstring);
         let scan_line = scan.text;
         if in_decl && scan.in_py_docstring && scan.closed_py_docstring && scan_line.trim().is_empty() {
