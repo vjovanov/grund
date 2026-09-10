@@ -23,6 +23,35 @@ fn run(cwd: &Path, args: &[&str]) -> Output {
         .unwrap_or_else(|error| panic!("run grund {args:?}: {error}"))
 }
 
+fn heading_project(name: &str) -> PathBuf {
+    let root = root(name);
+    fs::create_dir_all(root.join("docs")).expect("create docs home");
+    fs::write(
+        root.join("grund.toml"),
+        concat!(
+            "grund_config_version = 1\n\n",
+            "[reference]\nstrict = true\n\n",
+            "[id]\nformat = \"{kind}-{slug}\"\n\n",
+            "[[kinds]]\nkind = \"FS\"\nfolder = \"docs\"\nindex = false\n\n",
+            "[scan]\ninclude = [\"docs\"]\nextensions = [\"md\"]\n",
+        ),
+    )
+    .expect("write config");
+    root
+}
+
+fn write_doc(root: &Path, name: &str, body: &str) {
+    fs::write(root.join("docs").join(name), body).expect("write Markdown fixture");
+}
+
+fn stdout(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+fn stderr(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stderr).into_owned()
+}
+
 fn version(text: &str) -> Vec<u32> {
     text.trim_end_matches("-dev")
         .split('.')
@@ -82,4 +111,137 @@ fn unmarked_heading_guidance_moves_v9_to_v10_without_a_config_bump() {
     let config = fs::read_to_string(root.join("grund.toml")).expect("read config");
     assert!(config.contains("grund_config_version = 1"), "{config}");
     assert!(!config.contains("unmarked_headings"), "{config}");
+}
+
+#[test]
+fn unbounded_sibling_numbers_get_strictly_larger_unused_suggestions() {
+    let root = heading_project("unbounded-suggestions");
+    write_doc(
+        &root,
+        "FS-overflow-u32.md",
+        concat!(
+            "# FS-overflow-u32: u32 boundary\n\n",
+            "Fixture prose.\n\n",
+            "## 4294967295. Existing maximum\n\n",
+            "## Missing sibling\n",
+        ),
+    );
+    write_doc(
+        &root,
+        "FS-overflow-larger.md",
+        concat!(
+            "# FS-overflow-larger: Larger boundary\n\n",
+            "Fixture prose.\n\n",
+            "## 18446744073709551615. Existing maximum\n\n",
+            "## Missing sibling\n",
+        ),
+    );
+
+    let checked = run(&root, &["check", "--only", "unmarked-heading"]);
+    assert_eq!(checked.status.code(), Some(0), "{}", stderr(&checked));
+    assert_eq!(
+        stdout(&checked),
+        concat!(
+            "docs/FS-overflow-larger.md:7: unmarked heading inside FS-overflow-larger; number it (## 18446744073709551616. Missing sibling) as FS-overflow-larger.18446744073709551616, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0\n",
+            "docs/FS-overflow-u32.md:7: unmarked heading inside FS-overflow-u32; number it (## 4294967296. Missing sibling) as FS-overflow-u32.4294967296, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0\n",
+        )
+    );
+}
+
+#[test]
+fn suggested_titles_preserve_hash_text_and_only_remove_atx_closers() {
+    let root = heading_project("hash-titles");
+    write_doc(
+        &root,
+        "FS-titles.md",
+        concat!(
+            "# FS-titles: Hash titles\n\n",
+            "Fixture prose.\n\n",
+            "## C#\n\n",
+            "## C# ###\n",
+        ),
+    );
+
+    let checked = run(&root, &["check", "--only", "unmarked-heading"]);
+    assert_eq!(checked.status.code(), Some(0), "{}", stderr(&checked));
+    assert_eq!(
+        stdout(&checked),
+        concat!(
+            "docs/FS-titles.md:5: unmarked heading inside FS-titles; number it (## 1. C#) as FS-titles.1, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0\n",
+            "docs/FS-titles.md:7: unmarked heading inside FS-titles; number it (## 2. C#) as FS-titles.2, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0\n",
+        )
+    );
+
+    write_doc(
+        &root,
+        "FS-titles.md",
+        concat!(
+            "# FS-titles: Hash titles\n\n",
+            "Fixture prose.\n\n",
+            "## 1. C#\n\n",
+            "## 2. C# ###\n",
+        ),
+    );
+    let repaired = run(&root, &["check", "--only", "unmarked-heading"]);
+    assert_eq!(repaired.status.code(), Some(0), "{}", stderr(&repaired));
+    assert_eq!(stdout(&repaired), "success\n");
+}
+
+#[test]
+fn titleless_heading_gets_a_self_valid_suggestion() {
+    let root = heading_project("titleless-suggestion");
+    write_doc(
+        &root,
+        "FS-titleless.md",
+        concat!(
+            "# FS-titleless: Titleless heading\n\n",
+            "Fixture prose.\n\n",
+            "##\n",
+        ),
+    );
+
+    let checked = run(&root, &["check", "--only", "unmarked-heading"]);
+    assert_eq!(checked.status.code(), Some(0), "{}", stderr(&checked));
+    assert_eq!(
+        stdout(&checked),
+        "docs/FS-titleless.md:5: unmarked heading inside FS-titleless; number it (## 1. Untitled) as FS-titleless.1, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0\n"
+    );
+
+    write_doc(
+        &root,
+        "FS-titleless.md",
+        concat!(
+            "# FS-titleless: Titleless heading\n\n",
+            "Fixture prose.\n\n",
+            "## 1. Untitled\n",
+        ),
+    );
+    let repaired = run(&root, &["check", "--only", "unmarked-heading"]);
+    assert_eq!(repaired.status.code(), Some(0), "{}", stderr(&repaired));
+    assert_eq!(stdout(&repaired), "success\n");
+}
+
+#[test]
+fn unmarked_heading_scan_does_not_shorten_show_or_list_slices() {
+    let root = heading_project("read-only-slices");
+    write_doc(
+        &root,
+        "FS-show-edge.md",
+        concat!(
+            "# FS-show-edge: Read-only slices\n\n",
+            "Fixture prose.\n\n",
+            "## Missing coordinate\n\n",
+            "More prose.\n\n",
+            "# Plain chapter\n\n",
+            "Trailing prose.\n",
+        ),
+    );
+
+    let shown = run(&root, &["show", "FS-show-edge", "--full"]);
+    assert_eq!(shown.status.code(), Some(0), "{}", stderr(&shown));
+    assert!(stdout(&shown).contains("# Plain chapter\n\nTrailing prose."));
+
+    let listed = run(&root, &["list", "--size=lines"]);
+    assert_eq!(listed.status.code(), Some(0), "{}", stderr(&listed));
+    assert!(stdout(&listed).contains("FS-show-edge  docs/FS-show-edge.md:1  lines=5/5"));
 }

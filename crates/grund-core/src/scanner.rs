@@ -555,7 +555,6 @@ fn scan_file_text(
         || has_text_sections
         || has_value_declarations
         || has_embedded_roots
-        || has_unmarked_headings
     {
         assign_declaration_bodies(findings, is_md, is_py, config, &text, &md_headings, total_lines);
     }
@@ -563,7 +562,12 @@ fn scan_file_text(
         retain_in_body_sections(findings);
     }
     if has_unmarked_headings {
-        assign_unmarked_heading_owners(findings, unmarked_heading_candidates);
+        assign_unmarked_heading_owners(
+            findings,
+            unmarked_heading_candidates,
+            &md_headings,
+            total_lines,
+        );
     }
     if has_value_declarations {
         validate_markdown_value_declarations(path, &text, is_md, config, findings);
