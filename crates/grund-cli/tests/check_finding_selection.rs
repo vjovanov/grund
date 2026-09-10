@@ -310,6 +310,7 @@ fn issue_49_check_help_exposes_the_sorted_public_code_catalog() {
         "oversized-lead",
         "redundant-config",
         "section-heading-level",
+        "section-outside-declaration",
         "shorthand-citation",
         "shorthand-numeric-run",
         "suggested-citation",
