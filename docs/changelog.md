@@ -26,6 +26,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Fixed
 
+- [§REQ-readme.2](requirements/REQ-readme.md#2-every-example-is-real), [§FS-init.2.2](functional-spec/FS-init.md#22-stdout--stderr): refresh the README's captured `grund` output and correct the `init` next-step guidance to name `tests/`.
 - [§FS-show.2.1.2](functional-spec/FS-show.md#212-section-map---toc), [§FS-check.3.23](functional-spec/FS-check.md#323-section-outside-a-declaration): keep every section coordinate inside its declaration body across queries, checking, values, completion, list, refs, and LSP navigation, and report a numeric or enabled named heading left beyond that body as `section-outside-declaration`. Closes issue #225. (PR #226)
 - [§FS-check.3.8](functional-spec/FS-check.md#38-cross-project-citation-failure), [§FS-errors.3](functional-spec/FS-errors.md#3-message-text): clarify the narrowed-run scope-only unknown-alias diagnostic in 0.13.2 by retaining its legacy bytes as a contiguous prefix and appending that the named subtree includes the project and its descendants, plus notice that the legacy wording is removed in 0.14.0. Closes issue #216. (PR #220)
 - [§FS-config.3.2](functional-spec/FS-config.md#32-id--id-grammar), [§FS-check.4.6](functional-spec/FS-check.md#46-declaration-near-miss): retain exact persisted off-grammar declarations and their marked citations across queries, checking, formatting, completion, cover, workspaces, and LSP navigation while warning that the mismatch becomes an error in 0.15.0. Fixes issue #54. (PR #210)

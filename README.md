@@ -59,7 +59,7 @@ A citation is a pointer to a fact, not a file path. Resolve it without opening f
 $ grund FS-check.3.2
 ### 3.2 Missing section
 
-A citation with a section suffix (`§FS-<user-login>.3.1`) where the declaration exists but the requested section heading does not.
+A citation with a section suffix (`§FS-<user-login>.3.1` or, in an opted-in repository, `§FS-<user-login>.goals`) where the declaration exists but the requested section heading does not. [… remaining lead output elided …]
 ```
 
 `grund <ID>` returns *just* the useful slice — well under 200 lines for the common case — so the agent pulls one fact into context instead of an entire file. Its ladder:
@@ -70,9 +70,7 @@ A citation with a section suffix (`§FS-<user-login>.3.1`) where the declaration
 - `grund <ID> --full` — the full declaration body when the narrower reads are not enough
 - `grund <ID> --format json` — for tooling
 
-For many reads, the explicit batch form accepts ordered NDJSON and reuses one
-workspace scan; `--all` discovers every declaration and section from that same
-loaded catalog ([§FS-show.2.6](docs/functional-spec/FS-show.md#26-batch-resolution)):
+For many reads, the explicit batch form accepts ordered NDJSON and reuses one workspace scan; `--all` discovers every declaration and section from that same loaded catalog ([§FS-show.2.6](docs/functional-spec/FS-show.md#26-batch-resolution)):
 
 ```bash
 printf '%s\n' '{"id":"FS-check"}' '{"id":"FS-check","section":"3.2"}' \
@@ -89,12 +87,7 @@ Repositories can opt into a warning at their own measured boundary:
 lead_size_warning = { max = 600, unit = "words" }
 ```
 
-An over-budget lead should keep its grounding: move detail into numbered child
-sections, or promote a child section to its own ID after checking its callers
-with `grund refs <ID> --summary`. See the [point-size guide](docs/user-facing/point-sizes.md)
-for counting rules, output fields, duplicate handling, and workspace scope
-([§FS-list.3.4](docs/functional-spec/FS-list.md#34---size--per-point-lead-and-full-body-measurements),
-[§FS-check.4.13](docs/functional-spec/FS-check.md#413-oversized-lead-opt-in)).
+An over-budget lead should keep its grounding: move detail into numbered child sections, or promote a child section to its own ID after checking its callers with `grund refs <ID> --summary`. See the [point-size guide](docs/user-facing/point-sizes.md) for counting rules, output fields, duplicate handling, and workspace scope ([§FS-list.3.4](docs/functional-spec/FS-list.md#34---size--per-point-lead-and-full-body-measurements), [§FS-check.4.13](docs/functional-spec/FS-check.md#413-oversized-lead-opt-in)).
 
 For scripts, exit `0` is a completed `refs` answer even when it is empty. From
 grund 0.15.0, exit `1` means the selected repository grammar rejected the ID or
@@ -110,10 +103,14 @@ Renumber the heading `### 3.2 Missing section` in [`FS-check.md`](docs/functiona
 
 ```
 $ grund check
+crates/grund-cli/tests/index_entry_round_trip.rs:229: missing section FS-check.3.2
 crates/grund-core/src/checker.rs:49: missing section FS-check.3.2
-crates/grund-core/src/checker.rs:301: missing section FS-check.3.2
+crates/grund-core/src/checker.rs:447: missing section FS-check.3.2
+crates/grund-core/src/checker_index.rs:136: missing section FS-check.3.2
+crates/grund-core/src/checker_index.rs:242: missing section FS-check.3.2
 crates/grund-core/src/checker_references.rs:2: missing section FS-check.3.2
-crates/grund-core/src/checker_references.rs:256: missing section FS-check.3.2
+crates/grund-core/src/checker_references.rs:359: missing section FS-check.3.2
+docs/decisions/functional/DF-duplicate-section-path.md:26: missing section FS-check.3.2
 docs/decisions/functional/DF-require-grounding.md:8: missing section FS-check.3.2
 docs/requirements/REQ-no-wrong-citation.md:7: missing section FS-check.3.2
 ```
@@ -359,8 +356,11 @@ Before changing or removing a declaration, see what leans on it:
 
 ```bash
 $ grund refs FS-check.3.2 --summary
-crates/grund-core/src/checker.rs: 2 (lines 49, 301)
-crates/grund-core/src/checker_references.rs: 2 (lines 2, 256)
+crates/grund-cli/tests/index_entry_round_trip.rs: 1 (line 229)
+crates/grund-core/src/checker.rs: 2 (lines 49, 447)
+crates/grund-core/src/checker_index.rs: 2 (lines 136, 242)
+crates/grund-core/src/checker_references.rs: 2 (lines 2, 359)
+docs/decisions/functional/DF-duplicate-section-path.md: 1 (line 26)
 docs/decisions/functional/DF-require-grounding.md: 1 (line 8)
 docs/requirements/REQ-no-wrong-citation.md: 1 (line 7)
 ```
@@ -369,7 +369,7 @@ Before reviewing a diff, group the citation graph by file so you can join change
 
 ```bash
 $ grund cover --format json | jq -c 'select(.path == "crates/grund-core/src/checker_references.rs") | .citations |= map(select(.id == "FS-check" and .section == "3.2"))'
-{"path":"crates/grund-core/src/checker_references.rs","citations":[{"path":"crates/grund-core/src/checker_references.rs","line":2,"column":23,"id":"FS-check","section":"3.2","marker":true,"text":"§FS-check.3.2"},{"path":"crates/grund-core/src/checker_references.rs","line":256,"column":12,"id":"FS-check","section":"3.2","marker":true,"text":"§FS-check.3.2"}]}
+{"path":"crates/grund-core/src/checker_references.rs","citations":[{"path":"crates/grund-core/src/checker_references.rs","line":2,"column":23,"id":"FS-check","section":"3.2","marker":true,"text":"§FS-check.3.2"},{"path":"crates/grund-core/src/checker_references.rs","line":359,"column":12,"id":"FS-check","section":"3.2","marker":true,"text":"§FS-check.3.2"}]}
 ```
 
 For an agent reviewing a code change, the loop is mechanical: list the `§…` citations in the changed files, run `grund <ID>` on each, and ask "does the code still match what the spec claims?"
