@@ -97,16 +97,14 @@ fn scan_file(
 /// because re-deriving the line, the position rules and the fence/docstring state
 /// later costs a whole extra pass over every file for a list most runs find empty.
 ///
-/// A section path recorded twice lands in `duplicate_sections`, which is narrowed to
-/// the declaration's own body after the pass — see `retain_in_body_duplicate_sections`.
+/// Section paths first land in the primary or duplicate map, then the body-span
+/// post-pass narrows both maps and records rejected headings for §FS-check.3.23.
 ///
 /// `claimed_markers` is what keeps the shorthand pattern from running at all on a
 /// line whose markers are already accounted for.
 ///
-/// Two readers want the body spans the post-pass fixes: the citation classifier, which
-/// asks only when the project declares `[citations]`, and the duplicate-section prune,
-/// which asks whenever this file recorded a duplicate at all — an error condition, so
-/// the extra pass is off the hot path. `scan_one_file` gives this call a fresh
+/// Text section headings also require the spans, because the shared coordinate
+/// catalog is body-local (§FS-show.2.1.2). `scan_one_file` gives this call a fresh
 /// `Findings`, so `findings` holds exactly this file's records.
 fn scan_file_text(
     path: &Path,
@@ -153,9 +151,8 @@ fn scan_file_text(
             continue;
         }
         let trimmed = line.trim_start();
-        // Collected for every Markdown file, not just a classifying run: the
-        // duplicate-section prune below needs the same body spans (§AR-scanner.2.2)
-        // and cannot ask for them after the single pass is over.
+        // Collected for every Markdown file: the shared section-map prune below
+        // needs the body spans and cannot ask for them after this pass.
         if is_md && let Some(level) = markdown_heading_level(trimmed) {
             md_headings.push((lineno, level));
         }
@@ -511,11 +508,11 @@ fn scan_file_text(
     // §AR-scanner.2.4: now that every declaration and (for Markdown) every heading
     // on the file is known, fix each declaration's body span and classify each
     // citation's citing side — off the hot path either way (§AR-benchmarks).
-    let has_duplicate_sections = findings
+    let has_text_sections = findings
         .declarations
         .values()
         .flatten()
-        .any(|decl| !decl.duplicate_sections.is_empty());
+        .any(|decl| !decl.sections.is_empty() || !decl.duplicate_sections.is_empty());
     let has_embedded_roots = findings
         .declarations
         .values()
@@ -528,11 +525,11 @@ fn scan_file_text(
             .values()
             .flatten()
             .any(|decl| kind_uses_values(config, &decl.id.kind));
-    if classify || has_duplicate_sections || has_value_declarations || has_embedded_roots {
+    if classify || has_text_sections || has_value_declarations || has_embedded_roots {
         assign_declaration_bodies(findings, is_md, is_py, config, &text, &md_headings, total_lines);
     }
-    if has_duplicate_sections {
-        retain_in_body_duplicate_sections(findings);
+    if has_text_sections {
+        retain_in_body_sections(findings);
     }
     if has_value_declarations {
         validate_markdown_value_declarations(path, &text, is_md, config, findings);

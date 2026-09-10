@@ -231,6 +231,10 @@ type TextOverlays = BTreeMap<PathBuf, String>;
 pub struct Findings {
     pub declarations: BTreeMap<Id, Vec<Declaration>>,
     pub citations: Vec<Citation>,
+    /// Numeric and enabled named section headings that the line scan attached
+    /// to a stale declaration context, then the body-span post-pass proved the
+    /// declaration does not own (§FS-check.3.23).
+    pub section_headings_outside_declarations: Vec<SectionHeadingOutsideDeclaration>,
     legacy_citation_candidates: Vec<LegacyCitationCandidate>,
     pub value_bindings: Vec<ValueBinding>,
     pub invalid_value_declarations: Vec<InvalidValueSite>,
@@ -261,6 +265,14 @@ pub struct Findings {
     /// not a declaration, so the rule costs one regex on heading-shaped lines
     /// rather than a second read of the tree.
     pub near_miss_headings: Vec<NearMissHeading>,
+}
+
+/// One section-like heading rejected from a declaration's shared coordinate
+/// maps because it lies beyond that declaration's body (§FS-show.2.1.2).
+pub struct SectionHeadingOutsideDeclaration {
+    pub file: PathBuf,
+    pub line: usize,
+    pub named: bool,
 }
 
 /// One heading that opens with a configured kind and the literal an ID puts

@@ -7,6 +7,8 @@
 /// - **Duplicate path** (§FS-check.3.16) — two headings claiming one path give a
 ///   section citation two destinations, which is §FS-check.3.3's ambiguity one
 ///   level down, and is reported rather than ranked (§DF-duplicate-section-path).
+/// - **Outside declaration** (§FS-check.3.23) — a section-like heading rejected
+///   by the scanner's body-span post-pass is a located hard finding.
 ///
 /// They sit beside `checker.rs` as one family because they read the same two
 /// things and nothing else does: the recorded section map, and the
@@ -37,6 +39,13 @@ fn check_section_headings(
     path_config: &Config,
     report: &mut CheckReport,
 ) {
+    report.errors.extend(
+        findings
+            .section_headings_outside_declarations
+            .iter()
+            .map(section_outside_declaration_diagnostic),
+    );
+
     // §FS-check.3.9 / §FS-config.3.3: in strict mode, the Markdown heading level
     // must mirror the dotted section depth so `## 1`, `### 1.1`, ...
     // communicate the same tree that `§ID.1.1` addresses.
@@ -154,4 +163,59 @@ fn check_section_headings(
             }
         }
     }
+}
+
+fn section_outside_declaration_diagnostic(
+    heading: &SectionHeadingOutsideDeclaration,
+) -> Diagnostic {
+    Diagnostic {
+        code: "section-outside-declaration",
+        path: Some(heading.file.clone()),
+        line: Some(heading.line),
+        column: None,
+        message: if heading.named {
+            "named section outside any declaration"
+        } else {
+            "numbered section outside any declaration"
+        }
+        .to_string(),
+        sites: Vec::new(),
+    }
+}
+
+fn retain_section_headings_in_scope(findings: &mut Findings, scope: &ScanScope) {
+    findings
+        .section_headings_outside_declarations
+        .retain(|heading| scope.contains(&heading.file));
+}
+
+/// §FS-check.3.23: unlike the reference tier, an outside-declaration heading
+/// keeps the same public code and message when `--full` discovers it beyond
+/// `[scan] include`.
+fn out_of_scope_section_headings(
+    findings: &Findings,
+    scope: Option<&ScanScope>,
+) -> Vec<Diagnostic> {
+    let Some(scope) = scope else {
+        return Vec::new();
+    };
+    findings
+        .section_headings_outside_declarations
+        .iter()
+        .filter(|heading| !scope.contains(&heading.file))
+        .map(section_outside_declaration_diagnostic)
+        .collect()
+}
+
+fn workspace_out_of_scope_section_headings(
+    projects: &[WorkspaceProject],
+    scopes: &[Option<ScanScope>],
+) -> Vec<Diagnostic> {
+    projects
+        .iter()
+        .zip(scopes)
+        .flat_map(|(project, scope)| {
+            out_of_scope_section_headings(&project.findings, scope.as_ref())
+        })
+        .collect()
 }

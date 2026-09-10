@@ -106,12 +106,39 @@ fn show_declaration_with_overlays(
             ));
         }
     }
+    let body_decl = if decl.is_stub {
+        decls
+            .iter()
+            .find(|other| paths_same_location(&other.file, &file))
+            .unwrap_or(decl)
+    } else {
+        decl
+    };
     if let Some(section) = section
         && let Some(refusal) = ambiguous_section_refusal(config, path_config, decls, decl, &file, id, section)
     {
         return Err(refusal);
     }
-    extract_declaration_body(&file, id, section, mode, include_heading, config, overlays)
+    if let Some(section) = section
+        && !body_decl.sections.contains_key(section)
+    {
+        return Err(anyhow!(
+            "section not found: {}{}{}",
+            render_id(config, id),
+            config.section_separator,
+            section
+        ));
+    }
+    extract_declaration_body(
+        &file,
+        id,
+        body_decl,
+        section,
+        mode,
+        include_heading,
+        config,
+        overlays,
+    )
 }
 
 /// JSON values have source slices rather than Markdown bodies. Every show mode
