@@ -1,0 +1,1 @@
+check --ignore unmarked-heading {repo}
