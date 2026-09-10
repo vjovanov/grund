@@ -48,17 +48,21 @@ fn section_path_is_numeric(path: &str) -> bool {
 }
 
 /// The level of a Markdown ATX heading line (`#` count), or `None` when the line
-/// is not a heading (§AR-scanner.2.4). A heading is one or more leading `#`
-/// followed by whitespace or end of line.
+/// is not a heading (§FS-check.4.14). ATX syntax permits at most three leading
+/// ASCII spaces and one through six `#`s followed by an ASCII space/tab or EOL.
 fn markdown_heading_level(line: &str) -> Option<usize> {
-    let trimmed = line.trim_start();
-    let hashes = trimmed.chars().take_while(|ch| *ch == '#').count();
-    if hashes == 0 {
+    let indentation = line.bytes().take_while(|byte| *byte == b' ').count();
+    if indentation > 3 {
         return None;
     }
-    match trimmed[hashes..].chars().next() {
+    let heading = &line[indentation..];
+    let hashes = heading.bytes().take_while(|byte| *byte == b'#').count();
+    if !(1..=6).contains(&hashes) {
+        return None;
+    }
+    match heading.as_bytes().get(hashes).copied() {
         None => Some(hashes),
-        Some(ch) if ch.is_whitespace() => Some(hashes),
+        Some(b' ' | b'\t') => Some(hashes),
         _ => None,
     }
 }

@@ -245,3 +245,66 @@ fn unmarked_heading_scan_does_not_shorten_show_or_list_slices() {
     assert_eq!(listed.status.code(), Some(0), "{}", stderr(&listed));
     assert!(stdout(&listed).contains("FS-show-edge  docs/FS-show-edge.md:1  lines=5/5"));
 }
+
+#[test]
+fn only_markdown_atx_headings_get_unmarked_heading_warnings() {
+    let root = heading_project("atx-boundaries");
+    write_doc(
+        &root,
+        "FS-atx.md",
+        concat!(
+            "# FS-atx: ATX boundaries\n",
+            "## Zero-space indent\n",
+            " ## One-space indent\n",
+            "  ## Two-space indent\n",
+            "   ## Three-space indent\n",
+            "###### Six hashes\n",
+            "##\tASCII tab separator\n",
+            "    ## Four-space indent is code\n",
+            "\t## Leading tab indent is code\n",
+            "####### Seven hashes is not ATX\n",
+            "######## Eight hashes is not ATX\n",
+            "##No separator\n",
+            "##\u{a0}Non-ASCII whitespace separator\n",
+        ),
+    );
+
+    let checked = run(&root, &["check", "--only", "unmarked-heading"]);
+    assert_eq!(checked.status.code(), Some(0), "{}", stderr(&checked));
+    let output = stdout(&checked);
+    let warned_lines = output
+        .lines()
+        .map(|line| {
+            line.strip_prefix("docs/FS-atx.md:")
+                .and_then(|tail| tail.split(':').next())
+                .and_then(|line| line.parse::<usize>().ok())
+                .unwrap_or_else(|| panic!("unexpected warning: {line}"))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(warned_lines, vec![2, 3, 4, 5, 6, 7], "{output}");
+}
+
+#[test]
+fn duplicate_declaration_bodies_allocate_suggestions_independently() {
+    let root = heading_project("duplicate-owner-suggestions");
+    write_doc(
+        &root,
+        "FS-duplicate-owner.md",
+        concat!(
+            "# FS-duplicate-owner: First site\n\n",
+            "## Missing in first body\n\n",
+            "# FS-duplicate-owner: Second site\n\n",
+            "## Missing in second body\n",
+        ),
+    );
+
+    let checked = run(&root, &["check", "--only", "unmarked-heading"]);
+    assert_eq!(checked.status.code(), Some(0), "{}", stderr(&checked));
+    assert_eq!(
+        stdout(&checked),
+        concat!(
+            "docs/FS-duplicate-owner.md:3: unmarked heading inside FS-duplicate-owner; number it (## 1. Missing in first body) as FS-duplicate-owner.1, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0\n",
+            "docs/FS-duplicate-owner.md:7: unmarked heading inside FS-duplicate-owner; number it (## 1. Missing in second body) as FS-duplicate-owner.1, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0\n",
+        )
+    );
+}
