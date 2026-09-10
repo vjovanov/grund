@@ -1,4 +1,4 @@
-# DF-check-full-scope: `check --full` walks past `[scan] include` and reports only unresolvable references out there
+# DF-check-full-scope: `check --full` walks past `[scan] include` and reports unresolved references plus orphaned section headings out there
 
 **Status:** Accepted
 **Date:** 2026-08-15
@@ -23,11 +23,11 @@ Add `grund check --full` ([§FS-check.1.3](../../functional-spec/FS-check.md#13-
 
 `[scan] extensions` deliberately stays out of it. Which file *types* carry citations is a project fact that belongs in the config; which *directories* were forgotten is the accident this flag exists to expose. Folding both into one flag would make `--full` mean "read more kinds of file too", and the set of files a run touched would stop being derivable from the config.
 
-### 2.2 Out-of-scope findings are limited to reference resolution
+### 2.2 Out-of-scope findings are limited to reference resolution and one scanner invariant
 
-Outside the configured scope, only the resolution failures of [§FS-check.3.14](../../functional-spec/FS-check.md#314-out-of-scope-unresolvable-citation---full-only) are reported: unknown ID, missing section, unknown namespace alias, and a shorthand matching zero or several declarations. Style, grounding, placement, direction, duplicate, and unused rules are not.
+Outside the configured scope, the resolution failures of [§FS-check.3.14](../../functional-spec/FS-check.md#314-out-of-scope-unresolvable-citation---full-only) are reported: unknown ID, missing section, unknown namespace alias, and a shorthand matching zero or several declarations. The one exception to that reference-only tier is the scanner invariant [§FS-check.3.23](../../functional-spec/FS-check.md#323-section-outside-a-declaration): a numeric or enabled named heading that no declaration body owns retains the same untiered `section-outside-declaration` code and message as it has inside scope. Style, grounding, placement, direction, duplicate, unused, and every other rule are not reported.
 
-The line is not "cheap rules versus expensive rules"; it is *what the repository agreed to*. "This citation points at nothing" is true of any tree, in any project, under any convention — it is the invariant `grund` exists to hold. "This inline note is more than three lines" is true only of a tree that adopted that convention, and `[scan] include` is where a project says which files it adopted it for. A directory nobody put in scope has agreed to none of it.
+The line is not "cheap rules versus expensive rules"; it is *what the repository agreed to*. "This citation points at nothing" is true of any tree, in any project, under any convention. So is "this section-like heading lies outside every declaration body": it is a scanner ownership invariant, and no consumer may resolve the coordinate. "This inline note is more than three lines" is true only of a tree that adopted that convention, and `[scan] include` is where a project says which files it adopted it for. A directory nobody put in scope has agreed to none of those conventions.
 
 ### 2.3 They are errors, and they move the exit code
 
@@ -39,7 +39,7 @@ A `--full` finding is an error like any other reference failure. A warning would
 
 That is also why the wider walk does **not** feed the in-scope rules: an inline declaration living outside `include` would otherwise make an in-scope dangling citation resolve under `--full` and dangle without it — a citation that `grund <ID>` still cannot open, reported green by the mode meant to find more, not less.
 
-The price is paid in one place and is worth naming: an in-scope declaration cited *only* from outside `include` still gets its [§FS-check.4.1](../../functional-spec/FS-check.md#41-unused-declaration) `declared but never cited` warning under `--full`, even though the wider walk has just read the citation and resolved it. Counting that edge would *retire* an in-scope finding — the one direction additivity does not allow — and would make a warning mean different things under different flags. `--full` reports what points at nothing; it does not re-score the governed graph. The remedy is the one every finding in the tier already names: widen `include`, and the citing file joins the graph with the whole rule set behind it.
+The price is paid in one place and is worth naming: an in-scope declaration cited *only* from outside `include` still gets its [§FS-check.4.1](../../functional-spec/FS-check.md#41-unused-declaration) `declared but never cited` warning under `--full`, even though the wider walk has just read the citation and resolved it. Counting that edge would *retire* an in-scope finding — the one direction additivity does not allow — and would make a warning mean different things under different flags. The reference tier reports what points at nothing; it does not re-score the governed graph. The remedy every finding in that tier names is to widen `include`, after which the citing file joins the graph with the whole rule set behind it.
 
 ### 2.5 No `grund.toml` key
 
@@ -59,10 +59,10 @@ An advisory tier that never touched the exit code would still be wrong here, for
 ## 3. Consequences
 
 - `grund check` gains `--full`; `CheckOpts` gains `full: bool` ([§FS-distribution.3.1](../../functional-spec/FS-distribution.md#31-rust-grund-core-crate)) — a documented, additive break in the library surface, like `include_suggestions` before it.
-- Four new diagnostic codes — `out-of-scope-dangling`, `out-of-scope-missing-section`, `out-of-scope-unknown-project`, `out-of-scope-shorthand-citation` — one per rule in the tier, each the in-scope code under an `out-of-scope-` prefix. The `{ severity, path, line, code, message, sites }` JSON shape ([§FS-errors.5](../../functional-spec/FS-errors.md#5-json-format)) is unchanged: the tier rides on the `code` field the shape already carries, filterable by prefix, while the rule stays exact-matchable. One code for all four would have made a consumer regex the prose to learn which rule fired.
+- Four diagnostic codes identify reference-tier failures — `out-of-scope-dangling`, `out-of-scope-missing-section`, `out-of-scope-unknown-project`, `out-of-scope-shorthand-citation` — one per rule, each the in-scope code under an `out-of-scope-` prefix. The scanner-invariant exception instead keeps `section-outside-declaration` and its ordinary message unchanged. The `{ severity, path, line, code, message, sites }` JSON shape ([§FS-errors.5](../../functional-spec/FS-errors.md#5-json-format)) is unchanged: the code field distinguishes both tier and exact rule without parsing prose.
 - No `grund_config_version` bump and no new config key (§2.5).
 - `grund fmt`, `list`, `refs`, `cover`, and `show` keep the configured scope. That asymmetry is deliberate — `check` answers "is anything broken?", which is a question about the repository; the others answer questions about the governed graph — and it is why [§FS-check.3.14](../../functional-spec/FS-check.md#314-out-of-scope-unresolvable-citation---full-only) withholds the one finding whose fix is a `fmt` rewrite.
-- The durable fix stays `include`. Every out-of-scope finding leads with the key, so the tier reads as "put this directory in scope", not as a place to live.
+- For reference-tier findings the durable fix stays `include`, and each leads with the key so the tier reads as "put this directory in scope", not as a place to live. The scanner-invariant exception keeps its ordinary message because declaration-body ownership is wrong at the heading itself in either scope.
 
 ## 4. Alternatives considered
 

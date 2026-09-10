@@ -118,10 +118,11 @@ pub struct CheckOpts {
     /// Surface the citation-direction suggestions channel (§FS-check.2.3) —
     /// the `grund check --suggestions` flag at the library level.
     pub include_suggestions: bool,
-    /// Walk the whole config root, past `[scan] include`, and add the
-    /// out-of-scope reference tier (§FS-check.1.3, §FS-check.3.14) — the
-    /// `grund check --full` flag at the library level. Purely additive: the
-    /// findings inside the configured scope are unchanged by it.
+    /// Walk the whole config root past `[scan] include`, adding the out-of-scope
+    /// reference tier and scanner-invariant outside-section findings
+    /// (§FS-check.1.3, §FS-check.3.14, §FS-check.3.23) — the `grund check --full`
+    /// flag at the library level. Purely additive: the findings inside the
+    /// configured scope are unchanged by it.
     pub full: bool,
 }
 

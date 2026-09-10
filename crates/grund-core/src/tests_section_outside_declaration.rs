@@ -45,6 +45,7 @@ mod tests_section_outside_declaration {
         );
         let mut config = legacy_fs_folder_config(root.clone());
         config.named_sections = true;
+        config.rebuild_grammar().expect("rebuild named grammar");
         let findings = scan_findings(&config, &root);
         let report = check_findings(&findings, &config);
         let alpha = id("FS", 1, "alpha");
