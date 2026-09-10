@@ -103,7 +103,7 @@ anchor_format = "github" # github | gitlab | mkdocs | pandoc | none
 # Citation directions: encode which kinds may cite which, with RFC-2119 levels.
 # Entries in one array are all required; `|` inside one entry means any one
 # alternative. The complete grammar and a config/render example are at
-# https://github.com/vjovanov/grund/blob/main/docs/user-facing/citation-directions.md
+# https://github.com/agent-grounds/grund/blob/main/docs/user-facing/citation-directions.md
 # in the grund repository. must/must-not gate `grund check`; should/should-not
 # surface under `grund check --suggestions` and render into this entrypoint.
 # Uncomment to adopt the canonical climbing ruleset; `code` is the reserved

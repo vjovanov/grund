@@ -5,7 +5,7 @@
 
 ## 1. Context
 
-The walker was built without `follow_links`, so a symlink entry was neither a file nor a directory to it and fell out of the walk with nothing said. One skip produced two wrong answers at once: the citations in the linked file were never read, so a dangling one passed ([§REQ-no-missed-citation.1](../../requirements/REQ-no-missed-citation.md#1-no-silent-skips)), and every declaration that file cited was reported `declared but never cited` ([§FS-check.4.1](../../functional-spec/FS-check.md#41-unused-declaration)) because the edge retiring the warning had been dropped with it ([§REQ-no-wrong-citation.2](../../requirements/REQ-no-wrong-citation.md#2-no-false-alarms)). Replacing the link with a copy of the same bytes changed the verdict from green to red, which is the shape of a false negative that also lies about the tree it read. Reported as [issue #96](https://github.com/vjovanov/grund/issues/96).
+The walker was built without `follow_links`, so a symlink entry was neither a file nor a directory to it and fell out of the walk with nothing said. One skip produced two wrong answers at once: the citations in the linked file were never read, so a dangling one passed ([§REQ-no-missed-citation.1](../../requirements/REQ-no-missed-citation.md#1-no-silent-skips)), and every declaration that file cited was reported `declared but never cited` ([§FS-check.4.1](../../functional-spec/FS-check.md#41-unused-declaration)) because the edge retiring the warning had been dropped with it ([§REQ-no-wrong-citation.2](../../requirements/REQ-no-wrong-citation.md#2-no-false-alarms)). Replacing the link with a copy of the same bytes changed the verdict from green to red, which is the shape of a false negative that also lies about the tree it read. Reported as [issue #96](https://github.com/agent-grounds/grund/issues/96).
 
 The spec had discussed symlinks only as `[scan] include` **roots** ([§FS-check.1.3](../../functional-spec/FS-check.md#13-the-full-tree-scope---full)). A symlinked *descendant* was unaddressed, so the behavior was not a bounded blind spot in the sense [§REQ-no-missed-citation.2](../../requirements/REQ-no-missed-citation.md#2-every-blind-spot-is-declared-and-bounded) allows — it was one nobody had written down, and therefore one no reader could plan around.
 
@@ -14,7 +14,7 @@ error: a member checked independently followed `docs/blink -> ../../sibling`
 and absorbed the sibling's declarations, reporting them as duplicates of its
 own. A workspace-root run pruned the same link because it had loaded project
 ownership, leaving the same tree green at the root and red in the member.
-Reported as [issue #102](https://github.com/vjovanov/grund/issues/102).
+Reported as [issue #102](https://github.com/agent-grounds/grund/issues/102).
 
 ## 2. Decision
 

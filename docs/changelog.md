@@ -24,6 +24,19 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ## Unreleased
 
+### Changed
+
+- The repository moved to the `agent-grounds` GitHub organization, along with
+  `ephor`, `fissile` and `rhei`, and every reference now names it. That includes
+  the two `AGENTS.md` scaffold templates and the citation-directions URL baked
+  into `init_templates.rs`, which is what puts the link into an adopting
+  repository's generated block; the twenty-eight end-to-end goldens that capture
+  what `init` writes were regenerated rather than hand-edited. Past changelog
+  entries were repointed too: a transferred repository's URL redirects but an
+  issue URL does not, so leaving them would have left fifty dead links behind
+  the `lychee` gate. The crate name on crates.io is unchanged. An adopting
+  repository picks up the new link by running `grund init` again. (PR #230)
+
 ### Fixed
 
 - [§FS-integrations.3.1](functional-spec/FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2), [§FS-integrations.4.3](functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions): correct clickable-citations guidance for resolver PATH failures, configuration keys, per-agent link gates, and write-report annotations. (PR #228)
@@ -75,7 +88,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 - [0.12.2](changelog/0.12.2.md) — 2026-08-26: - [§FS-config.3.4.7](functional-spec/FS-config.md#347-scan--a-place-that-is-listed-not-walked): `[[kinds]] scan = false` — a non-citable kind that is listed in the generated Project map and not walked, for content that ships verbatim (scaffold templates, embedded assets, example configs).
 - [0.12.1](changelog/0.12.1.md) — 2026-08-26: - [§FS-check.4.6](functional-spec/FS-check.md#46-declaration-near-miss): `grund check` warns on a heading that opens like a declaration and parses as none — `# FS-login: …` under the default `{kind}-{number}-{slug}`, the `-NNN-` left out.
 - [0.12.0](changelog/0.12.0.md) — 2026-08-25: - [§FS-config.3.9.2](functional-spec/FS-config.md#392-the-homeless-kind): the citing kind of every site outside every configured home is now **nameable**.
-- [0.11.0](changelog/0.11.0.md) — 2026-08-24: - [§FS-lsp.2.2](functional-spec/FS-lsp.md#22-lifecycle) / [§AR-lsp.2](architecture/AR-lsp.md#2-state): **nested and multi-root editor workspaces no longer silently hide citations outside the first folder** ([issue #126](https://github.com/vjovanov/grund/issues/126)).
+- [0.11.0](changelog/0.11.0.md) — 2026-08-24: - [§FS-lsp.2.2](functional-spec/FS-lsp.md#22-lifecycle) / [§AR-lsp.2](architecture/AR-lsp.md#2-state): **nested and multi-root editor workspaces no longer silently hide citations outside the first folder** ([issue #126](https://github.com/agent-grounds/grund/issues/126)).
 - [0.10.1](changelog/0.10.1.md) — 2026-08-24: - [§GRUND-understanding](grund.md#grund-understanding-the-why-stays-known) / [§GRUND-structure](grund.md#grund-structure-the-projects-long-term-memory-stays-organized) / [§GRUND-consistency](grund.md#grund-consistency-the-structure-stays-consistent) / [§REQ-readme](requirements/REQ-readme.md#req-readme-the-readme-is-the-grounded-shop-window): **The why splits into three first-class grounds, the repository gains hard requirements, and the README starts practicing the discipline it sells.** The motivation is now three GRUND declarations — the why stays known, the long-term memory stays organized, the structure stays consistent — threaded through the goals, with [§GOAL-agent-grounding](goals.md#goal-agent-grounding-agents-stay-cited-as-they-work) naming all three.
 - [0.10.0](changelog/0.10.0.md) — 2026-08-18: - [§FS-workspace.6.1](functional-spec/FS-workspace.md#61-nested-workspaces) / [§FS-workspace.1](functional-spec/FS-workspace.md#1-citation-syntax) / [§DF-nested-workspaces](decisions/functional/DF-nested-workspaces.md#df-nested-workspaces-a-nested-project-is-named-by-its-whole-alias-path): **a workspace member may declare its own `[workspace]`**, to any depth, and a project is named by its whole alias path — `<§>hardware/sprayer/FS-nozzle`, one segment per level, read from the outermost workspace down.
 - [0.9.1](changelog/0.9.1.md) — 2026-08-17: - [§FS-lsp.1.2](functional-spec/FS-lsp.md#12-hover-preview): the **declaration-side title hover now answers "who leans on this?"** — hovering a Markdown declaration heading, the same declaration written inline in a doc-comment, a numbered section heading, or an inline-spec stub title returns `` `FS-check: …` — cited at 12 sites across 5 files `` where it used to return the bare title token.

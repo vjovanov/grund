@@ -23,4 +23,4 @@ embedders constructing the public struct must initialize the three new fields.
 The executable integration still runs only through an explicit
 `fetch_snapshot` call ([§FS-fetch](../../docs/functional-spec/FS-fetch.md#fs-fetch-grund-materializes-one-external-fact-snapshot)).
 
-Project home: <https://github.com/vjovanov/grund>
+Project home: <https://github.com/agent-grounds/grund>

@@ -10,7 +10,7 @@ The generated "Workspace members" section ([§FS-init.2.3.4.15](../../functional
 foreign workspace alias to its `AGENTS.md`, but carries no semantic hint about
 what each foreign namespace is for — an agent picking an alias for a
 cross-project citation must open each member's entrypoint or guess from path names
-([issue #36](https://github.com/vjovanov/grund/issues/36)). The list is
+([issue #36](https://github.com/agent-grounds/grund/issues/36)). The list is
 high-traffic grounding context, so a one-line description per member makes
 alias selection cheaper and less error-prone, the same argument as
 [§DISC-token-cheap-grounding](../../discussions/proposals/2026-05-12-token-cheap-grounding.md#disc-token-cheap-grounding-token-cheap-grounding-surfaces). The design space was explored in

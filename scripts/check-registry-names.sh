@@ -8,7 +8,7 @@
 set -euo pipefail
 
 ua="grund-release-name-check/0.1"
-repo_pattern='github.com[/:]vjovanov/grund'
+repo_pattern='github.com[/:]agent-grounds/grund'
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 

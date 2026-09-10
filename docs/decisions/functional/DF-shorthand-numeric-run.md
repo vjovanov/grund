@@ -19,7 +19,7 @@ Every character after `SPEC-001` is one that cannot continue an ID, so the token
 Renumbered on import: §SPEC-001-checkout→SPEC-003, and §SPEC-001-checkout/003 both moved.
 ```
 
-The sentence now names a declaration it never meant, and the reader can no longer tell the numbers were a mapping. Reported from a real tree ([issue #81](https://github.com/vjovanov/grund/issues/81)), where it repointed a renumbering table for a folded-away namespace at live, unrelated declarations.
+The sentence now names a declaration it never meant, and the reader can no longer tell the numbers were a mapping. Reported from a real tree ([issue #81](https://github.com/agent-grounds/grund/issues/81)), where it repointed a renumbering table for a folded-away namespace at live, unrelated declarations.
 
 **Nothing downstream can see it.** `§SPEC-001-checkout` is a well-formed citation of a real declaration, so `grund check` passes and the run reports success. Every other `fmt` rewrite leaves the ID token byte-identical and only moves markup around it — a wrong trigger→marker, bare→marker, or link wrap dangles, duplicates, or fails to resolve, and `check` names it. Shorthand→canonical is the one pass that writes characters *into* the ID, which is information the source did not carry, so a wrong one is indistinguishable from a right one by any later pass. Only a human reading the prose can catch it, and only if they happen to read that line. That is the failure class [§GOAL-no-dangling-refs](../../goals.md#goal-no-dangling-refs-every-cited-id-resolves-to-a-declaration) forbids, arriving from the side no rule was watching: not a citation that resolves to nothing, but a citation that resolves to the wrong thing while reporting green.
 

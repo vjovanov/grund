@@ -2,7 +2,7 @@
 
 `[citations]` describes which kinds of documents cite which other kinds. The
 five levels use two rule classes and two enforcement surfaces, as specified by
-[the `[citations]` section of grund's config spec](https://github.com/vjovanov/grund/blob/main/docs/functional-spec/FS-config.md#39-citations--citation-direction-rules):
+[the `[citations]` section of grund's config spec](https://github.com/agent-grounds/grund/blob/main/docs/functional-spec/FS-config.md#39-citations--citation-direction-rules):
 
 | Level | Rule class | Checked per | Surface |
 | --- | --- | --- | --- |
@@ -27,11 +27,11 @@ An obligation on a citable kind that declares no IDs has no unit: no
 per-declaration unit fires. If a `must` or `should` obligation is configured,
 the kind's folder is walked, and at least one non-entry file is successfully
 scanned, `grund check` emits the non-fatal run-level
-`empty-citation-obligation` warning ([the check specification says exactly when](https://github.com/vjovanov/grund/blob/main/docs/functional-spec/FS-check.md#221-citation-direction-obligation-applies-to-nothing)).
+`empty-citation-obligation` warning ([the check specification says exactly when](https://github.com/agent-grounds/grund/blob/main/docs/functional-spec/FS-check.md#221-citation-direction-obligation-applies-to-nothing)).
 A directory without declarations is usually `citable = false`, not a citable
 kind with an empty rule; make that setting when the directory is a place rather
 than an ID namespace. This is the no-unit trap described by
-[the non-citable-kinds decision](https://github.com/vjovanov/grund/blob/main/docs/decisions/functional/DF-non-citable-kinds.md#25-obligations-get-a-per-file-unit-and-grounding-follows-the-home).
+[the non-citable-kinds decision](https://github.com/agent-grounds/grund/blob/main/docs/decisions/functional/DF-non-citable-kinds.md#25-obligations-get-a-per-file-unit-and-grounding-follows-the-home).
 
 The config and the generated section below are the same example. The TOML is
 shown beside the Markdown it renders:

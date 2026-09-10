@@ -29,7 +29,7 @@ ID_SHAPE = re.compile(r"\b[A-Z][A-Z0-9]*-[a-z][a-z0-9-]*")
 
 # The address a shipped sentence is allowed to carry: this repository's own
 # public blob URL, which names the same declaration and opens for any reader.
-PUBLIC_URL = re.compile(r"https://github\.com/vjovanov/grund/blob/[^\s)\]\"'`]+")
+PUBLIC_URL = re.compile(r"https://github\.com/agent-grounds/grund/blob/[^\s)\]\"'`]+")
 
 RAW_STRING_OPEN = re.compile(r'r(#*)"')
 CHAR_LITERAL = re.compile(r"'(?:\\.|[^\\'])'")
@@ -160,7 +160,7 @@ class ShippedSurfaceTests(unittest.TestCase):
         self.assertEqual(["FS-config"], offending_ids(shipped, self.catalog))
         for allowed in (
             "an ID like FS-login or FS-014-user-login teaches the grammar",
-            "see [the config spec](https://github.com/vjovanov/grund/blob/main/"
+            "see [the config spec](https://github.com/agent-grounds/grund/blob/main/"
             "docs/functional-spec/FS-config.md#39-citations--citation-direction-rules)",
             "no ID at all in this sentence",
         ):

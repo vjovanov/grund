@@ -166,7 +166,7 @@ Focused LSP tests cover continuous typing, completion-adjacent typing, line-star
 
 The strong form of the discipline ([§GOAL-agent-grounding.1](goals.md#1-the-three-layers), diff-gated enforcement): a changed source file must be grounded ([§FS-check.3.6](functional-spec/FS-check.md#36-ungrounded-source-file-opt-in)), and the change must also touch the spec it cites *or* a test of it, with an explicit escape hatch for refactors. This is diff-aware — a function of `(tree, base ref, config)`, not `(tree, config)` — and it leans on `grund cover` ([§FS-cover](functional-spec/FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file)) plus a git diff, so it lives in the recipe layer, **not** in `grund-core` (a third first-party surface is out of scope, [§FS-non-goals.12](functional-spec/FS-non-goals.md#12-surfaces-outside-grund-core-and-the-lsp-transport); the engine reads no history, [§FS-non-goals.6](functional-spec/FS-non-goals.md#6-decision-database-audit-log-history-tracking)). Tiering rationale in [§DF-require-grounding](decisions/functional/DF-require-grounding.md#df-require-grounding-an-opt-in-check-that-every-source-file-cites-a-spec).
 
-GitHub: [#26](https://github.com/vjovanov/grund/issues/26).
+GitHub: [#26](https://github.com/agent-grounds/grund/issues/26).
 
 [§FS-check.3.6](functional-spec/FS-check.md#36-ungrounded-source-file-opt-in) proves files are grounded at rest; it does not prove that a behavior change came with a spec or test update. The co-change gate is therefore the highest-value remaining "agent discipline" item: use `grund cover` plus git diff to connect changed implementation files to the specs and tests that justify the change.
 
@@ -229,7 +229,7 @@ The README (and landing page, if any) carries a "vs. link checkers" block whose 
 
 The inverse of [§FS-cover](functional-spec/FS-cover.md#fs-cover-grund-groups-citations-by-scanned-file): same scan, but instead of "what does this file cite?" it answers "which declared IDs have nothing climbing into them?" Without it `grund` is a navigation tool; with it, `grund` is a traceability tool — the column every comparable requirements tool already has. The framing comparison lives in [§RM-positioning-trace-tools](roadmap.md#rm-positioning-trace-tools-position-grund-against-requirements-traceability-tools-in-readme).
 
-The orphan half already exists as `grund list --unused` ([§FS-list](functional-spec/FS-list.md#fs-list-grund-lists-every-declared-id)), which lists the declarations nothing cites; what remains is the *unclimbed* view and the report shape below. GitHub: [#89](https://github.com/vjovanov/grund/issues/89) asks for the deliberately-uncited marker that lets that list be driven to zero.
+The orphan half already exists as `grund list --unused` ([§FS-list](functional-spec/FS-list.md#fs-list-grund-lists-every-declared-id)), which lists the declarations nothing cites; what remains is the *unclimbed* view and the report shape below. GitHub: [#89](https://github.com/agent-grounds/grund/issues/89) asks for the deliberately-uncited marker that lets that list be driven to zero.
 
 ### 1. What
 
@@ -286,7 +286,7 @@ The README (and landing page, if any) carries a "vs. traceability tools" section
 
 [§FS-check.4.7](functional-spec/FS-check.md#47-a-workspace-member-swallows-the-blocks-own-scan) ships as a warning that names the release it becomes an error in, which is the deprecation path [§REQ-backwards-compatibility.2](requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) requires of a finding no command can fix ([§DF-absorbed-scan-warning.2.1](decisions/functional/DF-absorbed-scan-warning.md#21-a-warning-because-the-repair-is-a-judgement-rather-than-a-command)). The named release is half a contract until it happens: a deadline `grund` prints to every user and then lets slip is worse than one it never printed. This milestone is that release.
 
-GitHub: follows [#78](https://github.com/vjovanov/grund/issues/78), which shipped the warning.
+GitHub: follows [#78](https://github.com/agent-grounds/grund/issues/78), which shipped the warning.
 
 ### 1. What
 
@@ -306,7 +306,7 @@ A `[workspace]` block whose members cover every one of its walk roots fails to l
 
 [§FS-check.4.8](functional-spec/FS-check.md#48-unlisted-workspace-block) ships as a warning that names the release it becomes an error in, which is the deprecation path [§REQ-backwards-compatibility.2](requirements/REQ-backwards-compatibility.md#2-the-deprecation-path) requires of a finding no command can fix — neither remedy is one `grund` writes, because choosing between them is deciding whether the subtree is one of ours ([§DF-unlisted-workspace-block.2.1](decisions/functional/DF-unlisted-workspace-block.md#21-a-warning-that-names-the-release-it-becomes-an-error-in)). A named release that does not happen is a deadline `grund` told every user and then let slip. This milestone is that release.
 
-GitHub: follows [#72](https://github.com/vjovanov/grund/issues/72), which shipped the warning.
+GitHub: follows [#72](https://github.com/agent-grounds/grund/issues/72), which shipped the warning.
 
 ### 1. What
 

@@ -198,7 +198,7 @@ const RESOLVER_TARGET: &str = "~/.local/bin/grund-open";
 /// carries what `--write` cannot do for the caller: the prerequisites that fail
 /// silently, and the per-client manual step.
 const SETUP_GUIDE_URL: &str =
-    "https://github.com/vjovanov/grund/blob/main/docs/user-facing/clickable-citations.md";
+    "https://github.com/agent-grounds/grund/blob/main/docs/user-facing/clickable-citations.md";
 
 /// The rendering-layer clients grund ships an integration for. The set is closed
 /// and frozen (§FS-integrations.1); the ordering here is the frozen output order
