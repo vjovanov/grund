@@ -106,39 +106,7 @@ fn render_init_output(output: &InitOutput) {
 }
 
 fn render_init_next(next: &InitNext) {
-    eprintln!();
-    eprintln!("next:");
-    if next.docs {
-        eprintln!("  1. run `grund check` — a freshly scaffolded tree is clean");
-        match &next.fs_home {
-            InitFsHome::File { path, heading_name, heading_marker } => {
-                eprintln!("  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}");
-                eprintln!(
-                    "     ({heading_name}: `{heading_marker} <ID>: <one-line statement of the behavior>`)"
-                );
-            }
-            InitFsHome::Folder { path } => {
-                eprintln!("  2. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}");
-                eprintln!("     (H1: `# <ID>: <one-line statement of the behavior>`)");
-            }
-        }
-        eprintln!(
-            "  3. cite it as §<ID> from the docs and e2e tests that depend on it, then `grund check` again"
-        );
-    } else {
-        let fs_home_path = match &next.fs_home {
-            InitFsHome::File { path, .. } | InitFsHome::Folder { path } => path,
-        };
-        eprintln!("  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and tests/ (or create them yourself) — until then `grund check` has nothing to scan");
-        eprintln!("  2. run `grund check` — a scaffolded tree is clean");
-        match &next.fs_home {
-            InitFsHome::File { path, .. } => {
-                eprintln!("  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it to {path}");
-            }
-            InitFsHome::Folder { path } => {
-                eprintln!("  3. allocate an ID:  ID=$(grund id FS \"…\")  then add it under {path}");
-            }
-        }
-    }
-    eprintln!("see {} for the full workflow.", next.entrypoint);
+    // §FS-init.2.2: both command adapters print the core-rendered decision, so
+    // the shipped CLI cannot drift from the deprecated compatibility path.
+    eprint!("{}", next.render());
 }

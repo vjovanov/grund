@@ -39,6 +39,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Fixed
 
+- [§FS-init.2.2](functional-spec/FS-init.md#22-stdout--stderr): keep the `grund init` no-`--docs` scaffold advice but omit its “nothing to scan” suffix when the effective configured scanner can already read a file. Closes issue #231. (PR #233)
 - [§FS-integrations.3.1](functional-spec/FS-integrations.md#31-terminal-clients-wezterm-kitty-tmux-iterm2), [§FS-integrations.4.3](functional-spec/FS-integrations.md#43-user-preference-and-global-agent-instructions): correct clickable-citations guidance for resolver PATH failures, configuration keys, per-agent link gates, and write-report annotations. (PR #228)
 - [§REQ-readme.2](requirements/REQ-readme.md#2-every-example-is-real), [§FS-init.2.2](functional-spec/FS-init.md#22-stdout--stderr): refresh the README's captured `grund` output and correct the `init` next-step guidance to name `tests/`. (PR #228)
 - [§FS-show.2.1.2](functional-spec/FS-show.md#212-section-map---toc), [§FS-check.3.23](functional-spec/FS-check.md#323-section-outside-a-declaration): keep every section coordinate inside its declaration body across queries, checking, values, completion, list, refs, and LSP navigation, and report a numeric or enabled named heading left beyond that body as `section-outside-declaration`. Closes issue #225. (PR #226)
