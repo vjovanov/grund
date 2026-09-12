@@ -31,6 +31,7 @@ mod tests_init_scan_guidance {
     #[test]
     fn effective_scope_rejects_files_the_scanner_skips() {
         let root = test_root("effective_scope_rejects_files_the_scanner_skips");
+        fs::create_dir_all(root.join(".git")).expect("create git repository marker");
         write(&root.join("content/unsupported.txt"), "Not a configured extension.\n");
         write(&root.join("content/.hidden.md"), "Hidden file.\n");
         write(&root.join("content/.private/note.md"), "Hidden directory.\n");

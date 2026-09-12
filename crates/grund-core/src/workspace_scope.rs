@@ -58,19 +58,28 @@ fn resolve_workspace_config(path: &Path) -> Result<Config> {
 /// the run's own config, which is the one `check` still holds when it decides
 /// whether to print `success` (§FS-check.2.1).
 fn apply_workspace_boundary(config: &mut Config) -> Result<()> {
-    if !config.workspace_declared {
+    let Some(members) = populate_workspace_boundary(config)? else {
         return Ok(());
-    }
+    };
     // §FS-check.4.9: the absent optional entries are dropped here on purpose. This
     // is the boundary pass; the announcement needs the alias path each namespace is
     // spelled with, which only the expansion walk composes (`expand_workspace_tree`).
-    let members = expand_workspace_member_list(config)?.members;
     warn_if_members_absorb_scan(config, &members);
     let unread =
         unread_block_probe(config, &members).map_or(0, |probe| warn_unread_block(&probe, &[]));
     config.unread_opted_out_blocks += unread;
-    config.workspace_boundary_roots = members.into_iter().map(|member| member.root).collect();
     Ok(())
+}
+
+/// Populate the exact §AR-workspace.6 boundary the scanner consumes, without
+/// choosing whether the caller should emit the check-time workspace diagnostics.
+fn populate_workspace_boundary(config: &mut Config) -> Result<Option<Vec<WorkspaceMember>>> {
+    if !config.workspace_declared {
+        return Ok(None);
+    }
+    let members = expand_workspace_member_list(config)?.members;
+    config.workspace_boundary_roots = members.iter().map(|member| member.root.clone()).collect();
+    Ok(Some(members))
 }
 
 /// §FS-workspace.2 / §FS-workspace.5: when the requested scope lies inside a
