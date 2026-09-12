@@ -213,8 +213,13 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
     // §FS-init.2.3: render agent instructions against the config `init` leaves
     // in place, so the ID-shape / kind / marker prose matches `grund.toml`; read
     // before the entrypoint plan (§FS-init.2.1.1, §FS-init.2.3.4.17).
-    let init_config = init_pending_effective_config(&target, &resolved_name, description.as_deref())
-        .map_err(|err| InitError::new(err.to_string()))?;
+    let mut init_config =
+        init_pending_effective_config(&target, &resolved_name, description.as_deref())
+            .map_err(|err| InitError::new(err.to_string()))?;
+    // §FS-init.2.2: the guidance probe consumes the exact §AR-workspace.6
+    // boundary used by scanner commands. Keep this best-effort: the existing
+    // workspace renderer owns init's diagnostics and error-tolerant behavior.
+    let _ = populate_workspace_boundary(&mut init_config);
     let reach = CanonicalSurfaceReach::for_config(&init_config);
 
     let agent_entrypoints = match selected_init_agent_entrypoints(&target, &agent_selection, reach)
