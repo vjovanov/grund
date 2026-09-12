@@ -36,6 +36,36 @@ grund.toml
 
 `AGENTS.md` contains exactly one delimiter-bounded managed block — `<!-- BEGIN GRUND MANAGED BLOCK -->` through `<!-- END GRUND MANAGED BLOCK -->` ([§FS-init.2.3](FS-init.md#23-generated-agent-entrypoints)) — headed `## Grounding with grund (vN)` at the current schema version. `grund.toml` is the default generated config from [§FS-init.2.4](FS-init.md#24-generated-grundtoml), including `grund_config_version = 1`, `project_name`, `[reference]` (including the inline citation style keys from [§FS-inline-citation-style.2](FS-inline-citation-style.md#2-configuration)), `[id]`, every default `[[kinds]]`, `[scan]`, `[output]`, and `[fmt.cross_refs]`. Constrained keys include the inline value-set comments required by [§FS-init.2.4](FS-init.md#24-generated-grundtoml).
 
+### 1.1 Populated configured form
+
+Command:
+
+```text
+grund init {repo_copy} --agents-md
+```
+
+Precondition: `{repo_copy}` has no `AGENTS.md`; its existing `grund.toml`
+configures populated `[scan] include` paths and walked kind homes, so the
+effective scanner would read at least one file ([§FS-config.3.5](FS-config.md#35-scan--what-gets-walked)).
+
+Exit `0`, stdout empty, stderr:
+
+```text
+wrote AGENTS.md
+exists grund.toml
+
+next:
+  1. re-run with --docs to scaffold the FS home (requirements.md), docs/, and tests/ (or create them yourself)
+  2. run `grund check` — a scaffolded tree is clean
+  3. allocate an ID:  ID=$(grund id FS "…")  then add it to requirements.md
+see AGENTS.md for the full workflow.
+```
+
+The default form above is the exact counter-case: when the effective scanner
+would read no file, step 1 retains the suffix ` — until then \`grund check\` has
+nothing to scan` byte-for-byte. The populated form changes no other guidance
+byte and does not suppress the scaffold advice.
+
 ## 2. Docs form
 
 Command:
