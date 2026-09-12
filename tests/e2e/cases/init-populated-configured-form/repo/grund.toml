@@ -1,0 +1,29 @@
+grund_config_version = 1
+project_name = "populated-fixture"
+
+[reference]
+marker = "§"
+trigger = "$$"
+strict = true
+require_grounding = false
+
+[id]
+format = "{kind}-{slug}"
+section_separator = "."
+slug_pattern = "[a-z][a-z0-9-]*"
+
+[[kinds]]
+kind = "FS"
+file = "requirements.md"
+title = "Requirements"
+
+[[kinds]]
+kind = "AR"
+folder = "docs"
+title = "Architecture"
+
+[scan]
+include = ["requirements.md", "docs", "src", "tests"]
+extensions = ["md", "rs"]
+comment_prefixes = ["//", "#"]
+respect_gitignore = false
