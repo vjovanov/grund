@@ -117,10 +117,12 @@ fn print_init_output(output: &InitOutput) {
         eprintln!("note: {note}");
     }
     if let Some(next) = &output.next {
-        print_next_block_for_home(next.docs, Some(&next.entrypoint), &next.fs_home);
+        print_next_block(next);
     }
 }
 
-fn print_next_block_for_home(docs: bool, entrypoint: Option<&str>, fs_home: &InitFsHome) {
-    eprint!("{}", render_next_block_for_home(docs, entrypoint, fs_home));
+/// Compatibility output consumes the same structured guidance as the shipped
+/// CLI (§FS-init.2.2).
+fn print_next_block(next: &InitNext) {
+    eprint!("{}", next.render());
 }

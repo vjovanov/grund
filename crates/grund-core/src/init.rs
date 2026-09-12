@@ -58,6 +58,23 @@ pub struct InitNext {
     pub docs: bool,
     pub entrypoint: String,
     pub fs_home: InitFsHome,
+    /// Whether the effective scanner found a readable file before this guidance
+    /// was rendered (§FS-init.2.2). Both command adapters consume this decision;
+    /// neither reconstructs scanner policy from paths.
+    pub scan_reads_file: bool,
+}
+
+impl InitNext {
+    /// Render the shared trailing guidance for the shipped CLI and the deprecated
+    /// core command adapter (§FS-init.2.2).
+    pub fn render(&self) -> String {
+        render_next_block_for_home(
+            self.docs,
+            Some(&self.entrypoint),
+            &self.fs_home,
+            self.scan_reads_file,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -394,10 +411,17 @@ pub fn init(opts: InitOpts) -> std::result::Result<InitOutput, InitError> {
         any_change = true;
     }
 
-    let next = any_change.then(|| InitNext {
-        docs,
-        entrypoint: workflow_entrypoint.unwrap_or_else(|| CANONICAL_AGENT_ENTRYPOINT.to_string()),
-        fs_home,
+    let next = any_change.then(|| {
+        // §FS-init.2.2: only no-`--docs` guidance asks this question. The probe
+        // uses the effective config selected above and exits on its first file.
+        let scan_reads_file = !docs && effective_scope_reads_any_file(&init_config);
+        InitNext {
+            docs,
+            entrypoint: workflow_entrypoint
+                .unwrap_or_else(|| CANONICAL_AGENT_ENTRYPOINT.to_string()),
+            fs_home,
+            scan_reads_file,
+        }
     });
     // §FS-init.2.3.4.17: silence here would read as the committed `link` opinion
     // simply not working.
@@ -432,6 +456,7 @@ fn render_next_block_for_home(
     docs: bool,
     entrypoint: Option<&str>,
     fs_home: &InitFsHome,
+    scan_reads_file: bool,
 ) -> String {
     let mut output = "\nnext:\n".to_string();
     if docs {
@@ -460,8 +485,12 @@ fn render_next_block_for_home(
             InitFsHome::File { path, .. } | InitFsHome::Folder { path } => path,
         };
         output.push_str(&format!(
-            "  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and tests/ (or create them yourself) — until then `grund check` has nothing to scan\n"
+            "  1. re-run with --docs to scaffold the FS home ({fs_home_path}), docs/, and tests/ (or create them yourself)"
         ));
+        if !scan_reads_file {
+            output.push_str(" — until then `grund check` has nothing to scan");
+        }
+        output.push('\n');
         output.push_str("  2. run `grund check` — a scaffolded tree is clean\n");
         match fs_home {
             InitFsHome::File { path, .. } => {

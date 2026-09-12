@@ -360,7 +360,7 @@ mod tests_api {
             }
         );
 
-        let rendered = render_next_block_for_home(next.docs, Some(&next.entrypoint), &next.fs_home);
+        let rendered = next.render();
         assert!(
             rendered.contains("then add it under docs/functional-spec"),
             "next guidance should point at the effective legacy FS home: {rendered}"
@@ -404,7 +404,7 @@ file = "specs/requirements.md"
             }
         );
 
-        let rendered = render_next_block_for_home(next.docs, Some(&next.entrypoint), &next.fs_home);
+        let rendered = next.render();
         assert!(
             rendered.contains("then add it to specs/requirements.md"),
             "next guidance should point at the configured FS file: {rendered}"
