@@ -1010,7 +1010,7 @@ preserve, so its otherwise-identical suggestion uses the literal title
 `Untitled`; applying that complete suggested heading produces a recognized
 section and clears the warning.
 
-Text output uses the ordinary `<path>:<line>: <message>` form. A warning leaves
+Text output uses the `<path>:<line>: warning: <message>` form. A warning leaves
 the exit at `0` but stands in place of the bare `success` line (§2.1). JSON emits
 the same path, line, code, and message with `"severity":"warning"` and
 `"sites":null`. `--only unmarked-heading` retains it and `--ignore
