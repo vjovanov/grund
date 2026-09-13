@@ -260,7 +260,8 @@ fn build_packaged_binary() -> PathBuf {
     let target = fixture.root.join("package-target");
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-    let status = Command::new(&cargo)
+    let mut command = Command::new(&cargo);
+    command
         .args([
             "package",
             "-p",
@@ -274,9 +275,8 @@ fn build_packaged_binary() -> PathBuf {
             "--target-dir",
         ])
         .arg(&target)
-        .current_dir(&repo)
-        .status()
-        .expect("run cargo package");
+        .current_dir(&repo);
+    let status = support::command_status(&mut command, "run cargo package");
     assert!(status.success(), "cargo package failed");
 
     let version = env!("CARGO_PKG_VERSION");
@@ -286,13 +286,13 @@ fn build_packaged_binary() -> PathBuf {
         let archive = target
             .join("package")
             .join(format!("{package}-{version}.crate"));
-        let status = Command::new("tar")
+        let mut command = Command::new("tar");
+        command
             .args(["-xzf"])
             .arg(&archive)
             .arg("-C")
-            .arg(&unpacked)
-            .status()
-            .expect("extract crate archive");
+            .arg(&unpacked);
+        let status = support::command_status(&mut command, "extract crate archive");
         assert!(status.success(), "extract {}", archive.display());
     }
     assert!(
@@ -311,14 +311,14 @@ fn build_packaged_binary() -> PathBuf {
     )
     .expect("write package fixture patch");
     let build_target = fixture.root.join("build-target");
-    let status = Command::new(cargo)
+    let mut command = Command::new(cargo);
+    command
         .args(["build", "--offline", "--manifest-path"])
         .arg(unpacked.join(format!("grund-lsp-{version}/Cargo.toml")))
         .arg("--target-dir")
         .arg(&build_target)
-        .current_dir(&unpacked)
-        .status()
-        .expect("build unpacked grund-lsp");
+        .current_dir(&unpacked);
+    let status = support::command_status(&mut command, "build unpacked grund-lsp");
     assert!(status.success(), "build unpacked grund-lsp failed");
     let built = build_target
         .join("debug")
@@ -328,6 +328,10 @@ fn build_packaged_binary() -> PathBuf {
         std::process::id(),
         std::env::consts::EXE_SUFFIX
     ));
-    fs::copy(&built, &retained).expect("retain packaged binary after fixture cleanup");
+    support::copy_executable(
+        &built,
+        &retained,
+        "retain packaged binary after fixture cleanup",
+    );
     retained
 }

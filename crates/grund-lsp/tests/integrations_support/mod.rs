@@ -44,7 +44,11 @@ impl Sandbox {
         let binary_dir = root.join(binary_dir);
         fs::create_dir_all(&binary_dir).expect("create isolated binary directory");
         let binary = binary_dir.join(format!("grund-lsp{}", std::env::consts::EXE_SUFFIX));
-        fs::copy(source, &binary).expect("copy grund-lsp into isolated installation");
+        crate::support::copy_executable(
+            source,
+            &binary,
+            "copy grund-lsp into isolated installation",
+        );
         Self { root, binary }
     }
 
@@ -70,11 +74,17 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    Command::new(binary)
+    let mut command = Command::new(binary);
+    command
         .args(args)
         .current_dir(cwd)
-        .output()
-        .expect("run isolated grund-lsp")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let child = crate::support::spawn_child(&mut command, "run isolated grund-lsp");
+    child
+        .wait_with_output()
+        .expect("wait for isolated grund-lsp")
 }
 
 pub fn stdout(output: &Output) -> String {
@@ -283,7 +293,7 @@ pub fn assert_host_command_launches(template: &Value, project: &Path) {
     {
         command.env(name, value.as_str().expect("environment value"));
     }
-    let mut child = command.spawn().expect("launch generated host command");
+    let mut child = crate::support::spawn_child(&mut command, "launch generated host command");
     let mut stdin = child.stdin.take().expect("host command stdin");
     let receiver = crate::support::read_messages(child.stdout.take().expect("host command stdout"));
     crate::support::send_message(
