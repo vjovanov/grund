@@ -2,10 +2,11 @@
 //! support is proven by a dangling citation planted in that form, and
 //! §FS-config.3.5 makes the claim concrete: every default extension and every
 //! default comment prefix. Read from the corpus goldens — an `unknown
-//! reference` line names the file and the line, the fixture shows the form —
-//! so an extension nobody plants a dangling citation in, a comment prefix no
-//! reported line opens with, or a golden that points at a line not citing
-//! the ID it reports, fails here. The defaults come from the binary, not from a copy.
+//! reference` error line in the public text shape from §FS-check.2.1 names the
+//! file and the line, and the fixture shows the form — so an extension nobody
+//! plants a dangling citation in, a comment prefix no reported line opens with,
+//! or a golden that points at a line not citing the ID it reports, fails here.
+//! The defaults come from the binary, not from a copy.
 
 #[path = "binaries.rs"]
 mod binaries;
@@ -90,7 +91,7 @@ fn every_default_extension_and_comment_prefix_has_a_dangling_proof() {
         };
         let root = case.join("repo");
         for line in stdout.lines() {
-            let Some((location, rest)) = line.split_once(": unknown reference ") else {
+            let Some((location, rest)) = line.split_once(": error: unknown reference ") else {
                 continue;
             };
             let unresolved = rest
