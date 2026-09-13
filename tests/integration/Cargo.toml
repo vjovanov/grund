@@ -44,6 +44,10 @@ path = "embedded_value_source_forms.rs"
 name = "refs_frontend_parity"
 path = "refs_frontend_parity.rs"
 
+[[test]]
+name = "check_frontend_parity"
+path = "check_frontend_parity.rs"
+
 [[bin]]
 name = "grund-core-compat-test"
 path = "compat_frontend.rs"

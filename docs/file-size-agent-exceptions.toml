@@ -229,3 +229,13 @@ until = "the classification cases move to a scanner-side test file of their own"
 reason = """
 The render half of this file moved out to tests_citation_directions_render.rs, which took it from 659 lines to 551. What is left is the rule half: how the scanner classifies a citing site, the obligation and prohibition passes over those classes, the empty-obligation warning, and config validation. Missing boundary: classification and enforcement are two subjects — the first is scanner behaviour that citation directions happen to consume, the second is the checker's — and a scanner-side file would take the first with it.
 """
+[[exceptions]]
+path = "crates/grund-core/src/output.rs"
+match = "exact"
+rules = ["core-source"]
+kind = "deferred"
+max_accepted = { value = 400, unit = "lines" }
+until = "an output submodule boundary is specified and landed as a pure refactor"
+reason = """
+The output category has no reviewed boundary separating check rendering from the path, JSON, and query helpers that share this file; establish that boundary in a separately reviewed pure-move change before splitting it.
+"""

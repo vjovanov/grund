@@ -150,10 +150,8 @@ fn finding_cmp(a: &Finding, b: &Finding) -> std::cmp::Ordering {
 }
 
 fn sorted_text_findings(report: &Report) -> Vec<(&'static str, &Finding)> {
-    // §FS-check.2.3: `report.suggestions` is populated only when the caller
-    // asked for them, so chaining it unconditionally is a no-op otherwise.
-    // §FS-errors.4: text has fixed error, warning, suggestion groups, with
-    // the bytewise location/message comparator applied inside each group.
+    // §FS-check.2.3: suggestions exist only when requested, so chaining is a no-op.
+    // §FS-errors.4: text has fixed channel groups, sorted within each group.
     let mut errors = report
         .errors
         .iter()
