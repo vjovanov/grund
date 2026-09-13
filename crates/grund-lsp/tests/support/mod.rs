@@ -11,14 +11,40 @@ use serde_json::{Value, json};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::mpsc;
+use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
+use std::sync::{Mutex, MutexGuard, mpsc};
 use std::time::{Duration, Instant};
 
 /// The server under test. Inside this package Cargo names the binary it just
 /// built; compiled into another package — `tests/integration/` reuses this
 /// harness — nothing does, so that package sets this before the first spawn.
 pub static SERVER_BINARY: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+// A fork must not inherit a writable descriptor for an executable another
+// integration test is publishing. Keep only executable copies and the
+// spawn/exec handshake serialized; child runtimes and assertions stay parallel.
+static EXECUTABLE_COPY_AND_SPAWN: Mutex<()> = Mutex::new(());
+
+fn executable_copy_and_spawn_guard() -> MutexGuard<'static, ()> {
+    EXECUTABLE_COPY_AND_SPAWN
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+pub fn copy_executable(source: &Path, destination: &Path, context: &str) {
+    let _guard = executable_copy_and_spawn_guard();
+    fs::copy(source, destination).expect(context);
+}
+
+pub fn spawn_child(command: &mut Command, context: &str) -> Child {
+    let _guard = executable_copy_and_spawn_guard();
+    command.spawn().expect(context)
+}
+
+pub fn command_status(command: &mut Command, context: &str) -> ExitStatus {
+    let mut child = spawn_child(command, context);
+    child.wait().expect("wait for child process")
+}
 
 pub fn server_binary() -> PathBuf {
     if let Some(path) = SERVER_BINARY.get() {
@@ -255,13 +281,13 @@ pub fn start_server_with_initialize(
     current_dir: &Path,
     initialize_params: Value,
 ) -> (Child, ChildStdin, mpsc::Receiver<Value>) {
-    let mut child = Command::new(server_binary())
+    let mut command = Command::new(server_binary());
+    command
         .current_dir(current_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn grund-lsp");
+        .stderr(Stdio::piped());
+    let mut child = spawn_child(&mut command, "spawn grund-lsp");
     let mut stdin = child.stdin.take().expect("child stdin");
     let receiver = read_messages(child.stdout.take().expect("child stdout"));
     send_message(
