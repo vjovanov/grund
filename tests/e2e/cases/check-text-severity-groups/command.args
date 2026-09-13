@@ -1,1 +1,1 @@
-check {repo}
+check {repo} --suggestions

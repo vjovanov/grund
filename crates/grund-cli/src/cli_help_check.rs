@@ -17,8 +17,12 @@ fn print_check_help() {
     println!("Path validation is explicit; `grund PATH` is parsed as an ID query.");
     println!();
     println!("Options:");
+    // §FS-check.2.1: describe the explicit channels and fixed text grouping.
     println!(
-        "  --format text|json   text (default) prints `success` or `path:line: message`; json emits NDJSON."
+        "  --format text|json   text (default) prints `success` or `path:line: <channel>: message`,"
+    );
+    println!(
+        "                       grouped errors, warnings, then enabled suggestions; json emits NDJSON."
     );
     // §FS-check.3.23: this is the one non-reference hard finding the widened
     // scan carries with its ordinary code and message.

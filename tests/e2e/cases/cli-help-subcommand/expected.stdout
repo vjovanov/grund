@@ -8,7 +8,8 @@ Pointing grund at an explicit PATH scans exactly that file or directory.
 Path validation is explicit; `grund PATH` is parsed as an ID query.
 
 Options:
-  --format text|json   text (default) prints `success` or `path:line: message`; json emits NDJSON.
+  --format text|json   text (default) prints `success` or `path:line: <channel>: message`,
+                       grouped errors, warnings, then enabled suggestions; json emits NDJSON.
   --full               also walk past [scan] include and report unresolved references or section headings outside declaration bodies there.
   --require-grounding  also require every source file to cite a declared ID ([reference] require_grounding; a [[kinds]] row that sets it false stays exempt).
   --suggestions        also surface should/should-not citation-direction findings ([citations]).

@@ -407,9 +407,10 @@ Cross-project references are deliberately never resolved by path syntax such as
 ## 5. Command scope
 
 `grund check` run at a workspace root checks the root project and all configured
-members, aggregates diagnostics, and prints the same `path:line: message` shape
-as a normal check ([§FS-check.2.1](FS-check.md#21-report-format)). Paths are rendered relative to the workspace
-root when `[output] relative_paths = true`.
+members, aggregates diagnostics, and prints the same explicit-channel
+`<path>:<line>: <channel>: <message>` shape as a normal check
+([§FS-check.2.1](FS-check.md#21-report-format)). Paths are rendered relative
+to the workspace root when `[output] relative_paths = true`.
 
 `grund check <member>` (or `grund check` invoked from inside a member tree)
 discovers the member's own config first and validates it as an independent

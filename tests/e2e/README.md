@@ -51,8 +51,9 @@ goldens by copying the text order ([§FS-errors.4](../../docs/functional-spec/FS
 
 ## Current coverage
 
-- default text severity markers and error-before-warning grouping beside the
-  byte-, shape-, and global-location-order-compatible JSON report
+- all three explicit default-text channels and error-before-warning-before-
+  enabled-suggestion grouping beside the byte-, shape-, and
+  global-location-order-compatible JSON report
   ([§FS-check.2.1](../../docs/functional-spec/FS-check.md#21-report-format))
 - basic Markdown valid references
 - dangling Markdown citation
