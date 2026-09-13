@@ -41,16 +41,29 @@ A clean non-empty JSON check emits nothing on stdout and nothing on stderr. Ther
 
 ## 3. Text report ordering
 
-Text diagnostics are globally sorted by `(path, line)` lexicographically across errors and warnings. Errors do not sort before warnings; source location does. Example stdout for a failing `check`:
+Text diagnostics are grouped by channel: every error first, then every warning,
+then opt-in suggestions. Inside each group they sort bytewise by `(path, line,
+message)`. Each located line keeps its jump-friendly location prefix and places
+the channel immediately after it. Example stdout for a failing `check` whose
+warning sorts first by path:
 
 ```text
-docs/functional-spec/FS-001-alpha.md:3: unknown reference FS-999-missing
-docs/functional-spec/FS-002-beta.md:1: declared but never cited: FS-002-beta
+src/z-last.rs:1: error: unknown reference FS-999-missing
+docs/functional-spec/FS-001-alpha.md:3: warning: declared but never cited: FS-001-alpha
 ```
 
 stderr is empty for ordinary graph findings.
 
-Value findings join this same global ordering. Home JSON sources are read in normalized bytewise path order before their declaration and binding findings are sorted into the report ([§FS-values.2.2](FS-values.md#22-json-declarations-from-the-kind-home)).
+Value findings join their fixed severity group. Home JSON sources are read in normalized bytewise path order before their declaration and binding findings are sorted into the report ([§FS-values.2.2](FS-values.md#22-json-declarations-from-the-kind-home)).
+
+JSON does not inherit the text grouping. The same two findings remain in the
+existing global bytewise location order, and every object retains its existing
+bytes and shape:
+
+```json
+{"severity":"warning","path":"docs/functional-spec/FS-001-alpha.md","line":3,"code":"unused-declaration","message":"declared but never cited: FS-001-alpha","sites":null}
+{"severity":"error","path":"src/z-last.rs","line":1,"code":"unknown-reference","message":"unknown reference FS-999-missing","sites":null}
+```
 
 ## 4. `show --format=json`
 

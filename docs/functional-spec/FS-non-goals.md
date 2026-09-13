@@ -47,7 +47,7 @@ scanner. [§DISC-external-facts](../discussions/proposals/2026-09-07-external-fa
 
 ## 9. Severity, exit code, or report-ordering customization
 
-Per [§GOAL-friendliness-first.2](../goals.md#2-what-this-rules-out) and [§FS-config.6](FS-config.md#6-what-is-not-configured-here), the severity model (`error`/`warning`), the exit-code mapping (`0`/`1`/`2`), and the deterministic report ordering are **not** configurable. Reasoning: two correctly-configured `grund` installs must agree on whether a repo passes. Letting any of these vary by project breaks that contract.
+Per [§GOAL-friendliness-first.2](../goals.md#2-what-this-rules-out) and [§FS-config.6](FS-config.md#6-what-is-not-configured-here), the severity model (`error`/`warning`), the exit-code mapping (`0`/`1`/`2`), and the deterministic report ordering are **not** configurable. In particular, the text report's errors-before-warnings-before-suggestions groups are one fixed default; there is no flag, configuration key, or alternate legacy order. JSON retains its separately fixed global location order. Reasoning: two correctly-configured `grund` installs must agree on whether a repo passes. Letting any of these vary by project breaks that contract.
 
 ## 10. Interactive mode
 

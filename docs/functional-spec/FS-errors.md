@@ -30,14 +30,19 @@ A diagnostic that points at a specific source site:
 
 ```
 <path>:<line>: <message>
+<path>:<line>: <channel>: <message>
 ```
 
 - `<path>` is relative to the config root when a `grund.toml` was discovered ([§FS-config.3.6](FS-config.md#36-output--report-format)), otherwise to the path passed on the command line.
 - `<line>` is 1-indexed.
-- `<message>` is a single line — no embedded newlines, no terminal period.
+- `<channel>` is the lowercase `error`, `warning`, or `suggestion` marker used
+  by `grund check`; other commands omit it.
+- `<message>` is a single line — no embedded newlines, no terminal period — and
+  does not include the channel marker.
 - The `<path>:<line>:` prefix is mandatory: editors and agents jump on this exact shape.
 
-Emitted on **stdout** — it is the command's output (§1): every finding from `grund check` ([§FS-check.2.1](FS-check.md#21-report-format)), every would-change line from `grund fmt` ([§FS-fmt.3](FS-fmt.md#3-outputs)), and every citation from `grund refs` ([§FS-refs.3.1](FS-refs.md#31---format-text-default)) wears this shape. The optional LSP server surfaces the same `<path>:<line>: <message>` content as editor diagnostics ([§FS-lsp.1.1](FS-lsp.md#11-diagnostics)). The `<path>:<line>:` prefix is what editors and agents jump on; for `check` and `fmt` a line is a complaint about the repo, for `refs` it is an answer to a query — same shape, the exit code and the command tell them apart.
+Emitted on **stdout** — it is the command's output (§1). Every finding from
+`grund check` uses the channel-bearing form ([§FS-check.2.1](FS-check.md#21-report-format)); every would-change line from `grund fmt` ([§FS-fmt.3](FS-fmt.md#3-outputs)) and every citation from `grund refs` ([§FS-refs.3.1](FS-refs.md#31---format-text-default)) keeps the channel-less form. The optional LSP server likewise keeps its existing diagnostic content ([§FS-lsp.1.1](FS-lsp.md#11-diagnostics)); the CLI text marker does not become part of an LSP message. The shared `<path>:<line>:` prefix is what editors and agents jump on, while the command, stream, and `check` channel distinguish the meanings.
 
 ### 2.2 CLI-level message
 
@@ -49,8 +54,15 @@ warning: <message>
 ```
 
 - On **stderr** (§1) — it is not the command's output.
-- The literal `error: ` / `warning: ` prefix is what distinguishes a CLI-level message from a located finding (which wears the bare `<path>:<line>:` prefix instead, with no `error:`). CI scripts grep for the leading `error:` to tell a launch-time failure from a clean run that found findings on stdout.
-- The bare `<path>:<line>:` *prefix* a located finding wears (§2.1) is never used here — that prefix, with no `error:`, is the signal of a per-site finding on stdout. The message *text* may still carry a location: a `grund.toml` schema error is reported `error: <path>:<line>: <message>` ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)) — the `error:` marks it CLI-level (stderr, exit `2`), and the `<path>:<line>:` inside the text is the breadcrumb to the bad line, since a config file has one where a bad flag does not. Other CLI-level messages just name the file in prose when relevant (e.g. `error: invalid grund.toml: ...`) or carry no path at all.
+- The literal leading `error: ` / `warning: ` prefix is what distinguishes a
+  CLI-level message from a located finding, whose severity marker follows its
+  `<path>:<line>:` prefix. CI scripts grep for the leading `error:` to tell a
+  launch-time failure from a clean run that found findings on stdout.
+- The `<path>:<line>:` *prefix* a located finding wears (§2.1) is never used
+  here — a line beginning with that prefix is the signal of a per-site finding
+  on stdout, whether a `check` channel marker or the message follows it. The
+  message *text* may still carry a location: a `grund.toml` schema error is
+  reported `error: <path>:<line>: <message>` ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)) — the leading `error:` marks it CLI-level (stderr, exit `2`), and the `<path>:<line>:` inside the text is the breadcrumb to the bad line, since a config file has one where a bad flag does not. Other CLI-level messages just name the file in prose when relevant (e.g. `error: invalid grund.toml: ...`) or carry no path at all.
 - `error:` always accompanies exit `2` — a launch-time, setup, or I/O failure:
   the run could not establish or complete the query context or a trustworthy
   scan. `warning:` leaves the exit code alone — it is a caution, not a failure.
@@ -124,7 +136,8 @@ unknown project alias <path>; the <scope> project and its descendants are in sco
 Workspace-root candidate messages and bare unknown-project messages remain
 unchanged throughout this migration.
 
-Severity (`error` vs `warning`) is **implicit in the rule**, not in the line. [§FS-check.3](FS-check.md#3-errors-detected) is errors; [§FS-check.4](FS-check.md#4-warnings) is warnings; both render identically as located findings. Consumers that need machine-distinguishable severity use `--format=json` (§5).
+For `grund check`, the fixed rule supplies the channel and every located text
+line makes it explicit after the location prefix: [§FS-check.3](FS-check.md#3-errors-detected) is `error:`, [§FS-check.4](FS-check.md#4-warnings) is `warning:`, and enabled [§FS-check.2.3](FS-check.md#23-suggestions-channel-opt-in) advisories are `suggestion:`. That structural marker does not change the diagnostic's message bytes. JSON continues to carry the same distinction in its existing `severity` or `channel` field (§5); `fmt`, `refs`, run-level messages, and LSP retain their existing shapes.
 
 For a missing fetch-backed declaration, the two frozen identities are
 `dangling` / `error` with `unknown reference <qualified-ID>; no snapshot in
@@ -163,15 +176,20 @@ Two runs of the same subcommand on the same input must produce byte-identical st
 
 - Wall-clock timestamps in messages.
 - Process IDs, hostnames, or absolute paths outside the configured root.
-- Non-deterministic ordering. Findings sort by `(path, line)` lexicographically; multi-site findings anchor at the lexicographically-first site ([§FS-check.2.1](FS-check.md#21-report-format)).
+- Non-deterministic ordering. Text `check` findings are grouped as errors,
+  warnings, then enabled suggestions and sort bytewise by `(path, line,
+  message)` within each group. JSON `check` findings retain their global
+  bytewise `(path, line, message)` order across channels. Other reports retain
+  their existing documented order; multi-site findings anchor at the
+  lexicographically-first site ([§FS-check.2.1](FS-check.md#21-report-format)).
 - Platform-native path separators in repo-relative output. Any path that appears in a report, JSON field, e2e case manifest, duplicate-site list, stub-link note, or formatter summary is rendered with `/`, so Windows and Unix runs over the same tree compare byte-for-byte.
 
 A message that would otherwise be non-deterministic (e.g. the order of duplicate-declaration sites) is sorted before printing.
 
 `grund check --only` and `--ignore` preserve this contract: selection precedes
-sorting and rendering, retained diagnostics keep their ordinary bytes and
-relative order, and reordering or duplicating selector flags cannot alter the
-result ([§FS-check.2.1](FS-check.md#21-report-format)).
+the format-specific sort and rendering, retained diagnostics keep their
+locations, messages, codes, sites, and channels, and reordering or duplicating
+selector flags cannot alter the result ([§FS-check.2.1](FS-check.md#21-report-format)).
 
 ## 5. JSON format
 
