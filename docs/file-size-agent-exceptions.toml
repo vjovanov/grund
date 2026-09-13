@@ -239,3 +239,13 @@ until = "an output submodule boundary is specified and landed as a pure refactor
 reason = """
 The output category has no reviewed boundary separating check rendering from the path, JSON, and query helpers that share this file; establish that boundary in a separately reviewed pure-move change before splitting it.
 """
+[[exceptions]]
+path = "docs/functional-spec/FS-workspace.md"
+match = "exact"
+rules = ["docs"]
+kind = "deferred"
+max_accepted = { value = 900, unit = "lines" }
+until = "workspace concerns move into independently declared child specs with stable replacements for existing FS-workspace section citations"
+reason = """
+This file is the single normative contract for workspace configuration, resolution, command scope, nested boundaries, and alias IDs. The issue-232 one-line correction belongs in §FS-workspace.5 so its existing citations remain stable. Missing boundary: independently declared child specifications for those concerns, plus a migration for the section citations that currently target this declaration.
+"""

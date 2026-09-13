@@ -1,5 +1,5 @@
 //! §AR-bindings.2: the published CLI and deprecated core process adapter keep
-//! §FS-errors.4 mixed-severity text ordering byte-identical.
+//! §FS-errors.4 all-channel text ordering byte-identical.
 
 mod binaries;
 
@@ -11,12 +11,13 @@ fn run(binary: impl AsRef<Path>, root: &Path) -> Output {
     Command::new(binary.as_ref())
         .arg("check")
         .arg(root)
+        .arg("--suggestions")
         .output()
         .expect("run check adapter")
 }
 
 #[test]
-fn mixed_severity_text_is_identical_in_both_process_adapters() {
+fn all_channel_text_is_identical_in_both_process_adapters() {
     let case = binaries::repo_root().join("tests/e2e/cases/check-text-severity-groups");
     let expected = fs::read(case.join("expected.stdout")).expect("read expected stdout");
     let public = run(binaries::grund(), &case.join("repo"));

@@ -26,12 +26,14 @@ fn profile_dir() -> PathBuf {
 
 fn binary(package: &str, name: &str) -> PathBuf {
     let dir = profile_dir();
+    let target_dir = dir.parent().expect("target dir");
     let path = dir.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
     if !path.is_file() {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let mut build = Command::new(cargo);
         build
-            .args(["build", "-p", package, "--locked"])
+            .args(["build", "-p", package, "--locked", "--target-dir"])
+            .arg(target_dir)
             .current_dir(repo_root());
         if dir.file_name().and_then(|name| name.to_str()) == Some("release") {
             build.arg("--release");

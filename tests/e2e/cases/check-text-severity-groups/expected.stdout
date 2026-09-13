@@ -1,3 +1,4 @@
 src/z-error.rs:1: error: inline note is 4 lines, over the 3-line maximum: lines 1-4 cite §FS-fixture; a blank line splits a note, an empty comment line does not
 docs/functional-spec/FS-fixture.md:5: warning: unmarked heading inside FS-fixture; number it (## 1. Earlier warning) as FS-fixture.1, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0
 docs/functional-spec/FS-fixture.md:6: warning: unmarked heading inside FS-fixture; number it (## 2. Later warning) as FS-fixture.2, declare an ID, or use a bold label; this warning becomes an error in grund 0.15.0
+docs/functional-spec/README.md:5: suggestion: escaped citation <§>FS-fixture resolves to a declaration; write §FS-fixture for a live citation, or leave it escaped if it is only an illustration

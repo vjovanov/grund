@@ -195,7 +195,13 @@ The `should` / `should-not` levels of `[citations]` ([§FS-config.3.9](FS-config
 
 `--only` and `--ignore` select suggestions only after `--suggestions` has enabled this channel. A selector cannot surface a suggestion the run did not request; a retained suggestion still never affects exit status. Selecting away every enabled suggestion restores the ordinary empty selected-report behavior from §2.1.
 
-- **Text** — `--suggestions` prints each suggestion in the located-finding shape `path:line: message` (§2.1), interleaved with errors and warnings in the same deterministic order ([§FS-errors.4](FS-errors.md#4-determinism)). Without the flag, suggestions are not printed, and the `success` marker still appears for a run with zero errors and zero warnings even if suggestions exist — a suggestion is not a finding about well-formedness.
+- **Text** — `--suggestions` prints each suggestion in the located-finding
+  shape `<path>:<line>: suggestion: <message>` (§2.1), after the error and
+  warning groups in the same deterministic within-group order
+  ([§FS-errors.4](FS-errors.md#4-determinism)). Without the flag, suggestions
+  are not printed, and the `success` marker still appears for a run with zero
+  errors and zero warnings even if suggestions exist — a suggestion is not a
+  finding about well-formedness.
 - **Exit code** — suggestions never affect it (`0`/`1`/`2` unchanged), exactly like the empty-scan caution.
 - **JSON** — under `--suggestions`, suggestion objects are emitted on stdout alongside the findings with `"channel": "suggestion"`; a consumer filtering on `severity ∈ {error, warning}` is unaffected. Without the flag none are emitted.
 
@@ -638,7 +644,7 @@ LSP navigation target. `show` and other failed queries retain their ordinary
 missing-section semantics rather than printing this check-only message.
 
 This is an ordinary hard finding under §§2–3. Text uses the located
-`path:line: message` form. JSON emits
+`<path>:<line>: error: <message>` form. JSON emits
 `{"severity":"error","path":<path>,"line":<line>,"code":"section-outside-declaration","message":<message>,"sites":null}`.
 `--only section-outside-declaration` retains it and `--ignore
 section-outside-declaration` removes it; a retained finding contributes exit
