@@ -1,1 +1,1 @@
-docs/pricing.md:8: value mismatch for FS-001-pricing.1.1: bound `999`, declared `1200` at docs/pricing.md:4
+docs/pricing.md:8: error: value mismatch for FS-001-pricing.1.1: bound `999`, declared `1200` at docs/pricing.md:4

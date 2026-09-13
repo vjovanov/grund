@@ -1,2 +1,2 @@
-docs/functional-spec/FS-note.md:1: declared but never cited: FS-note
-docs/functional-spec/FS-note.md:3: unknown project alias api
+docs/functional-spec/FS-note.md:3: error: unknown project alias api
+docs/functional-spec/FS-note.md:1: warning: declared but never cited: FS-note

@@ -17,7 +17,7 @@ grund/
 └── tests/
 ```
 
-This split keeps CLI behavior byte-identical while giving `grund-lsp` and the language bindings a library package they can depend on. `grund-core` exposes data-returning APIs for the CLI and LSP surfaces (`check`, `show`, `refs`, `list`, `cover`, `fmt`, `id`, `init`, config inspection, and LSP snapshots); the user-facing binary, help text, version handling, SIGPIPE setup, top-level command dispatch, flag parsing, text/JSON rendering, and exit-code mapping live in `grund-cli`.
+This split keeps one checked report behind every frontend while giving `grund-lsp` and the language bindings a library package they can depend on. `grund-core` exposes data-returning APIs for the CLI and LSP surfaces (`check`, `show`, `refs`, `list`, `cover`, `fmt`, `id`, `init`, config inspection, and LSP snapshots); the user-facing binary, help text, version handling, SIGPIPE setup, top-level command dispatch, flag parsing, text/JSON rendering, and exit-code mapping live in `grund-cli`. The CLI renderer gives text and JSON their deliberately distinct deterministic orders—severity groups for text and global location order for compatible JSON—without changing the shared report or LSP messages ([§FS-errors.4](../functional-spec/FS-errors.md#4-determinism)).
 
 Final frontend layout:
 

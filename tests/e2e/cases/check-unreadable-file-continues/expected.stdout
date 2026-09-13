@@ -1,1 +1,1 @@
-docs/functional-spec/FS-001-good.md:3: unknown reference FS-999-bar
+docs/functional-spec/FS-001-good.md:3: error: unknown reference FS-999-bar

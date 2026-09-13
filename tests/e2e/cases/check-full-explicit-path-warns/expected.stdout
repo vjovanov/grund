@@ -1,1 +1,1 @@
-sim/world.py:1: unknown reference FS-999-missing
+sim/world.py:1: error: unknown reference FS-999-missing

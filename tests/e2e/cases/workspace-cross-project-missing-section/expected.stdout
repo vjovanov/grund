@@ -1,2 +1,2 @@
-docs/functional-spec/FS-root.md:1: declared but never cited: FS-root
-docs/functional-spec/FS-root.md:3: missing section api/FS-session.99
+docs/functional-spec/FS-root.md:3: error: missing section api/FS-session.99
+docs/functional-spec/FS-root.md:1: warning: declared but never cited: FS-root

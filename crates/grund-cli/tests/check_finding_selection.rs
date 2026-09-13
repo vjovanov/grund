@@ -84,7 +84,7 @@ fn assert_run(output: &Output, exit: i32, stdout: &str, stderr: &str) {
 }
 
 fn maintenance_line() -> String {
-    format!("AGENTS.md:1: {OUTDATED}{MAINTENANCE_TAIL}\n")
+    format!("AGENTS.md:1: error: {OUTDATED}{MAINTENANCE_TAIL}\n")
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn issue_49_default_stays_red_while_selected_empty_text_and_json_are_clean() {
 fn issue_49_only_ignore_unions_precedence_duplicates_and_order_are_exact() {
     let root = stale_fixture("set-composition", true);
     let maintenance = maintenance_line();
-    let dangling = "docs/notes.md:1: unknown reference FS-missing\n";
+    let dangling = "docs/notes.md:1: error: unknown reference FS-missing\n";
     let both = format!("{maintenance}{dangling}");
 
     assert_run(&run(&root, &["--only", "agents-init"]), 1, &maintenance, "");
@@ -190,7 +190,7 @@ fn issue_49_warnings_and_enabled_suggestions_are_selectable_but_do_not_fail() {
     assert_run(
         &run(&warning_root, &["--only=unused"]),
         0,
-        "docs/functional-spec/FS-unused.md:1: declared but never cited: FS-unused\n",
+        "docs/functional-spec/FS-unused.md:1: warning: declared but never cited: FS-unused\n",
         "",
     );
     assert_run(
@@ -210,7 +210,7 @@ fn issue_49_warnings_and_enabled_suggestions_are_selectable_but_do_not_fail() {
         "The session is \u{a7}FS-session. An example is `<\u{a7}>FS-session`.\n",
     );
     let suggestion = concat!(
-        "docs/guide.md:1: escaped citation <\u{a7}>FS-session resolves to a declaration; ",
+        "docs/guide.md:1: suggestion: escaped citation <\u{a7}>FS-session resolves to a declaration; ",
         "write \u{a7}FS-session for a live citation, or leave it escaped if it is only an illustration\n",
     );
     assert_run(

@@ -134,9 +134,52 @@ fn command_check(args: &[String]) -> ExitCode {
     }
 }
 
-fn sorted_findings(report: &Report) -> Vec<(&'static str, &Finding)> {
+/// Compare one format's retained findings by the fixed bytewise key
+/// (§FS-errors.4); text applies it per channel and JSON applies it globally.
+fn finding_cmp(a: &Finding, b: &Finding) -> std::cmp::Ordering {
+    (
+        a.path.as_deref(),
+        a.line.unwrap_or(0),
+        a.message.as_str(),
+    )
+        .cmp(&(
+            b.path.as_deref(),
+            b.line.unwrap_or(0),
+            b.message.as_str(),
+        ))
+}
+
+fn sorted_text_findings(report: &Report) -> Vec<(&'static str, &Finding)> {
     // §FS-check.2.3: `report.suggestions` is populated only when the caller
     // asked for them, so chaining it unconditionally is a no-op otherwise.
+    // §FS-errors.4: text has fixed error, warning, suggestion groups, with
+    // the bytewise location/message comparator applied inside each group.
+    let mut errors = report
+        .errors
+        .iter()
+        .map(|finding| ("error", finding))
+        .collect::<Vec<_>>();
+    let mut warnings = report
+        .warnings
+        .iter()
+        .map(|finding| ("warning", finding))
+        .collect::<Vec<_>>();
+    let mut suggestions = report
+        .suggestions
+        .iter()
+        .map(|finding| ("suggestion", finding))
+        .collect::<Vec<_>>();
+    errors.sort_by(|(_, a), (_, b)| finding_cmp(a, b));
+    warnings.sort_by(|(_, a), (_, b)| finding_cmp(a, b));
+    suggestions.sort_by(|(_, a), (_, b)| finding_cmp(a, b));
+    errors.extend(warnings);
+    errors.extend(suggestions);
+    errors
+}
+
+/// Keep JSON in its pre-existing global bytewise location/message order
+/// (§FS-check.2.1, §FS-errors.4), independent of text's severity groups.
+fn sorted_json_findings(report: &Report) -> Vec<(&'static str, &Finding)> {
     let mut findings = report
         .warnings
         .iter()
@@ -149,18 +192,7 @@ fn sorted_findings(report: &Report) -> Vec<(&'static str, &Finding)> {
                 .map(|finding| ("suggestion", finding)),
         )
         .collect::<Vec<_>>();
-    findings.sort_by(|(_, a), (_, b)| {
-        (
-            a.path.as_deref(),
-            a.line.unwrap_or(0),
-            a.message.as_str(),
-        )
-            .cmp(&(
-                b.path.as_deref(),
-                b.line.unwrap_or(0),
-                b.message.as_str(),
-            ))
-    });
+    findings.sort_by(|(_, a), (_, b)| finding_cmp(a, b));
     findings
 }
 
@@ -180,9 +212,13 @@ fn render_check_text(report: &Report, unread_opted_out_blocks: usize) {
         println!("success");
         return;
     }
-    for (severity, finding) in sorted_findings(report) {
+    for (severity, finding) in sorted_text_findings(report) {
         let line = match (finding.path.as_deref(), finding.line) {
-            (Some(path), Some(line)) => format!("{path}:{line}: {}", finding.message),
+            // §FS-errors.2.1: retain the jump-friendly location prefix and
+            // place `check`'s structural channel before unchanged message bytes.
+            (Some(path), Some(line)) => {
+                format!("{path}:{line}: {severity}: {}", finding.message)
+            }
             (Some(path), None) => format!("{severity}: {path}: {}", finding.message),
             _ => format!("{severity}: {}", finding.message),
         };
@@ -195,7 +231,7 @@ fn render_check_text(report: &Report, unread_opted_out_blocks: usize) {
 }
 
 fn render_check_json(report: &Report) {
-    for (severity, finding) in sorted_findings(report) {
+    for (severity, finding) in sorted_json_findings(report) {
         let object = render_finding_json(severity, finding);
         if finding.line.is_some() {
             println!("{object}");

@@ -1,1 +1,1 @@
-src/util.rs:1: ungrounded source file: no § citation to a declared ID
+src/util.rs:1: error: ungrounded source file: no § citation to a declared ID

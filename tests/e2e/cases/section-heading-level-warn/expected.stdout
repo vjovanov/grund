@@ -1,1 +1,1 @@
-docs/functional-spec/FS-001-alpha.md:7: section FS-001-alpha.1.1 heading level mismatch: expected ### (level 3), found ## (level 2)
+docs/functional-spec/FS-001-alpha.md:7: warning: section FS-001-alpha.1.1 heading level mismatch: expected ### (level 3), found ## (level 2)

@@ -49,10 +49,10 @@ fn scope_only(alias: &str, scope: &str) -> String {
 
 fn narrowed_text() -> String {
     format!(
-        "docs/FS-group.md:3: unknown project alias group/alph; did you mean group/alpha?\n\
-         docs/FS-group.md:4: {}\n\
-         docs/FS-group.md:6: {}\n\
-         docs/FS-group.md:7: {}\n",
+        "docs/FS-group.md:3: error: unknown project alias group/alph; did you mean group/alpha?\n\
+         docs/FS-group.md:4: error: {}\n\
+         docs/FS-group.md:6: error: {}\n\
+         docs/FS-group.md:7: error: {}\n",
         scope_only("alpha", "group"),
         scope_only("outside/alpha", "group"),
         scope_only("grouped/alpha", "group"),
@@ -85,9 +85,9 @@ fn narrowed_alias_hints_only_rewrite_paths_inside_the_scope() {
     assert_failed_with(
         &workspace,
         concat!(
-            "group/docs/FS-group.md:3: unknown project alias group/alph; did you mean group/alpha?\n",
-            "group/docs/FS-group.md:6: unknown project alias outside/alpha; did you mean alpha or group/alpha?\n",
-            "group/docs/FS-group.md:7: unknown project alias grouped/alpha; did you mean alpha or group/alpha?\n",
+            "group/docs/FS-group.md:3: error: unknown project alias group/alph; did you mean group/alpha?\n",
+            "group/docs/FS-group.md:6: error: unknown project alias outside/alpha; did you mean alpha or group/alpha?\n",
+            "group/docs/FS-group.md:7: error: unknown project alias grouped/alpha; did you mean alpha or group/alpha?\n",
         ),
         "grund check <workspace-root>",
     );

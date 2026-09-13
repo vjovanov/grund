@@ -1,1 +1,1 @@
-src/lib.rs:1: inline citation must carry no prose
+src/lib.rs:1: error: inline citation must carry no prose

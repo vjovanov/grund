@@ -1,2 +1,2 @@
-sim/world.py:1: outside [scan] include: unknown reference FS-999-missing
-sim/world.py:2: outside [scan] include: missing section FS-001-login.4
+sim/world.py:1: error: outside [scan] include: unknown reference FS-999-missing
+sim/world.py:2: error: outside [scan] include: missing section FS-001-login.4

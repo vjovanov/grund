@@ -1,1 +1,1 @@
-docs/architecture/AR-001-router.md:1: stub link target lacks AR-001-router: src/router.rs
+docs/architecture/AR-001-router.md:1: error: stub link target lacks AR-001-router: src/router.rs

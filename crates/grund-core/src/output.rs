@@ -1,7 +1,8 @@
-/// Print the text report in the fixed output shapes (§FS-errors.1,
-/// §FS-errors.2.1, §FS-errors.2.4): `path:line: message` for located findings,
-/// run-level diagnostics on stderr, and `success` for a clean text check
-/// (§FS-check.2.1). Diagnostic lines stay in the fixed order (§FS-errors.4).
+/// Print the compatibility CLI's text report in the fixed output shapes
+/// (§FS-errors.1, §FS-errors.2.1, §FS-errors.2.4): channel-bearing located
+/// findings, run-level diagnostics on stderr, and `success` for a clean text
+/// check (§FS-check.2.1). Diagnostic lines stay in the fixed order
+/// (§FS-errors.4).
 fn print_report(config: &Config, report: &CheckReport, include_suggestions: bool) {
     // §FS-check.2.3: the `success` marker keys off errors and warnings only — a
     // suggestion is not a finding about well-formedness, so it never suppresses
@@ -17,11 +18,18 @@ fn print_report(config: &Config, report: &CheckReport, include_suggestions: bool
         println!("success");
         return;
     }
+    // §FS-errors.4: each report partition is already bytewise sorted; joining
+    // errors, warnings, then suggestions realizes text's fixed channel groups.
     let mut diagnostics = report
-        .warnings
+        .errors
         .iter()
-        .map(|diagnostic| ("warning", diagnostic))
-        .chain(report.errors.iter().map(|diagnostic| ("error", diagnostic)))
+        .map(|diagnostic| ("error", diagnostic))
+        .chain(
+            report
+                .warnings
+                .iter()
+                .map(|diagnostic| ("warning", diagnostic)),
+        )
         .collect::<Vec<_>>();
     if include_suggestions {
         diagnostics.extend(
@@ -49,7 +57,7 @@ fn render_diagnostic_text(config: &Config, severity: &str, diagnostic: &Diagnost
     match (&diagnostic.path, diagnostic.line) {
         (Some(path), Some(line)) => {
             format!(
-                "{}:{}: {}",
+                "{}:{}: {severity}: {}",
                 display_path(config, path),
                 line,
                 diagnostic.message
