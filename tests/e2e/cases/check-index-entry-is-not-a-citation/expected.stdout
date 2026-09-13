@@ -1,1 +1,1 @@
-docs/functional-spec/FS-001-login.md:1: declared but never cited: FS-001-login
+docs/functional-spec/FS-001-login.md:1: warning: declared but never cited: FS-001-login

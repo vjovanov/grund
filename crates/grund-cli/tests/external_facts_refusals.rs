@@ -436,6 +436,6 @@ fn external_facts_fetched_body_citations_are_live() {
     assert_code(&check, 1, "body citation is checked");
     assert_eq!(
         stdout(&check),
-        "docs/tickets.md:3: unknown reference TICKET-9; no snapshot in docs/tickets.md; did you mean TICKET-8?\n"
+        "docs/tickets.md:3: error: unknown reference TICKET-9; no snapshot in docs/tickets.md; did you mean TICKET-8?\n"
     );
 }

@@ -1,1 +1,1 @@
-templates/agents.md:3: outside [scan] include: unknown reference FS-999-ghost
+templates/agents.md:3: error: outside [scan] include: unknown reference FS-999-ghost

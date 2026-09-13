@@ -114,7 +114,7 @@ fn absent_config_is_byte_stable_and_word_threshold_is_strict_with_exact_message(
     assert_eq!(
         stdout(&checked),
         concat!(
-            "docs/in/FS-over.md:1: FS-over lead is 4 words, over the configured maximum of 3; ",
+            "docs/in/FS-over.md:1: warning: FS-over lead is 4 words, over the configured maximum of 3; ",
             "move detail into citable child sections, or promote a child section to its own ID ",
             "after running grund refs FS-over --summary\n"
         )
@@ -168,7 +168,7 @@ fn equality_and_overage_are_byte_defined_for_all_three_units_and_sections() {
         let output = stdout(&checked);
         assert!(!output.contains("FS-equal lead is"), "{unit}: {output}");
         assert!(
-            output.contains("docs/in/FS-over.md:1: FS-over lead is "),
+            output.contains("docs/in/FS-over.md:1: warning: FS-over lead is "),
             "{unit}: {output}"
         );
         assert!(
@@ -178,7 +178,7 @@ fn equality_and_overage_are_byte_defined_for_all_three_units_and_sections() {
             "{unit}: {output}"
         );
         assert!(
-            output.contains("docs/in/FS-section.md:3: FS-section.1 lead is "),
+            output.contains("docs/in/FS-section.md:3: warning: FS-section.1 lead is "),
             "section heading/location missing for {unit}: {output}"
         );
     }

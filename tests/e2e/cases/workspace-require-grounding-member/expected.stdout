@@ -1,2 +1,2 @@
-apps/api/docs/functional-spec/FS-session.md:1: declared but never cited: FS-session
-apps/api/src/orphan.rs:1: ungrounded source file: no § citation to a declared ID
+apps/api/src/orphan.rs:1: error: ungrounded source file: no § citation to a declared ID
+apps/api/docs/functional-spec/FS-session.md:1: warning: declared but never cited: FS-session

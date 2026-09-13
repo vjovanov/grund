@@ -1,1 +1,1 @@
-docs/offer.md:9: value mismatch for CONST-discount.1: bound `0.30`, declared `0.25` at values/runtime.json:2
+docs/offer.md:9: error: value mismatch for CONST-discount.1: bound `0.30`, declared `0.25` at values/runtime.json:2

@@ -35,7 +35,7 @@ fn external_facts_citation_materializes_then_resolves_offline() {
     assert_code(&before, 0, "missing should snapshot");
     assert_eq!(
         stdout(&before),
-        "docs/guide.md:3: no snapshot for TICKET-1234 in docs/tickets.md — run grund fetch TICKET-1234\n"
+        "docs/guide.md:3: warning: no snapshot for TICKET-1234 in docs/tickets.md — run grund fetch TICKET-1234\n"
     );
 
     let fetch = run(&root, &["fetch", "TICKET-1234"]);
@@ -97,16 +97,19 @@ fn external_facts_missing_snapshot_text_and_json_have_fixed_identities() {
 
         let plain = run(&root, &["check", "."]);
         assert_code(&plain, exit, resolve);
-        assert_eq!(stdout(&plain), format!("docs/guide.md:3: {text}\n"));
-        assert_eq!(stderr(&plain), "");
-
-        let json = run(&root, &["check", ".", "--format", "json"]);
-        assert_code(&json, exit, &format!("{resolve} json"));
         let severity = if resolve == "must" {
             "error"
         } else {
             "warning"
         };
+        assert_eq!(
+            stdout(&plain),
+            format!("docs/guide.md:3: {severity}: {text}\n")
+        );
+        assert_eq!(stderr(&plain), "");
+
+        let json = run(&root, &["check", ".", "--format", "json"]);
+        assert_code(&json, exit, &format!("{resolve} json"));
         assert_eq!(
             stdout(&json),
             format!(
@@ -163,7 +166,7 @@ fn external_facts_should_snapshot_is_a_full_scope_error_in_text_json_and_workspa
         );
         let plain = run(root, &["check", "--full", "."]);
         assert_code(&plain, 1, &format!("{name} text"));
-        assert_eq!(stdout(&plain), format!("{path}:1: {message}\n"));
+        assert_eq!(stdout(&plain), format!("{path}:1: error: {message}\n"));
 
         let json = run(root, &["check", "--full", ".", "--format", "json"]);
         assert_code(&json, 1, &format!("{name} json"));
@@ -205,9 +208,14 @@ fn external_facts_existing_hints_replace_only_the_fetch_action_at_both_levels() 
         let output = run(&root, &["check", "."]);
         assert_code(&output, exit, resolve);
         let lines = stdout(&output);
+        let severity = if resolve == "must" {
+            "error"
+        } else {
+            "warning"
+        };
         assert!(
             lines.contains(&format!(
-                "docs/guide.md:3: {base} docs/tickets.md; did you mean TICKET-1235?\n"
+                "docs/guide.md:3: {severity}: {base} docs/tickets.md; did you mean TICKET-1235?\n"
             )),
             "near-ID hint did not preserve the snapshot base: {lines}"
         );
@@ -218,7 +226,7 @@ fn external_facts_existing_hints_replace_only_the_fetch_action_at_both_levels() 
         };
         assert!(
             lines.contains(&format!(
-                "docs/guide.md:4: {inline_base} docs/tickets.md; write <§>TICKET-9999 if this is an illustration\n"
+                "docs/guide.md:4: {severity}: {inline_base} docs/tickets.md; write <§>TICKET-9999 if this is an illustration\n"
             )),
             "inline-code hint did not preserve the snapshot base: {lines}"
         );

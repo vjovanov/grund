@@ -1,1 +1,1 @@
-docs/FS-001-alpha.md:1: declared but never cited: FS-001-alpha
+docs/FS-001-alpha.md:1: warning: declared but never cited: FS-001-alpha

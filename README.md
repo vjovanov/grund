@@ -103,16 +103,16 @@ Renumber the heading `### 3.2 Missing section` in [`FS-check.md`](docs/functiona
 
 ```
 $ grund check
-crates/grund-cli/tests/index_entry_round_trip.rs:229: missing section FS-check.3.2
-crates/grund-core/src/checker.rs:49: missing section FS-check.3.2
-crates/grund-core/src/checker.rs:447: missing section FS-check.3.2
-crates/grund-core/src/checker_index.rs:136: missing section FS-check.3.2
-crates/grund-core/src/checker_index.rs:242: missing section FS-check.3.2
-crates/grund-core/src/checker_references.rs:2: missing section FS-check.3.2
-crates/grund-core/src/checker_references.rs:359: missing section FS-check.3.2
-docs/decisions/functional/DF-duplicate-section-path.md:26: missing section FS-check.3.2
-docs/decisions/functional/DF-require-grounding.md:8: missing section FS-check.3.2
-docs/requirements/REQ-no-wrong-citation.md:7: missing section FS-check.3.2
+crates/grund-cli/tests/index_entry_round_trip.rs:229: error: missing section FS-check.3.2
+crates/grund-core/src/checker.rs:50: error: missing section FS-check.3.2
+crates/grund-core/src/checker.rs:448: error: missing section FS-check.3.2
+crates/grund-core/src/checker_index.rs:136: error: missing section FS-check.3.2
+crates/grund-core/src/checker_index.rs:242: error: missing section FS-check.3.2
+crates/grund-core/src/checker_references.rs:2: error: missing section FS-check.3.2
+crates/grund-core/src/checker_references.rs:359: error: missing section FS-check.3.2
+docs/decisions/functional/DF-duplicate-section-path.md:26: error: missing section FS-check.3.2
+docs/decisions/functional/DF-require-grounding.md:8: error: missing section FS-check.3.2
+docs/requirements/REQ-no-wrong-citation.md:7: error: missing section FS-check.3.2
 ```
 
 `grund check <path>` scans `<path>`; with no path it scans the canonical layout (`requirements.md`, `docs/`, `e2e/`, `src/`). In the scanned tree it enforces:
@@ -129,7 +129,15 @@ docs/requirements/REQ-no-wrong-citation.md:7: missing section FS-check.3.2
 
 `grund check` reads what `[scan] include` names, so a citation in a directory the config never mentioned is invisible rather than merely unchecked — it neither resolves nor dangles. `grund check --full` ([§FS-check.1.3](docs/functional-spec/FS-check.md#13-the-full-tree-scope---full)) walks the whole repository past that key and reports the references that resolve to nothing out there, and only those: a directory nobody configured is never judged against conventions it never adopted. It is purely additive, so it can only turn a green run red.
 
-A passing text check prints `success` and exits 0. Findings go to stdout as `<path>:<line>: <message>` so editors and agents jump straight to the source, and `grund check | …` / `grund check --format=json | jq` work without redirection (the linter convention — only run-level `error:` lines, like an unreadable path, go to stderr). JSON output remains diagnostics-only, so a clean `grund check --format=json` prints nothing.
+A passing text check prints `success` and exits 0. Findings go to stdout as
+`<path>:<line>: error: <message>`, `warning:`, or opt-in `suggestion:` lines:
+errors come first, then warnings and suggestions, while the location remains the
+jump-friendly prefix. `grund check | …` / `grund check --format=json | jq` work
+without redirection (the linter convention — only run-level `error:` lines, like
+an unreadable path, go to stderr). JSON output remains diagnostics-only and in
+global location order, so a clean `grund check --format=json` prints nothing.
+Exact-text consumers migrating from the former unmarked, global-location report
+should use `--format=json`, whose bytes, object shape, and order are unchanged.
 
 When you need a narrower answer without weakening the repository's default check,
 select its stable finding codes: `grund check --ignore agents-init` asks whether

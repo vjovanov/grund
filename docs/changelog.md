@@ -26,6 +26,7 @@ Only **Unreleased** and the **most recent release** are inline. When a new relea
 
 ### Changed
 
+- [§FS-check.2.1](functional-spec/FS-check.md#21-report-format), [§FS-errors.4](functional-spec/FS-errors.md#4-determinism): make every default-text `grund check` finding's channel explicit and group errors before warnings before opt-in suggestions, keeping the jump-friendly location prefix and every full diagnostic. This intentionally changes exact text output; migrate byte-sensitive consumers to `--format=json`, whose bytes, shape, global location order, selectors, and verdict behavior are unchanged. Closes issue #232. (PR #234)
 - The repository moved to the `agent-grounds` GitHub organization, along with
   `ephor`, `fissile` and `rhei`, and every reference now names it. That includes
   the two `AGENTS.md` scaffold templates and the citation-directions URL baked

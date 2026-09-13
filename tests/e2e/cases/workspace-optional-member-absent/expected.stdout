@@ -1,1 +1,1 @@
-grund.toml:5: optional workspace member `vendored` is absent — citations into namespace `vendored` were not checked, so this run does not cover it
+grund.toml:5: warning: optional workspace member `vendored` is absent — citations into namespace `vendored` were not checked, so this run does not cover it

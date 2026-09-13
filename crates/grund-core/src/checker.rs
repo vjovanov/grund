@@ -8,9 +8,10 @@
 /// - Input: `Findings` from the scanner, plus the repo root and config (needed
 ///   to resolve stub-link paths, to read managed agent-entrypoint init blocks,
 ///   and to know whether `[reference] require_grounding` is on).
-/// - Output: a `CheckReport` containing two ordered lists: `errors` and `warnings`.
-///   Order is deterministic — sorted into the fixed report order of §FS-errors.4
-///   and §FS-non-goals.9 — for §GOAL-friendliness-first.
+/// - Output: a `CheckReport` containing three channel partitions: `errors`,
+///   `warnings`, and opt-in `suggestions`. Each partition is deterministic; the
+///   CLI renderer groups text by channel while preserving JSON's global order
+///   (§FS-errors.4, §FS-non-goals.9) for §GOAL-friendliness-first.
 ///
 /// ## 2. Rules
 ///
@@ -264,12 +265,12 @@
 /// drops candidates outside configured scan scope before this pass. The ordinary
 /// report path supplies text, JSON, exact-code selection, and LSP parity.
 ///
-/// ## 3. Error format
+/// ## 3. Diagnostic data and rendering
 ///
-/// Every error and warning follows `<path>:<line>: <message>` so that editors and
-/// agents can jump to the source. There is no severity prefix, and there is no
-/// aggregate summary footer — the exit code is the machine-readable verdict. This
-/// is mandated by §GOAL-friendliness-first and §FS-check.2.1.
+/// The checker retains each finding's channel, path, line, code, and message.
+/// The CLI turns that data into the channel-bearing located text shape while
+/// keeping `<path>:<line>:` first for editor jumps; JSON and LSP render the same
+/// data in their own unchanged shapes (§FS-check.2.1, §FS-errors.2.1).
 ///
 /// Findings without a single source location (CLI launch errors, malformed
 /// configuration that prevents a scan from starting, a per-file read failure

@@ -1,2 +1,2 @@
-apps/api/docs/functional-spec/FS-session.md:1: declared but never cited: FS-session
-docs/functional-spec/FS-root.md:3: unknown reference api/FS-missing
+docs/functional-spec/FS-root.md:3: error: unknown reference api/FS-missing
+apps/api/docs/functional-spec/FS-session.md:1: warning: declared but never cited: FS-session

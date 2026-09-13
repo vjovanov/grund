@@ -1,2 +1,2 @@
-docs/functional-spec/FS-001-alpha.md:3: unknown reference FS-999-zulu
-docs/functional-spec/FS-002-beta.md:3: unknown reference FS-998-yankee
+docs/functional-spec/FS-001-alpha.md:3: error: unknown reference FS-999-zulu
+docs/functional-spec/FS-002-beta.md:3: error: unknown reference FS-998-yankee

@@ -1,1 +1,1 @@
-docs/offer.md:7: value mismatch for CONST-field-price.1: bound `1250`, declared `1200` at values/field-price.md:2
+docs/offer.md:7: error: value mismatch for CONST-field-price.1: bound `1250`, declared `1200` at values/field-price.md:2
