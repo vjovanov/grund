@@ -100,27 +100,40 @@ The three value findings are ordinary fixed-severity errors and exit `1`; an unr
 
 For verbose text and JSON report examples, including empty JSON scans and global diagnostic ordering, see [§FS-output-shapes](FS-output-shapes.md#fs-output-shapes-machine-readable-output-shapes).
 
-An invalid `grund.toml` aborts before any file is read ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)): exit `2`, a single `error:` line on stderr, nothing on stdout. A per-file failure encountered *during* the walk (a file that cannot be read or decoded) is different: the offending file is reported as `error: <path>: <reason>` on stderr (the CLI-level shape, [§FS-errors.2.2](FS-errors.md#22-cli-level-message) — the file has no line to point at, and "I could not read this" is about the run, not a finding about the graph), the walk continues over the remaining files, every finding collected from the readable files is still printed to stdout in the normal `<path>:<line>:` form, and the run exits `2` because the view of the tree was incomplete. A `2` therefore always means "do not trust this report as complete"; the printed findings are still real. Malformed input is answered with a located diagnostic and a truthful code, never an abort ([§REQ-never-crashes](../requirements/REQ-never-crashes.md#req-never-crashes-garbage-in-diagnostic-out)).
+An invalid `grund.toml` aborts before any file is read ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)): exit `2`, a single `error:` line on stderr, nothing on stdout. A per-file failure encountered *during* the walk (a file that cannot be read or decoded) is different: the offending file is reported as `error: <path>: <reason>` on stderr (the CLI-level shape, [§FS-errors.2.2](FS-errors.md#22-cli-level-message) — the file has no line to point at, and "I could not read this" is about the run, not a finding about the graph), the walk continues over the remaining files, every finding collected from the readable files is still printed to stdout in the normal located `check` form, and the run exits `2` because the view of the tree was incomplete. A `2` therefore always means "do not trust this report as complete"; the printed findings are still real. Malformed input is answered with a located diagnostic and a truthful code, never an abort ([§REQ-never-crashes](../requirements/REQ-never-crashes.md#req-never-crashes-garbage-in-diagnostic-out)).
 
 ### 2.1 Report format
 
 Findings are written to **stdout**, one per line, in the form:
 
 ```
-<path>:<line>: <message>
+<path>:<line>: error: <message>
+<path>:<line>: warning: <message>
+<path>:<line>: suggestion: <message>
 ```
 
 `<path>` is relative to the config root ([§FS-config.3.6](FS-config.md#36-output--report-format)) when a `grund.toml` was discovered, otherwise relative to the path passed on the command line. `<line>` is 1-indexed. The `<path>:<line>:` prefix is mandatory on every finding so editors and agents can jump unmodified — this is the contract from [§GOAL-friendliness-first.1](../goals.md#1-hard-requirements).
 
-Severity is implicit. Per-finding lines carry no `error:`/`warning:` prefix because the severity of a rule is fixed ([§FS-check.3](FS-check.md#3-errors-detected) vs §4) and the message text is what humans read. Consumers that need machine-distinguishable severity use `--format=json`.
+Every retained located text diagnostic carries its lowercase channel after that
+jump-friendly prefix: `error:` for §3, `warning:` for §4, and `suggestion:` for
+an enabled §2.3 advisory. The marker is report structure rather than part of the
+diagnostic message; `<message>` retains its ordinary bytes. Text reports group
+all errors first, then all warnings, then opt-in suggestions, using the fixed
+bytewise `(path, line, message)` order inside each group
+([§FS-errors.4](FS-errors.md#4-determinism)). Every retained diagnostic remains
+present and unabridged.
 
 When a finding inherently spans multiple sites (e.g., duplicate declarations, [§FS-check.3.3](FS-check.md#33-duplicate-declaration)), the message is anchored at the lexicographically-first site (sort by `path`, then `line`) and the other sites are listed parenthetically inside the message.
 
-Selection happens before the existing deterministic sort, render, and exit decision. Every retained text line and NDJSON object is byte-for-byte its ordinary unselected form, and retained diagnostics keep their relative order. Flag order and duplication cannot affect output ([§FS-errors.4](FS-errors.md#4-determinism)).
+Selection happens before the fixed per-format sort, render, and exit decision.
+Every retained diagnostic keeps its message, location, code, sites, and channel,
+and selectors cannot alter its relative order within its text severity group or
+the global JSON order. Flag order and duplication cannot affect output
+([§FS-errors.4](FS-errors.md#4-determinism)).
 
 When there are zero retained errors and zero retained warnings, and no retained suggestion or unselectable run-level line exists, the default text form writes exactly `success` plus a trailing newline to stdout. The explicit success marker is only emitted for an otherwise empty selected report; a run that has a retained warning or suggestion prints that line instead. This says that the selected report is empty, not that the repository has no findings. There is no summary footer — the exit code is still the machine-readable verdict, and the per-finding lines are the human-readable detail.
 
-With `--format=json`, the retained findings are emitted as NDJSON on stdout instead — same stream, machine shape per [§FS-errors.5](FS-errors.md#5-json-format). JSON remains diagnostics-only: stdout is empty when the selected report has no retained diagnostics, so `grund check --format=json | jq …` sees only diagnostic objects. (CLI-level `error:` / `warning:` lines, when there are any, go to stderr — §2.1.1 — so a clean JSON run is empty on *both* streams and a `2` always means something on stderr.)
+With `--format=json`, the retained findings are emitted as NDJSON on stdout instead — same stream, machine shape per [§FS-errors.5](FS-errors.md#5-json-format). JSON remains byte-, shape-, and order-compatible: its objects keep the existing global bytewise `(path, line, message)` order rather than inheriting text's severity groups. JSON remains diagnostics-only: stdout is empty when the selected report has no retained diagnostics, so `grund check --format=json | jq …` sees only diagnostic objects. (CLI-level `error:` / `warning:` lines, when there are any, go to stderr — §2.1.1 — so a clean JSON run is empty on *both* streams and a `2` always means something on stderr.)
 
 #### 2.1.1 CLI-level messages
 
@@ -131,7 +144,7 @@ error: <message>
 warning: <message>
 ```
 
-These never carry the bare `<path>:<line>:` prefix a per-finding line wears (the one with no `error:`); the `error:` / `warning:` prefix is what distinguishes them from per-finding lines on stdout. A `grund.toml` schema error is the one CLI-level message that still points at a line — it is reported `error: <path>:<line>: <message>` ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)): the `error:` prefix keeps it CLI-level (stderr, exit `2`), but the `<path>:<line>:` inside the message text is the breadcrumb to the offending key, since a config file has one and a bad flag does not. CI scripts grep for the leading `error:` to detect launch-time failures. An `error:` always accompanies a non-zero exit; a `warning:` does not affect the exit code. In `--format=json`, a launch-time `error:` (bad flag, unreadable config) stays as raw text; a mid-walk per-file failure is one of the report's diagnostics and is rendered as JSON like the rest (on stderr, since it is `line`-less and not a graph finding — [§FS-errors.5](FS-errors.md#5-json-format)).
+These never begin with the `<path>:<line>:` prefix a located per-finding line wears; their leading `error:` / `warning:` and stderr stream distinguish them from per-finding lines on stdout. A `grund.toml` schema error is the one CLI-level message that still points at a line — it is reported `error: <path>:<line>: <message>` ([§FS-config.4.3](FS-config.md#43-invalid-config-behavior)): the leading `error:` keeps it CLI-level (stderr, exit `2`), but the `<path>:<line>:` inside the message text is the breadcrumb to the offending key, since a config file has one and a bad flag does not. CI scripts grep for the leading `error:` to detect launch-time failures. An `error:` always accompanies a non-zero exit; a `warning:` does not affect the exit code. In `--format=json`, a launch-time `error:` (bad flag, unreadable config) stays as raw text; a mid-walk per-file failure is one of the report's diagnostics and is rendered as JSON like the rest (on stderr, since it is `line`-less and not a graph finding — [§FS-errors.5](FS-errors.md#5-json-format)).
 
 ### 2.2 Empty scan
 
